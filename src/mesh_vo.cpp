@@ -253,31 +253,116 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
 
 }
 
-void mesh_vo::setKeyFrame(cv::Mat _keyFrame)
+void mesh_vo::setKeyframeRandomIdepth(cv::Mat _keyFrame)
 {
-    for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
+
+   //const float* maxGradients = new_frame->maxGradients();
+
+    scene_vertices.clear();
+    scene_indices.clear();
+
+    for(int y=0;y<vheight;y++) //los vertices estan en el medio del pixel!! sino puede agarrar una distancia u otra
     {
-        cv::resize(_keyFrame, keyFrame[lvl], cv::Size(width[lvl],height[lvl]),0,0,cv::INTER_AREA);
-        //cv::GaussianBlur(_keyFrame, keyFrame[lvl], cv::Size(lvl*2+1,lvl*2+1),0);
-        //cv::blur(_keyFrame, keyFrame[lvl], cv::Size(lvl*2+1,lvl*2+1));
+        for(int x=0;x<vwidth;x++)
+        {
+            float idepth = 0.1 + 0.5f * float(y)/vheight;
+            //float idepth = 0.5f + 1.0f * ((rand() % 100001) / 100000.0f);
+            //float idepth = -1.0;
+
+            float xi = (float(x)/float(vwidth-1))*float(width[0]);
+            float yi = (float(y)/float(vheight-1))*float(height[0]);
+//            Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
+//            Eigen::Vector3f p = KInv*(u/idepth);
+
+//            scene_vertices.push_back(p(0));
+//            scene_vertices.push_back(p(1));
+//            scene_vertices.push_back(p(2));
+
+            scene_vertices.push_back(xi);
+            scene_vertices.push_back(yi);
+            scene_vertices.push_back(idepth);
+
+            if(x>0 && y>0)
+            {
+                scene_indices.push_back(x-1 +     y*(vwidth));
+                scene_indices.push_back(x   + (y-1)*(vwidth));
+                scene_indices.push_back(x-1 + (y-1)*(vwidth));
+
+                scene_indices.push_back(x   +     y*(vwidth));
+                scene_indices.push_back(x   + (y-1)*(vwidth));
+                scene_indices.push_back(x-1 +     y*(vwidth));
+            }
+        }
     }
 
-    // load current frame
+    glBindVertexArray(scene_VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, scene_VBO);
+    //glBufferData(GL_ARRAY_BUFFER, scene_vertices.size()*sizeof(float), scene_vertices.data(), GL_STREAM_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float)*scene_vertices.size(), scene_vertices.data());
+
+    // 3. copy our index array in a element buffer for OpenGL to use
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene_EBO);
+    //glBufferData(GL_ELEMENT_ARRAY_BUFFER, scene_indices.size()*sizeof(unsigned int), scene_indices.data(), GL_STREAM_DRAW);
+    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, scene_indices.size()*sizeof(unsigned int), scene_indices.data());
+
     glBindTexture(GL_TEXTURE_2D, keyframeTexture);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, newest_referenceFrame->image());
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, new_frame->image());
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_FLOAT, _keyFrame.data);
     glGenerateMipmap(GL_TEXTURE_2D);
+
+    frameDerivative(keyframeTexture, keyframeDerivativeTexture);
+
 }
 
-void mesh_vo::setIdepth(cv::Mat _idepth)
-{
-    for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
+void mesh_vo::setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth)
+{    
+    scene_vertices.clear();
+    scene_indices.clear();
+
+    for(int y=0;y<vheight;y++) //los vertices estan en el medio del pixel!! sino puede agarrar una distancia u otra
     {
-        cv::resize(_idepth, idepth[lvl], cv::Size(width[lvl],height[lvl]),0,0,cv::INTER_AREA);
-        //cv::GaussianBlur(_idepth, idepth[lvl], cv::Size(lvl*2+1,lvl*2+1),0);
-        //cv::blur(_idepth, idepth[lvl], cv::Size(lvl*2+1,lvl*2+1));
-        //idepth[lvl] = _idepth;
+        for(int x=0;x<vwidth;x++)
+        {
+            //float idepth = 0.1 + 0.5f * float(y)/vheight;
+            //float idepth = 0.5f + 1.0f * ((rand() % 100001) / 100000.0f);
+            //float idepth = -1.0;
+
+            float xi = (float(x)/float(vwidth-1))*float(width[0]);
+            float yi = (float(y)/float(vheight-1))*float(height[0]);
+
+            float idepth = _idepth.at<float>(yi,xi);
+
+//            Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
+//            Eigen::Vector3f p = KInv*(u/idepth);
+
+//            scene_vertices.push_back(p(0));
+//            scene_vertices.push_back(p(1));
+//            scene_vertices.push_back(p(2));
+
+            scene_vertices.push_back(xi);
+            scene_vertices.push_back(yi);
+            scene_vertices.push_back(idepth);
+
+            if(x>0 && y>0)
+            {
+                scene_indices.push_back(x-1 +     y*(vwidth));
+                scene_indices.push_back(x   + (y-1)*(vwidth));
+                scene_indices.push_back(x-1 + (y-1)*(vwidth));
+
+                scene_indices.push_back(x   +     y*(vwidth));
+                scene_indices.push_back(x   + (y-1)*(vwidth));
+                scene_indices.push_back(x-1 +     y*(vwidth));
+            }
+        }
     }
+
+    glBindTexture(GL_TEXTURE_2D, keyframeTexture);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, new_frame->image());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_FLOAT, _keyFrame.data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    frameDerivative(keyframeTexture, keyframeDerivativeTexture);
 }
 
 float mesh_vo::calcResidual(cv::Mat frame, Sophus::SE3f framePose, int lvl)
@@ -694,41 +779,51 @@ void mesh_vo::calcHJ_3(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, 
         }
 }
 
-cv::Mat mesh_vo::frameDerivative(cv::Mat frame, int lvl)
+void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)
 {
-    cv::Mat der(height[lvl], width[lvl], CV_32FC2, cv::Vec2f(0.0,0.0));
+    //calculate frame derivative
+    //glfwMakeContextCurrent(frameWindow);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frameDerivative, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frameDerivative, 0);
 
-    for(int y = 1; y < height[lvl]-1; y++)
-        for(int x = 1; x < width[lvl]-1; x++)
-        {
-            cv::Vec2f d;
-            d.val[0] = (frame.at<uchar>(y,x+1) - frame.at<uchar>(y,x-1))/2.0;
-            d.val[1] = (frame.at<uchar>(y+1,x) - frame.at<uchar>(y-1,x))/2.0;
+    unsigned int drawbuffers[]={GL_COLOR_ATTACHMENT0};
+    glDrawBuffers(sizeof(drawbuffers)/sizeof(unsigned int), drawbuffers);
 
-            der.at<cv::Vec2f>(y,x) = d;
-        }
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! d_C_d_z" << std::endl;
 
-    return der;
-}
 
-void mesh_vo::updateMesh(cv::Mat frame, Sophus::SE3 framePose)
-{
-    cv::Mat frame[MAX_LEVELS];
-    cv::Mat frameDer[MAX_LEVELS];
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! frameDerivative" << std::endl;
+    //    auto fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    //    if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
+    //        std::cout << "Framebuffer not complete: " << fboStatus << std::endl;
 
-    for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
-    {
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! incomplete attachment" << std::endl;
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! missing attachment" << std::endl;
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! incomplete draw buffer" << std::endl;
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! incomplete read buffer" << std::endl;
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_UNSUPPORTED)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! unsupported" << std::endl;
 
-        //cv::GaussianBlur(_frame, frame[lvl], cv::Size(lvl*2+1,lvl*2+1),0);
-        //cv::blur(_frame, frame[lvl], cv::Size(lvl*2+1,lvl*2+1));
-        cv::resize(_frame, frame[lvl], cv::Size(width[lvl],height[lvl]),0,0,cv::INTER_AREA);
-        //if(lvl == 0)
-            frameDer[lvl] = frameDerivative(frame[lvl], lvl);
-        //else
-            //cv::resize(frameDer[0], frameDer[lvl], cv::Size(width[lvl],height[lvl]),0,0,cv::INTER_LINEAR);
-            //cv::GaussianBlur(frameDer[0], frameDer[lvl], cv::Size(lvl*2+1,lvl*2+1),0);
+    glDisable(GL_DEPTH_TEST);
+    glClearColor(-1.0f, -1.0f, -1.0f, -1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    // bind textures on corresponding texture units
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, frame);
+    // activate shader
+    frameDerivativeShader.use();
+    // render frame
+    glBindVertexArray(frame_VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    }
-    
-    
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+        glBindVertexArray(0);
 }

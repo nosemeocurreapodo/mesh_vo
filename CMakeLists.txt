@@ -26,10 +26,13 @@ file(GLOB DepthEstimator_SRCS "src/*.cpp"
 file(GLOB TESTAPP_SRCS "src/test/*.cpp"
                        "src/test/utils/*.cpp")
 
+file(GLOB SHADERS  "/src/shaders/*"
+                   )
+
 # build shared library.
-add_library(mesh_vo SHARED ${DepthEstimator_SRCS})
+add_library(mesh_vo SHARED ${DepthEstimator_SRCS} ${SHADERS})
 target_link_libraries(mesh_vo ${OpenCV_LIBS})
 
 # build example app
-add_executable (testapp src/test/main.cpp ${TESTAPP_SRCS})
+add_executable (testapp src/test/main.cpp ${TESTAPP_SRCS} ${SHADERS})
 target_link_libraries(testapp mesh_vo ${OpenCV_LIBS})

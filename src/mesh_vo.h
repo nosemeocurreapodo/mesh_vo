@@ -14,6 +14,11 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <learnopengl/filesystem.h>
+#include <learnopengl/shader_m.h>
+#include <learnopengl/feedback_shader.h>
+#include <learnopengl/camera.h>
+
 #define MAX_LEVELS 6
 
 class mesh_vo
@@ -21,11 +26,10 @@ class mesh_vo
 public:
     mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height);
 
-    void setKeyFrame(cv::Mat _keyFrame);
-    void setIdepth(cv::Mat _idepth);
+    void setKeyframeRandomIdepth(cv::Mat _keyFrame);
+    void setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth);
 
     Sophus::SE3f updatePose(cv::Mat frame);
-    void updateMesh(cv::Mat frame, Sophus::SE3 framePose);
 
     Sophus::SE3f framePose;
 
@@ -49,15 +53,14 @@ private:
     unsigned int currentframeTexture;
     unsigned int currentframeDerivativeTexture;
 
+    Shader frameDerivativeShader;
+
 
 
     Eigen::Matrix3f K[MAX_LEVELS];
     Eigen::Matrix3f KInv[MAX_LEVELS];
 
     int width[MAX_LEVELS], height[MAX_LEVELS];
-
-    cv::Mat keyFrame[MAX_LEVELS];
-    cv::Mat idepth[MAX_LEVELS];
 
     Eigen::Matrix<float, 6, 1> acc_J_pose;
     Eigen::Matrix<float, 6, 6> acc_H_pose;
@@ -66,5 +69,6 @@ private:
     void calcHJ(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
     void calcHJ_2(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
     void calcHJ_3(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
-    cv::Mat frameDerivative(cv::Mat frame, int lvl);
+
+    void frameDerivative(unsigned int frame, unsigned int frameDerivative);
 };
