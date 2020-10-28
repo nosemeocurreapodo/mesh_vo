@@ -65,10 +65,10 @@ private:
     Eigen::Matrix<float, 6, 1> acc_J_pose;
     Eigen::Matrix<float, 6, 6> acc_H_pose;
 
-    float calcResidual(cv::Mat frame, Sophus::SE3f framePose, int lvl);
-    void calcHJ(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
-    void calcHJ_2(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
-    void calcHJ_3(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
+    float calcResidual(unsigned int frame, Sophus::SE3f framePose, int lvl);
+    //void calcHJ(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
+    //void calcHJ_2(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
+    //void calcHJ_3(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
 
     void frameDerivative(unsigned int frame, unsigned int frameDerivative);
 };

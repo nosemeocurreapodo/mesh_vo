@@ -1,6 +1,5 @@
 #version 330 core
-layout(location = 0) out float f_depth;
-layout(location = 1) out int f_state;
+layout(location = 0) out float f_residual;
 
 in vec3 g_pw;
 in float g_depth;

@@ -365,7 +365,7 @@ void mesh_vo::setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth)
     frameDerivative(keyframeTexture, keyframeDerivativeTexture);
 }
 
-float mesh_vo::calcResidual(cv::Mat frame, Sophus::SE3f framePose, int lvl)
+float mesh_vo::calcResidual(unsigned int frame, Sophus::SE3f framePose, int lvl)
 {
     //std::cout << "entrando calcResidual" << std::endl;
 
@@ -564,7 +564,7 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 
     return framePose;
 }
-
+/*
 void mesh_vo::calcHJ(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl)
 {
     acc_J_pose.setZero();
@@ -778,7 +778,7 @@ void mesh_vo::calcHJ_3(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, 
             }
         }
 }
-
+*/
 void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)
 {
     //calculate frame derivative
