@@ -14,10 +14,10 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#include <learnopengl/filesystem.h>
+//#include <learnopengl/filesystem.h>
 #include <learnopengl/shader_m.h>
-#include <learnopengl/feedback_shader.h>
-#include <learnopengl/camera.h>
+//#include <learnopengl/feedback_shader.h>
+//#include <learnopengl/camera.h>
 
 #define MAX_LEVELS 6
 
@@ -50,17 +50,23 @@ private:
 
     unsigned int keyframeTexture;
     unsigned int keyframeDerivativeTexture;
-    unsigned int currentframeTexture;
-    unsigned int currentframeDerivativeTexture;
+    unsigned int frameTexture;
+    unsigned int frameDerivativeTexture;
+
+    unsigned int residualTexture;
 
     Shader frameDerivativeShader;
-
+    Shader residualShader;
+    Shader showTextureShader;
 
 
     Eigen::Matrix3f K[MAX_LEVELS];
     Eigen::Matrix3f KInv[MAX_LEVELS];
 
     int width[MAX_LEVELS], height[MAX_LEVELS];
+
+    glm::mat4 projMat[MAX_LEVELS];
+    glm::mat4 opencv2opengl;
 
     Eigen::Matrix<float, 6, 1> acc_J_pose;
     Eigen::Matrix<float, 6, 6> acc_H_pose;
@@ -71,4 +77,6 @@ private:
     //void calcHJ_3(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
 
     void frameDerivative(unsigned int frame, unsigned int frameDerivative);
+
+    void showTexture(unsigned int texture, int lvl);
 };

@@ -3,6 +3,60 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 
+glm::mat4 eigen2glm_mat4(Eigen::Matrix4f eigen_m)
+{
+    glm::mat4 glm_m;
+    glm_m[0][0] = float(eigen_m(0,0));
+    glm_m[1][0] = float(eigen_m(0,1));
+    glm_m[2][0] = float(eigen_m(0,2));
+    glm_m[3][0] = float(eigen_m(0,3));
+    glm_m[0][1] = float(eigen_m(1,0));
+    glm_m[1][1] = float(eigen_m(1,1));
+    glm_m[2][1] = float(eigen_m(1,2));
+    glm_m[3][1] = float(eigen_m(1,3));
+    glm_m[0][2] = float(eigen_m(2,0));
+    glm_m[1][2] = float(eigen_m(2,1));
+    glm_m[2][2] = float(eigen_m(2,2));
+    glm_m[3][2] = float(eigen_m(2,3));
+    glm_m[0][3] = float(eigen_m(3,0));
+    glm_m[1][3] = float(eigen_m(3,1));
+    glm_m[2][3] = float(eigen_m(3,2));
+    glm_m[3][3] = float(eigen_m(3,3));
+
+    return glm_m;
+}
+
+glm::mat3 eigen2glm_mat3(Eigen::Matrix3f eigen_m)
+{
+    glm::mat3 glm_m;
+    glm_m[0][0] = eigen_m(0,0);
+    glm_m[1][0] = eigen_m(0,1);
+    glm_m[2][0] = eigen_m(0,2);
+    glm_m[0][1] = eigen_m(1,0);
+    glm_m[1][1] = eigen_m(1,1);
+    glm_m[2][1] = eigen_m(1,2);
+    glm_m[0][2] = eigen_m(2,0);
+    glm_m[1][2] = eigen_m(2,1);
+    glm_m[2][2] = eigen_m(2,2);
+
+    return glm_m;
+}
+
+glm::mat4 create_glm_prj_matrix(float fx, float fy, float cx, float cy, float w, float h, float znear, float zfar)
+{
+    glm::mat4 projmat = glm::mat4(0.0f);
+
+    projmat[0][0] = 2.0f*fx/w;
+    projmat[1][1] = 2.0f*fy/h;
+    projmat[2][0] = 1.0f - 2.0f*cx/w;
+    projmat[2][1] = -1.0f + 2.0f*cy/h;
+    projmat[2][2] = -(zfar + znear) / (zfar - znear);
+    projmat[2][3] = -1.0f;
+    projmat[3][2] = -2.0f * zfar * znear / (zfar - znear);
+
+    return projmat;
+}
+
 mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height)
 {
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
@@ -21,20 +75,12 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
 
         KInv[lvl] = K[lvl].inverse();
 
-        /*
-        width[lvl] = int(_width);
-        height[lvl] = int(_height);
-
-        K[lvl] = Eigen::Matrix3f::Zero();
-        K[lvl](0,0) = fx;
-        K[lvl](1,1) = fy;
-        K[lvl](2,2) = 1.0f;
-        K[lvl](0,2) = cx;
-        K[lvl](1,2) = cy;
-
-        KInv[lvl] = K[lvl].inverse();
-        */
+        projMat[lvl] = create_glm_prj_matrix(fx/scale, fy/scale, cx/scale, cy/scale, _width/scale, _height/scale, 0.0001, 10000.0);
     }
+
+    opencv2opengl = glm::mat4(1.0f);
+    opencv2opengl[1][1] = -1.0;
+    opencv2opengl[2][2] = -1.0;
 
 
     // glfw: initialize and configure
@@ -208,49 +254,69 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
 
     glGenTextures(1, &keyframeTexture);
     glBindTexture(GL_TEXTURE_2D, keyframeTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); //GL_NEAREST
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); //nearest porque sino interpola en el borde
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR); //GL_NEAREST
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR); //nearest porque sino interpola en el borde
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);//entre el ultimo pixel y borderColor
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//GL_MIRRORED_REPEAT
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
 
     glGenTextures(1, &keyframeDerivativeTexture);
     glBindTexture(GL_TEXTURE_2D, keyframeDerivativeTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
 
-    glGenTextures(1, &currentframeTexture);
-    glBindTexture(GL_TEXTURE_2D, currentframeTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glGenTextures(1, &frameTexture);
+    glBindTexture(GL_TEXTURE_2D, frameTexture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 6);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
 
-    glGenTextures(1, &currentframeDerivativeTexture);
-    glBindTexture(GL_TEXTURE_2D, currentframeDerivativeTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glGenTextures(1, &frameDerivativeTexture);
+    glBindTexture(GL_TEXTURE_2D, frameDerivativeTexture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
 
+    glGenTextures(1, &residualTexture);
+    glBindTexture(GL_TEXTURE_2D, residualTexture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+
+    frameDerivativeShader.init("frameDerivative.vs", "frameDerivative.fs");
+    frameDerivativeShader.setInt("frame", 0);
+
+    residualShader.init("residual.vs", "residual.gs", "residual.fs");
+    residualShader.setInt("keyframe", 0);
+    residualShader.setInt("frame", 1);
+
+    showTextureShader.init("showTexture.vs", "showTexture.fs");
+    showTextureShader.setInt("texture", 0);
 }
 
 void mesh_vo::setKeyframeRandomIdepth(cv::Mat _keyFrame)
@@ -369,198 +435,54 @@ float mesh_vo::calcResidual(unsigned int frame, Sophus::SE3f framePose, int lvl)
 {
     //std::cout << "entrando calcResidual" << std::endl;
 
+    glfwMakeContextCurrent(frameWindow);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, residualTexture, 0);
+
+    unsigned int drawbuffers[]={GL_COLOR_ATTACHMENT0};
+    glDrawBuffers(sizeof(drawbuffers)/sizeof(unsigned int), drawbuffers);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcResidual" << std::endl;
+
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
+    glClearColor(-1.0f, -1.0f, -1.0f, -1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // activate shader
+    residualShader.use();
+
+    residualShader.setMat4("cameraPose", eigen2glm_mat4(framePose.matrix()));
+    residualShader.setMat4("opencv2opengl", opencv2opengl);
+    residualShader.setMat4("projection", projMat[lvl]);
+    residualShader.setMat3("invK", eigen2glm_mat3(KInv[lvl]));
+
+    glBindVertexArray(scene_VAO);
+    glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
+
+
+
+
     float residual = 0;
     int num = 0;
 
-    cv::Mat debug(height[lvl], width[lvl], CV_32FC1, 0.0);
 
-    for(int y = 0; y < height[lvl]; y++)
-        for(int x = 0; x < width[lvl]; x++)
-        {
-            //std::cout << "pixel: " << y << " " << x << std::endl;
-
-            uchar vkf = keyFrame[lvl].at<uchar>(y,x);
-            float keyframeId = idepth[lvl].at<float>(y,x);
-
-            //std::cout << "vkf " << vkf << " id " << id << std::endl;
-
-            Eigen::Vector3f poinKeyframe = (KInv[lvl]*Eigen::Vector3f(x,y,1.0))/keyframeId;
-            Eigen::Vector3f pointFrame = framePose*poinKeyframe;
-
-            if(pointFrame(2) <= 0.0)
-                continue;
-
-            Eigen::Vector3f pixelFrame = (K[lvl]*pointFrame)/pointFrame(2);
-
-            if(pixelFrame(0) < 0.0 || pixelFrame(0) > width[lvl] || pixelFrame(1) < 0 || pixelFrame(1) > height[lvl])
-                continue;
-
-            uchar vf = frame.at<uchar>(pixelFrame(1), pixelFrame(0));
-
-            float res = (vkf-vf);
-
-            //std::cout << "pixel " << " " << float(vkf) << " " << float(vf) << " res " << res << std::endl;
-
-            residual += res*res;
-            num++;
-
-            //std::cout << "accres " << residual << std::endl;
-
-            debug.at<float>(y,x) = abs(res)*0.01;
-        }
-
-    cv::namedWindow("calcResidual debug", cv::WINDOW_NORMAL);
-    cv::imshow("calcResidual debug", debug);
-    cv::waitKey(30);
 
     return residual/num;
 }
 
 Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 {
-    std::cout << "entrando updatePose\n";
+    glBindTexture(GL_TEXTURE_2D, frameTexture);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, new_frame->image());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_FLOAT, _frame.data);
+    glGenerateMipmap(GL_TEXTURE_2D);
 
-    //Sophus::SE3f newPose;
-    //framePose = newPose;
+    frameDerivative(frameTexture, frameDerivativeTexture);
 
-    cv::Mat frame[MAX_LEVELS];
-    cv::Mat frameDer[MAX_LEVELS];
+    showTexture(frameTexture, 3);
 
-    for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
-    {
-
-        //cv::GaussianBlur(_frame, frame[lvl], cv::Size(lvl*2+1,lvl*2+1),0);
-        //cv::blur(_frame, frame[lvl], cv::Size(lvl*2+1,lvl*2+1));
-        cv::resize(_frame, frame[lvl], cv::Size(width[lvl],height[lvl]),0,0,cv::INTER_AREA);
-        //if(lvl == 0)
-            frameDer[lvl] = frameDerivative(frame[lvl], lvl);
-        //else
-            //cv::resize(frameDer[0], frameDer[lvl], cv::Size(width[lvl],height[lvl]),0,0,cv::INTER_LINEAR);
-            //cv::GaussianBlur(frameDer[0], frameDer[lvl], cv::Size(lvl*2+1,lvl*2+1),0);
-
-    }
-
-    //calcResidual(frame[0],framePose,0);
-    //return framePose;
-
-    //std::cout << "se setearon frames y frameder\n";
-
-    int maxIterations[10] = {5, 20, 100, 100, 100, 100, 100, 100, 100, 100};
-
-                    Eigen::Matrix<float, 6, 1> inc;
-    //int lvl = 3;
-    for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
-    {
-        //std::cin.get();
-
-        float last_error = calcResidual(frame[lvl],framePose,lvl);
-
-        //std::cout << "pose for lvl " << lvl << std::endl;
-        //std::cout << framePose.matrix() << std::endl;
-        //std::cout << "lvl " << lvl << " init error " << last_error << std::endl;
-
-        //for(int i = 0; i < maxIterations[lvl]; i++)
-        for(int it = 0; it < maxIterations[lvl]; it++)
-        {
-            //calcHJ(frame[lvl], frameDer[lvl], framePose ,lvl);
-            //calcHJ_2(frame[lvl], frameDer[lvl], framePose ,lvl);
-            calcHJ_3(frame[lvl], frameDer[lvl], framePose ,lvl);
-
-            float lambda = 0.0;
-            int n_try = 0;
-            while(true)
-            {
-                Eigen::Matrix<float, 6, 6> acc_H_pose_lambda;
-                acc_H_pose_lambda = acc_H_pose;
-
-                for(int j = 0; j < 6; j++)
-                    acc_H_pose_lambda(j,j) *= 1.0 + lambda;
-
-                //std::cout << "H " << acc_H_pose << std::endl;
-                //std::cout << "J " << acc_J_pose << std::endl;
-
-                inc = acc_H_pose_lambda.ldlt().solve(acc_J_pose);
-                //inc = acc_H_pose_lambda.colPivHouseholderQr().solve(acc_J_pose);
-                //inc = 0.001*acc_J_pose/acc_J_pose.norm();
-
-                //Sophus::SE3f new_pose = framePose.inverse()*Sophus::SE3f::exp(inc).inverse();
-
-                //Sophus::SE3f new_pose = Sophus::SE3f::exp(inc) * framePose;
-                Sophus::SE3f new_pose = Sophus::SE3f::exp(inc).inverse() * framePose;
-                //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc);
-                //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc).inverse();
-
-                float error = calcResidual(frame[lvl],new_pose,lvl);
-
-                std::cout << "lvl " << lvl << " it " << it << " try " << n_try << " lambda " << lambda << " error " << error << std::endl;
-
-                //if(true)
-                if(error < last_error)
-                {
-                    std::cout << "update accepted " << std::endl;
-                    //std::cout << "lambda " << poseLambda << std::endl;
-
-                    //std::cout << "p " << p << std::endl;
-
-                    /*
-                    std::cout << "inc " << std::endl;
-                    std::cout << inc << std::endl;
-                    std::cout << "inc SE3 " << std::endl;
-                    std::cout << Sophus::SE3f::exp(inc).matrix() << std::endl;
-                    std::cout << "last pose " << std::endl;
-                    std::cout << framePose.matrix() << std::endl;
-                    std::cout << "pose " << std::endl;
-                    std::cout << new_pose.matrix() << std::endl;
-
-                    std::cin.get();
-                    */
-
-                    //accept update, decrease lambda
-                    framePose = new_pose;
-
-                    float p = error / last_error;
-
-
-                    if(lambda < 0.2f)
-                        lambda = 0.0f;
-                    else
-                        lambda *= 0.5;
-
-                    last_error = error;
-
-                    if( p >  0.999f)
-                    {
-                        std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
-                        //if converged, do next level
-                        it = maxIterations[lvl];
-                    }
-
-                    //if update accepted, do next iteration
-                    break;
-                }
-                else
-                {
-                    n_try++;
-
-                    if(lambda < 0.2f)
-                        lambda = 0.2f;
-                    else
-                        lambda *= std::pow(2.0, n_try);
-
-                    //reject update, increase lambda, use un-updated data
-                    //std::cout << "update rejected " << std::endl;
-
-                    if(!(inc.dot(inc) > 1e-8))
-                    {
-                        std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations with lambda " << lambda << std::endl;
-                        //if too small, do next level!
-                        it = maxIterations[lvl];
-                        break;
-                    }
-                }
-            }
-        }
-    }
 
     return framePose;
 }
@@ -782,7 +704,7 @@ void mesh_vo::calcHJ_3(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, 
 void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)
 {
     //calculate frame derivative
-    //glfwMakeContextCurrent(frameWindow);
+    glfwMakeContextCurrent(frameWindow);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frameDerivative, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frameDerivative, 0);
@@ -812,6 +734,7 @@ void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)
         std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! unsupported" << std::endl;
 
     glDisable(GL_DEPTH_TEST);
+     glDisable(GL_CULL_FACE);
     glClearColor(-1.0f, -1.0f, -1.0f, -1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     // bind textures on corresponding texture units
@@ -819,11 +742,39 @@ void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)
     glBindTexture(GL_TEXTURE_2D, frame);
     // activate shader
     frameDerivativeShader.use();
+    frameDerivativeShader.setInt("lvl", 0);
     // render frame
     glBindVertexArray(frame_VAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, frameDerivative);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     glGenerateMipmap(GL_TEXTURE_2D);
 
-        glBindVertexArray(0);
+        //glBindVertexArray(0);
+}
+
+void mesh_vo::showTexture(unsigned int texture, int lvl)
+{
+    glfwMakeContextCurrent(frameWindow);
+    // visualize
+    // now bind back to default framebuffer and draw a quad plane with the attached framebuffer color texture
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_DEPTH_TEST); // disable depth test so screen-space quad isn't discarded due to depth test.
+    glDisable(GL_CULL_FACE);
+    // clear all relevant buffers
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // set clear color to white (not really necessery actually, since we won't be able to see behind the quad anyways)
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    showTextureShader.use();
+    showTextureShader.setInt("lvl", lvl);
+
+    glBindVertexArray(frame_VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glfwSwapBuffers(frameWindow);
 }

@@ -13,6 +13,8 @@ find_package(OpenCV REQUIRED )
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
+find_package(glfw3 REQUIRED)
+
 include_directories("src")
 include_directories("include")
 include_directories(
@@ -20,19 +22,23 @@ include_directories(
         )
 
 file(GLOB DepthEstimator_SRCS "src/*.cpp"
+                              "src/*.c"
                               "src/Utils/*.cpp"
 )
 
 file(GLOB TESTAPP_SRCS "src/test/*.cpp"
                        "src/test/utils/*.cpp")
 
-file(GLOB SHADERS  "/src/shaders/*"
+file(GLOB SHADERS  "src/shaders/*"
                    )
+foreach(SHADER ${SHADERS})
+  file(COPY ${SHADER} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+endforeach(SHADER)
 
 # build shared library.
 add_library(mesh_vo SHARED ${DepthEstimator_SRCS} ${SHADERS})
-target_link_libraries(mesh_vo ${OpenCV_LIBS})
+target_link_libraries(mesh_vo ${OpenCV_LIBS} glfw)
 
 # build example app
-add_executable (testapp src/test/main.cpp ${TESTAPP_SRCS} ${SHADERS})
+add_executable (testapp src/test/main.cpp ${TESTAPP_SRCS})
 target_link_libraries(testapp mesh_vo ${OpenCV_LIBS})
