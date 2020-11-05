@@ -41,8 +41,8 @@ int main(void)
 
     mesh_vo visual_odometry(fx,fy,cx,cy,width,height);
 
-    visual_odometry.setKeyframeRandomIdepth(keyframeFLoat.clone());
-    //visual_odometry.setKeyframeWithIdepth(keyframeFLoat.clone(), iDepth.clone());
+    //visual_odometry.setKeyframeRandomIdepth(keyframeFLoat.clone());
+    visual_odometry.setKeyframeWithIdepth(keyframeFLoat.clone(), iDepth.clone());
 
 
     while(1){
@@ -68,7 +68,7 @@ int main(void)
 
         Sophus::SE3f realPose = pose*keyframePose.inverse();
 
-        visual_odometry.framePose = realPose;
+        //visual_odometry.framePose = realPose;
         visual_odometry.updatePose(frameFloat);
 
         std::cout << "real pose " << std::endl;

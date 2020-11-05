@@ -643,7 +643,7 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
                     */
 
                     //accept update, decrease lambda
-                    //framePose = new_pose;
+                    framePose = new_pose;
 
                     float p = error / last_error;
 
@@ -741,16 +741,20 @@ void mesh_vo::calcHJ(unsigned int frame, unsigned int frameDer, Sophus::SE3f fra
     glBindVertexArray(scene_VAO);
     glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, residualTexture);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
+
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D, residualTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
     //glGenerateMipmap(GL_TEXTURE_2D);
 
-    glBindTexture(GL_TEXTURE_2D, traTexture);
+    //glBindTexture(GL_TEXTURE_2D, traTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
     //glGenerateMipmap(GL_TEXTURE_2D);
 
-    glBindTexture(GL_TEXTURE_2D, rotTexture);
+    //glBindTexture(GL_TEXTURE_2D, rotTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
     //glGenerateMipmap(GL_TEXTURE_2D);
 

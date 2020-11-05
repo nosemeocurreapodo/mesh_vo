@@ -30,5 +30,5 @@ void main()
     f_tra = vec3(v0, v1, v2);
     f_rot = vec3( -g_pcamera.z * v1 + g_pcamera.y * v2, g_pcamera.z * v0 - g_pcamera.x * v2, -g_pcamera.y * v0 + g_pcamera.x * v1);
 
-    f_residual = f_pixel;//(f_pixel - kf_pixel);
+    f_residual = (f_pixel - kf_pixel);
 }

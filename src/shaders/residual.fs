@@ -15,7 +15,7 @@ void main()
     float kf_pixel = textureLod(keyframe, g_u_keyframe, lvl).x;
 
     //f_residual = kf_pixel;
-    f_residual = f_pixel;
+    //f_residual = f_pixel;
     //f_residual = 1.0/g_depth;
-    //f_residual = pow(f_pixel-kf_pixel,2.0);
+    f_residual = pow(f_pixel-kf_pixel,2.0);
 }
