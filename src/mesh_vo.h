@@ -54,9 +54,17 @@ private:
     unsigned int frameDerivativeTexture;
 
     unsigned int residualTexture;
+    GLfloat* residual_cpu_data;
+
+    unsigned int traTexture;
+    GLfloat* tra_cpu_data;
+
+    unsigned int rotTexture;
+    GLfloat* rot_cpu_data;
 
     Shader frameDerivativeShader;
     Shader residualShader;
+    Shader calcHJShader;
     Shader showTextureShader;
 
 
@@ -72,11 +80,13 @@ private:
     Eigen::Matrix<float, 6, 6> acc_H_pose;
 
     float calcResidual(unsigned int frame, Sophus::SE3f framePose, int lvl);
-    //void calcHJ(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
-    //void calcHJ_2(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
-    //void calcHJ_3(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
+
+    void calcHJ(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
 
     void frameDerivative(unsigned int frame, unsigned int frameDerivative);
 
     void showTexture(unsigned int texture, int lvl);
+
+
+    float reduce_residual_CPU(unsigned int residualTexture, int lvl);
 };

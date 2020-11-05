@@ -1,19 +1,21 @@
 #version 330 core
-layout(location = 0) out float f_depth;
+layout(location = 0) out float f_residual;
 
-in vec3 g_pw;
+noperspective in vec2 g_u_frame;
+noperspective in vec2 g_u_keyframe;
 in float g_depth;
-flat in vec3 g_normal;
 
-flat in int isInitialized;
+uniform sampler2D keyframe;
+uniform sampler2D frame;
+uniform int lvl;
 
 void main()
 {
-    if(isInitialized == 0)
-        discard;
-    float angle = dot(g_normal, g_pw)/(length(g_normal)*length(g_pw));
-    //if(abs(angle) < 0.1)
-    //    discard;
-    f_depth = 1.0/g_depth;
-    //f_state = 3; // depth ok, witch triangle it belongs to
+    float f_pixel = textureLod(frame, g_u_frame, lvl).x;
+    float kf_pixel = textureLod(keyframe, g_u_keyframe, lvl).x;
+
+    //f_residual = kf_pixel;
+    f_residual = f_pixel;
+    //f_residual = 1.0/g_depth;
+    //f_residual = pow(f_pixel-kf_pixel,2.0);
 }

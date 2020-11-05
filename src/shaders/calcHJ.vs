@@ -3,7 +3,9 @@ layout (location = 0) in vec3 p;
 
 noperspective out vec2 v_u_frame;
 noperspective out vec2 v_u_keyframe;
+out vec3 v_pcamera;
 out float v_depth;
+
 
 uniform mat3 K;
 uniform mat3 invK;
@@ -27,5 +29,6 @@ void main()
     v_u_frame = vec2(ucamera.x/width, 1.0-ucamera.y/height);
     v_u_keyframe = vec2(p.x, 1.0-p.y);
 
+    v_pcamera = pcamera.xyz;
     v_depth = depth;
 }
