@@ -31,7 +31,7 @@ int main(void)
 
     cv::Mat keyFrame = cv::imread("../../Trajectory_30_seconds/scene_000.png", cv::IMREAD_GRAYSCALE);
     cv::Mat keyframeFLoat;
-    keyFrame.convertTo(keyframeFLoat, CV_32FC1, 1.0/255.0);
+    keyFrame.convertTo(keyframeFLoat, CV_32FC1, 1.0/1.0);
     cv::flip(keyframeFLoat, keyframeFLoat,0);
     Sophus::SE3f keyframePose = readPose("../../Trajectory_30_seconds/scene_000.txt");
 
@@ -63,12 +63,12 @@ int main(void)
         Sophus::SE3f pose = readPose(RT_filename);
         cv::Mat frame = cv::imread(image_filename, cv::IMREAD_GRAYSCALE);
         cv::Mat frameFloat;
-        frame.convertTo(frameFloat, CV_32FC1, 1.0/255.0);
+        frame.convertTo(frameFloat, CV_32FC1, 1.0/1.0);
         cv::flip(frameFloat, frameFloat,0);
 
         Sophus::SE3f realPose = pose*keyframePose.inverse();
 
-        //visual_odometry.framePose = realPose;
+        visual_odometry.framePose = realPose;
         visual_odometry.updatePose(frameFloat);
 
         std::cout << "real pose " << std::endl;
@@ -79,7 +79,7 @@ int main(void)
         //cv::imshow("image", frame);
         //cv::imshow("keyframe", keyFrame);
         //cv::imshow("idepth", iDepth);
-        cv::waitKey(30);
+        //cv::waitKey(30);
 
         if(framesTracked >= framesToTrack)
         {

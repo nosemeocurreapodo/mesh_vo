@@ -66,7 +66,7 @@ private:
     Shader residualShader;
     Shader calcHJShader;
     Shader showTextureShader;
-
+    Shader debugShader;
 
     Eigen::Matrix3f K[MAX_LEVELS];
     Eigen::Matrix3f KInv[MAX_LEVELS];
@@ -87,6 +87,7 @@ private:
 
     void showTexture(unsigned int texture, int lvl);
 
-
     float reduce_residual_CPU(unsigned int residualTexture, int lvl);
+
+    void showDebug(unsigned int frame, Sophus::SE3f framePose, int lvl);
 };

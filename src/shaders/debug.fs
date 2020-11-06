@@ -1,5 +1,5 @@
 #version 330 core
-layout(location = 0) out float f_residual;
+layout(location = 0) out vec4 f_color;
 
 noperspective in vec2 g_u_frame;
 noperspective in vec2 g_u_keyframe;
@@ -14,5 +14,7 @@ void main()
     float f_pixel = textureLod(frame, g_u_frame, lvl).x;
     float kf_pixel = textureLod(keyframe, g_u_keyframe, lvl).x;
 
-    f_residual = pow(f_pixel-kf_pixel,2.0);
+    float f_residual = f_pixel*0.5 + kf_pixel*0.5;
+
+    f_color = vec4(f_pixel/255.0,kf_pixel/255.0,0.0,1.0);
 }
