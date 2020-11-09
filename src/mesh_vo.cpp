@@ -263,6 +263,7 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
 
     glGenTextures(1, &keyframeDerivativeTexture);
     glBindTexture(GL_TEXTURE_2D, keyframeDerivativeTexture);
@@ -274,6 +275,7 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
 
     glGenTextures(1, &frameTexture);
     glBindTexture(GL_TEXTURE_2D, frameTexture);
@@ -285,6 +287,7 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
 
     glGenTextures(1, &frameDerivativeTexture);
     glBindTexture(GL_TEXTURE_2D, frameDerivativeTexture);
@@ -296,6 +299,7 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
 
     glGenTextures(1, &residualTexture);
     glBindTexture(GL_TEXTURE_2D, residualTexture);
@@ -580,20 +584,24 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 
     frameDerivative(frameTexture, frameDerivativeTexture);
 
-    for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
+    /*
+    int lvl = 2;
+    //for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
     {
         float last_error = calcResidual(frameTexture,framePose,lvl);
         std::cout << "lvl " << lvl << " error " << last_error << std::endl;
-        //calcHJ(frameTexture, frameDerivativeTexture, framePose ,lvl2);
-        showTexture(residualTexture, lvl);
+        calcHJ(frameTexture, frameDerivativeTexture, framePose ,lvl);
+        showTexture(frameDerivativeTexture, lvl);
         //showDebug(frameTexture, framePose, lvl2);
         cv::waitKey(30);
     }
     return framePose;
+*/
 
     int maxIterations[10] = {5, 20, 100, 100, 100, 100, 100, 100, 100, 100};
 
     Eigen::Matrix<float, 6, 1> inc;
+    //int lvl = 4;
     for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
     {
 
@@ -607,7 +615,7 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
         for(int it = 0; it < maxIterations[lvl]; it++)
         {
             calcHJ(frameTexture, frameDerivativeTexture, framePose ,lvl);
-            showTexture(traTexture, lvl);
+            showTexture(residualTexture, lvl);
 
             float lambda = 0.0;
             int n_try = 0;
@@ -630,7 +638,7 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
                 //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc);
                 //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc).inverse();
 
-                std::cout << "new_pose " << new_pose.matrix() << std::endl;
+                //std::cout << "new_pose " << new_pose.matrix() << std::endl;
 
                 float error = calcResidual(frameTexture,new_pose,lvl);
 
@@ -823,54 +831,58 @@ void mesh_vo::calcHJ(unsigned int frame, unsigned int frameDer, Sophus::SE3f fra
 
 void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)
 {
-    //calculate frame derivative
-    glfwMakeContextCurrent(frameWindow);
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frameDerivative, 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frameDerivative, 0);
+    for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
+    {
+        //calculate frame derivative
+        glfwMakeContextCurrent(frameWindow);
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frameDerivative, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frameDerivative, lvl);
 
-    unsigned int drawbuffers[]={GL_COLOR_ATTACHMENT0};
-    glDrawBuffers(sizeof(drawbuffers)/sizeof(unsigned int), drawbuffers);
+        unsigned int drawbuffers[]={GL_COLOR_ATTACHMENT0};
+        glDrawBuffers(sizeof(drawbuffers)/sizeof(unsigned int), drawbuffers);
 
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! d_C_d_z" << std::endl;
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! d_C_d_z" << std::endl;
 
 
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! frameDerivative" << std::endl;
-    //    auto fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    //    if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
-    //        std::cout << "Framebuffer not complete: " << fboStatus << std::endl;
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! frameDerivative" << std::endl;
+        //    auto fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        //    if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
+        //        std::cout << "Framebuffer not complete: " << fboStatus << std::endl;
 
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT)
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! incomplete attachment" << std::endl;
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT)
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! missing attachment" << std::endl;
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER)
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! incomplete draw buffer" << std::endl;
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER)
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! incomplete read buffer" << std::endl;
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_UNSUPPORTED)
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! unsupported" << std::endl;
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! incomplete attachment" << std::endl;
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! missing attachment" << std::endl;
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! incomplete draw buffer" << std::endl;
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! incomplete read buffer" << std::endl;
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_UNSUPPORTED)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! unsupported" << std::endl;
 
-    glDisable(GL_DEPTH_TEST);
-     glDisable(GL_CULL_FACE);
-    glClearColor(-1.0f, -1.0f, -1.0f, -1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    // bind textures on corresponding texture units
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, frame);
-    // activate shader
-    frameDerivativeShader.use();
-    frameDerivativeShader.setInt("lvl", 0);
-    // render frame
-    glBindVertexArray(frame_VAO);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_CULL_FACE);
+        glClearColor(-1.0f, -1.0f, -1.0f, -1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        // bind textures on corresponding texture units
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, frame);
+        // activate shader
+        frameDerivativeShader.use();
+        frameDerivativeShader.setInt("lvl", lvl);
+        // render frame
+        glBindVertexArray(frame_VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, frameDerivative);
+    }
+
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D, frameDerivative);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-    glGenerateMipmap(GL_TEXTURE_2D);
+    //glGenerateMipmap(GL_TEXTURE_2D);
 
         //glBindVertexArray(0);
 }

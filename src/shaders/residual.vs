@@ -2,7 +2,7 @@
 layout (location = 0) in vec3 p;
 
 noperspective out vec2 v_u_frame;
-noperspective out vec2 v_u_keyframe;
+out vec2 v_u_keyframe;
 out float v_depth;
 
 uniform mat3 K;

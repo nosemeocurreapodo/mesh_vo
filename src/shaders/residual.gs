@@ -3,11 +3,11 @@ layout (triangles) in;
 layout (triangle_strip, max_vertices = 3) out;
 
 noperspective in vec2 v_u_frame[];
-noperspective in vec2 v_u_keyframe[];
+in vec2 v_u_keyframe[];
 in float v_depth[];
 
 noperspective out vec2 g_u_frame;
-noperspective out vec2 g_u_keyframe;
+out vec2 g_u_keyframe;
 out float g_depth;
 
 void main() {
