@@ -68,7 +68,7 @@ int main(void)
 
         Sophus::SE3f realPose = pose*keyframePose.inverse();
 
-        //visual_odometry.framePose = realPose;
+        visual_odometry.framePose = realPose;
         visual_odometry.updatePose(frameFloat);
 
         std::cout << "real pose " << std::endl;

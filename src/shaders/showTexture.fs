@@ -9,5 +9,6 @@ uniform int lvl;
 void main()
 {
     //FragColor = texelFetch(frame, ivec2(gl_FragCoord.xy), lvl);
-    FragColor = textureLod(frame, TexCoords, lvl)/255.0 + vec4(0.5,0.5,0.5,1.0);
+    //FragColor = textureLod(frame, TexCoords, lvl)/255.0 + vec4(0.5,0.5,0.5,1.0);
+    FragColor = textureLod(frame, TexCoords, lvl);
 }

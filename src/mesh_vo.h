@@ -49,9 +49,18 @@ private:
     unsigned int feedbackrbo;
 
     unsigned int keyframeTexture;
+    GLfloat* keyframe_cpu_data;
+
     unsigned int keyframeDerivativeTexture;
+
     unsigned int frameTexture;
+    GLfloat* frame_cpu_data;
+
     unsigned int frameDerivativeTexture;
+    GLfloat* frameDer_cpu_data;
+
+    unsigned int idepthTexture;
+    GLfloat* idepth_cpu_data;
 
     unsigned int residualTexture;
     GLfloat* residual_cpu_data;
@@ -67,6 +76,7 @@ private:
     Shader calcHJShader;
     Shader showTextureShader;
     Shader debugShader;
+    Shader idepthShader;
 
     Eigen::Matrix3f K[MAX_LEVELS];
     Eigen::Matrix3f KInv[MAX_LEVELS];
@@ -79,9 +89,13 @@ private:
     Eigen::Matrix<float, 6, 1> acc_J_pose;
     Eigen::Matrix<float, 6, 6> acc_H_pose;
 
+    void calcIdepth(Sophus::SE3f framePose, int lvl);
+
     float calcResidual(unsigned int frame, Sophus::SE3f framePose, int lvl);
+    float calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int lvl);
 
     void calcHJ(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
+    void calcHJ_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
 
     void frameDerivative(unsigned int frame, unsigned int frameDerivative);
 
