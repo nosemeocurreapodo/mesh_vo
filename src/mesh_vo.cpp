@@ -362,7 +362,7 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     frameDerivativeShader.use();
     frameDerivativeShader.setInt("frame", 0);
 
-    residualShader.init("residual.vs", "residual.gs", "residual.fs");
+    residualShader.init("residual.vs", "residual.fs");
     residualShader.use();
     residualShader.setInt("keyframe", 0);
     residualShader.setInt("frame", 1);
@@ -554,8 +554,8 @@ float mesh_vo::calcResidual(unsigned int frame, Sophus::SE3f framePose, int lvl)
     glBindVertexArray(scene_VAO);
     glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, residualTexture);
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D, residualTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
     //glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -610,7 +610,7 @@ float mesh_vo::calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int 
              if(pixelFrame(0) < 0.0 || pixelFrame(0) >= width[lvl] || pixelFrame(1) < 0 || pixelFrame(1) >= height[lvl])
                  continue;
 
-             int nindex = (height[lvl]-pixelFrame(1))*width[lvl] + pixelFrame(0);
+             int nindex = (height[lvl]-int(pixelFrame(1)))*width[lvl] + int(pixelFrame(0));
 
              float vf = frame_cpu_data[nindex];
 
@@ -623,7 +623,7 @@ float mesh_vo::calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int 
 
              //std::cout << "accres " << residual << std::endl;
 
-             debug.at<float>(y,x) = vf/255.0;//abs(res)*0.01;
+             debug.at<float>(y,x) = res*0.01;
          }
 
      cv::namedWindow("calcResidual debug", cv::WINDOW_NORMAL);
@@ -639,16 +639,19 @@ float mesh_vo::reduce_residual_CPU(unsigned int residualTexture, int lvl)
     glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, residual_cpu_data);
 
     float error = 0.0;
-    int count = 0.0;
+    int count = 0;
 
-    for(int index = 0; index < width[lvl]*height[lvl]; index++)
-    {
-        float res = residual_cpu_data[index];
-        if(res <= 0)
-            continue;
-        count ++;
-        error += res;
-    }
+    for(int y = 0; y < height[lvl]; y++)
+        for(int x = 0; x < width[lvl]; x++)
+        {
+            int index = (height[lvl] - y)*width[lvl] + x;
+            float res = residual_cpu_data[index];
+            if(res < 0)
+                continue;
+
+            count++;
+            error += res;
+        }
 
     if(count > 0)
         error /= count;
@@ -666,16 +669,22 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 
     frameDerivative(frameTexture, frameDerivativeTexture);
 
+
     int lvl = 0;
     //for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
     {
         //float last_error = calcResidual(frameTexture,framePose,lvl);
         //std::cout << "lvl " << lvl << " error " << last_error << std::endl;
         //calcHJ(frameTexture, frameDerivativeTexture, framePose ,lvl);
+        //Sophus::SE3f keyframePose;
+        //calcIdepth(keyframePose, lvl);
+        float residual1 = calcResidual(frameTexture, framePose, lvl);
+        showTexture(residualTexture, lvl);
         Sophus::SE3f keyframePose;
         calcIdepth(keyframePose, lvl);
-        calcResidual_CPU(frameTexture, framePose, lvl);
-        showTexture(idepthTexture, lvl);
+        float residual2 = calcResidual_CPU(frameTexture, framePose, lvl);
+
+        std::cout << "residual " << residual1 << " " << residual2 << std::endl;
         //showDebug(frameTexture, framePose, lvl2);
         cv::waitKey(30);
     }
@@ -688,8 +697,12 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
     //int lvl = 4;
     for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
     {
+        Sophus::SE3f keyframePose;
+        calcIdepth(keyframePose, lvl);
 
-        float last_error = calcResidual(frameTexture,framePose,lvl);
+        float last_error = calcResidual_CPU(frameTexture,framePose,lvl);
+        //float last_error = calcResidual(frameTexture,framePose,lvl);
+
         //showTexture(residualTexture, lvl);
         //showDebug(frameTexture, framePose, 0);
         //std::cout << "pose for lvl " << lvl << std::endl;
@@ -698,6 +711,7 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 
         for(int it = 0; it < maxIterations[lvl]; it++)
         {
+            //calcHJ_CPU(frameTexture, frameDerivativeTexture, framePose ,lvl);
             calcHJ(frameTexture, frameDerivativeTexture, framePose ,lvl);
             showTexture(residualTexture, lvl);
 
@@ -724,8 +738,9 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 
                 //std::cout << "new_pose " << new_pose.matrix() << std::endl;
 
-                float error = calcResidual(frameTexture,new_pose,lvl);
-
+                float error = calcResidual_CPU(frameTexture,new_pose,lvl);
+                float error2 = calcResidual(frameTexture,new_pose,lvl);
+                std::cout << "error2 " << error2 << std::endl;
                 std::cout << "lvl " << lvl << " it " << it << " try " << n_try << " lambda " << lambda << " error " << error << std::endl;
 
                 if(error < last_error)
@@ -933,7 +948,7 @@ void mesh_vo::calcHJ_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f
     for(int y = 0; y < height[lvl]; y++)
         for(int x = 0; x < width[lvl]; x++)
         {
-            int index = y*width[lvl] + x;
+            int index = (height[lvl] - y)*width[lvl] + x;
 
             float keyframeId = idepth_cpu_data[index];
 
@@ -953,7 +968,7 @@ void mesh_vo::calcHJ_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f
             if(pixelFrame(0) < 0.0 || pixelFrame(0) >= width[lvl] || pixelFrame(1) < 0.0 || pixelFrame(1) >= height[lvl])
                 continue;
 
-            int nindex = pixelFrame(1)*width[lvl] + pixelFrame(0);
+            int nindex = (height[lvl] - int(pixelFrame(1)))*width[lvl] + int(pixelFrame(0));
             float vf = frame_cpu_data[nindex];
 
             Eigen::Vector2f d_f_d_uf;
