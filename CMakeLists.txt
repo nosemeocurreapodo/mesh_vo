@@ -10,8 +10,7 @@ set(CMAKE_BUILD_TYPE release)
 #find_package(OpenCV2.4.13 REQUIRED)
 find_package(OpenCV REQUIRED)
 
-find_package(glm REQUIRED)
-include_directories(${GLM_INCLUDE_DIRS})
+#include_directories(${GLM_INCLUDE_DIRS})
 
 find_package(Eigen3 REQUIRED)
 #set(EIGEN3_INCLUDE_DIR "C:/Emanuel/eigen-3.3.8")
@@ -19,7 +18,9 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 #message(STATUS "Eigen dir: ${EIGEN3_INCLUDE_DIR}")
 
 find_package(glfw3 REQUIRED)
-include_directories(${GLFW3_INCLUDE_DIR})
+find_package(OpenGL REQUIRED)
+#include_directories(${GLFW3_INCLUDE_DIR})
+find_package(glm REQUIRED)
 
 include_directories("src")
 include_directories("include")
@@ -43,4 +44,4 @@ endforeach(SHADER)
 
 # build example app
 add_executable(testapp src/test/main.cpp ${TESTAPP_SRCS} ${DepthEstimator_SRCS} ${SHADERS})
-target_link_libraries(testapp ${OpenCV_LIBS} glfw)
+target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})

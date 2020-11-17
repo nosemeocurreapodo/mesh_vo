@@ -29,14 +29,14 @@ int main(void)
     float fx, fy, cx, cy;
     fx = 481.20; fy = 480.0; cx = 319.5; cy = 239.5;
 
-    cv::Mat keyFrame = cv::imread("C:/Emanuel/desktop_dataset/scene_000.png", cv::IMREAD_GRAYSCALE);
+    cv::Mat keyFrame = cv::imread("../../desktop_dataset/scene_000.png", cv::IMREAD_GRAYSCALE);
     cv::Mat keyframeFLoat;
     keyFrame.convertTo(keyframeFLoat, CV_32FC1, 1.0/1.0);
     cv::flip(keyframeFLoat, keyframeFLoat,0);
-    Sophus::SE3f keyframePose = readPose("C:/Emanuel/desktop_dataset/scene_000.txt");
+    Sophus::SE3f keyframePose = readPose("../../desktop_dataset/scene_000.txt");
 
     cv::Mat iDepth;
-    cv::FileStorage fs("C:/Emanuel/desktop_dataset/scene_depth_000.yml", cv::FileStorage::READ );
+    cv::FileStorage fs("../../desktop_dataset/scene_depth_000.yml", cv::FileStorage::READ );
     fs["idepth"] >> iDepth;
 
     mesh_vo visual_odometry(fx,fy,cx,cy,width,height);
@@ -57,8 +57,8 @@ int main(void)
         char RT_filename[500];
 
         //file name
-        sprintf(image_filename,"C:/Emanuel/desktop_dataset/scene_%03d.png", frameNumber);
-        sprintf(RT_filename,"C:/Emanuel/desktop_dataset/scene_%03d.txt", frameNumber);
+        sprintf(image_filename,"../../desktop_dataset/scene_%03d.png", frameNumber);
+        sprintf(RT_filename,"../../desktop_dataset/scene_%03d.txt", frameNumber);
 
         Sophus::SE3f pose = readPose(RT_filename);
         cv::Mat frame = cv::imread(image_filename, cv::IMREAD_GRAYSCALE);
@@ -85,7 +85,7 @@ int main(void)
         {
 
             char depth_filename[500];
-            sprintf(depth_filename,"C:/Emanuel/desktop_dataset/scene_depth_%03d.yml", frameNumber);
+            sprintf(depth_filename,"../../desktop_dataset/scene_depth_%03d.yml", frameNumber);
 
             if(!fileExist(depth_filename))
                 continue;
