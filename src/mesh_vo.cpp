@@ -669,7 +669,7 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 
     frameDerivative(frameTexture, frameDerivativeTexture);
 
-
+/*
     int lvl = 0;
     //for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
     {
@@ -689,7 +689,7 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
         cv::waitKey(30);
     }
     return framePose;
-
+*/
 
     int maxIterations[10] = {5, 20, 100, 100, 100, 100, 100, 100, 100, 100};
 

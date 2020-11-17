@@ -3,17 +3,23 @@ project(mesh_vo)
 
 set(CMAKE_BUILD_TYPE release) 
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra")
-set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+#set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+#set(CMAKE_CXX_FLAGS_DEBUG "-g")
+#set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 #find_package(OpenCV2.4.13 REQUIRED)
-find_package(OpenCV REQUIRED )
+find_package(OpenCV REQUIRED)
+
+find_package(glm REQUIRED)
+include_directories(${GLM_INCLUDE_DIRS})
 
 find_package(Eigen3 REQUIRED)
+#set(EIGEN3_INCLUDE_DIR "C:/Emanuel/eigen-3.3.8")
 include_directories(${EIGEN3_INCLUDE_DIR})
+#message(STATUS "Eigen dir: ${EIGEN3_INCLUDE_DIR}")
 
 find_package(glfw3 REQUIRED)
+include_directories(${GLFW3_INCLUDE_DIR})
 
 include_directories("src")
 include_directories("include")
@@ -35,10 +41,6 @@ foreach(SHADER ${SHADERS})
   file(COPY ${SHADER} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 endforeach(SHADER)
 
-# build shared library.
-add_library(mesh_vo SHARED ${DepthEstimator_SRCS} ${SHADERS})
-target_link_libraries(mesh_vo ${OpenCV_LIBS} glfw)
-
 # build example app
-add_executable (testapp src/test/main.cpp ${TESTAPP_SRCS})
-target_link_libraries(testapp mesh_vo ${OpenCV_LIBS})
+add_executable(testapp src/test/main.cpp ${TESTAPP_SRCS} ${DepthEstimator_SRCS} ${SHADERS})
+target_link_libraries(testapp ${OpenCV_LIBS} glfw)

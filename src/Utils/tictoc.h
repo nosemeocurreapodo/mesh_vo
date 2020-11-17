@@ -1,8 +1,8 @@
 #ifndef TIC_TOC
 #define TIC_TOC
 
-#include <iostream>
-#include <ctime>
+//#include <iostream>
+//#include <ctime>
 
 //// Just a static variable that will be visible only within this file
 
@@ -29,6 +29,8 @@
 //    return elapsed;
 //}
 
+
+/*
 class tic_toc
 {
 public:
@@ -59,5 +61,5 @@ public:
 
 private:
 };
-
+*/
 #endif //TIC_TOC

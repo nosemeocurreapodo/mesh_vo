@@ -48,3 +48,7 @@ Thumbs.db
 *.mov
 *.wmv
 
+/CMakeLists.txt.user
+/build/.cmake/api/v1/query
+/build/.cmake/api/v1/reply
+/build
