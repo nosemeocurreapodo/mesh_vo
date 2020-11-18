@@ -112,6 +112,10 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
         //return -1;
     }
 
+    //const GLubyte* vendor = glGetString​(GL_VENDOR); // Returns the vendor
+    //const GLubyte* renderer = glGetString​(GL_RENDERER); // Returns a hint to the model
+
+
 
 
     glGenVertexArrays(1, &frame_VAO);
@@ -669,27 +673,27 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 
     frameDerivative(frameTexture, frameDerivativeTexture);
 
-/*
+
     int lvl = 0;
     //for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
     {
         //float last_error = calcResidual(frameTexture,framePose,lvl);
         //std::cout << "lvl " << lvl << " error " << last_error << std::endl;
-        //calcHJ(frameTexture, frameDerivativeTexture, framePose ,lvl);
+        calcHJ(frameTexture, frameDerivativeTexture, framePose ,lvl);
         //Sophus::SE3f keyframePose;
         //calcIdepth(keyframePose, lvl);
-        float residual1 = calcResidual(frameTexture, framePose, lvl);
-        showTexture(residualTexture, lvl);
-        Sophus::SE3f keyframePose;
-        calcIdepth(keyframePose, lvl);
-        float residual2 = calcResidual_CPU(frameTexture, framePose, lvl);
+        //float residual1 = calcResidual(frameTexture, framePose, lvl);
+        //Sophus::SE3f keyframePose;
+        //calcIdepth(framePose, lvl);
+        showTexture(rotTexture, lvl);;
+        //float residual2 = 0.0;//calcResidual_CPU(frameTexture, framePose, lvl);
 
-        std::cout << "residual " << residual1 << " " << residual2 << std::endl;
+        //std::cout << "residual " << residual1 << " " << residual2 << std::endl;
         //showDebug(frameTexture, framePose, lvl2);
-        cv::waitKey(30);
+        //cv::waitKey(30);
     }
     return framePose;
-*/
+
 
     int maxIterations[10] = {5, 20, 100, 100, 100, 100, 100, 100, 100, 100};
 
