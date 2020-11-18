@@ -673,27 +673,27 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 
     frameDerivative(frameTexture, frameDerivativeTexture);
 
-
+/*
     int lvl = 0;
     //for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
     {
         //float last_error = calcResidual(frameTexture,framePose,lvl);
         //std::cout << "lvl " << lvl << " error " << last_error << std::endl;
-        calcHJ(frameTexture, frameDerivativeTexture, framePose ,lvl);
-        //Sophus::SE3f keyframePose;
-        //calcIdepth(keyframePose, lvl);
-        //float residual1 = calcResidual(frameTexture, framePose, lvl);
+        //calcHJ(frameTexture, frameDerivativeTexture, framePose ,lvl);
+        Sophus::SE3f keyframePose;
+        calcIdepth(keyframePose, lvl);
+        float residual1 = calcResidual(frameTexture, framePose, lvl);
         //Sophus::SE3f keyframePose;
         //calcIdepth(framePose, lvl);
-        showTexture(rotTexture, lvl);;
-        //float residual2 = 0.0;//calcResidual_CPU(frameTexture, framePose, lvl);
+        showTexture(residualTexture, lvl);
+        float residual2 = calcResidual_CPU(frameTexture, framePose, lvl);
 
-        //std::cout << "residual " << residual1 << " " << residual2 << std::endl;
+        std::cout << "residual " << residual1 << " " << residual2 << std::endl;
         //showDebug(frameTexture, framePose, lvl2);
         //cv::waitKey(30);
     }
     return framePose;
-
+*/
 
     int maxIterations[10] = {5, 20, 100, 100, 100, 100, 100, 100, 100, 100};
 
@@ -704,8 +704,8 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
         Sophus::SE3f keyframePose;
         calcIdepth(keyframePose, lvl);
 
-        float last_error = calcResidual_CPU(frameTexture,framePose,lvl);
-        //float last_error = calcResidual(frameTexture,framePose,lvl);
+        //float last_error = calcResidual_CPU(frameTexture,framePose,lvl);
+        float last_error = calcResidual(frameTexture,framePose,lvl);
 
         //showTexture(residualTexture, lvl);
         //showDebug(frameTexture, framePose, 0);
@@ -715,8 +715,8 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 
         for(int it = 0; it < maxIterations[lvl]; it++)
         {
-            //calcHJ_CPU(frameTexture, frameDerivativeTexture, framePose ,lvl);
-            calcHJ(frameTexture, frameDerivativeTexture, framePose ,lvl);
+            //calcHJPose_CPU(frameTexture, frameDerivativeTexture, framePose ,lvl);
+            calcHJPose(frameTexture, frameDerivativeTexture, framePose ,lvl);
             showTexture(residualTexture, lvl);
 
             float lambda = 0.0;
@@ -742,9 +742,161 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 
                 //std::cout << "new_pose " << new_pose.matrix() << std::endl;
 
-                float error = calcResidual_CPU(frameTexture,new_pose,lvl);
-                float error2 = calcResidual(frameTexture,new_pose,lvl);
-                std::cout << "error2 " << error2 << std::endl;
+                float error = calcResidual(frameTexture,new_pose,lvl);
+                //float error2 = calcResidual_CPU(frameTexture,new_pose,lvl);
+                //std::cout << "error2 " << error2 << std::endl;
+                std::cout << "lvl " << lvl << " it " << it << " try " << n_try << " lambda " << lambda << " error " << error << std::endl;
+
+                if(error < last_error)
+                {
+                    std::cout << "update accepted " << std::endl;
+                    //std::cout << "lambda " << poseLambda << std::endl;
+
+                    //std::cout << "p " << p << std::endl;
+
+                    /*
+                    std::cout << "inc " << std::endl;
+                    std::cout << inc << std::endl;
+                    std::cout << "inc SE3 " << std::endl;
+                    std::cout << Sophus::SE3f::exp(inc).matrix() << std::endl;
+                    std::cout << "last pose " << std::endl;
+                    std::cout << framePose.matrix() << std::endl;
+                    std::cout << "pose " << std::endl;
+                    std::cout << new_pose.matrix() << std::endl;
+
+                    std::cin.get();
+                    */
+
+                    //accept update, decrease lambda
+                    framePose = new_pose;
+
+                    float p = error / last_error;
+
+
+                    if(lambda < 0.2f)
+                        lambda = 0.0f;
+                    else
+                        lambda *= 0.5;
+
+                    last_error = error;
+
+                    if( p >  0.999f)
+                    {
+                        std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
+                        //if converged, do next level
+                        it = maxIterations[lvl];
+                    }
+
+                    //if update accepted, do next iteration
+                    break;
+                }
+                else
+                {
+                    n_try++;
+
+                    if(lambda < 0.2f)
+                        lambda = 0.2f;
+                    else
+                        lambda *= std::pow(2.0, n_try);
+
+                    //reject update, increase lambda, use un-updated data
+                    std::cout << "update rejected " << std::endl;
+
+                    if(!(inc.dot(inc) > 1e-8))
+                    {
+                        std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations with lambda " << lambda << std::endl;
+                        //if too small, do next level!
+                        it = maxIterations[lvl];
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return framePose;
+}
+
+Sophus::SE3f mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
+{
+    glBindTexture(GL_TEXTURE_2D, frameTexture);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_FLOAT, _frame.data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    frameDerivative(frameTexture, frameDerivativeTexture);
+
+/*
+    int lvl = 0;
+    //for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
+    {
+        //float last_error = calcResidual(frameTexture,framePose,lvl);
+        //std::cout << "lvl " << lvl << " error " << last_error << std::endl;
+        //calcHJ(frameTexture, frameDerivativeTexture, framePose ,lvl);
+        Sophus::SE3f keyframePose;
+        calcIdepth(keyframePose, lvl);
+        float residual1 = calcResidual(frameTexture, framePose, lvl);
+        //Sophus::SE3f keyframePose;
+        //calcIdepth(framePose, lvl);
+        showTexture(residualTexture, lvl);
+        float residual2 = calcResidual_CPU(frameTexture, framePose, lvl);
+
+        std::cout << "residual " << residual1 << " " << residual2 << std::endl;
+        //showDebug(frameTexture, framePose, lvl2);
+        //cv::waitKey(30);
+    }
+    return framePose;
+*/
+
+    int maxIterations[10] = {5, 20, 100, 100, 100, 100, 100, 100, 100, 100};
+
+    Eigen::Matrix<float, 6, 1> inc;
+    //int lvl = 4;
+    for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
+    {
+        Sophus::SE3f keyframePose;
+        calcIdepth(keyframePose, lvl);
+
+        //float last_error = calcResidual_CPU(frameTexture,framePose,lvl);
+        float last_error = calcResidual(frameTexture,framePose,lvl);
+
+        //showTexture(residualTexture, lvl);
+        //showDebug(frameTexture, framePose, 0);
+        //std::cout << "pose for lvl " << lvl << std::endl;
+        //std::cout << framePose.matrix() << std::endl;
+        std::cout << "lvl " << lvl << " init error " << last_error << std::endl;
+
+        for(int it = 0; it < maxIterations[lvl]; it++)
+        {
+            //calcHJ_CPU(frameTexture, frameDerivativeTexture, framePose ,lvl);
+            calcHJPose(frameTexture, frameDerivativeTexture, framePose ,lvl);
+            showTexture(residualTexture, lvl);
+
+            float lambda = 0.0;
+            int n_try = 0;
+            while(true)
+            {
+                Eigen::Matrix<float, 6, 6> acc_H_pose_lambda;
+                acc_H_pose_lambda = acc_H_pose;
+
+                for(int j = 0; j < 6; j++)
+                    acc_H_pose_lambda(j,j) *= 1.0 + lambda;
+
+                //std::cout << "H " << acc_H_pose << std::endl;
+                //std::cout << "J " << acc_J_pose << std::endl;
+
+                inc = acc_H_pose_lambda.ldlt().solve(acc_J_pose);
+
+                //Sophus::SE3f new_pose = framePose.inverse()*Sophus::SE3f::exp(inc).inverse();
+                //Sophus::SE3f new_pose = Sophus::SE3f::exp(inc) * framePose;
+                Sophus::SE3f new_pose = Sophus::SE3f::exp(inc).inverse() * framePose;
+                //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc);
+                //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc).inverse();
+
+                //std::cout << "new_pose " << new_pose.matrix() << std::endl;
+
+                float error = calcResidual(frameTexture,new_pose,lvl);
+                //float error2 = calcResidual_CPU(frameTexture,new_pose,lvl);
+                //std::cout << "error2 " << error2 << std::endl;
                 std::cout << "lvl " << lvl << " it " << it << " try " << n_try << " lambda " << lambda << " error " << error << std::endl;
 
                 if(error < last_error)
@@ -818,7 +970,7 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 }
 
 
-void mesh_vo::calcHJ(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
+void mesh_vo::calcHJPose(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
 {   
     glfwMakeContextCurrent(frameWindow);
 
@@ -932,7 +1084,7 @@ void mesh_vo::calcHJ(unsigned int frame, unsigned int frameDer, Sophus::SE3f fra
     }
 }
 
-void mesh_vo::calcHJ_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
+void mesh_vo::calcHJPose_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
 {
     glBindTexture(GL_TEXTURE_2D, keyframeTexture);
     glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, keyframe_cpu_data);
@@ -1003,6 +1155,120 @@ void mesh_vo::calcHJ_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f
                 }
             }
         }
+}
+
+void mesh_vo::calcHJMap(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
+{
+    glfwMakeContextCurrent(frameWindow);
+
+    glViewport(0,0,width[lvl],height[lvl]);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, residualTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, traTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, rotTexture, lvl);
+
+    unsigned int drawbuffers[]={GL_COLOR_ATTACHMENT0,
+                                GL_COLOR_ATTACHMENT1,
+                                GL_COLOR_ATTACHMENT2};
+    glDrawBuffers(sizeof(drawbuffers)/sizeof(unsigned int), drawbuffers);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcResidual" << std::endl;
+
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, keyframeTexture);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, keyframeDerivativeTexture);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, frame);
+
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, frameDer);
+
+    // activate shader
+    calcHJShader.use();
+
+    calcHJShader.setMat4("cameraPose", eigen2glm_mat4(framePose.matrix()));
+    calcHJShader.setMat4("opencv2opengl", opencv2opengl);
+    calcHJShader.setMat4("projection", projMat[lvl]);
+    calcHJShader.setMat3("K", eigen2glm_mat3(K[lvl]));
+    calcHJShader.setMat3("invK", eigen2glm_mat3(KInv[lvl]));
+    calcHJShader.setFloat("width", width[lvl]);
+    calcHJShader.setFloat("height", height[lvl]);
+    calcHJShader.setInt("lvl", lvl);
+
+    glBindVertexArray(scene_VAO);
+    glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
+
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
+
+    //glActiveTexture(GL_TEXTURE0);
+    //glBindTexture(GL_TEXTURE_2D, residualTexture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
+    //glGenerateMipmap(GL_TEXTURE_2D);
+
+    //glBindTexture(GL_TEXTURE_2D, traTexture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
+    //glGenerateMipmap(GL_TEXTURE_2D);
+
+    //glBindTexture(GL_TEXTURE_2D, rotTexture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
+    //glGenerateMipmap(GL_TEXTURE_2D);
+
+
+    glBindTexture(GL_TEXTURE_2D, residualTexture);
+    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, residual_cpu_data);
+
+    glBindTexture(GL_TEXTURE_2D, traTexture);
+    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RGB, GL_FLOAT, tra_cpu_data);
+
+    glBindTexture(GL_TEXTURE_2D, rotTexture);
+    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RGB, GL_FLOAT, rot_cpu_data);
+
+
+    acc_J_pose.setZero();
+    acc_H_pose.setZero();
+
+    for(int index = 0; index < width[lvl]*height[lvl]; index++)
+    {
+        Eigen::Matrix<float, 6, 1> J_pose;
+        J_pose << tra_cpu_data[index*3], tra_cpu_data[index*3+1], tra_cpu_data[index*3+2], rot_cpu_data[index*3], rot_cpu_data[index*3+1], rot_cpu_data[index*3+2];
+
+        float residual = residual_cpu_data[index];
+
+        //std::cout << "J_pose " << J_pose << std::endl;
+        //std::cout << "residual " << residual << std::endl;
+
+        if(residual == 0.0f)
+            continue;
+
+        if(J_pose.norm() == 0.0f)
+            continue;
+
+        acc_J_pose += J_pose*residual;
+
+        for(int i = 0; i < 6; i++)
+        {
+            for(int j = 0; j < 6; j++)
+            {
+                acc_H_pose(i,j) += J_pose[i]*J_pose[j];
+            }
+        }
+
+        //std::cout << "acc_J_pose " << acc_J_pose << std::endl;
+        //std::cout << "acc_J_pose " << acc_H_pose << std::endl;
+
+    }
 }
 
 void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)

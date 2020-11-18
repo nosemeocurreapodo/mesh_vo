@@ -45,4 +45,4 @@ endforeach(SHADER)
 # build example app
 add_executable(testapp src/test/main.cpp ${TESTAPP_SRCS} ${DepthEstimator_SRCS} ${SHADERS})
 #target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})
-target_link_libraries(testapp ${OpenCV_LIBS} glfw)
+target_link_libraries(testapp ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})

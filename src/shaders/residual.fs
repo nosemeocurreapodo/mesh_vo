@@ -10,10 +10,10 @@ uniform int lvl;
 
 void main()
 {
-    float f_pixel = textureLod(frame, gl_FragCoord.xy, lvl).x;
-    float kf_pixel = textureLod(keyframe, gl_FragCoord.xy, lvl).x;
+    float f_pixel = texture(frame, v_u_frame, lvl).x;
+    float kf_pixel = texture(keyframe, v_u_keyframe, lvl).x;
 
     //float kf_pixel = textureLod(keyframe, v_u_keyframe, lvl).x;
 
-    f_residual = kf_pixel;//pow(f_pixel-kf_pixel,2.0);
+    f_residual = pow(f_pixel-kf_pixel,2.0);
 }
