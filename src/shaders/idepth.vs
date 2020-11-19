@@ -13,9 +13,11 @@ uniform float height;
 
 void main()
 {
-    vec2 u = vec2(p.x*width, p.y*height);
-    float depth = 1.0/p.z;
-    vec4 pworld = vec4(invK*(vec3(u,1.0)*depth), 1.0f);
+    //vec2 u = vec2(p.x*width, p.y*height);
+    //float depth = 1.0/p.z;
+    //vec4 pworld = vec4(invK*(vec3(u,1.0)*depth), 1.0f);
+
+    vec4 pworld = vec4(p, 1.0);
     vec4 pcamera = cameraPose * pworld;
     gl_Position = projection * opencv2opengl * pcamera;
 

@@ -19,7 +19,7 @@ uniform float height;
 
 void main()
 {
-    vec2 ukf = vec2(p.x*width,p.y*height);
+    //vec2 ukf = vec2(p.x*width,p.y*height);
     float dkf = 1.0/p.z;
     vec4 pworld = vec4(invK*(vec3(ukf,1.0)*dkf), 1.0f);
     vec4 pcamera = cameraPose*pworld;

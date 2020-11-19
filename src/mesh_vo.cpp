@@ -406,18 +406,18 @@ void mesh_vo::setKeyframeRandomIdepth(cv::Mat _keyFrame)
             //float idepth = 0.5f + 1.0f * ((rand() % 100001) / 100000.0f);
             //float idepth = -1.0;
 
-            float xi = (float(x)/float(vwidth-1));
-            float yi = (float(y)/float(vheight-1));
-//            Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
-//            Eigen::Vector3f p = KInv*(u/idepth);
+            float xi = (float(x)/float(vwidth-1))*width[0];
+            float yi = (float(y)/float(vheight-1))*height[0];
+            Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
+            Eigen::Vector3f p = KInv[0]*(u/idepth);
 
-//            scene_vertices.push_back(p(0));
-//            scene_vertices.push_back(p(1));
-//            scene_vertices.push_back(p(2));
+            scene_vertices.push_back(p(0));
+            scene_vertices.push_back(p(1));
+            scene_vertices.push_back(p(2));
 
-            scene_vertices.push_back(xi);
-            scene_vertices.push_back(yi);
-            scene_vertices.push_back(idepth);
+//            scene_vertices.push_back(xi);
+//            scene_vertices.push_back(yi);
+//            scene_vertices.push_back(idepth);
 
             if(x>0 && y>0)
             {
