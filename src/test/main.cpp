@@ -44,7 +44,6 @@ int main(void)
     //visual_odometry.setKeyframeRandomIdepth(keyframeFLoat.clone());
     visual_odometry.setKeyframeWithIdepth(keyframeFLoat.clone(), iDepth.clone());
 
-
     while(1){
         framesTracked++;
         frameNumber += frameCounterDirection;
@@ -70,6 +69,7 @@ int main(void)
 
         //visual_odometry.framePose = realPose;
         visual_odometry.updatePose(frameFloat);
+        //visual_odometry.updateMap(frameFloat, realPose);
 
         std::cout << "real pose " << std::endl;
         std::cout << realPose.matrix() << std::endl;
@@ -79,7 +79,7 @@ int main(void)
         //cv::imshow("image", frame);
         //cv::imshow("keyframe", keyFrame);
         //cv::imshow("idepth", iDepth);
-        //cv::waitKey(30);
+        cv::waitKey(30);
 
         //if(framesTracked >= framesToTrack)
         if(false)

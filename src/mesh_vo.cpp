@@ -374,9 +374,8 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     calcHJShader.init("calcHJ.vs", "calcHJ.gs", "calcHJ.fs");
     calcHJShader.use();
     calcHJShader.setInt("keyframe", 0);
-    calcHJShader.setInt("keyframeDer", 1);
-    calcHJShader.setInt("frame", 2);
-    calcHJShader.setInt("frameDer", 3);
+    calcHJShader.setInt("frame", 1);
+    calcHJShader.setInt("frameDer", 2);
 
     idepthShader.init("idepth.vs", "idepth.fs");
 
@@ -461,25 +460,21 @@ void mesh_vo::setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth)
     {
         for(int x=0;x<vwidth;x++)
         {
-            //float idepth = 0.1 + 0.5f * float(y)/vheight;
-            //float idepth = 0.5f + 1.0f * ((rand() % 100001) / 100000.0f);
-            //float idepth = -1.0;
+            float xi = (float(x)/float(vwidth-1))*width[0];
+            float yi = (float(y)/float(vheight-1))*height[0];
 
-            float xi = (float(x)/float(vwidth-1));
-            float yi = (float(y)/float(vheight-1));
+            float idepth = _idepth.at<float>(yi,xi);
 
-            float idepth = _idepth.at<float>(yi*(height[0]-1),xi*(width[0]-1));
+            Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
+            Eigen::Vector3f p = KInv[0]*(u/idepth);
 
-//            Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
-//            Eigen::Vector3f p = KInv*(u/idepth);
+            scene_vertices.push_back(p(0));
+            scene_vertices.push_back(p(1));
+            scene_vertices.push_back(p(2));
 
-//            scene_vertices.push_back(p(0));
-//            scene_vertices.push_back(p(1));
-//            scene_vertices.push_back(p(2));
-
-            scene_vertices.push_back(xi);
-            scene_vertices.push_back(yi);
-            scene_vertices.push_back(idepth);
+            //scene_vertices.push_back(xi);
+            //scene_vertices.push_back(yi);
+            //scene_vertices.push_back(idepth);
 
             if(x>0 && y>0)
             {
@@ -716,7 +711,7 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
         for(int it = 0; it < maxIterations[lvl]; it++)
         {
             //calcHJPose_CPU(frameTexture, frameDerivativeTexture, framePose ,lvl);
-            calcHJPose(frameTexture, frameDerivativeTexture, framePose ,lvl);
+            calcHJPose(keyframeTexture, keyframePose, frameTexture, frameDerivativeTexture, framePose ,lvl);
             showTexture(residualTexture, lvl);
 
             float lambda = 0.0;
@@ -817,7 +812,7 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
     return framePose;
 }
 
-Sophus::SE3f mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
+void mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
 {
     glBindTexture(GL_TEXTURE_2D, frameTexture);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_FLOAT, _frame.data);
@@ -825,27 +820,27 @@ Sophus::SE3f mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
 
     frameDerivative(frameTexture, frameDerivativeTexture);
 
-/*
+
     int lvl = 0;
     //for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
     {
         //float last_error = calcResidual(frameTexture,framePose,lvl);
         //std::cout << "lvl " << lvl << " error " << last_error << std::endl;
-        //calcHJ(frameTexture, frameDerivativeTexture, framePose ,lvl);
-        Sophus::SE3f keyframePose;
-        calcIdepth(keyframePose, lvl);
-        float residual1 = calcResidual(frameTexture, framePose, lvl);
+        calcHJPose(keyframeTexture, keyframePose, frameTexture, frameDerivativeTexture, _framePose ,lvl);
+        //Sophus::SE3f keyframePose;
+        //calcIdepth(_framePose, lvl);
+        //float residual1 = calcResidual(frameTexture, framePose, lvl);
         //Sophus::SE3f keyframePose;
         //calcIdepth(framePose, lvl);
-        showTexture(residualTexture, lvl);
-        float residual2 = calcResidual_CPU(frameTexture, framePose, lvl);
+        showTexture(rotTexture, lvl);
+        //float residual2 = calcResidual_CPU(frameTexture, framePose, lvl);
 
-        std::cout << "residual " << residual1 << " " << residual2 << std::endl;
+        //std::cout << "residual " << residual1 << " " << residual2 << std::endl;
         //showDebug(frameTexture, framePose, lvl2);
         //cv::waitKey(30);
     }
-    return framePose;
-*/
+    return;
+
 
     int maxIterations[10] = {5, 20, 100, 100, 100, 100, 100, 100, 100, 100};
 
@@ -868,7 +863,7 @@ Sophus::SE3f mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
         for(int it = 0; it < maxIterations[lvl]; it++)
         {
             //calcHJ_CPU(frameTexture, frameDerivativeTexture, framePose ,lvl);
-            calcHJPose(frameTexture, frameDerivativeTexture, framePose ,lvl);
+            calcHJPose(keyframeTexture, keyframePose, frameTexture, frameDerivativeTexture, framePose ,lvl);
             showTexture(residualTexture, lvl);
 
             float lambda = 0.0;
@@ -966,11 +961,11 @@ Sophus::SE3f mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
         }
     }
 
-    return framePose;
+    return;
 }
 
 
-void mesh_vo::calcHJPose(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
+void mesh_vo::calcHJPose(unsigned int keyframe, Sophus::SE3f keyframePose, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
 {   
     glfwMakeContextCurrent(frameWindow);
 
@@ -995,21 +990,19 @@ void mesh_vo::calcHJPose(unsigned int frame, unsigned int frameDer, Sophus::SE3f
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, keyframeTexture);
+    glBindTexture(GL_TEXTURE_2D, keyframe);
 
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, keyframeDerivativeTexture);
-
-    glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, frame);
 
-    glActiveTexture(GL_TEXTURE3);
+    glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, frameDer);
 
     // activate shader
     calcHJShader.use();
 
-    calcHJShader.setMat4("cameraPose", eigen2glm_mat4(framePose.matrix()));
+    calcHJShader.setMat4("framePose", eigen2glm_mat4(framePose.matrix()));
+    calcHJShader.setMat4("keyframePose", eigen2glm_mat4(keyframePose.matrix()));
     calcHJShader.setMat4("opencv2opengl", opencv2opengl);
     calcHJShader.setMat4("projection", projMat[lvl]);
     calcHJShader.setMat3("K", eigen2glm_mat3(K[lvl]));
@@ -1419,12 +1412,9 @@ void mesh_vo::calcIdepth(Sophus::SE3f framePose, int lvl)
     // activate shader
     idepthShader.use();
 
-    idepthShader.setMat4("cameraPose", eigen2glm_mat4(framePose.matrix()));
+    idepthShader.setMat4("framePose", eigen2glm_mat4(framePose.matrix()));
     idepthShader.setMat4("opencv2opengl", opencv2opengl);
     idepthShader.setMat4("projection", projMat[lvl]);
-    idepthShader.setMat3("invK", eigen2glm_mat3(KInv[lvl]));
-    idepthShader.setFloat("width", width[lvl]);
-    idepthShader.setFloat("height", height[lvl]);
 
     glBindVertexArray(scene_VAO);
     glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);

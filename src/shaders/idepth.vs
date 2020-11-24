@@ -3,13 +3,9 @@ layout (location = 0) in vec3 p;
 
 out float v_depth;
 
-uniform mat3 invK;
-uniform mat4 cameraPose;
+uniform mat4 framePose;
 uniform mat4 projection;
 uniform mat4 opencv2opengl;
-
-uniform float width;
-uniform float height;
 
 void main()
 {
@@ -18,8 +14,8 @@ void main()
     //vec4 pworld = vec4(invK*(vec3(u,1.0)*depth), 1.0f);
 
     vec4 pworld = vec4(p, 1.0);
-    vec4 pcamera = cameraPose * pworld;
-    gl_Position = projection * opencv2opengl * pcamera;
+    vec4 pframe = framePose * pworld;
+    gl_Position = projection * opencv2opengl * pframe;
 
-    v_depth = pcamera.z;
+    v_depth = pframe.z;
 }

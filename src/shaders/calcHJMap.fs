@@ -34,8 +34,8 @@ uniform sampler2D frameDerivative;
 
 void main()
 {
-    vec2 ukfTexCoord = vec2(g_ukf.x/width, g_ukf.y/height);
-    vec2 ufTexCoord = vec2(g_uf.x/width, g_uf.y/height);
+    vec2 ukfTexCoord = vec2(g_ukeyframe.x/width, g_ukeyframe.y/height);
+    vec2 ufTexCoord = vec2(g_uframe.x/width, g_uframe.y/height);
 
     float NtP = dot(g_normal, g_pw/g_pw.z);
 
@@ -51,6 +51,9 @@ void main()
     d_uf_d_pk[1] = vec3(0.0,1.0,0.0);
     d_uf_d_pk[2] = vec3(-g_uf,0.0);
     d_uf_d_pk = d_uf_d_pk/g_pf.z;
+
+mat3 rotframe = mat3(framePose);
+mat3 rotkeyframe = mat3(keyframePose);
 
     vec3 d_pk_d_z = g_KRK_1*vec3(g_ukf,1.0f);
 

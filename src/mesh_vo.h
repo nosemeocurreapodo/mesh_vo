@@ -30,9 +30,10 @@ public:
     void setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth);
 
     Sophus::SE3f updatePose(cv::Mat _frame);
-    Sophus::SE3f updateMap(cv::Mat _frame, Sophus::SE3f _framePose);
+    void updateMap(cv::Mat _frame, Sophus::SE3f _framePose);
 
     Sophus::SE3f framePose;
+    Sophus::SE3f keyframePose;
 
 private:
 
@@ -95,7 +96,7 @@ private:
     float calcResidual(unsigned int frame, Sophus::SE3f framePose, int lvl);
     float calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int lvl);
 
-    void calcHJPose(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
+    void calcHJPose(unsigned int keyframe, Sophus::SE3f keyframePose, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
     void calcHJPose_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
 
     void calcHJMap(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
