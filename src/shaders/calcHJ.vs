@@ -1,19 +1,13 @@
 #version 330 core
 layout (location = 0) in vec3 p;
 
-noperspective out vec2 v_uframe;
-out vec2 v_ukeyframe;
 out vec3 v_pframe;
+out vec3 v_pkeyframe;
 
-uniform mat3 K;
-uniform mat3 invK;
 uniform mat4 framePose;
 uniform mat4 keyframePose;
 uniform mat4 projection;
 uniform mat4 opencv2opengl;
-
-uniform float width;
-uniform float height;
 
 void main()
 {
@@ -25,13 +19,8 @@ void main()
     vec4 pframe = framePose * pworld;
     vec4 pkeyframe = keyframePose * pworld;
 
-    vec2 uframe = (K*(pframe.xyz/pframe.z)).xy;
-    vec2 ukeyframe = (K*(pkeyframe.xyz/pkeyframe.z)).xy;
-
     gl_Position = projection * opencv2opengl * pframe;
 
-    v_uframe = vec2(uframe.x/width, 1.0-uframe.y/height);
-    v_ukeyframe = vec2(ukeyframe.x/width, 1.0-ukeyframe.y/height);
-
     v_pframe = pframe.xyz;
+    v_pkeyframe = pkeyframe.xyz;
 }

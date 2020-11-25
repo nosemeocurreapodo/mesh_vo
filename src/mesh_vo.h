@@ -93,13 +93,13 @@ private:
 
     void calcIdepth(Sophus::SE3f framePose, int lvl);
 
-    float calcResidual(unsigned int frame, Sophus::SE3f framePose, int lvl);
+    float calcResidual(unsigned int keyframe, Sophus::SE3f keyframePose, unsigned int frame, Sophus::SE3f framePose, int lvl);
     float calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int lvl);
 
     void calcHJPose(unsigned int keyframe, Sophus::SE3f keyframePose, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
     void calcHJPose_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
 
-    void calcHJMap(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
+    void calcHJMap(unsigned int keyframe, unsigned int keyframeDer, Sophus::SE3f keyframePose, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
 
     void frameDerivative(unsigned int frame, unsigned int frameDerivative);
 
