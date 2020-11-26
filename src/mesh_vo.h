@@ -76,6 +76,7 @@ private:
     Shader frameDerivativeShader;
     Shader residualShader;
     Shader calcHJShader;
+    Shader calcHJMapShader;
     Shader showTextureShader;
     Shader debugShader;
     Shader idepthShader;

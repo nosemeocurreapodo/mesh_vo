@@ -22,7 +22,7 @@ void main()
 
     v_pframe = pframe.xyz;
     v_pkeyframe = pkeyframe.xyz;
-    v_pworkd = p;
+    v_pworld = p;
 
     v_vertexID = gl_VertexID;
 }

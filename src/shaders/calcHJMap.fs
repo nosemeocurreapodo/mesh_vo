@@ -6,20 +6,26 @@ layout(location = 3) out vec4 f_d_I_d_p0;
 layout(location = 4) out vec4 f_d_I_d_p1;
 layout(location = 5) out vec4 f_d_I_d_p2;
 
-in vec2 g_pframe;
+in vec3 g_pframe;
 in vec3 g_pkeyframe;
-in float g_pworld;
+in vec3 g_pworld;
 
 flat in int g_vertexID[3];
 
 flat in vec3 g_N_p0;
-flat in mat3 g_d_N_d_p0;
+flat in vec3 g_d_N_d_p0_x;
+flat in vec3 g_d_N_d_p0_y;
+flat in vec3 g_d_N_d_p0_z;
 flat in vec3 g_pr_p0;
 flat in vec3 g_N_p1;
-flat in mat3 g_d_N_d_p1;
+flat in vec3 g_d_N_d_p1_x;
+flat in vec3 g_d_N_d_p1_y;
+flat in vec3 g_d_N_d_p1_z;
 flat in vec3 g_pr_p1;
 flat in vec3 g_N_p2;
-flat in mat3 g_d_N_d_p2;
+flat in vec3 g_d_N_d_p2_x;
+flat in vec3 g_d_N_d_p2_y;
+flat in vec3 g_d_N_d_p2_z;
 flat in vec3 g_pr_p2;
 
 uniform float width;
@@ -28,9 +34,12 @@ uniform float height;
 uniform mat3 K;
 uniform mat3 invK;
 
+uniform mat4 framePose;
+uniform mat4 keyframePose;
+
 // texture samplers
 uniform sampler2D keyframe;
-uniform sampler2D keyframeDer
+uniform sampler2D keyframeDer;
 uniform sampler2D frame;
 uniform sampler2D frameDer;
 
@@ -42,24 +51,96 @@ void main()
     vec2 uframeTexCoord = vec2(uframe.x/width, 1.0-uframe.y/height);
     vec2 ukeyframeTexCoord = vec2(ukeyframe.x/width, 1.0-ukeyframe.y/height);
 
-    float ikeyframe = texture(keyframe,ukeyframeTexCoord).r;
-    vec2 dkeyframe = texture(keyframeDer,ukeyframeTexCoord).r;
+    float ikeyframe = texture(keyframe,ukeyframeTexCoord).x;
+    vec2 dkeyframe = texture(keyframeDer,ukeyframeTexCoord).xy;
 
-    float iframe = texture(frame,uframeTexCoord).r;
-    vec2 dframe = texture(frameDer,uframeTexCoord).r;
+    float iframe = texture(frame,uframeTexCoord).x;
+    vec2 dframe = texture(frameDer,uframeTexCoord).xy;
 
     vec3 d_I_d_pframe = vec3(0);
-    d_I_d_pframe.x = dframe.x*K[0][0]/pframe.z;
-    d_I_d_pframe.y = dframe.y*K[1][1]/pframe.z;
-    d_I_d_pframe.z = -(d_I_d_pframe.x*pframe.x/pframe.z + d_I_d_pframe.y*pframe.y/pframe.z);
+    d_I_d_pframe.x = dframe.x*K[0][0]/g_pframe.z;
+    d_I_d_pframe.y = dframe.y*K[1][1]/g_pframe.z;
+    d_I_d_pframe.z = -(d_I_d_pframe.x*g_pframe.x/g_pframe.z + d_I_d_pframe.y*g_pframe.y/g_pframe.z);
 
     vec3 d_I_d_pkeyframe = vec3(0);
-    d_I_d_pkeyframe.x = dkeyframe.x*K[0][0]/pkeyframe.z;
-    d_I_d_pkeyframe.y = dkeyframe.y*K[1][1]/pkeyframe.z;
-    d_I_d_pkeyframe.z = -(d_I_d_pkeyframe.x*pkeyframe.x/pkeyframe.z + d_I_d_pkeyframe.y*pkeyframe.y/pkeyframe.z);
+    d_I_d_pkeyframe.x = dkeyframe.x*K[0][0]/g_pkeyframe.z;
+    d_I_d_pkeyframe.y = dkeyframe.y*K[1][1]/g_pkeyframe.z;
+    d_I_d_pkeyframe.z = -(d_I_d_pkeyframe.x*g_pkeyframe.x/g_pkeyframe.z + d_I_d_pkeyframe.y*g_pkeyframe.y/g_pkeyframe.z);
 
-    vec3 d_pworld_p0x = g_pr_p0 + g_d_N_d_p0.x
+    vec3 prmpw_p0 = (g_pr_p0 - g_pworld);
 
+    //vec3 pworld_p0;
+    //pworld_p0.x = g_pr_p0.x + (g_N_p0.y*pr0mpw.y + g_N_p0.z*pr0mpw.z)/g_N_p0.x;
+    //pworld_p0.y = g_pr_p0.y + (g_N_p0.x*pr0mpw.x + g_N_p0.z*pr0mpw.z)/g_N_p0.y;
+    //pworld_p0.z = g_pr_p0.z + (g_N_p0.x*pr0mpw.x + g_N_p0.y*pr0mpw.y)/g_N_p0.z;
+
+    vec3 d_pworld_p0_x;
+    d_pworld_p0_x.x = (g_d_N_d_p0_x.y*prmpw_p0.y + g_d_N_d_p0_x.z*prmpw_p0.z)/g_N_p0.x - g_d_N_d_p0_x.x*(g_N_p0.y*prmpw_p0.y + g_N_p0.z*prmpw_p0.z)/(g_N_p0.x*g_N_p0.x);
+    d_pworld_p0_x.y = (g_d_N_d_p0_x.x*prmpw_p0.x + g_d_N_d_p0_x.z*prmpw_p0.z)/g_N_p0.y - g_d_N_d_p0_x.y*(g_N_p0.x*prmpw_p0.x + g_N_p0.z*prmpw_p0.z)/(g_N_p0.y*g_N_p0.y);
+    d_pworld_p0_x.z = (g_d_N_d_p0_x.x*prmpw_p0.x + g_d_N_d_p0_x.y*prmpw_p0.y)/g_N_p0.z - g_d_N_d_p0_x.z*(g_N_p0.x*prmpw_p0.x + g_N_p0.y*prmpw_p0.y)/(g_N_p0.z*g_N_p0.z);
+
+    vec3 d_pworld_p0_y;
+    d_pworld_p0_y.x = (g_d_N_d_p0_y.y*prmpw_p0.y + g_d_N_d_p0_y.z*prmpw_p0.z)/g_N_p0.x - g_d_N_d_p0_y.x*(g_N_p0.y*prmpw_p0.y + g_N_p0.z*prmpw_p0.z)/(g_N_p0.x*g_N_p0.x);
+    d_pworld_p0_y.y = (g_d_N_d_p0_y.x*prmpw_p0.x + g_d_N_d_p0_y.z*prmpw_p0.z)/g_N_p0.y - g_d_N_d_p0_y.y*(g_N_p0.x*prmpw_p0.x + g_N_p0.z*prmpw_p0.z)/(g_N_p0.y*g_N_p0.y);
+    d_pworld_p0_y.z = (g_d_N_d_p0_y.x*prmpw_p0.x + g_d_N_d_p0_y.y*prmpw_p0.y)/g_N_p0.z - g_d_N_d_p0_y.z*(g_N_p0.x*prmpw_p0.x + g_N_p0.y*prmpw_p0.y)/(g_N_p0.z*g_N_p0.z);
+
+    vec3 d_pworld_p0_z;
+    d_pworld_p0_z.x = (g_d_N_d_p0_z.y*prmpw_p0.y + g_d_N_d_p0_z.z*prmpw_p0.z)/g_N_p0.x - g_d_N_d_p0_z.x*(g_N_p0.y*prmpw_p0.y + g_N_p0.z*prmpw_p0.z)/(g_N_p0.x*g_N_p0.x);
+    d_pworld_p0_z.y = (g_d_N_d_p0_z.x*prmpw_p0.x + g_d_N_d_p0_z.z*prmpw_p0.z)/g_N_p0.y - g_d_N_d_p0_z.y*(g_N_p0.x*prmpw_p0.x + g_N_p0.z*prmpw_p0.z)/(g_N_p0.y*g_N_p0.y);
+    d_pworld_p0_z.z = (g_d_N_d_p0_z.x*prmpw_p0.x + g_d_N_d_p0_z.y*prmpw_p0.y)/g_N_p0.z - g_d_N_d_p0_z.z*(g_N_p0.x*prmpw_p0.x + g_N_p0.y*prmpw_p0.y)/(g_N_p0.z*g_N_p0.z);
+
+
+    vec3 prmpw_p1 = (g_pr_p1 - g_pworld);
+
+    vec3 d_pworld_p1_x;
+    d_pworld_p1_x.x = (g_d_N_d_p1_x.y*prmpw_p1.y + g_d_N_d_p1_x.z*prmpw_p1.z)/g_N_p1.x - g_d_N_d_p1_x.x*(g_N_p1.y*prmpw_p1.y + g_N_p1.z*prmpw_p1.z)/(g_N_p1.x*g_N_p1.x);
+    d_pworld_p1_x.y = (g_d_N_d_p1_x.x*prmpw_p1.x + g_d_N_d_p1_x.z*prmpw_p1.z)/g_N_p1.y - g_d_N_d_p1_x.y*(g_N_p1.x*prmpw_p1.x + g_N_p1.z*prmpw_p1.z)/(g_N_p1.y*g_N_p1.y);
+    d_pworld_p1_x.z = (g_d_N_d_p1_x.x*prmpw_p1.x + g_d_N_d_p1_x.y*prmpw_p1.y)/g_N_p1.z - g_d_N_d_p1_x.z*(g_N_p1.x*prmpw_p1.x + g_N_p1.y*prmpw_p1.y)/(g_N_p1.z*g_N_p1.z);
+
+    vec3 d_pworld_p1_y;
+    d_pworld_p1_y.x = (g_d_N_d_p1_y.y*prmpw_p1.y + g_d_N_d_p1_y.z*prmpw_p1.z)/g_N_p1.x - g_d_N_d_p1_y.x*(g_N_p1.y*prmpw_p1.y + g_N_p1.z*prmpw_p1.z)/(g_N_p1.x*g_N_p1.x);
+    d_pworld_p1_y.y = (g_d_N_d_p1_y.x*prmpw_p1.x + g_d_N_d_p1_y.z*prmpw_p1.z)/g_N_p1.y - g_d_N_d_p1_y.y*(g_N_p1.x*prmpw_p1.x + g_N_p1.z*prmpw_p1.z)/(g_N_p1.y*g_N_p1.y);
+    d_pworld_p1_y.z = (g_d_N_d_p1_y.x*prmpw_p1.x + g_d_N_d_p1_y.y*prmpw_p1.y)/g_N_p1.z - g_d_N_d_p1_y.z*(g_N_p1.x*prmpw_p1.x + g_N_p1.y*prmpw_p1.y)/(g_N_p1.z*g_N_p1.z);
+
+    vec3 d_pworld_p1_z;
+    d_pworld_p1_z.x = (g_d_N_d_p1_z.y*prmpw_p1.y + g_d_N_d_p1_z.z*prmpw_p1.z)/g_N_p1.x - g_d_N_d_p1_z.x*(g_N_p1.y*prmpw_p1.y + g_N_p1.z*prmpw_p1.z)/(g_N_p1.x*g_N_p1.x);
+    d_pworld_p1_z.y = (g_d_N_d_p1_z.x*prmpw_p1.x + g_d_N_d_p1_z.z*prmpw_p1.z)/g_N_p1.y - g_d_N_d_p1_z.y*(g_N_p1.x*prmpw_p1.x + g_N_p1.z*prmpw_p1.z)/(g_N_p1.y*g_N_p1.y);
+    d_pworld_p1_z.z = (g_d_N_d_p1_z.x*prmpw_p1.x + g_d_N_d_p1_z.y*prmpw_p1.y)/g_N_p1.z - g_d_N_d_p1_z.z*(g_N_p1.x*prmpw_p1.x + g_N_p1.y*prmpw_p1.y)/(g_N_p1.z*g_N_p1.z);
+
+
+    vec3 prmpw_p2 = (g_pr_p2 - g_pworld);
+
+    vec3 d_pworld_p2_x;
+    d_pworld_p2_x.x = (g_d_N_d_p2_x.y*prmpw_p2.y + g_d_N_d_p2_x.z*prmpw_p2.z)/g_N_p2.x - g_d_N_d_p2_x.x*(g_N_p2.y*prmpw_p2.y + g_N_p2.z*prmpw_p2.z)/(g_N_p2.x*g_N_p2.x);
+    d_pworld_p2_x.y = (g_d_N_d_p2_x.x*prmpw_p2.x + g_d_N_d_p2_x.z*prmpw_p2.z)/g_N_p2.y - g_d_N_d_p2_x.y*(g_N_p2.x*prmpw_p2.x + g_N_p2.z*prmpw_p2.z)/(g_N_p2.y*g_N_p2.y);
+    d_pworld_p2_x.z = (g_d_N_d_p2_x.x*prmpw_p2.x + g_d_N_d_p2_x.y*prmpw_p2.y)/g_N_p2.z - g_d_N_d_p2_x.z*(g_N_p2.x*prmpw_p2.x + g_N_p2.y*prmpw_p2.y)/(g_N_p2.z*g_N_p2.z);
+
+    vec3 d_pworld_p2_y;
+    d_pworld_p2_y.x = (g_d_N_d_p2_y.y*prmpw_p2.y + g_d_N_d_p2_y.z*prmpw_p2.z)/g_N_p2.x - g_d_N_d_p2_y.x*(g_N_p2.y*prmpw_p2.y + g_N_p2.z*prmpw_p2.z)/(g_N_p2.x*g_N_p2.x);
+    d_pworld_p2_y.y = (g_d_N_d_p2_y.x*prmpw_p2.x + g_d_N_d_p2_y.z*prmpw_p2.z)/g_N_p2.y - g_d_N_d_p2_y.y*(g_N_p2.x*prmpw_p2.x + g_N_p2.z*prmpw_p2.z)/(g_N_p2.y*g_N_p2.y);
+    d_pworld_p2_y.z = (g_d_N_d_p2_y.x*prmpw_p2.x + g_d_N_d_p2_y.y*prmpw_p2.y)/g_N_p2.z - g_d_N_d_p2_y.z*(g_N_p2.x*prmpw_p2.x + g_N_p2.y*prmpw_p2.y)/(g_N_p2.z*g_N_p2.z);
+
+    vec3 d_pworld_p2_z;
+    d_pworld_p2_z.x = (g_d_N_d_p2_z.y*prmpw_p2.y + g_d_N_d_p2_z.z*prmpw_p2.z)/g_N_p0.x - g_d_N_d_p2_z.x*(g_N_p0.y*prmpw_p2.y + g_N_p0.z*prmpw_p2.z)/(g_N_p0.x*g_N_p0.x);
+    d_pworld_p2_z.y = (g_d_N_d_p2_z.x*prmpw_p2.x + g_d_N_d_p2_z.z*prmpw_p2.z)/g_N_p0.y - g_d_N_d_p2_z.y*(g_N_p0.x*prmpw_p2.x + g_N_p0.z*prmpw_p2.z)/(g_N_p0.y*g_N_p0.y);
+    d_pworld_p2_z.z = (g_d_N_d_p2_z.x*prmpw_p2.x + g_d_N_d_p2_z.y*prmpw_p2.y)/g_N_p0.z - g_d_N_d_p2_z.z*(g_N_p0.x*prmpw_p2.x + g_N_p0.y*prmpw_p2.y)/(g_N_p0.z*g_N_p0.z);
+
+    vec3 d_I_d_p0;
+    d_I_d_p0.x = dot(d_I_d_pframe,mat3(framePose)*d_pworld_p0_x) - dot(d_I_d_pkeyframe,mat3(keyframePose)*d_pworld_p0_x);
+    d_I_d_p0.y = dot(d_I_d_pframe,mat3(framePose)*d_pworld_p0_y) - dot(d_I_d_pkeyframe,mat3(keyframePose)*d_pworld_p0_y);
+    d_I_d_p0.z = dot(d_I_d_pframe,mat3(framePose)*d_pworld_p0_z) - dot(d_I_d_pkeyframe,mat3(keyframePose)*d_pworld_p0_z);
+
+    vec3 d_I_d_p1;
+    d_I_d_p1.x = dot(d_I_d_pframe,mat3(framePose)*d_pworld_p1_x) - dot(d_I_d_pkeyframe,mat3(keyframePose)*d_pworld_p1_x);
+    d_I_d_p1.y = dot(d_I_d_pframe,mat3(framePose)*d_pworld_p1_y) - dot(d_I_d_pkeyframe,mat3(keyframePose)*d_pworld_p1_y);
+    d_I_d_p1.z = dot(d_I_d_pframe,mat3(framePose)*d_pworld_p1_z) - dot(d_I_d_pkeyframe,mat3(keyframePose)*d_pworld_p1_z);
+
+    vec3 d_I_d_p2;
+    d_I_d_p2.x = dot(d_I_d_pframe,mat3(framePose)*d_pworld_p2_x) - dot(d_I_d_pkeyframe,mat3(keyframePose)*d_pworld_p2_x);
+    d_I_d_p2.y = dot(d_I_d_pframe,mat3(framePose)*d_pworld_p2_y) - dot(d_I_d_pkeyframe,mat3(keyframePose)*d_pworld_p2_y);
+    d_I_d_p2.z = dot(d_I_d_pframe,mat3(framePose)*d_pworld_p2_z) - dot(d_I_d_pkeyframe,mat3(keyframePose)*d_pworld_p2_z);
+
+    float error = iframe - ikeyframe;
 
     f_vertexID = ivec4(g_vertexID[0], g_vertexID[1], g_vertexID[2], 1);
     f_primitiveID = gl_PrimitiveID;

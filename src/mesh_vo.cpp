@@ -377,16 +377,23 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     calcHJShader.setInt("frame", 1);
     calcHJShader.setInt("frameDer", 2);
 
+    calcHJMapShader.init("calcHJMap.vs", "calcHJMap.gs", "calcHJMap.fs");
+    calcHJMapShader.use();
+    calcHJMapShader.setInt("keyframe", 0);
+    calcHJMapShader.setInt("keyframeDer", 0);
+    calcHJMapShader.setInt("frame", 1);
+    calcHJMapShader.setInt("frameDer", 2);
+
     idepthShader.init("idepth.vs", "idepth.fs");
 
     showTextureShader.init("showTexture.vs", "showTexture.fs");
     showTextureShader.use();
     showTextureShader.setInt("frame", 0);
 
-    debugShader.init("debug.vs", "debug.gs", "debug.fs");
-    debugShader.use();
-    debugShader.setInt("keyframe", 0);
-    debugShader.setInt("frame", 1);
+    //debugShader.init("debug.vs", "debug.gs", "debug.fs");
+    //debugShader.use();
+    //debugShader.setInt("keyframe", 0);
+    //debugShader.setInt("frame", 1);
 }
 
 void mesh_vo::setKeyframeRandomIdepth(cv::Mat _keyFrame)
