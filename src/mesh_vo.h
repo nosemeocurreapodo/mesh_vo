@@ -41,6 +41,7 @@ private:
 
     int vwidth, vheight;
     std::vector<float> scene_vertices;
+    std::vector<float> scene_vertices_updated;
     std::vector<unsigned int> scene_indices;
 
     unsigned int scene_VBO, scene_VAO, scene_EBO;
@@ -73,6 +74,21 @@ private:
     unsigned int rotTexture;
     GLfloat* rot_cpu_data;
 
+    unsigned int vertexID_Texture;
+    GLint* vertexID_cpu_data;
+
+    unsigned int primitiveID_Texture;
+    GLint* primitiveID_cpu_data;
+
+    unsigned int d_I_d_p0_Texture;
+    GLfloat* d_I_d_p0_cpu_data;
+
+    unsigned int d_I_d_p1_Texture;
+    GLfloat* d_I_d_p1_cpu_data;
+
+    unsigned int d_I_d_p2_Texture;
+    GLfloat* d_I_d_p2_cpu_data;
+
     Shader frameDerivativeShader;
     Shader residualShader;
     Shader calcHJShader;
@@ -85,12 +101,16 @@ private:
     Eigen::Matrix3f KInv[MAX_LEVELS];
 
     int width[MAX_LEVELS], height[MAX_LEVELS];
+    float dx[MAX_LEVELS], dy[MAX_LEVELS];
 
     glm::mat4 projMat[MAX_LEVELS];
     glm::mat4 opencv2opengl;
 
     Eigen::Matrix<float, 6, 1> acc_J_pose;
     Eigen::Matrix<float, 6, 6> acc_H_pose;
+
+    Eigen::MatrixXf acc_H_map;
+    Eigen::VectorXf acc_J_map;
 
     void calcIdepth(Sophus::SE3f framePose, int lvl);
 

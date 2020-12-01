@@ -68,13 +68,13 @@ int main(void)
         Sophus::SE3f realPose = pose*keyframePose.inverse();
 
         //visual_odometry.framePose = realPose;
-        visual_odometry.updatePose(frameFloat);
-        //visual_odometry.updateMap(frameFloat, realPose);
+        //visual_odometry.updatePose(frameFloat);
+        visual_odometry.updateMap(frameFloat, realPose);
 
-        std::cout << "real pose " << std::endl;
-        std::cout << realPose.matrix() << std::endl;
-        std::cout << "est pose " << std::endl;
-        std::cout << visual_odometry.framePose.matrix() << std::endl;
+        //std::cout << "real pose " << std::endl;
+        //std::cout << realPose.matrix() << std::endl;
+        //st::cout << "est pose " << std::endl;
+        //std::cout << visual_odometry.framePose.matrix() << std::endl;
 
         //cv::imshow("image", frame);
         //cv::imshow("keyframe", keyFrame);

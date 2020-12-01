@@ -11,16 +11,16 @@ uniform sampler2D frame;
 uniform sampler2D frameDer;
 
 uniform mat3 K;
-uniform float width;
-uniform float height;
+uniform float dx;
+uniform float dy;
 
 void main()
 {
     vec2 uframe = (K*(v_pframe.xyz/v_pframe.z)).xy;
     vec2 ukeyframe = (K*(v_pkeyframe.xyz/v_pkeyframe.z)).xy;
 
-    vec2 uframeTexCoord = vec2(uframe.x/width, 1.0-uframe.y/height);
-    vec2 ukeyframeTexCoord = vec2(ukeyframe.x/width, 1.0-ukeyframe.y/height);
+    vec2 uframeTexCoord = vec2(uframe.x*dx, 1.0-uframe.y*dy);
+    vec2 ukeyframeTexCoord = vec2(ukeyframe.x*dx, 1.0-ukeyframe.y*dy);
 
     float f_pixel = texture(frame, uframeTexCoord).x;
     vec2 f_der = texture(frameDer, uframeTexCoord).xy;

@@ -66,6 +66,9 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
         width[lvl] = int(_width/scale);
         height[lvl] = int(_height/scale);
 
+        dx[lvl] = 1.0/width[lvl];
+        dy[lvl] = 1.0/height[lvl];
+
         K[lvl] = Eigen::Matrix3f::Zero();
         K[lvl](0,0) = fx/scale;
         K[lvl](1,1) = fy/scale;
@@ -179,6 +182,10 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
             scene_vertices.push_back(0.0);
             scene_vertices.push_back(0.0);
 
+            scene_vertices_updated.push_back(0.0);
+            scene_vertices_updated.push_back(0.0);
+            scene_vertices_updated.push_back(0.0);
+
             if(x>0 && y>0)
             {
                 scene_indices.push_back(0);
@@ -262,10 +269,10 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST); //GL_NEAREST
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST); //nearest porque sino interpola en el borde
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);//entre el ultimo pixel y borderColor
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//GL_MIRRORED_REPEAT
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);//entre el ultimo pixel y borderColor
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);//GL_MIRRORED_REPEAT
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -275,9 +282,9 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+    //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -287,9 +294,9 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 6);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+    //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -299,9 +306,9 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);//border los de afuera son erroneos
+    //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -353,6 +360,66 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
+    glGenTextures(1, &vertexID_Texture);
+    glBindTexture(GL_TEXTURE_2D, vertexID_Texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderID);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32I, width[0], height[0], 0, GL_RGBA_INTEGER, GL_INT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glGenTextures(1, &primitiveID_Texture);
+    glBindTexture(GL_TEXTURE_2D, primitiveID_Texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderID);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32I, width[0], height[0], 0, GL_RED_INTEGER, GL_INT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glGenTextures(1, &d_I_d_p0_Texture);
+    glBindTexture(GL_TEXTURE_2D, d_I_d_p0_Texture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glGenTextures(1, &d_I_d_p1_Texture);
+    glBindTexture(GL_TEXTURE_2D, d_I_d_p1_Texture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glGenTextures(1, &d_I_d_p2_Texture);
+    glBindTexture(GL_TEXTURE_2D, d_I_d_p2_Texture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
     keyframe_cpu_data = new GLfloat[width[0]*height[0]];
     frame_cpu_data = new GLfloat[width[0]*height[0]];
     frameDer_cpu_data = new GLfloat[width[0]*height[0]*2];
@@ -361,6 +428,13 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     residual_cpu_data = new GLfloat[width[0]*height[0]];
     tra_cpu_data = new GLfloat[width[0]*height[0]*3];
     rot_cpu_data = new GLfloat[width[0]*height[0]*3];
+
+    vertexID_cpu_data = new GLint[width[0]*height[0]*4];
+    primitiveID_cpu_data = new GLint[width[0]*height[0]];
+
+    d_I_d_p0_cpu_data = new GLfloat[width[0]*height[0]*4];
+    d_I_d_p1_cpu_data = new GLfloat[width[0]*height[0]*4];
+    d_I_d_p2_cpu_data = new GLfloat[width[0]*height[0]*4];
 
     frameDerivativeShader.init("frameDerivative.vs", "frameDerivative.fs");
     frameDerivativeShader.use();
@@ -380,9 +454,9 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     calcHJMapShader.init("calcHJMap.vs", "calcHJMap.gs", "calcHJMap.fs");
     calcHJMapShader.use();
     calcHJMapShader.setInt("keyframe", 0);
-    calcHJMapShader.setInt("keyframeDer", 0);
-    calcHJMapShader.setInt("frame", 1);
-    calcHJMapShader.setInt("frameDer", 2);
+    calcHJMapShader.setInt("keyframeDer", 1);
+    calcHJMapShader.setInt("frame", 2);
+    calcHJMapShader.setInt("frameDer", 3);
 
     idepthShader.init("idepth.vs", "idepth.fs");
 
@@ -393,7 +467,10 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     //debugShader.init("debug.vs", "debug.gs", "debug.fs");
     //debugShader.use();
     //debugShader.setInt("keyframe", 0);
-    //debugShader.setInt("frame", 1);
+    //debugShader.setInt("frame", 1);}}
+
+    acc_H_map = Eigen::MatrixXf::Zero(vwidth*vheight*3, vwidth*vheight*3);
+    acc_J_map = Eigen::VectorXf::Zero(vwidth*vheight*3);
 }
 
 void mesh_vo::setKeyframeRandomIdepth(cv::Mat _keyFrame)
@@ -835,13 +912,13 @@ void mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
     {
         //float last_error = calcResidual(frameTexture,framePose,lvl);
         //std::cout << "lvl " << lvl << " error " << last_error << std::endl;
-        calcHJPose(keyframeTexture, keyframePose, frameTexture, frameDerivativeTexture, _framePose ,lvl);
+        calcHJMap(keyframeTexture, keyframeDerivativeTexture, keyframePose, frameTexture, frameDerivativeTexture, _framePose ,lvl);
         //Sophus::SE3f keyframePose;
         //calcIdepth(_framePose, lvl);
         //float residual1 = calcResidual(frameTexture, framePose, lvl);
         //Sophus::SE3f keyframePose;
         //calcIdepth(framePose, lvl);
-        showTexture(rotTexture, lvl);
+        showTexture(d_I_d_p0_Texture, lvl);
         //float residual2 = calcResidual_CPU(frameTexture, framePose, lvl);
 
         //std::cout << "residual " << residual1 << " " << residual2 << std::endl;
@@ -853,81 +930,53 @@ void mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
 
     int maxIterations[10] = {5, 20, 100, 100, 100, 100, 100, 100, 100, 100};
 
-    Eigen::Matrix<float, 6, 1> inc;
+    Eigen::VectorXf inc = Eigen::VectorXf(vwidth*vheight*3);
+    inc.setZero();
     //int lvl = 4;
     for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
     {
-        Sophus::SE3f keyframePose;
-        calcIdepth(keyframePose, lvl);
-
-        //float last_error = calcResidual_CPU(frameTexture,framePose,lvl);
         float last_error = calcResidual(keyframeTexture, keyframePose, frameTexture,framePose,lvl);
 
-        //showTexture(residualTexture, lvl);
-        //showDebug(frameTexture, framePose, 0);
-        //std::cout << "pose for lvl " << lvl << std::endl;
-        //std::cout << framePose.matrix() << std::endl;
         std::cout << "lvl " << lvl << " init error " << last_error << std::endl;
 
         for(int it = 0; it < maxIterations[lvl]; it++)
         {
-            //calcHJ_CPU(frameTexture, frameDerivativeTexture, framePose ,lvl);
-            calcHJPose(keyframeTexture, keyframePose, frameTexture, frameDerivativeTexture, framePose ,lvl);
-            showTexture(residualTexture, lvl);
+            calcHJMap(keyframeTexture, keyframeDerivativeTexture, keyframePose, frameTexture, frameDerivativeTexture, framePose ,lvl);
+            //showTexture(residualTexture, lvl);
 
             float lambda = 0.0;
             int n_try = 0;
             while(true)
             {
-                Eigen::Matrix<float, 6, 6> acc_H_pose_lambda;
-                acc_H_pose_lambda = acc_H_pose;
+                Eigen::MatrixXf acc_H_map_lambda = Eigen::MatrixXf(vwidth*vheight*3,vwidth*vheight*3);
+                acc_H_map_lambda = acc_H_map;
 
-                for(int j = 0; j < 6; j++)
-                    acc_H_pose_lambda(j,j) *= 1.0 + lambda;
+                for(int j = 0; j < vwidth*vheight; j++)
+                    acc_H_map_lambda(j,j) *= 1.0 + lambda;
 
-                //std::cout << "H " << acc_H_pose << std::endl;
-                //std::cout << "J " << acc_J_pose << std::endl;
+                inc = acc_H_map_lambda.ldlt().solve(acc_J_map);
 
-                inc = acc_H_pose_lambda.ldlt().solve(acc_J_pose);
+                for(int index=0; index < int(scene_vertices.size()); index++)
+                {
+                    scene_vertices_updated[index] = scene_vertices[index] - inc(index);
+                }
 
-                //Sophus::SE3f new_pose = framePose.inverse()*Sophus::SE3f::exp(inc).inverse();
-                //Sophus::SE3f new_pose = Sophus::SE3f::exp(inc) * framePose;
-                Sophus::SE3f new_pose = Sophus::SE3f::exp(inc).inverse() * framePose;
-                //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc);
-                //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc).inverse();
+                glBindVertexArray(scene_VAO);
+                glBindBuffer(GL_ARRAY_BUFFER, scene_VBO);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float)*scene_vertices_updated.size(), scene_vertices_updated.data());
 
-                //std::cout << "new_pose " << new_pose.matrix() << std::endl;
+                float error = calcResidual(keyframeTexture, keyframePose, frameTexture, framePose,lvl);
 
-                float error = calcResidual(keyframeTexture, keyframePose, frameTexture,new_pose,lvl);
-                //float error2 = calcResidual_CPU(frameTexture,new_pose,lvl);
-                //std::cout << "error2 " << error2 << std::endl;
                 std::cout << "lvl " << lvl << " it " << it << " try " << n_try << " lambda " << lambda << " error " << error << std::endl;
 
                 if(error < last_error)
                 {
                     std::cout << "update accepted " << std::endl;
-                    //std::cout << "lambda " << poseLambda << std::endl;
-
-                    //std::cout << "p " << p << std::endl;
-
-                    /*
-                    std::cout << "inc " << std::endl;
-                    std::cout << inc << std::endl;
-                    std::cout << "inc SE3 " << std::endl;
-                    std::cout << Sophus::SE3f::exp(inc).matrix() << std::endl;
-                    std::cout << "last pose " << std::endl;
-                    std::cout << framePose.matrix() << std::endl;
-                    std::cout << "pose " << std::endl;
-                    std::cout << new_pose.matrix() << std::endl;
-
-                    std::cin.get();
-                    */
 
                     //accept update, decrease lambda
-                    framePose = new_pose;
+                    scene_vertices = scene_vertices_updated;
 
                     float p = error / last_error;
-
 
                     if(lambda < 0.2f)
                         lambda = 0.0f;
@@ -954,6 +1003,10 @@ void mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
                         lambda = 0.2f;
                     else
                         lambda *= std::pow(2.0, n_try);
+
+                    glBindVertexArray(scene_VAO);
+                    glBindBuffer(GL_ARRAY_BUFFER, scene_VBO);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float)*scene_vertices.size(), scene_vertices.data());
 
                     //reject update, increase lambda, use un-updated data
                     std::cout << "update rejected " << std::endl;
@@ -1016,8 +1069,8 @@ void mesh_vo::calcHJPose(unsigned int keyframe, Sophus::SE3f keyframePose, unsig
     calcHJShader.setMat4("projection", projMat[lvl]);
     calcHJShader.setMat3("K", eigen2glm_mat3(K[lvl]));
     calcHJShader.setMat3("invK", eigen2glm_mat3(KInv[lvl]));
-    calcHJShader.setFloat("width", width[lvl]);
-    calcHJShader.setFloat("height", height[lvl]);
+    calcHJShader.setFloat("dx", dx[lvl]);
+    calcHJShader.setFloat("dy", dy[lvl]);
 
     glBindVertexArray(scene_VAO);
     glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
@@ -1165,13 +1218,19 @@ void mesh_vo::calcHJMap(unsigned int keyframe, unsigned int keyframeDer, Sophus:
     glViewport(0,0,width[lvl],height[lvl]);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, residualTexture, lvl);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, traTexture, lvl);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, rotTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, vertexID_Texture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, primitiveID_Texture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, residualTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, d_I_d_p0_Texture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, d_I_d_p1_Texture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, d_I_d_p2_Texture, lvl);
 
     unsigned int drawbuffers[]={GL_COLOR_ATTACHMENT0,
                                 GL_COLOR_ATTACHMENT1,
-                                GL_COLOR_ATTACHMENT2};
+                                GL_COLOR_ATTACHMENT2,
+                                GL_COLOR_ATTACHMENT3,
+                                GL_COLOR_ATTACHMENT4,
+                                GL_COLOR_ATTACHMENT5};
     glDrawBuffers(sizeof(drawbuffers)/sizeof(unsigned int), drawbuffers);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
@@ -1179,7 +1238,7 @@ void mesh_vo::calcHJMap(unsigned int keyframe, unsigned int keyframeDer, Sophus:
 
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClearColor(-1.0f, -1.0f, -1.0f, -1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glActiveTexture(GL_TEXTURE0);
@@ -1195,16 +1254,16 @@ void mesh_vo::calcHJMap(unsigned int keyframe, unsigned int keyframeDer, Sophus:
     glBindTexture(GL_TEXTURE_2D, frameDer);
 
     // activate shader
-    calcHJShader.use();
+    calcHJMapShader.use();
 
-    calcHJShader.setMat4("cameraPose", eigen2glm_mat4(framePose.matrix()));
-    calcHJShader.setMat4("opencv2opengl", opencv2opengl);
-    calcHJShader.setMat4("projection", projMat[lvl]);
-    calcHJShader.setMat3("K", eigen2glm_mat3(K[lvl]));
-    calcHJShader.setMat3("invK", eigen2glm_mat3(KInv[lvl]));
-    calcHJShader.setFloat("width", width[lvl]);
-    calcHJShader.setFloat("height", height[lvl]);
-    calcHJShader.setInt("lvl", lvl);
+    calcHJMapShader.setMat4("framePose", eigen2glm_mat4(framePose.matrix()));
+    calcHJMapShader.setMat4("keyframePose", eigen2glm_mat4(keyframePose.matrix()));
+    calcHJMapShader.setMat4("opencv2opengl", opencv2opengl);
+    calcHJMapShader.setMat4("projection", projMat[lvl]);
+    calcHJMapShader.setMat3("K", eigen2glm_mat3(K[lvl]));
+    calcHJMapShader.setMat3("invK", eigen2glm_mat3(KInv[lvl]));
+    calcHJMapShader.setFloat("dx", dx[lvl]);
+    calcHJMapShader.setFloat("dy", dy[lvl]);
 
     glBindVertexArray(scene_VAO);
     glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
@@ -1212,63 +1271,121 @@ void mesh_vo::calcHJMap(unsigned int keyframe, unsigned int keyframeDer, Sophus:
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 0, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, 0, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, 0, 0);
 
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, residualTexture);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
-    //glGenerateMipmap(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, vertexID_Texture);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA_INTEGER, GL_INT, vertexID_cpu_data);
 
-    //glBindTexture(GL_TEXTURE_2D, traTexture);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
-    //glGenerateMipmap(GL_TEXTURE_2D);
-
-    //glBindTexture(GL_TEXTURE_2D, rotTexture);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
-    //glGenerateMipmap(GL_TEXTURE_2D);
-
+    glBindTexture(GL_TEXTURE_2D, primitiveID_Texture);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RED_INTEGER, GL_INT, primitiveID_cpu_data);
 
     glBindTexture(GL_TEXTURE_2D, residualTexture);
-    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, residual_cpu_data);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, residual_cpu_data);
 
-    glBindTexture(GL_TEXTURE_2D, traTexture);
-    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RGB, GL_FLOAT, tra_cpu_data);
+    glBindTexture(GL_TEXTURE_2D, d_I_d_p0_Texture);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, d_I_d_p0_cpu_data);
 
-    glBindTexture(GL_TEXTURE_2D, rotTexture);
-    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RGB, GL_FLOAT, rot_cpu_data);
+    glBindTexture(GL_TEXTURE_2D, d_I_d_p1_Texture);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, d_I_d_p1_cpu_data);
 
+    glBindTexture(GL_TEXTURE_2D, d_I_d_p2_Texture);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, d_I_d_p2_cpu_data);
 
-    acc_J_pose.setZero();
-    acc_H_pose.setZero();
+    acc_H_map.setZero();
+    acc_J_map.setZero();
 
-    for(int index = 0; index < width[lvl]*height[lvl]; index++)
+    int count = 0;
+    for(int index = 0; index < height[lvl]*width[lvl]; index++)
     {
-        Eigen::Matrix<float, 6, 1> J_pose;
-        J_pose << tra_cpu_data[index*3], tra_cpu_data[index*3+1], tra_cpu_data[index*3+2], rot_cpu_data[index*3], rot_cpu_data[index*3+1], rot_cpu_data[index*3+2];
+        float t[3];
+        t[0] = d_I_d_p0_cpu_data[index*4];
+        t[1] = d_I_d_p0_cpu_data[index*4+1];
+        t[2] = d_I_d_p0_cpu_data[index*4+2];
 
-        float residual = residual_cpu_data[index];
+        for(int i = 0; i < 3; i++)
+          if(t[i]!=t[i])
+          {
+             std::cout << "nand! " << index << " " << t[i] << std::endl;
+          }
+        continue;
 
-        //std::cout << "J_pose " << J_pose << std::endl;
-        //std::cout << "residual " << residual << std::endl;
+        //acumular para cada pixel
+        float error = residual_cpu_data[index];
 
-        if(residual == 0.0f)
+        //cada pixel aporta 9 parametros
+        //81 coeficientes en H! (pero es simetrico, osea son: 9 diagonales y 8+7+6+5+4+3+2+1(36) no diagonales)
+        int vertexID[3];
+        vertexID[0] = vertexID_cpu_data[index*4];
+        vertexID[1] = vertexID_cpu_data[index*4+1];
+        vertexID[2] = vertexID_cpu_data[index*4+2];
+        if(vertexID[0] < 0 || vertexID[1] < 0 || vertexID[2] < 0)
             continue;
 
-        if(J_pose.norm() == 0.0f)
-            continue;
+        //std::cout << "vertices " << vertexID[0] << " " << vertexID[1] << " " << vertexID[2] << std::endl;
+        //std::cout << "error " << error << std::endl;
 
-        acc_J_pose += J_pose*residual;
+        count++;
 
-        for(int i = 0; i < 6; i++)
+        //cada vertice aporta 3 coeficientes
+        //aca calculo el indice que corresponde en acc_J y acc_H
+        int indices[9];
+        indices[0] = vertexID[0]*3;
+        indices[1] = vertexID[0]*3+1;
+        indices[2] = vertexID[0]*3+2;
+        indices[3] = vertexID[1]*3;
+        indices[4] = vertexID[1]*3+1;
+        indices[5] = vertexID[1]*3+2;
+        indices[6] = vertexID[2]*3;
+        indices[7] = vertexID[2]*3+1;
+        indices[8] = vertexID[2]*3+2;
+
+        //std::cout << "incides " << std::endl;
+        //for(int i = 0; i < 9; i++)
+        //    std::cout << indices[i] << std::endl;
+
+        float J[9];
+        J[0] = d_I_d_p0_cpu_data[index*4];
+        J[1] = d_I_d_p0_cpu_data[index*4+1];
+        J[2] = d_I_d_p0_cpu_data[index*4+2];
+
+        J[3] = d_I_d_p1_cpu_data[index*4];
+        J[4] = d_I_d_p1_cpu_data[index*4+1];
+        J[5] = d_I_d_p1_cpu_data[index*4+2];
+
+        J[6] = d_I_d_p2_cpu_data[index*4];
+        J[7] = d_I_d_p2_cpu_data[index*4+1];
+        J[8] = d_I_d_p2_cpu_data[index*4+2];
+
+        //std::cout << "J " << std::endl;
+        //for(int i = 0; i < 9; i++)
+        //    std::cout << J[i] << std::endl;
+
+        for(int i = 0; i < 9; i++)
         {
-            for(int j = 0; j < 6; j++)
+            if(J[i]!=J[i])
             {
-                acc_H_pose(i,j) += J_pose[i]*J_pose[j];
+               printf("J nand %d %d %d %d %d\n", i, index, vertexID[0], vertexID[1], vertexID[2]);
+
+            return;
             }
         }
 
-        //std::cout << "acc_J_pose " << acc_J_pose << std::endl;
-        //std::cout << "acc_J_pose " << acc_H_pose << std::endl;
+        //acc_J += J*error
+        for(int col = 0; col < 9; col++)
+        {
+            acc_J_map(indices[col]) += J[col]*error;
+            //std::cout << "acc_J " << acc_J_map(indices[col]) << std::endl;
+        }
 
+        //acc_H += J*J.transpose
+        for(int col = 0; col < 9; col++)
+            for(int row = 0; row < 9; row++)
+            {
+                acc_H_map(indices[row], indices[col]) += J[row]*J[col];
+                //std::cout << "acc_H " << acc_H_map(indices[row], indices[col]) << std::endl;
+            }
     }
 }
 
@@ -1278,6 +1395,9 @@ void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)
     {
         //calculate frame derivative
         glfwMakeContextCurrent(frameWindow);
+
+        glViewport(0,0,width[lvl],height[lvl]);
+
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
         //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frameDerivative, 0);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frameDerivative, lvl);
@@ -1315,7 +1435,8 @@ void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)
         glBindTexture(GL_TEXTURE_2D, frame);
         // activate shader
         frameDerivativeShader.use();
-        frameDerivativeShader.setInt("lvl", lvl);
+        frameDerivativeShader.setFloat("dx", dx[lvl]);
+        frameDerivativeShader.setFloat("dy", dy[lvl]);
         // render frame
         glBindVertexArray(frame_VAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
