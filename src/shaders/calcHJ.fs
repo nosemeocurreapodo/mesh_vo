@@ -16,6 +16,10 @@ uniform float dy;
 
 void main()
 {
+    //me esta causando nands en los frame buffers esto, no se porque
+    //if(v_pframe.z <= 0.0 || v_pkeyframe.z <= 0.0)
+    //  discard;
+
     vec2 uframe = (K*(v_pframe.xyz/v_pframe.z)).xy;
     vec2 ukeyframe = (K*(v_pkeyframe.xyz/v_pkeyframe.z)).xy;
 
@@ -27,6 +31,7 @@ void main()
     float kf_pixel = texture(keyframe, ukeyframeTexCoord).x;
     vec3 pframe = v_pframe;
 
+    //este no me causa nands, muy extraño!
     if(kf_pixel < 0.0 || f_pixel < 0.0)
       discard;
 

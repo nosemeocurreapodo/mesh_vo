@@ -73,7 +73,7 @@ int main(void)
 
         //std::cout << "real pose " << std::endl;
         //std::cout << realPose.matrix() << std::endl;
-        //st::cout << "est pose " << std::endl;
+        //std::cout << "est pose " << std::endl;
         //std::cout << visual_odometry.framePose.matrix() << std::endl;
 
         //cv::imshow("image", frame);

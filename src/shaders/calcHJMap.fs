@@ -45,10 +45,9 @@ uniform sampler2D frameDer;
 
 void main()
 {
-
     //if point not visible
-    if(g_pkeyframe.z <= 0.0 || g_pframe.z <= 0.0)
-      discard;
+    //if(g_pkeyframe.z <= 0.0 || g_pframe.z <= 0.0)
+    //  discard;
 
     //tambien tendria problemas si la normal tiene algun componente igual a cero, PENSAR ESTE PROBLEMA!
     if(g_N_p0.x == 0.0 || g_N_p0.y == 0.0 || g_N_p0.z == 0.0)
@@ -161,8 +160,7 @@ void main()
     f_vertexID = ivec4(g_vertexID[0], g_vertexID[1], g_vertexID[2], 1);
     f_primitiveID = gl_PrimitiveID;
     f_error = error;
-    //f_d_I_d_p0 = vec4(d_I_d_p0, 1.0);
-    f_d_I_d_p0 = vec4(dkeyframe, 0.0, 1.0);
+    f_d_I_d_p0 = vec4(d_I_d_p0, 1.0);
     f_d_I_d_p1 = vec4(d_I_d_p1, 1.0);
     f_d_I_d_p2 = vec4(d_I_d_p2, 1.0);
 }
