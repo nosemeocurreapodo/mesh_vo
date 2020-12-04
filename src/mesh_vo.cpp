@@ -57,7 +57,7 @@ glm::mat4 create_glm_prj_matrix(float fx, float fy, float cx, float cy, float w,
     return projmat;
 }
 
-mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height)
+mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
 {
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
@@ -69,16 +69,26 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
         dx[lvl] = 1.0/width[lvl];
         dy[lvl] = 1.0/height[lvl];
 
-        K[lvl] = Eigen::Matrix3f::Zero();
-        K[lvl](0,0) = fx/scale;
-        K[lvl](1,1) = fy/scale;
-        K[lvl](2,2) = 1.0f;
-        K[lvl](0,2) = cx/scale;
-        K[lvl](1,2) = cy/scale;
+        Eigen::Matrix3f K = Eigen::Matrix3f::Zero();
+        K(0,0) = _fx/scale;
+        K(1,1) = _fy/scale;
+        K(2,2) = 1.0f;
+        K(0,2) = _cx/scale;
+        K(1,2) = _cy/scale;
 
-        KInv[lvl] = K[lvl].inverse();
+        fx[lvl] = K(0,0);
+        fy[lvl] = K(1,1);
+        cx[lvl] = K(0,2);
+        cy[lvl] = K(1,2);
 
-        projMat[lvl] = create_glm_prj_matrix(fx/scale, fy/scale, cx/scale, cy/scale, _width/scale, _height/scale, 0.0001, 10000.0);
+        Eigen::Matrix3f KInv = K.inverse();
+
+        fxinv[lvl] = KInv(0,0);
+        fyinv[lvl] = KInv(1,1);
+        cxinv[lvl] = KInv(0,2);
+        cyinv[lvl] = KInv(1,2);
+
+        projMat[lvl] = create_glm_prj_matrix(_fx/scale, _fy/scale, _cx/scale, _cy/scale, _width/scale, _height/scale, 0.0001, 10000.0);
     }
 
     opencv2opengl = glm::mat4(1.0f);
@@ -449,8 +459,9 @@ mesh_vo::mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height
     calcHJShader.init("calcHJ.vs", "calcHJ.fs");
     calcHJShader.use();
     calcHJShader.setInt("keyframe", 0);
-    calcHJShader.setInt("frame", 1);
-    calcHJShader.setInt("frameDer", 2);
+    calcHJShader.setInt("keyframeDer", 1);
+    calcHJShader.setInt("frame", 2);
+    calcHJShader.setInt("frameDer", 3);
 
     calcHJMapShader.init("calcHJMap.vs", "calcHJMap.gs", "calcHJMap.fs");
     calcHJMapShader.use();
@@ -493,7 +504,7 @@ void mesh_vo::setKeyframeRandomIdepth(cv::Mat _keyFrame)
             float xi = (float(x)/float(vwidth-1))*width[0];
             float yi = (float(y)/float(vheight-1))*height[0];
             Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
-            Eigen::Vector3f p = KInv[0]*(u/idepth);
+            Eigen::Vector3f p = Eigen::Vector3f(fxinv[0]*u(0) + cxinv[0], fyinv[0]*u(1) + cyinv[0], 1.0)/idepth;
 
             scene_vertices.push_back(p(0));
             scene_vertices.push_back(p(1));
@@ -551,7 +562,7 @@ void mesh_vo::setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth)
             float idepth = std::max(_idepth.at<float>(yi,xi), 0.001f);
 
             Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
-            Eigen::Vector3f p = KInv[0]*(u/idepth);
+            Eigen::Vector3f p = Eigen::Vector3f(fxinv[0]*u(0) + cxinv[0], fyinv[0]*u(1) + cyinv[0], 1.0)/idepth;
 
             scene_vertices.push_back(p(0));
             scene_vertices.push_back(p(1));
@@ -630,11 +641,13 @@ float mesh_vo::calcResidual(unsigned int keyframe, Sophus::SE3f keyframePose, un
     residualShader.setMat4("keyframePose", eigen2glm_mat4(keyframePose.matrix()));
     residualShader.setMat4("opencv2opengl", opencv2opengl);
     residualShader.setMat4("projection", projMat[lvl]);
-    residualShader.setMat3("K", eigen2glm_mat3(K[lvl]));
-    residualShader.setMat3("invK", eigen2glm_mat3(KInv[lvl]));
-    residualShader.setFloat("width", width[lvl]);
-    residualShader.setFloat("height", height[lvl]);
-    residualShader.setInt("lvl", lvl);
+    residualShader.setFloat("fx", fx[lvl]);
+    residualShader.setFloat("fy", fy[lvl]);
+    residualShader.setFloat("cx", cx[lvl]);
+    residualShader.setFloat("cy", cy[lvl]);
+
+    residualShader.setFloat("dx", dx[lvl]);
+    residualShader.setFloat("dy", dy[lvl]);
 
     glBindVertexArray(scene_VAO);
     glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
@@ -684,13 +697,13 @@ float mesh_vo::calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int 
              if(keyframeId <= 0.0)
                  continue;
 
-             Eigen::Vector3f poinKeyframe = (KInv[lvl]*Eigen::Vector3f(x,y,1.0))/keyframeId;
+             Eigen::Vector3f poinKeyframe = Eigen::Vector3f(fxinv[lvl]*float(x)+cxinv[lvl],fyinv[lvl]*float(y)+cyinv[lvl],1.0)/keyframeId;
              Eigen::Vector3f pointFrame = framePose*poinKeyframe;
 
              if(pointFrame(2) <= 0.0)
                  continue;
 
-             Eigen::Vector3f pixelFrame = K[lvl]*(pointFrame/pointFrame(2));
+             Eigen::Vector3f pixelFrame = Eigen::Vector3f(fx[lvl]*pointFrame(0)/pointFrame(2)+cx[lvl],fy[lvl]*pointFrame(1)/pointFrame(2)+cy[lvl],1.0);
 
              if(pixelFrame(0) < 0.0 || pixelFrame(0) >= width[lvl] || pixelFrame(1) < 0 || pixelFrame(1) >= height[lvl])
                  continue;
@@ -760,13 +773,13 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
     {
         //float last_error = calcResidual(frameTexture,framePose,lvl);
         //std::cout << "lvl " << lvl << " error " << last_error << std::endl;
-        calcHJPose(keyframeTexture, keyframePose, frameTexture, frameDerivativeTexture, framePose ,lvl);
+        calcHJPose(keyframeTexture, keyframeDerivativeTexture, keyframePose, frameTexture, frameDerivativeTexture, framePose ,lvl);
         //Sophus::SE3f keyframePose;
         //calcIdepth(keyframePose, lvl);
         //float residual1 = calcResidual(keyframeTexture, keyframePose, frameTexture, framePose, lvl);
         //Sophus::SE3f keyframePose;
         //calcIdepth(framePose, lvl);
-        showTexture(traTexture, lvl);
+        showTexture(residualTexture, lvl);
         //std::cout << "residual" << residual1 << std::endl;
         //float residual2 = calcResidual_CPU(frameTexture, framePose, lvl);
 
@@ -798,7 +811,7 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
         for(int it = 0; it < maxIterations[lvl]; it++)
         {
             //calcHJPose_CPU(frameTexture, frameDerivativeTexture, framePose ,lvl);
-            calcHJPose(keyframeTexture, keyframePose, frameTexture, frameDerivativeTexture, framePose ,lvl);
+            calcHJPose(keyframeTexture, keyframeDerivativeTexture, keyframePose, frameTexture, frameDerivativeTexture, framePose ,lvl);
             showTexture(residualTexture, lvl);
 
             float lambda = 0.0;
@@ -818,8 +831,8 @@ Sophus::SE3f mesh_vo::updatePose(cv::Mat _frame)
 
                 //Sophus::SE3f new_pose = framePose.inverse()*Sophus::SE3f::exp(inc).inverse();
                 //Sophus::SE3f new_pose = Sophus::SE3f::exp(inc) * framePose;
-                Sophus::SE3f new_pose = Sophus::SE3f::exp(inc).inverse() * framePose;
-                //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc);
+                //Sophus::SE3f new_pose = Sophus::SE3f::exp(inc).inverse() * framePose;
+                Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc);
                 //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc).inverse();
 
                 //std::cout << "new_pose " << new_pose.matrix() << std::endl;
@@ -907,35 +920,35 @@ void mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
 
     frameDerivative(frameTexture, frameDerivativeTexture);
 
-    /*
-    int lvl = 0;
-    //for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
-    {
-        //float last_error = calcResidual(frameTexture,framePose,lvl);
-        //std::cout << "lvl " << lvl << " error " << last_error << std::endl;
-        calcHJMap(keyframeTexture, keyframeDerivativeTexture, keyframePose, frameTexture, frameDerivativeTexture, _framePose ,lvl);
-        //Sophus::SE3f keyframePose;
-        //calcIdepth(_framePose, lvl);
-        //float residual1 = calcResidual(frameTexture, framePose, lvl);
-        //Sophus::SE3f keyframePose;
-        //calcIdepth(framePose, lvl);
-        showTexture(d_I_d_p0_Texture, lvl);
-        //float residual2 = calcResidual_CPU(frameTexture, framePose, lvl);
 
-        //std::cout << "residual " << residual1 << " " << residual2 << std::endl;
-        //showDebug(frameTexture, framePose, lvl2);
-        //cv::waitKey(30);
-    }
+    int lvl = 0;
+
+    /*
+    //float last_error = calcResidual(frameTexture,framePose,lvl);
+    //std::cout << "lvl " << lvl << " error " << last_error << std::endl;
+    calcHJMap(keyframeTexture, keyframeDerivativeTexture, keyframePose, frameTexture, frameDerivativeTexture, _framePose ,lvl);
+    //Sophus::SE3f keyframePose;
+    //calcIdepth(_framePose, lvl);
+    //float residual1 = calcResidual(frameTexture, framePose, lvl);
+    //Sophus::SE3f keyframePose;
+    //calcIdepth(framePose, lvl);
+    showTexture(d_I_d_p0_Texture, lvl);
+    //float residual2 = calcResidual_CPU(frameTexture, framePose, lvl);
+
+    //std::cout << "residual " << residual1 << " " << residual2 << std::endl;
+    //showDebug(frameTexture, framePose, lvl2);
+    //cv::waitKey(30);
+
     return;
     */
 
 
     Eigen::VectorXf inc = Eigen::VectorXf(vwidth*vheight*3);
     inc.setZero();
-    int lvl = 0;
 
     float last_error = calcResidual(keyframeTexture, keyframePose, frameTexture,_framePose,lvl);
-    showTexture(residualTexture, lvl);
+    calcIdepth(_framePose, 0);
+    showTexture(idepthTexture, lvl);
 
     std::cout << "lvl " << lvl << " init error " << last_error << std::endl;
 
@@ -955,7 +968,8 @@ void mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
             for(int j = 0; j < vwidth*vheight; j++)
                 acc_H_map_lambda(j,j) *= 1.0 + lambda;
 
-            inc = acc_H_map_lambda.ldlt().solve(acc_J_map);
+            //inc = acc_H_map_lambda.ldlt().solve(acc_J_map);
+            inc = acc_J_map/(1.0+lambda);
 
             for(int index=0; index < int(scene_vertices.size()); index++)
             {
@@ -1028,7 +1042,7 @@ void mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
 }
 
 
-void mesh_vo::calcHJPose(unsigned int keyframe, Sophus::SE3f keyframePose, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
+void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, Sophus::SE3f keyframePose, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
 {   
     glfwMakeContextCurrent(frameWindow);
 
@@ -1056,9 +1070,12 @@ void mesh_vo::calcHJPose(unsigned int keyframe, Sophus::SE3f keyframePose, unsig
     glBindTexture(GL_TEXTURE_2D, keyframe);
 
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, frame);
+    glBindTexture(GL_TEXTURE_2D, keyframeDer);
 
     glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, frame);
+
+    glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_2D, frameDer);
 
     // activate shader
@@ -1068,8 +1085,10 @@ void mesh_vo::calcHJPose(unsigned int keyframe, Sophus::SE3f keyframePose, unsig
     calcHJShader.setMat4("keyframePose", eigen2glm_mat4(keyframePose.matrix()));
     calcHJShader.setMat4("opencv2opengl", opencv2opengl);
     calcHJShader.setMat4("projection", projMat[lvl]);
-    calcHJShader.setMat3("K", eigen2glm_mat3(K[lvl]));
-    calcHJShader.setMat3("invK", eigen2glm_mat3(KInv[lvl]));
+    calcHJShader.setFloat("fx", fx[lvl]);
+    calcHJShader.setFloat("fy", fy[lvl]);
+    calcHJShader.setFloat("cx", cx[lvl]);
+    calcHJShader.setFloat("cy", cy[lvl]);
     calcHJShader.setFloat("dx", dx[lvl]);
     calcHJShader.setFloat("dy", dy[lvl]);
 
@@ -1174,13 +1193,13 @@ void mesh_vo::calcHJPose_CPU(unsigned int frame, unsigned int frameDer, Sophus::
 
             float vkf = keyframe_cpu_data[index];
 
-            Eigen::Vector3f poinKeyframe = (KInv[lvl]*Eigen::Vector3f(x,y,1.0))/keyframeId;
+            Eigen::Vector3f poinKeyframe = Eigen::Vector3f(fxinv[lvl]*float(x)+cxinv[lvl],fyinv[lvl]*float(y)+cyinv[lvl],1.0)/keyframeId;
             Eigen::Vector3f pointFrame = framePose*poinKeyframe;
 
             if(pointFrame(2) <= 0.0)
                 continue;
 
-            Eigen::Vector3f pixelFrame = (K[lvl]*pointFrame)/pointFrame(2);
+            Eigen::Vector2f pixelFrame = Eigen::Vector2f(fx[lvl]*pointFrame(0)/pointFrame(2)+cx[lvl],fy[lvl]*pointFrame(1)/pointFrame(2)+cy[lvl]);
 
             if(pixelFrame(0) < 0.0 || pixelFrame(0) >= width[lvl] || pixelFrame(1) < 0.0 || pixelFrame(1) >= height[lvl])
                 continue;
@@ -1194,8 +1213,8 @@ void mesh_vo::calcHJPose_CPU(unsigned int frame, unsigned int frameDer, Sophus::
 
             float id = 1.0/pointFrame(2);
 
-            float v0 = d_f_d_uf(0) * K[lvl](0,0) * id;
-            float v1 = d_f_d_uf(1) * K[lvl](1,1) * id;
+            float v0 = d_f_d_uf(0) * fx[lvl] * id;
+            float v1 = d_f_d_uf(1) * fy[lvl] * id;
             float v2 = -(v0 * pointFrame(0) + v1 * pointFrame(1)) * id;
             //std::cout << 9 << std::endl;
             Eigen::Vector3f d_I_d_tra = Eigen::Vector3f(v0, v1, v2);
@@ -1266,10 +1285,17 @@ void mesh_vo::calcHJMap(unsigned int keyframe, unsigned int keyframeDer, Sophus:
 
     calcHJMapShader.setMat4("framePose", eigen2glm_mat4(framePose.matrix()));
     calcHJMapShader.setMat4("keyframePose", eigen2glm_mat4(keyframePose.matrix()));
+    calcHJMapShader.setMat4("frame2keyframePose", eigen2glm_mat4((keyframePose.inverse()*framePose).matrix()));
     calcHJMapShader.setMat4("opencv2opengl", opencv2opengl);
     calcHJMapShader.setMat4("projection", projMat[lvl]);
-    calcHJMapShader.setMat3("K", eigen2glm_mat3(K[lvl]));
-    calcHJMapShader.setMat3("invK", eigen2glm_mat3(KInv[lvl]));
+    calcHJMapShader.setFloat("fx", fx[lvl]);
+    calcHJMapShader.setFloat("fy", fy[lvl]);
+    calcHJMapShader.setFloat("cx", cx[lvl]);
+    calcHJMapShader.setFloat("cy", cy[lvl]);
+    calcHJMapShader.setFloat("fxinv", fxinv[lvl]);
+    calcHJMapShader.setFloat("fyinv", fyinv[lvl]);
+    calcHJMapShader.setFloat("cxinv", cxinv[lvl]);
+    calcHJMapShader.setFloat("cyinv", cyinv[lvl]);
     calcHJMapShader.setFloat("dx", dx[lvl]);
     calcHJMapShader.setFloat("dy", dy[lvl]);
 
@@ -1509,8 +1535,14 @@ void mesh_vo::showDebug(unsigned int frame, Sophus::SE3f framePose, int lvl)
     debugShader.setMat4("cameraPose", eigen2glm_mat4(framePose.matrix()));
     debugShader.setMat4("opencv2opengl", opencv2opengl);
     debugShader.setMat4("projection", projMat[lvl]);
-    debugShader.setMat3("K", eigen2glm_mat3(K[lvl]));
-    debugShader.setMat3("invK", eigen2glm_mat3(KInv[lvl]));
+    debugShader.setFloat("fx", fx[lvl]);
+    debugShader.setFloat("fy", fy[lvl]);
+    debugShader.setFloat("cx", cx[lvl]);
+    debugShader.setFloat("cy", cy[lvl]);
+    debugShader.setFloat("fxinv", fxinv[lvl]);
+    debugShader.setFloat("fyinv", fyinv[lvl]);
+    debugShader.setFloat("cxinv", cxinv[lvl]);
+    debugShader.setFloat("cyinv", cyinv[lvl]);
     debugShader.setFloat("width", width[lvl]);
     debugShader.setFloat("height", height[lvl]);
     debugShader.setInt("lvl", lvl);

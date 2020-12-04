@@ -24,7 +24,7 @@
 class mesh_vo
 {
 public:
-    mesh_vo(float fx, float fy, float cx, float cy, int _width, int _height);
+    mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _height);
 
     void setKeyframeRandomIdepth(cv::Mat _keyFrame);
     void setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth);
@@ -97,8 +97,15 @@ private:
     Shader debugShader;
     Shader idepthShader;
 
-    Eigen::Matrix3f K[MAX_LEVELS];
-    Eigen::Matrix3f KInv[MAX_LEVELS];
+    float fx[MAX_LEVELS];
+    float fy[MAX_LEVELS];
+    float cx[MAX_LEVELS];
+    float cy[MAX_LEVELS];
+
+    float fxinv[MAX_LEVELS];
+    float fyinv[MAX_LEVELS];
+    float cxinv[MAX_LEVELS];
+    float cyinv[MAX_LEVELS];
 
     int width[MAX_LEVELS], height[MAX_LEVELS];
     float dx[MAX_LEVELS], dy[MAX_LEVELS];
@@ -117,7 +124,7 @@ private:
     float calcResidual(unsigned int keyframe, Sophus::SE3f keyframePose, unsigned int frame, Sophus::SE3f framePose, int lvl);
     float calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int lvl);
 
-    void calcHJPose(unsigned int keyframe, Sophus::SE3f keyframePose, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
+    void calcHJPose(unsigned int keyframe, unsigned int keyframeDer, Sophus::SE3f keyframePose, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
     void calcHJPose_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
 
     void calcHJMap(unsigned int keyframe, unsigned int keyframeDer, Sophus::SE3f keyframePose, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
