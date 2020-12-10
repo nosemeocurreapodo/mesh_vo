@@ -2,32 +2,28 @@
 layout(location = 0) out ivec4 f_vertexID;
 layout(location = 1) out int f_primitiveID;
 layout(location = 2) out float f_error;
-layout(location = 3) out vec4 f_d_I_d_p0;
-layout(location = 4) out vec4 f_d_I_d_p1;
-layout(location = 5) out vec4 f_d_I_d_p2;
+layout(location = 3) out float f_d_I_d_z0;
+layout(location = 4) out float f_d_I_d_z1;
+layout(location = 5) out float f_d_I_d_z2;
 
 in vec3 g_pframe;
 in vec3 g_pkeyframe;
-in vec3 g_pworld;
 
 flat in int g_vertexID[3];
 
 flat in vec3 g_N_p0;
-flat in vec3 g_Nb_p0;
-flat in mat3 g_R_d_N_d_p0;
-flat in float g_Nb_p0_dot_point;
+flat in mat3 g_d_N_d_p0;
+flat in float g_N_p0_dot_point;
 flat in vec3 g_pr_p0;
 
 flat in vec3 g_N_p1;
-flat in vec3 g_Nb_p1;
-flat in mat3 g_R_d_N_d_p1;
-flat in float g_Nb_p1_dot_point;
+flat in mat3 g_d_N_d_p1;
+flat in float g_N_p1_dot_point;
 flat in vec3 g_pr_p1;
 
 flat in vec3 g_N_p2;
-flat in vec3 g_Nb_p2;
-flat in mat3 g_R_d_N_d_p2;
-flat in float g_Nb_p2_dot_point;
+flat in mat3 g_d_N_d_p2;
+flat in float g_N_p2_dot_point;
 flat in vec3 g_pr_p2;
 
 
@@ -45,8 +41,6 @@ uniform float cxinv;
 uniform float cyinv;
 
 uniform mat4 framePose;
-uniform mat4 keyframePose;
-uniform mat4 frame2keyframePose;
 
 // texture samplers
 uniform sampler2D keyframe;
@@ -75,35 +69,35 @@ void main()
     //if(ikeyframe < 0.0 || iframe < 0.0)
     //  discard;
 
-    vec3 d_I_d_pkeyframe = vec3(0);
-    d_I_d_pkeyframe.x = dkeyframe.x*fx/g_pkeyframe.z;
-    d_I_d_pkeyframe.y = dkeyframe.y*fy/g_pkeyframe.z;
-    d_I_d_pkeyframe.z = -(d_I_d_pkeyframe.x*g_pkeyframe.x/g_pkeyframe.z + d_I_d_pkeyframe.y*g_pkeyframe.y/g_pkeyframe.z);
+    vec3 d_I_d_pframe = vec3(0);
+    d_I_d_pframe.x = dframe.x*fx/g_pframe.z;
+    d_I_d_pframe.y = dframe.y*fy/g_pframe.z;
+    d_I_d_pframe.z = -(d_I_d_pframe.x*g_pframe.x/g_pframe.z + d_I_d_pframe.y*g_pframe.y/g_pframe.z);
 
-    vec3 rayframe = g_pframe/g_pframe.z;
+    vec3 raykeyframe = g_pkeyframe/g_pkeyframe.z;
 
-    vec3 d_pkeyframe_d_z = mat3(frame2keyframePose)*rayframe;
+    vec3 d_pframe_d_z = mat3(framePose)*raykeyframe;
 
-    float d_I_d_z = dot(d_I_d_pkeyframe,d_pkeyframe_d_z);
+    float d_I_d_z = dot(d_I_d_pframe,d_pframe_d_z);
 
-    float Nb_p0_dot_ray = dot(g_Nb_p0,rayframe);
-    float Nb_p1_dot_ray = dot(g_Nb_p1,rayframe);
-    float Nb_p2_dot_ray = dot(g_Nb_p2,rayframe);
+    float N_p0_dot_ray = dot(g_N_p0,raykeyframe);
+    float N_p1_dot_ray = dot(g_N_p1,raykeyframe);
+    float N_p2_dot_ray = dot(g_N_p2,raykeyframe);
 
-    vec3 d_z_d_p0 = g_R_d_N_d_p0*(g_pr_p0/Nb_p0_dot_ray - g_Nb_p0_dot_point*rayframe/(Nb_p0_dot_ray*Nb_p0_dot_ray));
-    vec3 d_z_d_p1 = g_R_d_N_d_p1*(g_pr_p1/Nb_p1_dot_ray - g_Nb_p1_dot_point*rayframe/(Nb_p1_dot_ray*Nb_p1_dot_ray));
-    vec3 d_z_d_p2 = g_R_d_N_d_p2*(g_pr_p2/Nb_p2_dot_ray - g_Nb_p2_dot_point*rayframe/(Nb_p2_dot_ray*Nb_p2_dot_ray));
+    float d_z_d_z0 = dot(g_d_N_d_z0,g_pr_p0)/N_p0_dot_ray - g_N_p0_dot_point*dot(g_d_N_d_z0,raykeyframe)/(N_p0_dot_ray*N_p0_dot_ray));
+    float d_z_d_z1 = dot(g_d_N_d_z1,g_pr_p1)/N_p1_dot_ray - g_N_p1_dot_point*dot(g_d_N_d_z1,raykeyframe)/(N_p1_dot_ray*N_p1_dot_ray));
+    float d_z_d_z2 = dot(g_d_N_d_z2,g_pr_p2)/N_p2_dot_ray - g_N_p2_dot_point*dot(g_d_N_d_z2,raykeyframe)/(N_p2_dot_ray*N_p2_dot_ray));
 
-    vec3 d_I_d_p0 = d_I_d_z*d_z_d_p0;
-    vec3 d_I_d_p1 = d_I_d_z*d_z_d_p1;
-    vec3 d_I_d_p2 = d_I_d_z*d_z_d_p2;
+    float d_I_d_z0 = d_I_d_z*d_z_d_z0;
+    float d_I_d_z1 = d_I_d_z*d_z_d_z1;
+    float d_I_d_z2 = d_I_d_z*d_z_d_z2;
 
-    float error = ikeyframe - iframe;
+    float error = iframe - ikeyframe;
 
     f_vertexID = ivec4(g_vertexID[0], g_vertexID[1], g_vertexID[2], 1);
     f_primitiveID = gl_PrimitiveID;
     f_error = error;
-    f_d_I_d_p0 = vec4(d_I_d_p0, 1.0);
-    f_d_I_d_p1 = vec4(d_I_d_p1, 1.0);
-    f_d_I_d_p2 = vec4(d_I_d_p2, 1.0);
+    f_d_I_d_z0 = d_I_d_z0;
+    f_d_I_d_z1 = d_I_d_z1;
+    f_d_I_d_z2 = d_I_d_z2;
 }

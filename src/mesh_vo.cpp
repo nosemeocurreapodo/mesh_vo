@@ -404,7 +404,7 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width[0], height[0], 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     glGenTextures(1, &d_I_d_p1_Texture);
@@ -416,7 +416,7 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width[0], height[0], 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     glGenTextures(1, &d_I_d_p2_Texture);
@@ -428,7 +428,7 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width[0], height[0], 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     keyframe_cpu_data = new GLfloat[width[0]*height[0]];
@@ -443,9 +443,9 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     vertexID_cpu_data = new GLint[width[0]*height[0]*4];
     primitiveID_cpu_data = new GLint[width[0]*height[0]];
 
-    d_I_d_p0_cpu_data = new GLfloat[width[0]*height[0]*4];
-    d_I_d_p1_cpu_data = new GLfloat[width[0]*height[0]*4];
-    d_I_d_p2_cpu_data = new GLfloat[width[0]*height[0]*4];
+    d_I_d_p0_cpu_data = new GLfloat[width[0]*height[0]];
+    d_I_d_p1_cpu_data = new GLfloat[width[0]*height[0]];
+    d_I_d_p2_cpu_data = new GLfloat[width[0]*height[0]];
 
     frameDerivativeShader.init("frameDerivative.vs", "frameDerivative.fs");
     frameDerivativeShader.use();
@@ -481,8 +481,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     //debugShader.setInt("keyframe", 0);
     //debugShader.setInt("frame", 1);}}
 
-    acc_H_map = Eigen::MatrixXf::Zero(vwidth*vheight*3, vwidth*vheight*3);
-    acc_J_map = Eigen::VectorXf::Zero(vwidth*vheight*3);
+    //acc_H_map = Eigen::MatrixXf::Zero(vwidth*vheight*3, vwidth*vheight*3);
+    //acc_J_map = Eigen::VectorXf::Zero(vwidth*vheight*3);
 }
 
 void mesh_vo::setKeyframeRandomIdepth(cv::Mat _keyFrame)
@@ -506,8 +506,8 @@ void mesh_vo::setKeyframeRandomIdepth(cv::Mat _keyFrame)
             Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
             Eigen::Vector3f p = Eigen::Vector3f(fxinv[0]*u(0) + cxinv[0], fyinv[0]*u(1) + cyinv[0], 1.0)/idepth;
 
-            scene_vertices.push_back(p(0));
-            scene_vertices.push_back(p(1));
+            scene_vertices.push_back(u(0));
+            scene_vertices.push_back(u(1));
             scene_vertices.push_back(p(2));
 
 //            scene_vertices.push_back(xi);
@@ -564,8 +564,8 @@ void mesh_vo::setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth)
             Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
             Eigen::Vector3f p = Eigen::Vector3f(fxinv[0]*u(0) + cxinv[0], fyinv[0]*u(1) + cyinv[0], 1.0)/idepth;
 
-            scene_vertices.push_back(p(0));
-            scene_vertices.push_back(p(1));
+            scene_vertices.push_back(u(0));
+            scene_vertices.push_back(u(1));
             scene_vertices.push_back(p(2));
 
             //scene_vertices.push_back(xi);
@@ -971,10 +971,19 @@ void mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
             //inc = acc_H_map_lambda.ldlt().solve(acc_J_map);
             inc = acc_J_map/(1.0+lambda);
 
+            for(int index=0; index < int(acc_id_map.rows()); index++)
+            {
+                int data_id = acc_id_map[index];
+                //solamente actualizo los valores de profundidad
+                scene_vertices_updated[data_id*3+2] = scene_vertices[data_id*3+2] - inc(index);
+            }
+
+            /*
             for(int index=0; index < int(scene_vertices.size()); index++)
             {
                 scene_vertices_updated[index] = scene_vertices[index] - inc(index);
             }
+            */
 
             glBindVertexArray(scene_VAO);
             glBindBuffer(GL_ARRAY_BUFFER, scene_VBO);
@@ -1319,23 +1328,24 @@ void mesh_vo::calcHJMap(unsigned int keyframe, unsigned int keyframeDer, Sophus:
     glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, residual_cpu_data);
 
     glBindTexture(GL_TEXTURE_2D, d_I_d_p0_Texture);
-    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RGBA, GL_FLOAT, d_I_d_p0_cpu_data);
+    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, d_I_d_p0_cpu_data);
 
     glBindTexture(GL_TEXTURE_2D, d_I_d_p1_Texture);
-    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RGBA, GL_FLOAT, d_I_d_p1_cpu_data);
+    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, d_I_d_p1_cpu_data);
 
     glBindTexture(GL_TEXTURE_2D, d_I_d_p2_Texture);
-    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RGBA, GL_FLOAT, d_I_d_p2_cpu_data);
+    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, d_I_d_p2_cpu_data);
 
     glBindTexture(GL_TEXTURE_2D, frameDerivativeTexture);
     glGetTexImage(GL_TEXTURE_2D, lvl, GL_RG, GL_FLOAT, frameDer_cpu_data);
 
-    acc_H_map.setZero();
-    acc_J_map.setZero();
+    Eigen::MatrixXf v_acc_H_map;// = Eigen::MatrixXf::Zero(1, 1);
+    Eigen::VectorXf v_acc_J_map;// = Eigen::VectorXf::Zero(1);
+    Eigen::VectorXi v_acc_id_map;
 
-    int count = 0;
     for(int index = 0; index < height[lvl]*width[lvl]; index++)
     {
+        //std::cout << "pixel index " << index << std::endl;
         //acumular para cada pixel
         float error = residual_cpu_data[index];
 
@@ -1354,46 +1364,20 @@ void mesh_vo::calcHJMap(unsigned int keyframe, unsigned int keyframeDer, Sophus:
         if(vertexID[0] < 0 || vertexID[1] < 0 || vertexID[2] < 0)
             continue;
 
+        //std::cout << "updating vertex " << vertexID[0] << " " << vertexID[1] << " " << vertexID[2] << std::endl;
         //std::cout << "vertices " << vertexID[0] << " " << vertexID[1] << " " << vertexID[2] << std::endl;
         //std::cout << "error " << error << std::endl;
-
-        count++;
-
-        //cada vertice aporta 3 coeficientes
-        //aca calculo el indice que corresponde en acc_J y acc_H
-        int indices[9];
-        indices[0] = vertexID[0]*3;
-        indices[1] = vertexID[0]*3+1;
-        indices[2] = vertexID[0]*3+2;
-        indices[3] = vertexID[1]*3;
-        indices[4] = vertexID[1]*3+1;
-        indices[5] = vertexID[1]*3+2;
-        indices[6] = vertexID[2]*3;
-        indices[7] = vertexID[2]*3+1;
-        indices[8] = vertexID[2]*3+2;
 
         //std::cout << "incides " << std::endl;
         //for(int i = 0; i < 9; i++)
         //    std::cout << indices[i] << std::endl;
 
-        float J[9];
-        J[0] = d_I_d_p0_cpu_data[index*4];
-        J[1] = d_I_d_p0_cpu_data[index*4+1];
-        J[2] = d_I_d_p0_cpu_data[index*4+2];
+        float J[3];
+        J[0] = d_I_d_p0_cpu_data[index];
+        J[1] = d_I_d_p1_cpu_data[index];
+        J[2] = d_I_d_p2_cpu_data[index];
 
-        J[3] = d_I_d_p1_cpu_data[index*4];
-        J[4] = d_I_d_p1_cpu_data[index*4+1];
-        J[5] = d_I_d_p1_cpu_data[index*4+2];
-
-        J[6] = d_I_d_p2_cpu_data[index*4];
-        J[7] = d_I_d_p2_cpu_data[index*4+1];
-        J[8] = d_I_d_p2_cpu_data[index*4+2];
-
-        //std::cout << "J " << std::endl;
-        //for(int i = 0; i < 9; i++)
-        //    std::cout << J[i] << std::endl;
-
-        for(int i = 0; i < 9; i++)
+        for(int i = 0; i < 3; i++)
         {
             if(J[i]!=J[i])
             {
@@ -1402,21 +1386,50 @@ void mesh_vo::calcHJMap(unsigned int keyframe, unsigned int keyframeDer, Sophus:
             }
         }
 
-        //acc_J += J*error
-        for(int col = 0; col < 9; col++)
+        //me fijo si el vertice ya esta entre los datos
+        //si ya esta, guardo el indice
+        int vertex_index[] = {-1,-1,-1};
+        for(int i = 0; i < int(v_acc_id_map.rows()); i++)
         {
-            acc_J_map(indices[col]) += J[col]*error;
-            //std::cout << "acc_J " << acc_J_map(indices[col]) << std::endl;
+            //std::cout << "checking existing vertex " << up_vertex_id[i] << std::endl;
+            if(vertexID[0] == v_acc_id_map[i])
+                vertex_index[0] = i;
+            if(vertexID[1] == v_acc_id_map[i])
+                vertex_index[1] = i;
+            if(vertexID[2] == v_acc_id_map[i])
+                vertex_index[2] = i;
         }
 
-        //acc_H += J*J.transpose
-        for(int col = 0; col < 9; col++)
-            for(int row = 0; row < 9; row++)
+        for(int i = 0; i < 3; i++)
+        {
+            //si no estaba el vertices, agrando las matrices y guardo el nuevo vertice y el nuevo indice
+            if(vertex_index[i] == -1)
             {
-                acc_H_map(indices[row], indices[col]) += J[row]*J[col];
-                //std::cout << "acc_H " << acc_H_map(indices[row], indices[col]) << std::endl;
+                //std::cout << "new vertex! " << vertexID[i] << std::endl;
+                v_acc_J_map.conservativeResize(v_acc_J_map.rows()+1);
+                v_acc_H_map.conservativeResize(v_acc_H_map.rows()+1, v_acc_H_map.cols()+1);
+                v_acc_id_map.conservativeResize(v_acc_id_map.rows()+1);
+
+                vertex_index[i] = v_acc_id_map.rows()-1;
+
+                v_acc_id_map[vertex_index[i]] = vertexID[i];
             }
+        }
+
+        //ahora si, actualizo las matrices usando los indices de cada vertice
+        for(int i = 0; i < 3; i++)
+        {
+            v_acc_J_map(vertex_index[i]) += J[i]*error;
+            for(int j = 0; j < 3; j++)
+            {
+                v_acc_H_map(vertex_index[i], vertex_index[j]) += J[i]*J[j];
+            }
+        }
     }
+
+    acc_H_map = v_acc_H_map;
+    acc_J_map = v_acc_J_map;
+    acc_id_map = v_acc_id_map;
 }
 
 void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)

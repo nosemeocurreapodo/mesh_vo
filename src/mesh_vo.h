@@ -118,6 +118,7 @@ private:
 
     Eigen::MatrixXf acc_H_map;
     Eigen::VectorXf acc_J_map;
+    Eigen::VectorXi acc_id_map;
 
     void calcIdepth(Sophus::SE3f framePose, int lvl);
 
