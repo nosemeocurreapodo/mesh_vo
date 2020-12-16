@@ -14,11 +14,9 @@ uniform float cyinv;
 
 void main()
 {
-    vec2 ukeyframe = vec2(p.x,p.y);
-    float depthKeyframe = p.z;
+    vec3 pkeyframe = vec3(p.x,p.y,1.0)*p.z;
 
-    vec4 pkeyframe = vec4(vec3(fxinv*ukeyframe.x + cxinv, fyinv*ukeyframe.y + cyinv, 1.0)*depthKeyframe,1.0);
-    vec4 pframe = framePose * pkeyframe;
+    vec4 pframe = framePose * vec4(pkeyframe,1.0);
 
     gl_Position = projection * opencv2opengl * pframe;
 

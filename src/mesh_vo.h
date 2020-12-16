@@ -75,10 +75,10 @@ private:
     GLfloat* rot_cpu_data;
 
     unsigned int vertexID_Texture;
-    GLint* vertexID_cpu_data;
+    GLfloat* vertexID_cpu_data;
 
     unsigned int primitiveID_Texture;
-    GLint* primitiveID_cpu_data;
+    GLfloat* primitiveID_cpu_data;
 
     unsigned int d_I_d_p0_Texture;
     GLfloat* d_I_d_p0_cpu_data;
@@ -122,13 +122,13 @@ private:
 
     void calcIdepth(Sophus::SE3f framePose, int lvl);
 
-    float calcResidual(unsigned int keyframe, Sophus::SE3f keyframePose, unsigned int frame, Sophus::SE3f framePose, int lvl);
+    float calcResidual(unsigned int keyframe, unsigned int frame, Sophus::SE3f framePose, int lvl);
     float calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int lvl);
 
-    void calcHJPose(unsigned int keyframe, unsigned int keyframeDer, Sophus::SE3f keyframePose, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
+    void calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
     void calcHJPose_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
 
-    void calcHJMap(unsigned int keyframe, unsigned int keyframeDer, Sophus::SE3f keyframePose, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
+    void calcHJMap(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
 
     void frameDerivative(unsigned int frame, unsigned int frameDerivative);
 

@@ -41,8 +41,8 @@ int main(void)
 
     mesh_vo visual_odometry(fx,fy,cx,cy,width,height);
 
-    visual_odometry.setKeyframeRandomIdepth(keyframeFLoat.clone());
-    //visual_odometry.setKeyframeWithIdepth(keyframeFLoat.clone(), iDepth.clone());
+    //visual_odometry.setKeyframeRandomIdepth(keyframeFLoat.clone());
+    visual_odometry.setKeyframeWithIdepth(keyframeFLoat.clone(), iDepth.clone());
 
     while(1){
         framesTracked++;
@@ -71,10 +71,10 @@ int main(void)
         //visual_odometry.updatePose(frameFloat);
         visual_odometry.updateMap(frameFloat, realPose);
 
-        std::cout << "real pose " << std::endl;
-        std::cout << realPose.matrix() << std::endl;
-        std::cout << "est pose " << std::endl;
-        std::cout << visual_odometry.framePose.matrix() << std::endl;
+        //std::cout << "real pose " << std::endl;
+        //std::cout << realPose.matrix() << std::endl;
+        //std::cout << "est pose " << std::endl;
+        //std::cout << visual_odometry.framePose.matrix() << std::endl;
 
         //cv::imshow("image", frame);
         //cv::imshow("keyframe", keyFrame);
