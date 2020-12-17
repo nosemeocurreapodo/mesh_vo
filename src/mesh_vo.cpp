@@ -180,8 +180,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
 
 
     //generate buffers
-    vwidth = 16;
-    vheight = 16;
+    vwidth = 32;
+    vheight = 32;
 
     //prealocate
     for(int y=0;y<vheight;y++)
@@ -509,7 +509,7 @@ void mesh_vo::setKeyframeRandomIdepth(cv::Mat _keyFrame)
 
             scene_vertices.push_back(r(0));
             scene_vertices.push_back(r(1));
-            scene_vertices.push_back(p(2));
+            scene_vertices.push_back(log(p(2)));
 
 //            scene_vertices.push_back(xi);
 //            scene_vertices.push_back(yi);
@@ -568,7 +568,7 @@ void mesh_vo::setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth)
 
             scene_vertices.push_back(r(0));
             scene_vertices.push_back(r(1));
-            scene_vertices.push_back(p(2));
+            scene_vertices.push_back(log(p(2)));
 
             //scene_vertices.push_back(xi);
             //scene_vertices.push_back(yi);
@@ -756,7 +756,7 @@ float mesh_vo::reduce_residual_CPU(unsigned int residualTexture, int lvl)
             error += res;
         }
 
-    if(count > 0)
+    if(count > height[lvl]*width[lvl]*0.5)
         error /= count;
     else
         error = 1000000000000000000000000000.0f;
@@ -954,17 +954,18 @@ void mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
     float last_error = calcResidual(keyframeTexture, frameTexture, _framePose, lvl);
     //showTexture(residualTexture, lvl);
 
-    //calcIdepth(_framePose, lvl);
-    //showTexture(idepthTexture, lvl);
+    calcIdepth(_framePose, lvl);
+    showTexture(idepthTexture, lvl);
+
 
     std::cout << "lvl " << lvl << " init error " << last_error << std::endl;
 
-    int maxIterations = 1;
+    int maxIterations = 5;
 
     for(int it = 0; it < maxIterations; it++)
     {
         calcHJMap(keyframeTexture, keyframeDerivativeTexture, frameTexture, frameDerivativeTexture, _framePose ,lvl);
-        showTexture(d_I_d_p0_Texture, lvl);
+        //showTexture(d_I_d_p0_Texture, lvl);
 
         float lambda = 0.0;
         int n_try = 0;
@@ -976,7 +977,7 @@ void mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
                 acc_H_map_lambda(j,j) *= 1.0 + lambda;
 
             inc = -acc_H_map_lambda.ldlt().solve(acc_J_map);
-            //inc = -acc_J_map/(1.0+lambda);
+            //inc = -acc_J_map/(100000.0+lambda);
 
             for(int index=0; index < int(scene_vertices.size()); index++)
             {
@@ -1042,7 +1043,7 @@ void mesh_vo::updateMap(cv::Mat _frame, Sophus::SE3f _framePose)
                 //reject update, increase lambda, use un-updated data
                 std::cout << "update rejected " << std::endl;
 
-                if(!(inc.dot(inc) > 1e-8))
+                if(!(inc.dot(inc) > 1e-16))
                 {
                     std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations with lambda " << lambda << std::endl;
                     //if too small, do next level!

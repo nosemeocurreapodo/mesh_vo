@@ -14,7 +14,7 @@ uniform float cyinv;
 
 void main()
 {
-    vec3 pkeyframe = vec3(p.x,p.y,1.0)*p.z;
+    vec3 pkeyframe = vec3(p.x,p.y,1.0)*exp(p.z);
 
     vec4 pframe = framePose * vec4(pkeyframe,1.0);
 

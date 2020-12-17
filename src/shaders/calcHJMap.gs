@@ -45,19 +45,19 @@ void main() {
 
     g_N_p0 = cross(v_pkeyframe[0] - v_pkeyframe[1], v_pkeyframe[2] - v_pkeyframe[1]);
     pw2mpw1 = (v_pkeyframe[2]-v_pkeyframe[1]);
-    g_d_N_d_z0 =  cross(v_pkeyframe[0]/v_pkeyframe[0].z, pw2mpw1);
+    g_d_N_d_z0 =  cross(v_pkeyframe[0], pw2mpw1);
     g_N_p0_dot_point = dot(g_N_p0,v_pkeyframe[1]);
     g_pr_p0 = v_pkeyframe[1];
 
     g_N_p1 = cross(v_pkeyframe[1] - v_pkeyframe[0], v_pkeyframe[2] - v_pkeyframe[0]);
     pw2mpw1 = (v_pkeyframe[2]-v_pkeyframe[0]);
-    g_d_N_d_z1 = cross(v_pkeyframe[1]/v_pkeyframe[1].z, pw2mpw1);
+    g_d_N_d_z1 = cross(v_pkeyframe[1], pw2mpw1);
     g_N_p1_dot_point = dot(g_N_p1,v_pkeyframe[0]);
     g_pr_p1 = v_pkeyframe[0];
 
     g_N_p2 = cross(v_pkeyframe[2] - v_pkeyframe[1], v_pkeyframe[0] - v_pkeyframe[1]);
     pw2mpw1 = (v_pkeyframe[0]-v_pkeyframe[1]);
-    g_d_N_d_z2 = cross(v_pkeyframe[2]/v_pkeyframe[2].z, pw2mpw1);
+    g_d_N_d_z2 = cross(v_pkeyframe[2], pw2mpw1);
     g_N_p2_dot_point = dot(g_N_p2,v_pkeyframe[1]);
     g_pr_p2 = v_pkeyframe[1];
 
