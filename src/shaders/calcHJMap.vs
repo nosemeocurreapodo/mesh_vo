@@ -28,11 +28,11 @@ void main()
 
     vec3 pkeyframe = rkeyframe*dkeyframe;
 
-    vec4 pframe = framePose * vec4(pkeyframe,1.0);
+    vec4 pframe = framePose*vec4(pkeyframe,1.0);
 
     vec2 uframe = vec2(fx*pframe.x/pframe.z+cx,fy*pframe.y/pframe.z+cy);
 
-    gl_Position = projection * opencv2opengl * pframe;
+    gl_Position = projection * opencv2opengl * vec4(pkeyframe,1.0);
 
     v_pframe = pframe.xyz;
     v_uframe = uframe;

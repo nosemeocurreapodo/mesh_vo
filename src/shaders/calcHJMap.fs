@@ -54,8 +54,8 @@ void main()
     //if(g_pkeyframe.z <= 0.0 || g_pframe.z <= 0.0)
     //  discard;
 
-    vec2 ukeyframe = vec2(fx*g_pkeyframe.x/g_pkeyframe.z+cx,fy*g_pkeyframe.y/g_pkeyframe.z+cy);
-    vec2 uframe = vec2(gl_FragCoord.x,1.0/dy-gl_FragCoord.y);
+    vec2 ukeyframe = vec2(gl_FragCoord.x,1.0/dy-gl_FragCoord.y);
+    vec2 uframe = vec2(fx*g_pframe.x/g_pframe.z+cx,fy*g_pframe.y/g_pframe.z+cy);
 
     vec2 ukeyframeTexCoord = vec2(ukeyframe.x*dx, 1.0-ukeyframe.y*dy);
     vec2 uframeTexCoord = vec2(uframe.x*dx, 1.0-uframe.y*dy);

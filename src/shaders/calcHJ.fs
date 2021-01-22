@@ -3,6 +3,7 @@ layout(location = 0) out float f_residual;
 layout(location = 1) out vec3 f_tra;
 layout(location = 2) out vec3 f_rot;
 
+in vec3 v_pframe;
 in vec3 v_pkeyframe;
 
 uniform sampler2D keyframe;
@@ -43,14 +44,14 @@ void main()
     //if(kf_pixel < 0.0 || f_pixel < 0.0)
     //  discard;
 
-    float id = 1.0/v_pkeyframe.z;
+    float id = 1.0/v_pframe.z;
 
-    float v0 = kf_der.x * fx * id;
-    float v1 = kf_der.y * fy * id;
-    float v2 = -(v0 * v_pkeyframe.x + v1 * v_pkeyframe.y) * id;
+    float v0 = f_der.x * fx * id;
+    float v1 = f_der.y * fy * id;
+    float v2 = -(v0 * v_pframe.x + v1 * v_pframe.y) * id;
 
     f_tra = vec3(v0, v1, v2);
-    f_rot = vec3( -v_pkeyframe.z * v1 + v_pkeyframe.y * v2, v_pkeyframe.z * v0 - v_pkeyframe.x * v2, -v_pkeyframe.y * v0 + v_pkeyframe.x * v1);
+    f_rot = vec3( -v_pframe.z * v1 + v_pframe.y * v2, v_pframe.z * v0 - v_pframe.x * v2, -v_pframe.y * v0 + v_pframe.x * v1);
 
-    f_residual = kf_pixel - f_pixel;
+    f_residual = f_pixel - kf_pixel;
 }

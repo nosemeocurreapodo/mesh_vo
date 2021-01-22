@@ -5,6 +5,7 @@ uniform mat4 framePose;
 uniform mat4 projection;
 uniform mat4 opencv2opengl;
 
+out vec3 v_pframe;
 out vec3 v_pkeyframe;
 
 uniform float fxinv;
@@ -20,5 +21,6 @@ void main()
 
     gl_Position = projection * opencv2opengl * pframe;
 
-    v_pkeyframe = pkeyframe.xyz;
+    v_pframe = pframe.xyz;
+    v_pkeyframe = pkeyframe;
 }

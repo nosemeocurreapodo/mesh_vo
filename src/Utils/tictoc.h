@@ -2,7 +2,7 @@
 #define TIC_TOC
 
 //#include <iostream>
-//#include <ctime>
+#include <ctime>
 
 //// Just a static variable that will be visible only within this file
 
@@ -30,7 +30,6 @@
 //}
 
 
-/*
 class tic_toc
 {
 public:
@@ -48,7 +47,7 @@ public:
         if (clock_gettime(CLOCK_MONOTONIC, &tv2))
             tv2.tv_sec = tv2.tv_nsec = -1;
 
-        double  sec = static_cast<double>(tv2.tv_sec - start_time.tv_sec);
+        double sec = static_cast<double>(tv2.tv_sec - start_time.tv_sec);
         double nsec = static_cast<double>(tv2.tv_nsec - start_time.tv_nsec);
 
         double elapsed= (sec + 1.0e-9 * nsec);
@@ -61,5 +60,5 @@ public:
 
 private:
 };
-*/
+
 #endif //TIC_TOC

@@ -20,6 +20,7 @@
 //#include <learnopengl/camera.h>
 
 #define MAX_LEVELS 6
+#define MAX_FRAMES 5
 
 class mesh_vo
 {
@@ -28,12 +29,18 @@ public:
 
     void setKeyframeRandomIdepth(cv::Mat _keyFrame);
     void setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth);
+    void setKeyframe(cv::Mat _keyframe, Sophus::SE3f _keyframePose);
 
-    Sophus::SE3f updatePose(cv::Mat _frame);
-    void updateMap(cv::Mat _frame, Sophus::SE3f _framePose);
+    Sophus::SE3f calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose = Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()));
 
-    Sophus::SE3f framePose;
-    Sophus::SE3f keyframePose;
+    void addFrameToStack(cv::Mat _frame, Sophus::SE3f _framePose);
+
+    void updateMap();
+
+    void visual_odometry(cv::Mat _frame);
+
+    Sophus::SE3f trackedPose;
+    float superpositionPercentaje;
 
 private:
 
@@ -57,10 +64,17 @@ private:
     unsigned int keyframeDerivativeTexture;
 
     unsigned int frameTexture;
-    GLfloat* frame_cpu_data;
-
     unsigned int frameDerivativeTexture;
+
+    unsigned int frameTextureStack[MAX_FRAMES];
+    unsigned int frameDerivativeTextureStack[MAX_FRAMES];
+    Sophus::SE3f framePoseStack[MAX_FRAMES];
+
+    GLfloat* frame_cpu_data;
     GLfloat* frameDer_cpu_data;
+
+
+    int lastFrameAdded;
 
     unsigned int idepthTexture;
     GLfloat* idepth_cpu_data;
@@ -118,7 +132,10 @@ private:
 
     Eigen::MatrixXf acc_H_map;
     Eigen::VectorXf acc_J_map;
-    Eigen::VectorXi acc_id_map;
+    Eigen::VectorXf inc;
+
+    //for profiling
+    tic_toc tictoc;
 
     void calcIdepth(Sophus::SE3f framePose, int lvl);
 

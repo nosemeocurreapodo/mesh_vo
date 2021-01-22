@@ -104,7 +104,7 @@ Sophus::SE3f readPose(const char * filename)
     //T=-R*Mat(posvector);
 
     Eigen::Vector3f Tra;
-    Tra = -Rot*posvector*0.01;
+    Tra = -Rot*posvector;
 
     Sophus::SE3f pose = Sophus::SE3f(Rot, Tra);
 

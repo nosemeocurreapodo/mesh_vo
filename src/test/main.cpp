@@ -41,8 +41,8 @@ int main(void)
 
     mesh_vo visual_odometry(fx,fy,cx,cy,width,height);
 
-    visual_odometry.setKeyframeRandomIdepth(keyframeFLoat.clone());
-    //visual_odometry.setKeyframeWithIdepth(keyframeFLoat.clone(), iDepth.clone());
+    //visual_odometry.setKeyframeRandomIdepth(keyframeFLoat.clone());
+    visual_odometry.setKeyframeWithIdepth(keyframeFLoat.clone(), iDepth.clone());
 
     while(1){
         framesTracked++;
@@ -67,19 +67,21 @@ int main(void)
 
         Sophus::SE3f realPose = pose*keyframePose.inverse();
 
-        visual_odometry.framePose = realPose;
-        //visual_odometry.updatePose(frameFloat);
-        visual_odometry.updateMap(frameFloat, realPose);
+        //visual_odometry.visual_odometry(frameFloat);
+        //Sophus::SE3f estPose = visual_odometry.trackedPose;
+        Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
+        //visual_odometry.addFrameToStack(frameFloat, realPose);
+        //visual_odometry.updateMap();
 
-        //std::cout << "real pose " << std::endl;
-        //std::cout << realPose.matrix() << std::endl;
-        //std::cout << "est pose " << std::endl;
-        //std::cout << visual_odometry.framePose.matrix() << std::endl;
+        std::cout << "real pose " << std::endl;
+        std::cout << realPose.matrix() << std::endl;
+        std::cout << "est pose " << std::endl;
+        std::cout << estPose.matrix() << std::endl;
 
         //cv::imshow("image", frame);
         //cv::imshow("keyframe", keyFrame);
         //cv::imshow("idepth", iDepth);
-        cv::waitKey(30);
+        //cv::waitKey(30);
 
         //if(framesTracked >= framesToTrack)
         if(false)

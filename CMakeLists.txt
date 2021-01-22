@@ -36,6 +36,8 @@ file(GLOB DepthEstimator_SRCS "src/*.cpp"
 file(GLOB TESTAPP_SRCS "src/test/*.cpp"
                        "src/test/utils/*.cpp")
 
+file(GLOB TUMDATASET_SRCS "src/tum_dataset/*.cpp")
+
 file(GLOB SHADERS  "src/shaders/*"
                    )
 foreach(SHADER ${SHADERS})
@@ -46,3 +48,6 @@ endforeach(SHADER)
 add_executable(testapp src/test/main.cpp ${TESTAPP_SRCS} ${DepthEstimator_SRCS} ${SHADERS})
 #target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})
 target_link_libraries(testapp ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
+
+add_executable(tum_dataset src/tum_dataset/main_on_images.cpp ${TUMDATASET_SRCS} ${DepthEstimator_SRCS} ${SHADERS})
+target_link_libraries(tum_dataset ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
