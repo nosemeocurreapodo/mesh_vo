@@ -180,8 +180,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
 
 
     //generate buffers
-    vwidth = 32;
-    vheight = 32;
+    vwidth = 16;
+    vheight = 16;
 
     //prealocate
     for(int y=0;y<vheight;y++)
@@ -976,11 +976,18 @@ float mesh_vo::calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int 
 
 Sophus::SE3f mesh_vo::calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose)
 {
+    tic_toc t;
+
+    t.tic();
+
     glBindTexture(GL_TEXTURE_2D, frameTexture);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_FLOAT, _frame.data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     frameDerivative(frameTexture, frameDerivativeTexture);
+
+    glFinish();
+    std::cout << "frameDerivative time " << t.toc() << std::endl;
 
     /*
     int lvl = 1;
@@ -1005,22 +1012,22 @@ Sophus::SE3f mesh_vo::calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose)
     return framePose;
     */
 
-    int maxIterations[10] = {5, 20, 100, 100, 100, 100, 100, 100, 100, 100};
+    int maxIterations[10] = {5, 10, 20, 50, 100, 100, 100, 100, 100, 100};
 
     Sophus::SE3f framePose = initialGuessPose;
 
     Eigen::Matrix<float, 6, 1> inc;
     //int lvl = 4;
-    for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
+    for(int lvl=MAX_LEVELS-1; lvl >= 1; lvl--)
     {
         //Sophus::SE3f keyframePose;
         //calcIdepth(keyframePose, lvl);
 
         //float last_error = calcResidual_CPU(frameTexture,framePose,lvl);
-        tictoc.tic();
+        t.tic();
         float last_error = calcResidual(keyframeTexture, frameTexture, framePose, lvl);
         glFinish();
-        std::cout << "calcResidual time " << tictoc.toc() << std::endl;
+        std::cout << "calcResidual time " << t.toc() << std::endl;
 
         //showTexture(residualTexture, lvl);
         //showDebug(frameTexture, framePose, 0);
@@ -1030,20 +1037,24 @@ Sophus::SE3f mesh_vo::calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose)
 
         for(int it = 0; it < maxIterations[lvl]; it++)
         {
+            t.tic();
             acc_J_pose.setZero();
             acc_H_pose.setZero();
+            glFinish();
+            std::cout << "setZero time " << t.toc() << std::endl;
 
             //calcHJPose_CPU(frameTexture, frameDerivativeTexture, framePose ,lvl);
-            //tictoc.tic();
+            t.tic();
             calcHJPose2(keyframeTexture, keyframeDerivativeTexture, frameTexture, frameDerivativeTexture, framePose, lvl);
-            //glFinish();
-            //std::cout << "calcHJPose time " << tictoc.toc() << std::endl;
+            glFinish();
+            std::cout << "calcHJPose time " << t.toc() << std::endl;
             //showTecalcHJPosexture(residualTexture, lvl);
 
             float lambda = 0.0;
             int n_try = 0;
             while(true)
             {
+                t.tic();
                 Eigen::Matrix<float, 6, 6> acc_H_pose_lambda;
                 acc_H_pose_lambda = acc_H_pose;
 
@@ -1061,19 +1072,21 @@ Sophus::SE3f mesh_vo::calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose)
                 //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc);
                 //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc).inverse();
 
+                std::cout << "new_pose time " << t.toc() << std::endl;
+
                 //std::cout << "new_pose " << new_pose.matrix() << std::endl;
 
-                tictoc.tic();
+                t.tic();
                 float error = calcResidual(keyframeTexture, frameTexture, new_pose, lvl);
                 glFinish();
-                std::cout << "calcResidual time " << tictoc.toc() << std::endl;
+                std::cout << "calcResidual time " << t.toc() << std::endl;
                 //float error2 = calcResidual_CPU(frameTexture,new_pose,lvl);
                 //std::cout << "error2 " << error2 << std::endl;
-                std::cout << "lvl " << lvl << " it " << it << " try " << n_try << " lambda " << lambda << " error " << error << std::endl;
+                //std::cout << "lvl " << lvl << " it " << it << " try " << n_try << " lambda " << lambda << " error " << error << std::endl;
 
                 if(error < last_error)
                 {
-                    std::cout << "update accepted " << std::endl;
+                    //std::cout << "update accepted " << std::endl;
                     //std::cout << "lambda " << poseLambda << std::endl;
 
                     //std::cout << "p " << p << std::endl;
@@ -1124,7 +1137,7 @@ Sophus::SE3f mesh_vo::calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose)
                         lambda *= std::pow(2.0, n_try);
 
                     //reject update, increase lambda, use un-updated data
-                    std::cout << "update rejected " << std::endl;
+                    //std::cout << "update rejected " << std::endl;
 
                     if(!(inc.dot(inc) > 1e-8))
                     {
@@ -1143,7 +1156,7 @@ Sophus::SE3f mesh_vo::calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose)
 
 void mesh_vo::updateMap()
 {
-    int lvl = 1;
+    int lvl = 2;
 
     //std::cout << "lastFrameAdded " << lastFrameAdded << std::endl;
 
@@ -1169,9 +1182,12 @@ void mesh_vo::updateMap()
     return;
     */
 
+    //tictoc.tic();
     float last_error = 0.0;
     for(int i=0; i < MAX_FRAMES; i++)
         last_error += calcResidual(keyframeTexture, frameTextureStack[i], framePoseStack[i], lvl);
+    //glFinish();
+    //std::cout << "calcResidual time " << tictoc.toc() << std::endl;
     //showTexture(residualTexture, lvl);
 
     calcIdepth(framePoseStack[lastFrameAdded], lvl);
@@ -1187,8 +1203,11 @@ void mesh_vo::updateMap()
         acc_J_map.setZero();
         inc.setZero();
 
+        //tictoc.tic();
         for(int i = 0; i < MAX_FRAMES; i++)
             calcHJMap(keyframeTexture, keyframeDerivativeTexture, frameTextureStack[i], frameDerivativeTextureStack[i], framePoseStack[i], lvl);
+        //glFinish();
+        //std::cout << "calcHJMap time " << tictoc.toc() << std::endl;
         //showTexture(d_I_d_p0_Texture, lvl);
 
         float lambda = 0.0;
@@ -1278,8 +1297,7 @@ void mesh_vo::updateMap()
 
 void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
 {   
-
-    tictoc.tic();
+    //tictoc.tic();
 
     glfwMakeContextCurrent(frameWindow);
 
@@ -1339,8 +1357,8 @@ void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsign
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, 0, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
 
-    glFinish();
-    std::cout << "execute shader time " << tictoc.toc() << std::endl;
+    //glFinish();
+    //std::cout << "execute shader time " << tictoc.toc() << std::endl;
 
     //glActiveTexture(GL_TEXTURE0);
     //glBindTexture(GL_TEXTURE_2D, residualTexture);
@@ -1356,7 +1374,7 @@ void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsign
     //glGenerateMipmap(GL_TEXTURE_2D);
 
 
-    tictoc.tic();
+    //tictoc.tic();
 
     glBindTexture(GL_TEXTURE_2D, residualTexture);
     glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, residual_cpu_data);
@@ -1367,10 +1385,10 @@ void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsign
     glBindTexture(GL_TEXTURE_2D, rotTexture);
     glGetTexImage(GL_TEXTURE_2D, lvl, GL_RGB, GL_FLOAT, rot_cpu_data);
 
-    glFinish();
-    std::cout << "get data from gpu time " << tictoc.toc() << std::endl;
+    //glFinish();
+    //std::cout << "get data from gpu time " << tictoc.toc() << std::endl;
 
-    tictoc.tic();
+    //tictoc.tic();
 
     for(int index = 0; index < width[lvl]*height[lvl]; index+=2*MAX_LEVELS/(lvl+1))
     {
@@ -1426,13 +1444,13 @@ void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsign
         //std::cout << "acc_J_pose " << acc_H_pose << std::endl;
     }
 
-    glFinish();
-    std::cout << "calc matrices time " << tictoc.toc() << std::endl;
+    //glFinish();
+    //std::cout << "calc matrices time " << tictoc.toc() << std::endl;
 }
 
 void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
 {
-    tictoc.tic();
+    //tictoc.tic();
 
     glfwMakeContextCurrent(frameWindow);
 
@@ -1504,8 +1522,8 @@ void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsig
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, 0, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, 0, 0);
 
-    glFinish();
-    std::cout << "execute shader time " << tictoc.toc() << std::endl;
+    //glFinish();
+    //std::cout << "execute shader time " << tictoc.toc() << std::endl;
 
     //glActiveTexture(GL_TEXTURE0);
     //glBindTexture(GL_TEXTURE_2D, residualTexture);
@@ -1521,7 +1539,7 @@ void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsig
     //glGenerateMipmap(GL_TEXTURE_2D);
 
 
-    tictoc.tic();
+    //tictoc.tic();
 
     int new_lvl = MAX_LEVELS-1;
 
@@ -1563,10 +1581,10 @@ void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsig
     glGenerateMipmap(GL_TEXTURE_2D);
     glGetTexImage(GL_TEXTURE_2D, new_lvl, GL_RGBA, GL_FLOAT, j_pose_data7);
 
-    glFinish();
-    std::cout << "get data from gpu time " << tictoc.toc() << std::endl;
+    //glFinish();
+    //std::cout << "get data from gpu time " << tictoc.toc() << std::endl;
 
-    tictoc.tic();
+    //tictoc.tic();
 
     for(int index = 0; index < width[new_lvl]*height[new_lvl]; index+=1)//2*MAX_LEVELS/(lvl+1))
     {
@@ -1643,8 +1661,8 @@ void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsig
         acc_H_pose(5,5) += j_pose_data7[index*4+2];
     }
 
-    glFinish();
-    std::cout << "calc matrices time " << tictoc.toc() << std::endl;
+    //glFinish();
+    //std::cout << "calc matrices time " << tictoc.toc() << std::endl;
 }
 
 void mesh_vo::calcHJPose_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
@@ -2041,25 +2059,52 @@ void mesh_vo::calcIdepth(Sophus::SE3f framePose, int lvl)
     glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
 }
 
+float mesh_vo::calcSuperposition(Sophus::SE3f framePose, int lvl)
+{
+    calcIdepth(framePose, lvl);
+
+    glBindTexture(GL_TEXTURE_2D, idepthTexture);
+    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, idepth_cpu_data);
+
+    int count = 0;
+
+    for(int index = 0; index < width[lvl]*height[lvl]; index++)
+    {
+        float idepth = idepth_cpu_data[index];
+
+        if(idepth > 0.0)
+            count++;
+    }
+
+    return float(count)/(width[lvl]*height[lvl]);
+}
+
 void mesh_vo::visual_odometry(cv::Mat _frame)
 {
     float lastSuperpositionPercentaje = superpositionPercentaje;
 
     std::cout << "last sup " << lastSuperpositionPercentaje << std::endl;
 
+    tic_toc t;
+    t.tic();
     trackedPose = calcPose(_frame, trackedPose);
+    glFinish();
+    std::cout << "clacPose time " << t.toc() << std::endl;
+
+    superpositionPercentaje = calcSuperposition(trackedPose, MAX_LEVELS-1);
 
     std::cout << "sup " << superpositionPercentaje << std::endl;
 
     float diff = lastSuperpositionPercentaje - superpositionPercentaje;
 
-    /*
-    //if(diff > 0.01)
+
+    if(diff > 0.01)
     {
         std::cout << "sup diff " << diff << " add frame and update map" << std::endl;
         addFrameToStack(_frame, trackedPose);
         updateMap();
     }
+    /*
 
     if(superpositionPercentaje < 0.75)
     {

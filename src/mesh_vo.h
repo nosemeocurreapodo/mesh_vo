@@ -20,7 +20,7 @@
 //#include <learnopengl/camera.h>
 
 #define MAX_LEVELS 6
-#define MAX_FRAMES 5
+#define MAX_FRAMES 3
 
 class mesh_vo
 {
@@ -151,10 +151,8 @@ private:
     Eigen::VectorXf acc_J_map;
     Eigen::VectorXf inc;
 
-    //for profiling
-    tic_toc tictoc;
-
     void calcIdepth(Sophus::SE3f framePose, int lvl);
+    float calcSuperposition(Sophus::SE3f framePose, int lvl);
 
     float calcResidual(unsigned int keyframe, unsigned int frame, Sophus::SE3f framePose, int lvl);
     float calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int lvl);
