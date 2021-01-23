@@ -88,6 +88,22 @@ private:
     unsigned int rotTexture;
     GLfloat* rot_cpu_data;
 
+    unsigned int JposeTexture1;
+    GLfloat* j_pose_data1;
+    unsigned int JposeTexture2;
+    GLfloat* j_pose_data2;
+    unsigned int JposeTexture3;
+    GLfloat* j_pose_data3;
+    unsigned int JposeTexture4;
+    GLfloat* j_pose_data4;
+    unsigned int JposeTexture5;
+    GLfloat* j_pose_data5;
+    unsigned int JposeTexture6;
+    GLfloat* j_pose_data6;
+    unsigned int JposeTexture7;
+    GLfloat* j_pose_data7;
+
+
     unsigned int vertexID_Texture;
     GLfloat* vertexID_cpu_data;
 
@@ -106,6 +122,7 @@ private:
     Shader frameDerivativeShader;
     Shader residualShader;
     Shader calcHJShader;
+    Shader calcHJShader2;
     Shader calcHJMapShader;
     Shader showTextureShader;
     Shader debugShader;
@@ -143,6 +160,7 @@ private:
     float calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int lvl);
 
     void calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
+    void calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
     void calcHJPose_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
 
     void calcHJMap(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
@@ -150,8 +168,6 @@ private:
     void frameDerivative(unsigned int frame, unsigned int frameDerivative);
 
     void showTexture(unsigned int texture, int lvl);
-
-    float reduce_residual_CPU(unsigned int residualTexture, int lvl);
 
     void showDebug(unsigned int frame, Sophus::SE3f framePose, int lvl);
 };

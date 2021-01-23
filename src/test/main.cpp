@@ -67,16 +67,15 @@ int main(void)
 
         Sophus::SE3f realPose = pose*keyframePose.inverse();
 
-        //visual_odometry.visual_odometry(frameFloat);
-        //Sophus::SE3f estPose = visual_odometry.trackedPose;
-        Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
+        visual_odometry.visual_odometry(frameFloat);
+        //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();
 
         std::cout << "real pose " << std::endl;
         std::cout << realPose.matrix() << std::endl;
         std::cout << "est pose " << std::endl;
-        std::cout << estPose.matrix() << std::endl;
+        std::cout << visual_odometry.trackedPose.matrix() << std::endl;
 
         //cv::imshow("image", frame);
         //cv::imshow("keyframe", keyFrame);
