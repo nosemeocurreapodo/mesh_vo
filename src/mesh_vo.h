@@ -19,7 +19,7 @@
 //#include <learnopengl/feedback_shader.h>
 //#include <learnopengl/camera.h>
 
-#define MAX_LEVELS 6
+#define MAX_LEVELS 5
 #define MAX_FRAMES 3
 
 class mesh_vo

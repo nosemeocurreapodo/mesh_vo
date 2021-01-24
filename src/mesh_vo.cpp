@@ -1450,7 +1450,9 @@ void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsign
 
 void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
 {
-    //tictoc.tic();
+    tic_toc t;
+
+    t.tic();
 
     glfwMakeContextCurrent(frameWindow);
 
@@ -1522,8 +1524,8 @@ void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsig
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, 0, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, 0, 0);
 
-    //glFinish();
-    //std::cout << "execute shader time " << tictoc.toc() << std::endl;
+    glFinish();
+    std::cout << "execute shader time " << t.toc() << std::endl;
 
     //glActiveTexture(GL_TEXTURE0);
     //glBindTexture(GL_TEXTURE_2D, residualTexture);
@@ -1539,7 +1541,7 @@ void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsig
     //glGenerateMipmap(GL_TEXTURE_2D);
 
 
-    //tictoc.tic();
+    t.tic();
 
     int new_lvl = MAX_LEVELS-1;
 
@@ -1581,10 +1583,10 @@ void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsig
     glGenerateMipmap(GL_TEXTURE_2D);
     glGetTexImage(GL_TEXTURE_2D, new_lvl, GL_RGBA, GL_FLOAT, j_pose_data7);
 
-    //glFinish();
-    //std::cout << "get data from gpu time " << tictoc.toc() << std::endl;
+    glFinish();
+    std::cout << "get data from gpu time " << t.toc() << std::endl;
 
-    //tictoc.tic();
+    t.tic();
 
     for(int index = 0; index < width[new_lvl]*height[new_lvl]; index+=1)//2*MAX_LEVELS/(lvl+1))
     {
@@ -1661,8 +1663,8 @@ void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsig
         acc_H_pose(5,5) += j_pose_data7[index*4+2];
     }
 
-    //glFinish();
-    //std::cout << "calc matrices time " << tictoc.toc() << std::endl;
+    glFinish();
+    std::cout << "calc matrices time " << t.toc() << std::endl;
 }
 
 void mesh_vo::calcHJPose_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
