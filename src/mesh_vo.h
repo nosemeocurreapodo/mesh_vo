@@ -19,7 +19,7 @@
 //#include <learnopengl/feedback_shader.h>
 //#include <learnopengl/camera.h>
 
-#define MAX_LEVELS 5
+#define MAX_LEVELS 10 //para una imagen de entrada de 512x512
 #define MAX_FRAMES 3
 
 class mesh_vo
@@ -76,8 +76,14 @@ private:
 
     int lastFrameAdded;
 
+    unsigned int reduceFloatTexture;
+    unsigned int reduceVec4Texture;
+
     unsigned int idepthTexture;
     GLfloat* idepth_cpu_data;
+
+    unsigned int errorTexture;
+    GLfloat* error_cpu_data;
 
     unsigned int residualTexture;
     GLfloat* residual_cpu_data;
@@ -120,7 +126,10 @@ private:
     GLfloat* d_I_d_p2_cpu_data;
 
     Shader frameDerivativeShader;
-    Shader residualShader;
+    Shader errorShader;
+    Shader reduceFloatShader;
+    Shader reduceVec4Shader;
+    Shader calcJShader;
     Shader calcHJShader;
     Shader calcHJShader2;
     Shader calcHJMapShader;
@@ -154,8 +163,9 @@ private:
     void calcIdepth(Sophus::SE3f framePose, int lvl);
     float calcSuperposition(Sophus::SE3f framePose, int lvl);
 
-    float calcResidual(unsigned int keyframe, unsigned int frame, Sophus::SE3f framePose, int lvl);
-    float calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int lvl);
+    float calcError(unsigned int keyframe, unsigned int frame, Sophus::SE3f framePose, int lvl);
+    float calcError_CPU(unsigned int frame, Sophus::SE3f framePose, int lvl);
+
 
     void calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
     void calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl);
@@ -168,4 +178,10 @@ private:
     void showTexture(unsigned int texture, int lvl);
 
     void showDebug(unsigned int frame, Sophus::SE3f framePose, int lvl);
+
+    void reduceFloat(unsigned int texture, int src_lvl, int dst_lvl);
+    void reduceVec4(unsigned int texture, int src_lvl, int dst_lvl);
+
+    //for profiling
+    float calcPoseTime;
 };

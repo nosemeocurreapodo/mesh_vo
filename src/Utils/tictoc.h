@@ -50,7 +50,7 @@ public:
         double sec = static_cast<double>(tv2.tv_sec - start_time.tv_sec);
         double nsec = static_cast<double>(tv2.tv_nsec - start_time.tv_nsec);
 
-        double elapsed= (sec + 1.0e-9 * nsec);
+        double elapsed= (sec + 1.0e-9 * nsec)*1000.0; // en ms
 
         //time_t end_time=time(0);
         //std::cout<<"Elapsed time is "<<elapsed<<" seconds."<<std::endl;

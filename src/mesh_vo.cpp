@@ -180,8 +180,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
 
 
     //generate buffers
-    vwidth = 16;
-    vheight = 16;
+    vwidth = 32;
+    vheight = 32;
 
     //prealocate
     for(int y=0;y<vheight;y++)
@@ -278,21 +278,21 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, keyframeTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); //GL_NEAREST
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR); //nearest porque sino interpola en el borde
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST); //GL_NEAREST
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST); //nearest porque sino interpola en el borde
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);//entre el ultimo pixel y borderColor
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);//GL_MIRRORED_REPEAT
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     glGenTextures(1, &keyframeDerivativeTexture);
     glBindTexture(GL_TEXTURE_2D, keyframeDerivativeTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
     //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -303,20 +303,20 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, frameTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 6);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
     //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     glGenTextures(1, &frameDerivativeTexture);
     glBindTexture(GL_TEXTURE_2D, frameDerivativeTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);//border los de afuera son erroneos
     //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -329,24 +329,24 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
         glBindTexture(GL_TEXTURE_2D, frameTextureStack[i]);
         //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
         //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 6);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
         //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
         glGenerateMipmap(GL_TEXTURE_2D);
 
         glGenTextures(1, &frameDerivativeTextureStack[i]);
         glBindTexture(GL_TEXTURE_2D, frameDerivativeTextureStack[i]);
         //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
         //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);//border los de afuera son erroneos
         //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width[0], height[0], 0, GL_RG, GL_FLOAT, NULL);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width[0], height[0], 0, GL_RG, GL_UNSIGNED_BYTE, NULL);
         glGenerateMipmap(GL_TEXTURE_2D);
     }
     lastFrameAdded = -MAX_FRAMES;
@@ -355,8 +355,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, idepthTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -367,20 +367,56 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, residualTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
+    glGenTextures(1, &errorTexture);
+    glBindTexture(GL_TEXTURE_2D, errorTexture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glGenTextures(1, &reduceFloatTexture);
+    glBindTexture(GL_TEXTURE_2D, reduceFloatTexture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glGenTextures(1, &reduceVec4Texture);
+    glBindTexture(GL_TEXTURE_2D, reduceVec4Texture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
     glGenTextures(1, &traTexture);
     glBindTexture(GL_TEXTURE_2D, traTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -391,8 +427,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, rotTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -404,8 +440,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, JposeTexture1);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -416,8 +452,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, JposeTexture2);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -428,8 +464,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, JposeTexture3);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -440,8 +476,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, JposeTexture4);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -452,8 +488,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, JposeTexture5);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -464,8 +500,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, JposeTexture6);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -476,8 +512,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, JposeTexture7);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -513,8 +549,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, d_I_d_p0_Texture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -525,8 +561,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, d_I_d_p1_Texture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -537,8 +573,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glBindTexture(GL_TEXTURE_2D, d_I_d_p2_Texture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
@@ -549,6 +585,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     frame_cpu_data = new GLfloat[width[0]*height[0]];
     frameDer_cpu_data = new GLfloat[width[0]*height[0]*2];
     idepth_cpu_data = new GLfloat[width[0]*height[0]];
+
+    error_cpu_data = new GLfloat[width[0]*height[0]];
 
     residual_cpu_data = new GLfloat[width[0]*height[0]];
     tra_cpu_data = new GLfloat[width[0]*height[0]*3];
@@ -573,26 +611,40 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     frameDerivativeShader.use();
     frameDerivativeShader.setInt("frame", 0);
 
-    residualShader.init("residual.vs", "residual.fs");
-    residualShader.use();
-    residualShader.setInt("keyframe", 0);
-    residualShader.setInt("frame", 1);
+    errorShader.init("error.vs", "error.fs");
+    errorShader.use();
+    errorShader.setInt("keyframe", 0);
+    errorShader.setInt("frame", 1);
 
-    calcHJShader.init("calcHJ.vs", "calcHJ.fs");
+    reduceFloatShader.init("reduceFloat.vs", "reduceFloat.fs");
+    reduceFloatShader.use();
+    reduceFloatShader.setInt("inTexture", 0);
+
+    reduceVec4Shader.init("reduceVec4.vs", "reduceVec4.fs");
+    reduceVec4Shader.use();
+    reduceVec4Shader.setInt("inTexture", 0);
+
+    calcJShader.init("JPose.vs", "JPose.fs");
+    calcJShader.use();
+    calcJShader.setInt("keyframe", 0);
+    calcJShader.setInt("keyframeDer", 1);
+    calcJShader.setInt("frame", 2);
+    calcJShader.setInt("frameDer", 3);
+
+    calcHJShader.init("HJPose.vs", "HJPose.fs");
     calcHJShader.use();
-    calcHJShader.setInt("keyframe", 0);
-    calcHJShader.setInt("keyframeDer", 1);
-    calcHJShader.setInt("frame", 2);
-    calcHJShader.setInt("frameDer", 3);
+    calcHJShader.setInt("residualTexture", 0);
+    calcHJShader.setInt("traTexture", 1);
+    calcHJShader.setInt("rotTexture", 2);
 
-    calcHJShader2.init("calcHJ2.vs", "calcHJ2.fs");
+    calcHJShader2.init("HJPose2.vs", "HJPose2.fs");
     calcHJShader2.use();
     calcHJShader2.setInt("keyframe", 0);
     calcHJShader2.setInt("keyframeDer", 1);
     calcHJShader2.setInt("frame", 2);
     calcHJShader2.setInt("frameDer", 3);
 
-    calcHJMapShader.init("calcHJMap.vs", "calcHJMap.gs", "calcHJMap.fs");
+    calcHJMapShader.init("JMap.vs", "JMap.gs", "JMap.fs");
     calcHJMapShader.use();
     calcHJMapShader.setInt("keyframe", 0);
     calcHJMapShader.setInt("keyframeDer", 1);
@@ -615,6 +667,9 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     inc = Eigen::VectorXf(vwidth*vheight*3);
 
     superpositionPercentaje = 1.0;
+
+    //for profiling
+    calcPoseTime = 0.0;
 }
 
 void mesh_vo::setKeyframeRandomIdepth(cv::Mat _keyFrame)
@@ -673,11 +728,17 @@ void mesh_vo::setKeyframeRandomIdepth(cv::Mat _keyFrame)
 
     glBindTexture(GL_TEXTURE_2D, keyframeTexture);
     //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, new_frame->image());
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_FLOAT, _keyFrame.data);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_UNSIGNED_BYTE, _keyFrame.data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     frameDerivative(keyframeTexture, keyframeDerivativeTexture);
 
+    /*
+    Sophus::SE3f pose;
+    calcIdepth(pose, 0);
+    glBindTexture(GL_TEXTURE_2D, idepthTexture);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    */
 }
 
 void mesh_vo::setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth)
@@ -735,10 +796,17 @@ void mesh_vo::setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth)
 
     glBindTexture(GL_TEXTURE_2D, keyframeTexture);
     //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, new_frame->image());
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_FLOAT, _keyFrame.data);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_UNSIGNED_BYTE, _keyFrame.data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     frameDerivative(keyframeTexture, keyframeDerivativeTexture);
+
+    /*
+    Sophus::SE3f pose;
+    calcIdepth(pose, 0);
+    glBindTexture(GL_TEXTURE_2D, idepthTexture);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    */
 }
 
 void mesh_vo::setKeyframe(cv::Mat _keyframe, Sophus::SE3f _keyframePose)
@@ -804,11 +872,17 @@ void mesh_vo::setKeyframe(cv::Mat _keyframe, Sophus::SE3f _keyframePose)
 
     glBindTexture(GL_TEXTURE_2D, keyframeTexture);
     //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, new_frame->image());
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_FLOAT, _keyframe.data);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_UNSIGNED_BYTE, _keyframe.data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     frameDerivative(keyframeTexture, keyframeDerivativeTexture);
 
+    /*
+    Sophus::SE3f pose;
+    calcIdepth(pose, 0);
+    glBindTexture(GL_TEXTURE_2D, idepthTexture);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    */
 }
 
 void mesh_vo::addFrameToStack(cv::Mat _frame, Sophus::SE3f _framePose)
@@ -818,7 +892,7 @@ void mesh_vo::addFrameToStack(cv::Mat _frame, Sophus::SE3f _framePose)
         lastFrameAdded = 0;
 
     glBindTexture(GL_TEXTURE_2D, frameTextureStack[abs(lastFrameAdded)]);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_FLOAT, _frame.data);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_UNSIGNED_BYTE, _frame.data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     frameDerivative(frameTextureStack[abs(lastFrameAdded)], frameDerivativeTextureStack[abs(lastFrameAdded)]);
@@ -826,16 +900,18 @@ void mesh_vo::addFrameToStack(cv::Mat _frame, Sophus::SE3f _framePose)
     framePoseStack[abs(lastFrameAdded)] = _framePose;
 }
 
-float mesh_vo::calcResidual(unsigned int keyframe, unsigned int frame, Sophus::SE3f framePose, int lvl)
+float mesh_vo::calcError(unsigned int keyframe, unsigned int frame, Sophus::SE3f framePose, int lvl)
 {
     //std::cout << "entrando calcResidual" << std::endl;
 
-    glfwMakeContextCurrent(frameWindow);
+    //return calcResidual_CPU(frame, framePose, lvl);
+
+    //glfwMakeContextCurrent(frameWindow);
 
     glViewport(0,0,width[lvl],height[lvl]);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, residualTexture, lvl);
+    //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, errorTexture, lvl);
 
     unsigned int drawbuffers[]={GL_COLOR_ATTACHMENT0};
     glDrawBuffers(sizeof(drawbuffers)/sizeof(unsigned int), drawbuffers);
@@ -845,7 +921,7 @@ float mesh_vo::calcResidual(unsigned int keyframe, unsigned int frame, Sophus::S
 
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
-    glClearColor(-1.0f, -1.0f, -1.0f, -1.0f);
+    glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glActiveTexture(GL_TEXTURE0);
@@ -856,78 +932,62 @@ float mesh_vo::calcResidual(unsigned int keyframe, unsigned int frame, Sophus::S
 
 
     // activate shader
-    residualShader.use();
+    errorShader.use();
 
-    residualShader.setMat4("framePose", eigen2glm_mat4(framePose.matrix()));
-    residualShader.setMat4("opencv2opengl", opencv2opengl);
-    residualShader.setMat4("projection", projMat[lvl]);
-    residualShader.setFloat("fx", fx[lvl]);
-    residualShader.setFloat("fy", fy[lvl]);
-    residualShader.setFloat("cx", cx[lvl]);
-    residualShader.setFloat("cy", cy[lvl]);
-    residualShader.setFloat("fxinv", fxinv[lvl]);
-    residualShader.setFloat("fyinv", fyinv[lvl]);
-    residualShader.setFloat("cxinv", cxinv[lvl]);
-    residualShader.setFloat("cyinv", cyinv[lvl]);
-    residualShader.setFloat("dx", dx[lvl]);
-    residualShader.setFloat("dy", dy[lvl]);
+    errorShader.setMat4("framePose", eigen2glm_mat4(framePose.matrix()));
+    errorShader.setMat4("opencv2opengl", opencv2opengl);
+    errorShader.setMat4("projection", projMat[lvl]);
+    errorShader.setFloat("fx", fx[lvl]);
+    errorShader.setFloat("fy", fy[lvl]);
+    errorShader.setFloat("cx", cx[lvl]);
+    errorShader.setFloat("cy", cy[lvl]);
+    errorShader.setFloat("fxinv", fxinv[lvl]);
+    errorShader.setFloat("fyinv", fyinv[lvl]);
+    errorShader.setFloat("cxinv", cxinv[lvl]);
+    errorShader.setFloat("cyinv", cyinv[lvl]);
+    errorShader.setFloat("dx", dx[lvl]);
+    errorShader.setFloat("dy", dy[lvl]);
 
 
     glBindVertexArray(scene_VAO);
     glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
 
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, residualTexture);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
-    //glGenerateMipmap(GL_TEXTURE_2D);
 
+    int new_lvl[MAX_LEVELS] = {5,6,7,8,9};
 
-    glBindTexture(GL_TEXTURE_2D, residualTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
-    glGenerateMipmap(GL_TEXTURE_2D);
+    reduceFloat(errorTexture, lvl, new_lvl[lvl]);
 
-    int new_lvl = MAX_LEVELS-1;
-
-    glGetTexImage(GL_TEXTURE_2D, new_lvl, GL_RED, GL_FLOAT, residual_cpu_data);
-
+    glBindTexture(GL_TEXTURE_2D, errorTexture);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl[lvl], GL_RED, GL_FLOAT, error_cpu_data);
     float error = 0.0;
     int count = 0;
-
-    for(int index = 0; index < width[new_lvl]*height[new_lvl]; index++)
+    for(int index = 0; index < width[new_lvl[lvl]]*height[new_lvl[lvl]]; index+=1)
     {
-        float res = residual_cpu_data[index];
-        if(res < 0)
+        float res = error_cpu_data[index];
+        if(res <= 0)
             continue;
-
         count++;
         error += res;
     }
 
-    if(count > height[new_lvl]*width[new_lvl]*0.5)
+    if(count > height[new_lvl[lvl]]*width[new_lvl[lvl]]*0.5)
         error /= count;
     else
-        error = 1000000000000000000000000000.0f;
+        error = 1230000000000000000000000000.0f;
+
+    //std::cout << "lvl " << lvl << " new_lvl " << new_lvl << " error " << error << std::endl;
 
     return error;
 }
 
-float mesh_vo::calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int lvl)
+float mesh_vo::calcError_CPU(unsigned int frame, Sophus::SE3f framePose, int lvl)
 {
-    glBindTexture(GL_TEXTURE_2D, keyframeTexture);
-    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, keyframe_cpu_data);
-
-    glBindTexture(GL_TEXTURE_2D, frame);
-    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, frame_cpu_data);
-
-    glBindTexture(GL_TEXTURE_2D, idepthTexture);
-    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, idepth_cpu_data);
-
     //std::cout << "entrando calcResidual" << std::endl;
 
      float residual = 0;
      int num = 0;
 
-     cv::Mat debug(height[lvl], width[lvl], CV_32FC1, 0.0);
+     //cv::Mat debug(height[lvl], width[lvl], CV_32FC1, 0.0);
 
      for(int y = 0; y < height[lvl]; y++)
          for(int x = 0; x < width[lvl]; x++)
@@ -937,7 +997,7 @@ float mesh_vo::calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int 
              float vkf = keyframe_cpu_data[index];
              float keyframeId = idepth_cpu_data[index];
 
-             if(keyframeId <= 0.0)
+             if(keyframeId <= 0.1)
                  continue;
 
              Eigen::Vector3f poinKeyframe = Eigen::Vector3f(fxinv[lvl]*float(x)+cxinv[lvl],fyinv[lvl]*float(y)+cyinv[lvl],1.0)/keyframeId;
@@ -953,6 +1013,15 @@ float mesh_vo::calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int 
 
              int nindex = (height[lvl]-int(pixelFrame(1)))*width[lvl] + int(pixelFrame(0));
 
+             /*
+             std::cout << "index " << index << std::endl;
+             std::cout << "idepth " << keyframeId << std::endl;
+             std::cout << "point " << poinKeyframe(0) << " " << poinKeyframe(1) << " " << poinKeyframe(2) << std::endl;
+             std::cout << "point " << pointFrame(0) << " " << pointFrame(1) << " " << pointFrame(2) << std::endl;
+             std::cout << "pixel " << pixelFrame(0) << " " << pixelFrame(1) << std::endl;
+             std::cout << "nindex " << nindex << std::endl;
+             */
+
              float vf = frame_cpu_data[nindex];
 
              float res = (vkf-vf);
@@ -964,70 +1033,75 @@ float mesh_vo::calcResidual_CPU(unsigned int frame, Sophus::SE3f framePose, int 
 
              //std::cout << "accres " << residual << std::endl;
 
-             debug.at<float>(y,x) = res*0.01;
+             //debug.at<float>(y,x) = res*0.01;
          }
 
-     cv::namedWindow("calcResidual debug", cv::WINDOW_NORMAL);
-     cv::imshow("calcResidual debug", debug);
-     cv::waitKey(30);
+     //cv::namedWindow("calcResidual debug", cv::WINDOW_NORMAL);
+     //cv::imshow("calcResidual debug", debug);
+     //cv::waitKey(30);
 
      return residual/num;
 }
 
 Sophus::SE3f mesh_vo::calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose)
 {
-    tic_toc t;
-
-    t.tic();
-
     glBindTexture(GL_TEXTURE_2D, frameTexture);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_FLOAT, _frame.data);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width[0], height[0], GL_RED, GL_UNSIGNED_BYTE, _frame.data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     frameDerivative(frameTexture, frameDerivativeTexture);
 
-    glFinish();
-    std::cout << "frameDerivative time " << t.toc() << std::endl;
-
     /*
-    int lvl = 1;
-    //for(int lvl=MAX_LEVELS-1; lvl >= 0; lvl--)
-    {
-        //float last_error = calcResidual(frameTexture,framePose,lvl);
-        //std::cout << "lvl " << lvl << " error " << last_error << std::endl;
-        calcHJPose(keyframeTexture, keyframeDerivativeTexture, keyframePose, frameTexture, frameDerivativeTexture, framePose ,lvl);
-        //Sophus::SE3f keyframePose;
-        //calcIdepth(keyframePose, lvl);
-        //float residual1 = calcResidual(keyframeTexture, keyframePose, frameTexture, framePose, lvl);
-        //Sophus::SE3f keyframePose;
-        //calcIdepth(framePose, lvl);
-        showTexture(residualTexture, lvl);
-        //std::cout << "residual" << residual1 << std::endl;
-        //float residual2 = calcResidual_CPU(frameTexture, framePose, lvl);
+    Sophus::SE3f pose;
+    calcIdepth(pose, 0);
+    glBindTexture(GL_TEXTURE_2D, idepthTexture);
+    glGenerateMipmap(GL_TEXTURE_2D);
 
-        //std::cout << "residual " << residual1 << " " << residual2 << std::endl;
-        //showDebug(frameTexture, framePose, lvl2);
-        //cv::waitKey(30);
+    int lvl = 4;
+
+    glBindTexture(GL_TEXTURE_2D, keyframeTexture);
+    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, keyframe_cpu_data);
+
+    glBindTexture(GL_TEXTURE_2D, frameTexture);
+    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, frame_cpu_data);
+
+    glBindTexture(GL_TEXTURE_2D, idepthTexture);
+    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, idepth_cpu_data);
+
+    float residual;
+    acc_H_pose.setZero();
+    acc_J_pose.setZero();
+
+    for(int i = 0; i < 100; i++)
+    {
+        residual = calcError(keyframeTexture, frameTexture, initialGuessPose, lvl);
+        //residual = calcError_CPU(frameTexture, initialGuessPose, lvl);
+        //calcHJPose(keyframeTexture,keyframeDerivativeTexture,frameTexture,frameDerivativeTexture,initialGuessPose, lvl);
+        //calcHJPose2(keyframeTexture,keyframeDerivativeTexture,frameTexture,frameDerivativeTexture,initialGuessPose, lvl);
     }
-    return framePose;
+     std::cout << "residual " << residual << std::endl;
+     std::cout << "J " << acc_J_pose.matrix() << std::endl;
+     std::cout << "H " << acc_H_pose.matrix() << std::endl;
+
+    return initialGuessPose;
     */
 
-    int maxIterations[10] = {5, 10, 20, 50, 100, 100, 100, 100, 100, 100};
+
+    int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
 
     Sophus::SE3f framePose = initialGuessPose;
 
+    //std::cout << "initial guess " << std::endl;
+    //std::cout << framePose.matrix() << std::endl;
+
     Eigen::Matrix<float, 6, 1> inc;
-    //int lvl = 4;
-    for(int lvl=MAX_LEVELS-1; lvl >= 1; lvl--)
+    for(int lvl=4; lvl >= 1; lvl--)
     {
         //Sophus::SE3f keyframePose;
         //calcIdepth(keyframePose, lvl);
 
         //float last_error = calcResidual_CPU(frameTexture,framePose,lvl);
-        t.tic();
-        float last_error = calcResidual(keyframeTexture, frameTexture, framePose, lvl);
-        glFinish();
-        std::cout << "calcResidual time " << t.toc() << std::endl;
+        float last_error = calcError(keyframeTexture, frameTexture, framePose, lvl);
 
         //showTexture(residualTexture, lvl);
         //showDebug(frameTexture, framePose, 0);
@@ -1037,24 +1111,18 @@ Sophus::SE3f mesh_vo::calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose)
 
         for(int it = 0; it < maxIterations[lvl]; it++)
         {
-            t.tic();
             acc_J_pose.setZero();
             acc_H_pose.setZero();
-            glFinish();
-            std::cout << "setZero time " << t.toc() << std::endl;
 
             //calcHJPose_CPU(frameTexture, frameDerivativeTexture, framePose ,lvl);
-            t.tic();
-            calcHJPose2(keyframeTexture, keyframeDerivativeTexture, frameTexture, frameDerivativeTexture, framePose, lvl);
-            glFinish();
-            std::cout << "calcHJPose time " << t.toc() << std::endl;
+            calcHJPose(keyframeTexture, keyframeDerivativeTexture, frameTexture, frameDerivativeTexture, framePose, lvl);
+            //calcHJPose2(keyframeTexture, keyframeDerivativeTexture, frameTexture, frameDerivativeTexture, framePose, lvl);
             //showTecalcHJPosexture(residualTexture, lvl);
 
             float lambda = 0.0;
             int n_try = 0;
             while(true)
             {
-                t.tic();
                 Eigen::Matrix<float, 6, 6> acc_H_pose_lambda;
                 acc_H_pose_lambda = acc_H_pose;
 
@@ -1068,18 +1136,13 @@ Sophus::SE3f mesh_vo::calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose)
 
                 //Sophus::SE3f new_pose = framePose.inverse()*Sophus::SE3f::exp(inc).inverse();
                 //Sophus::SE3f new_pose = Sophus::SE3f::exp(inc) * framePose;
-                Sophus::SE3f new_pose = Sophus::SE3f::exp(inc).inverse() * framePose;
+                //Sophus::SE3f new_pose = Sophus::SE3f::exp(inc).inverse() * framePose;
                 //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc);
-                //Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc).inverse();
-
-                std::cout << "new_pose time " << t.toc() << std::endl;
+                Sophus::SE3f new_pose = framePose*Sophus::SE3f::exp(inc).inverse();
 
                 //std::cout << "new_pose " << new_pose.matrix() << std::endl;
 
-                t.tic();
-                float error = calcResidual(keyframeTexture, frameTexture, new_pose, lvl);
-                glFinish();
-                std::cout << "calcResidual time " << t.toc() << std::endl;
+                float error = calcError(keyframeTexture, frameTexture, new_pose, lvl);
                 //float error2 = calcResidual_CPU(frameTexture,new_pose,lvl);
                 //std::cout << "error2 " << error2 << std::endl;
                 //std::cout << "lvl " << lvl << " it " << it << " try " << n_try << " lambda " << lambda << " error " << error << std::endl;
@@ -1107,6 +1170,9 @@ Sophus::SE3f mesh_vo::calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose)
                     //accept update, decrease lambda
                     framePose = new_pose;
 
+                    //std::cout << "good update " << std::endl;
+                    //std::cout << framePose.matrix() << std::endl;
+
                     float p = error / last_error;
 
 
@@ -1118,6 +1184,7 @@ Sophus::SE3f mesh_vo::calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose)
                     last_error = error;
 
                     if( p >  0.999f)
+                    //if(p > 0.9f)
                     {
                         std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
                         //if converged, do next level
@@ -1140,8 +1207,9 @@ Sophus::SE3f mesh_vo::calcPose(cv::Mat _frame, Sophus::SE3f initialGuessPose)
                     //std::cout << "update rejected " << std::endl;
 
                     if(!(inc.dot(inc) > 1e-8))
+                    //if(!(inc.dot(inc) > 1e-6))
                     {
-                        std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations with lambda " << lambda << std::endl;
+                        std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations and " << n_try << " tries, with lambda " << lambda << std::endl;
                         //if too small, do next level!
                         it = maxIterations[lvl];
                         break;
@@ -1182,12 +1250,11 @@ void mesh_vo::updateMap()
     return;
     */
 
-    //tictoc.tic();
     float last_error = 0.0;
     for(int i=0; i < MAX_FRAMES; i++)
-        last_error += calcResidual(keyframeTexture, frameTextureStack[i], framePoseStack[i], lvl);
-    //glFinish();
-    //std::cout << "calcResidual time " << tictoc.toc() << std::endl;
+    {
+        last_error += calcError(keyframeTexture, frameTextureStack[i], framePoseStack[i], lvl);
+    }
     //showTexture(residualTexture, lvl);
 
     calcIdepth(framePoseStack[lastFrameAdded], lvl);
@@ -1203,11 +1270,8 @@ void mesh_vo::updateMap()
         acc_J_map.setZero();
         inc.setZero();
 
-        //tictoc.tic();
         for(int i = 0; i < MAX_FRAMES; i++)
             calcHJMap(keyframeTexture, keyframeDerivativeTexture, frameTextureStack[i], frameDerivativeTextureStack[i], framePoseStack[i], lvl);
-        //glFinish();
-        //std::cout << "calcHJMap time " << tictoc.toc() << std::endl;
         //showTexture(d_I_d_p0_Texture, lvl);
 
         float lambda = 0.0;
@@ -1236,7 +1300,9 @@ void mesh_vo::updateMap()
 
             float error = 0.0;
             for(int i=0; i < MAX_FRAMES; i++)
-                error += calcResidual(keyframeTexture, frameTextureStack[i], framePoseStack[i], lvl);
+            {
+                error += calcError(keyframeTexture, frameTextureStack[i], framePoseStack[i], lvl);
+            }
 
             //std::cout << "lvl " << lvl << " it " << it << " try " << n_try << " lambda " << lambda << " error " << error << std::endl;
 
@@ -1297,13 +1363,11 @@ void mesh_vo::updateMap()
 
 void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
 {   
-    //tictoc.tic();
-
-    glfwMakeContextCurrent(frameWindow);
+    //glfwMakeContextCurrent(frameWindow);
 
     glViewport(0,0,width[lvl],height[lvl]);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, residualTexture, lvl);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, traTexture, lvl);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, rotTexture, lvl);
@@ -1334,21 +1398,21 @@ void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsign
     glBindTexture(GL_TEXTURE_2D, frameDer);
 
     // activate shader
-    calcHJShader.use();
+    calcJShader.use();
 
-    calcHJShader.setMat4("framePose", eigen2glm_mat4(framePose.matrix()));
-    calcHJShader.setMat4("opencv2opengl", opencv2opengl);
-    calcHJShader.setMat4("projection", projMat[lvl]);
-    calcHJShader.setFloat("fx", fx[lvl]);
-    calcHJShader.setFloat("fy", fy[lvl]);
-    calcHJShader.setFloat("cx", cx[lvl]);
-    calcHJShader.setFloat("cy", cy[lvl]);
-    calcHJShader.setFloat("fxinv", fxinv[lvl]);
-    calcHJShader.setFloat("fyinv", fyinv[lvl]);
-    calcHJShader.setFloat("cxinv", cxinv[lvl]);
-    calcHJShader.setFloat("cyinv", cyinv[lvl]);
-    calcHJShader.setFloat("dx", dx[lvl]);
-    calcHJShader.setFloat("dy", dy[lvl]);
+    calcJShader.setMat4("framePose", eigen2glm_mat4(framePose.matrix()));
+    calcJShader.setMat4("opencv2opengl", opencv2opengl);
+    calcJShader.setMat4("projection", projMat[lvl]);
+    calcJShader.setFloat("fx", fx[lvl]);
+    calcJShader.setFloat("fy", fy[lvl]);
+    calcJShader.setFloat("cx", cx[lvl]);
+    calcJShader.setFloat("cy", cy[lvl]);
+    calcJShader.setFloat("fxinv", fxinv[lvl]);
+    calcJShader.setFloat("fyinv", fyinv[lvl]);
+    calcJShader.setFloat("cxinv", cxinv[lvl]);
+    calcJShader.setFloat("cyinv", cyinv[lvl]);
+    calcJShader.setFloat("dx", dx[lvl]);
+    calcJShader.setFloat("dy", dy[lvl]);
 
     glBindVertexArray(scene_VAO);
     glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
@@ -1357,25 +1421,156 @@ void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsign
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, 0, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
 
-    //glFinish();
-    //std::cout << "execute shader time " << tictoc.toc() << std::endl;
 
-    //glActiveTexture(GL_TEXTURE0);
-    //glBindTexture(GL_TEXTURE_2D, residualTexture);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
-    //glGenerateMipmap(GL_TEXTURE_2D);
+    int new_lvl[MAX_LEVELS] = {2,3,4,5,6};
+    int new_lvl2[MAX_LEVELS] = {9,9,9,9,9};
 
-    //glBindTexture(GL_TEXTURE_2D, traTexture);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
-    //glGenerateMipmap(GL_TEXTURE_2D);
+    glViewport(0,0,width[new_lvl[lvl]],height[new_lvl[lvl]]);
 
-    //glBindTexture(GL_TEXTURE_2D, rotTexture);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
-    //glGenerateMipmap(GL_TEXTURE_2D);
+    //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, JposeTexture1, new_lvl[lvl]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, JposeTexture2, new_lvl[lvl]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, JposeTexture3, new_lvl[lvl]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, JposeTexture4, new_lvl[lvl]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, JposeTexture5, new_lvl[lvl]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, JposeTexture6, new_lvl[lvl]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, JposeTexture7, new_lvl[lvl]);
+
+    unsigned int drawbuffers2[]={GL_COLOR_ATTACHMENT0,
+                                 GL_COLOR_ATTACHMENT1,
+                                 GL_COLOR_ATTACHMENT2,
+                                 GL_COLOR_ATTACHMENT3,
+                                 GL_COLOR_ATTACHMENT4,
+                                 GL_COLOR_ATTACHMENT5,
+                                 GL_COLOR_ATTACHMENT6};
+    glDrawBuffers(sizeof(drawbuffers2)/sizeof(unsigned int), drawbuffers2);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcResidual" << std::endl;
+
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_DEPTH_TEST);
+    //glClearColor(-1.0f, -1.0f, -1.0f, -1.0f);
+    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, residualTexture);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, traTexture);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, rotTexture);
+
+    calcHJShader.use();
+    calcHJShader.setInt("lvlin", lvl);
+    calcHJShader.setInt("lvlout", new_lvl[lvl]);
+
+    glBindVertexArray(frame_VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, 0, 0);
+
+    reduceVec4(JposeTexture1, new_lvl[lvl], new_lvl2[lvl]);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl2[lvl], GL_RGBA, GL_FLOAT, j_pose_data1);
+    reduceVec4(JposeTexture2, new_lvl[lvl], new_lvl2[lvl]);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl2[lvl], GL_RGBA, GL_FLOAT, j_pose_data2);
+    reduceVec4(JposeTexture3, new_lvl[lvl], new_lvl2[lvl]);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl2[lvl], GL_RGBA, GL_FLOAT, j_pose_data3);
+    reduceVec4(JposeTexture4, new_lvl[lvl], new_lvl2[lvl]);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl2[lvl], GL_RGBA, GL_FLOAT, j_pose_data4);
+    reduceVec4(JposeTexture5, new_lvl[lvl], new_lvl2[lvl]);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl2[lvl], GL_RGBA, GL_FLOAT, j_pose_data5);
+    reduceVec4(JposeTexture6, new_lvl[lvl], new_lvl2[lvl]);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl2[lvl], GL_RGBA, GL_FLOAT, j_pose_data6);
+    reduceVec4(JposeTexture7, new_lvl[lvl], new_lvl2[lvl]);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl2[lvl], GL_RGBA, GL_FLOAT, j_pose_data7);
 
 
-    //tictoc.tic();
+    int count = 0;
+    for(int index = 0; index < width[new_lvl2[lvl]]*height[new_lvl2[lvl]]; index+=1)
+    {
+        /*
+            if(residual == 0.0f)
+                continue;
 
+            if(J_pose.norm() == 0.0f)
+                continue;
+            */
+
+        Eigen::Matrix<float, 6, 1> J_pose;
+        J_pose << j_pose_data1[index*4], j_pose_data1[index*4+1], j_pose_data1[index*4+2], j_pose_data1[index*4+3], j_pose_data2[index*4], j_pose_data2[index*4+1];
+
+        if(J_pose.norm() == 0.0f)
+            continue;
+
+        count++;
+
+        acc_J_pose += J_pose;
+
+        /*
+            acc_J_pose(0) += j_pose_data1[index*4];
+            acc_J_pose(1) += j_pose_data1[index*4+1];
+            acc_J_pose(2) += j_pose_data1[index*4+2];
+            acc_J_pose(3) += j_pose_data1[index*4+3];
+            acc_J_pose(4) += j_pose_data2[index*4];
+            acc_J_pose(5) += j_pose_data2[index*4+1];
+            */
+
+        acc_H_pose(0,0) += j_pose_data2[index*4+2];
+
+        acc_H_pose(0,1) += j_pose_data2[index*4+3];
+        acc_H_pose(1,0) += j_pose_data2[index*4+3];
+        acc_H_pose(0,2) += j_pose_data3[index*4];
+        acc_H_pose(2,0) += j_pose_data3[index*4];
+        acc_H_pose(0,3) += j_pose_data3[index*4+1];
+        acc_H_pose(3,0) += j_pose_data3[index*4+1];
+        acc_H_pose(0,4) += j_pose_data3[index*4+2];
+        acc_H_pose(4,0) += j_pose_data3[index*4+2];
+        acc_H_pose(0,5) += j_pose_data3[index*4+3];
+        acc_H_pose(5,0) += j_pose_data3[index*4+3];
+
+        acc_H_pose(1,1) += j_pose_data4[index*4];
+
+        acc_H_pose(1,2) += j_pose_data4[index*4+1];
+        acc_H_pose(2,1) += j_pose_data4[index*4+1];
+        acc_H_pose(1,3) += j_pose_data4[index*4+2];
+        acc_H_pose(3,1) += j_pose_data4[index*4+2];
+        acc_H_pose(1,4) += j_pose_data4[index*4+3];
+        acc_H_pose(4,1) += j_pose_data4[index*4+3];
+        acc_H_pose(1,5) += j_pose_data5[index*4];
+        acc_H_pose(5,1) += j_pose_data5[index*4];
+
+        acc_H_pose(2,2) += j_pose_data5[index*4+1];
+
+        acc_H_pose(2,3) += j_pose_data5[index*4+2];
+        acc_H_pose(3,2) += j_pose_data5[index*4+2];
+        acc_H_pose(2,4) += j_pose_data5[index*4+3];
+        acc_H_pose(4,2) += j_pose_data5[index*4+3];
+        acc_H_pose(2,5) += j_pose_data6[index*4];
+        acc_H_pose(5,2) += j_pose_data6[index*4];
+
+        acc_H_pose(3,3) += j_pose_data6[index*4+1];
+
+        acc_H_pose(3,4) += j_pose_data6[index*4+2];
+        acc_H_pose(4,3) += j_pose_data6[index*4+2];
+        acc_H_pose(3,5) += j_pose_data6[index*4+3];
+        acc_H_pose(5,3) += j_pose_data6[index*4+3];
+
+        acc_H_pose(4,4) += j_pose_data7[index*4];
+
+        acc_H_pose(4,5) += j_pose_data7[index*4+1];
+        acc_H_pose(5,5) += j_pose_data7[index*4+1];
+
+        acc_H_pose(5,5) += j_pose_data7[index*4+2];
+    }
+
+    /*
+    //old implementation, i cannot "reduce" it in gpu i think
     glBindTexture(GL_TEXTURE_2D, residualTexture);
     glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, residual_cpu_data);
 
@@ -1385,23 +1580,18 @@ void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsign
     glBindTexture(GL_TEXTURE_2D, rotTexture);
     glGetTexImage(GL_TEXTURE_2D, lvl, GL_RGB, GL_FLOAT, rot_cpu_data);
 
-    //glFinish();
-    //std::cout << "get data from gpu time " << tictoc.toc() << std::endl;
-
-    //tictoc.tic();
-
-    for(int index = 0; index < width[lvl]*height[lvl]; index+=2*MAX_LEVELS/(lvl+1))
+    for(int index = 0; index < width[lvl]*height[lvl]; index+=1)
     {
         Eigen::Matrix<float, 6, 1> J_pose;
         J_pose << tra_cpu_data[index*3], tra_cpu_data[index*3+1], tra_cpu_data[index*3+2], rot_cpu_data[index*3], rot_cpu_data[index*3+1], rot_cpu_data[index*3+2];
 
-        /*
-        for(int i = 0; i < 6; i++)
-        {
-            if(J_pose[i]!=J_pose[i])
-                std::cout << "nand " << J_pose[i] << std::endl;
-        }
-        */
+
+        //for(int i = 0; i < 6; i++)
+        //{
+        //    if(J_pose[i]!=J_pose[i])
+        //        std::cout << "nand " << J_pose[i] << std::endl;
+        //}
+
 
         float residual = residual_cpu_data[index];
 
@@ -1430,35 +1620,158 @@ void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsign
             }
         }
 
-        /*
-        for(int i = 0; i < 6; i++)
-        {
-            for(int j = 0; j < 6; j++)
-            {
-                acc_H_pose(i,j) += J_pose[i]*J_pose[j];
-            }
-        }
-        */
+
+        //for(int i = 0; i < 6; i++)
+        //{
+        //    for(int j = 0; j < 6; j++)
+        //    {
+        //        acc_H_pose(i,j) += J_pose[i]*J_pose[j];
+        //    }
+        //}
+
 
         //std::cout << "acc_J_pose " << acc_J_pose << std::endl;
         //std::cout << "acc_J_pose " << acc_H_pose << std::endl;
     }
+    */
 
-    //glFinish();
-    //std::cout << "calc matrices time " << tictoc.toc() << std::endl;
+
 }
+void mesh_vo::reduceFloat(unsigned int texture, int src_lvl, int dst_lvl)
+{
+    /*
+    //reduce by mipmap generation
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, src_lvl);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    */
+
+
+    //reduce by shader call
+    int swp = 2;
+    unsigned int in_texture = reduceFloatTexture;
+    unsigned int out_texture = texture;
+
+    int step = 1;
+
+    for(int in_lvl = src_lvl, out_lvl = std::min(src_lvl+step,dst_lvl); in_lvl < dst_lvl; in_lvl=out_lvl, out_lvl = std::min(out_lvl+step,dst_lvl))
+    {
+        //std::cout << "in_lvl " << in_lvl << " out_lvl " << out_lvl << std::endl;
+
+        if(swp % 2 == 0)
+        {
+            in_texture = texture;
+            out_texture = reduceFloatTexture;
+        }
+        else
+        {
+            in_texture = reduceFloatTexture;
+            out_texture = texture;
+        }
+        swp++;
+
+        glViewport(0,0,width[out_lvl],height[out_lvl]);
+
+        //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture, out_lvl);
+
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcResidual" << std::endl;
+
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_DEPTH_TEST);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, in_texture);
+
+        reduceFloatShader.use();
+        reduceFloatShader.setInt("lvlin", in_lvl);
+        reduceFloatShader.setInt("lvlout", out_lvl);
+
+        glBindVertexArray(frame_VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+
+    if(out_texture != texture)
+    {
+        glCopyTexSubImage2D(GL_TEXTURE_2D, dst_lvl, 0, 0, 0, 0, width[dst_lvl], height[dst_lvl]);
+    }
+
+}
+
+void mesh_vo::reduceVec4(unsigned int texture, int src_lvl, int dst_lvl)
+{
+
+    //reduce by mipmap generation
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, src_lvl);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+
+    /*
+    //reduce by shader call
+    int swp = 2;
+    unsigned int in_texture = reduceVec4Texture;
+    unsigned int out_texture = texture;
+
+    int step = 1;
+
+    for(int in_lvl = src_lvl, out_lvl = std::min(src_lvl+step,dst_lvl); in_lvl < dst_lvl; in_lvl=out_lvl, out_lvl = std::min(out_lvl+step,dst_lvl))
+    {
+        //std::cout << "in_lvl " << in_lvl << " out_lvl " << out_lvl << std::endl;
+
+        if(swp % 2 == 0)
+        {
+            in_texture = texture;
+            out_texture = reduceVec4Texture;
+        }
+        else
+        {
+            in_texture = reduceVec4Texture;
+            out_texture = texture;
+        }
+        swp++;
+
+        glViewport(0,0,width[out_lvl],height[out_lvl]);
+
+        //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, out_texture, out_lvl);
+
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcResidual" << std::endl;
+
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_DEPTH_TEST);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, in_texture);
+
+        reduceVec4Shader.use();
+        reduceVec4Shader.setInt("lvlin", in_lvl);
+        reduceVec4Shader.setInt("lvlout", out_lvl);
+
+        glBindVertexArray(frame_VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+
+    if(out_texture != texture)
+    {
+        glCopyTexSubImage2D(GL_TEXTURE_2D, dst_lvl, 0, 0, 0, 0, width[dst_lvl], height[dst_lvl]);
+    }
+    */
+}
+
+
 
 void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
 {
-    tic_toc t;
+    //glfwMakeContextCurrent(frameWindow);
 
-    t.tic();
-
-    glfwMakeContextCurrent(frameWindow);
+    int new_lvl[MAX_LEVELS] = {9,9,9,9,9};
 
     glViewport(0,0,width[lvl],height[lvl]);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, JposeTexture1, lvl);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, JposeTexture2, lvl);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, JposeTexture3, lvl);
@@ -1524,9 +1837,6 @@ void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsig
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, 0, 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, 0, 0);
 
-    glFinish();
-    std::cout << "execute shader time " << t.toc() << std::endl;
-
     //glActiveTexture(GL_TEXTURE0);
     //glBindTexture(GL_TEXTURE_2D, residualTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
@@ -1540,55 +1850,45 @@ void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsig
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
     //glGenerateMipmap(GL_TEXTURE_2D);
 
-
-    t.tic();
-
-    int new_lvl = MAX_LEVELS-1;
-
     //glBindTexture(GL_TEXTURE_2D, residualTexture);
 
 
     glBindTexture(GL_TEXTURE_2D, JposeTexture1);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
     glGenerateMipmap(GL_TEXTURE_2D);
-    glGetTexImage(GL_TEXTURE_2D, new_lvl, GL_RGBA, GL_FLOAT, j_pose_data1);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl[lvl], GL_RGBA, GL_FLOAT, j_pose_data1);
 
     glBindTexture(GL_TEXTURE_2D, JposeTexture2);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
     glGenerateMipmap(GL_TEXTURE_2D);
-    glGetTexImage(GL_TEXTURE_2D, new_lvl, GL_RGBA, GL_FLOAT, j_pose_data2);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl[lvl], GL_RGBA, GL_FLOAT, j_pose_data2);
 
     glBindTexture(GL_TEXTURE_2D, JposeTexture3);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
     glGenerateMipmap(GL_TEXTURE_2D);
-    glGetTexImage(GL_TEXTURE_2D, new_lvl, GL_RGBA, GL_FLOAT, j_pose_data3);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl[lvl], GL_RGBA, GL_FLOAT, j_pose_data3);
 
     glBindTexture(GL_TEXTURE_2D, JposeTexture4);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
     glGenerateMipmap(GL_TEXTURE_2D);
-    glGetTexImage(GL_TEXTURE_2D, new_lvl, GL_RGBA, GL_FLOAT, j_pose_data4);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl[lvl], GL_RGBA, GL_FLOAT, j_pose_data4);
 
     glBindTexture(GL_TEXTURE_2D, JposeTexture5);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
     glGenerateMipmap(GL_TEXTURE_2D);
-    glGetTexImage(GL_TEXTURE_2D, new_lvl, GL_RGBA, GL_FLOAT, j_pose_data5);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl[lvl], GL_RGBA, GL_FLOAT, j_pose_data5);
 
     glBindTexture(GL_TEXTURE_2D, JposeTexture6);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
     glGenerateMipmap(GL_TEXTURE_2D);
-    glGetTexImage(GL_TEXTURE_2D, new_lvl, GL_RGBA, GL_FLOAT, j_pose_data6);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl[lvl], GL_RGBA, GL_FLOAT, j_pose_data6);
 
     glBindTexture(GL_TEXTURE_2D, JposeTexture7);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, lvl);
     glGenerateMipmap(GL_TEXTURE_2D);
-    glGetTexImage(GL_TEXTURE_2D, new_lvl, GL_RGBA, GL_FLOAT, j_pose_data7);
+    glGetTexImage(GL_TEXTURE_2D, new_lvl[lvl], GL_RGBA, GL_FLOAT, j_pose_data7);
 
-    glFinish();
-    std::cout << "get data from gpu time " << t.toc() << std::endl;
-
-    t.tic();
-
-    for(int index = 0; index < width[new_lvl]*height[new_lvl]; index+=1)//2*MAX_LEVELS/(lvl+1))
+    for(int index = 0; index < width[new_lvl[lvl]]*height[new_lvl[lvl]]; index+=1)//2*MAX_LEVELS/(lvl+1))
     {
         /*
         if(residual == 0.0f)
@@ -1662,9 +1962,6 @@ void mesh_vo::calcHJPose2(unsigned int keyframe, unsigned int keyframeDer, unsig
 
         acc_H_pose(5,5) += j_pose_data7[index*4+2];
     }
-
-    glFinish();
-    std::cout << "calc matrices time " << t.toc() << std::endl;
 }
 
 void mesh_vo::calcHJPose_CPU(unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
@@ -1892,11 +2189,11 @@ void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)
     //for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
         //calculate frame derivative
-        glfwMakeContextCurrent(frameWindow);
+        //glfwMakeContextCurrent(frameWindow);
 
         glViewport(0,0,width[lvl],height[lvl]);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
         //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frameDerivative, 0);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frameDerivative, lvl);
 
@@ -1913,6 +2210,7 @@ void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)
         //    if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
         //        std::cout << "Framebuffer not complete: " << fboStatus << std::endl;
 
+        /*
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT)
             std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! incomplete attachment" << std::endl;
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT)
@@ -1923,11 +2221,11 @@ void mesh_vo::frameDerivative(unsigned int frame, unsigned int frameDerivative)
             std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! incomplete read buffer" << std::endl;
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_UNSUPPORTED)
             std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! unsupported" << std::endl;
-
+        */
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
-        glClearColor(-1.0f, -1.0f, -1.0f, -1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        //glClearColor(-1.0f, -1.0f, -1.0f, -1.0f);
+        //glClear(GL_COLOR_BUFFER_BIT);
         // bind textures on corresponding texture units
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, frame);
@@ -2022,11 +2320,11 @@ void mesh_vo::showDebug(unsigned int frame, Sophus::SE3f framePose, int lvl)
 
 void mesh_vo::calcIdepth(Sophus::SE3f framePose, int lvl)
 {
-    glfwMakeContextCurrent(frameWindow);
+    //glfwMakeContextCurrent(frameWindow);
 
     glViewport(0,0,width[lvl],height[lvl]);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, idepthTexture, lvl);
 
     unsigned int drawbuffers[]={GL_COLOR_ATTACHMENT0};
@@ -2035,27 +2333,16 @@ void mesh_vo::calcIdepth(Sophus::SE3f framePose, int lvl)
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcIdepth" << std::endl;
 
-    glDisable(GL_CULL_FACE);
-    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // activate shader
     idepthShader.use();
-
     idepthShader.setMat4("framePose", eigen2glm_mat4(framePose.matrix()));
     idepthShader.setMat4("opencv2opengl", opencv2opengl);
     idepthShader.setMat4("projection", projMat[lvl]);
-    idepthShader.setFloat("fx", fx[lvl]);
-    idepthShader.setFloat("fy", fy[lvl]);
-    idepthShader.setFloat("cx", cx[lvl]);
-    idepthShader.setFloat("cy", cy[lvl]);
-    idepthShader.setFloat("fxinv", fxinv[lvl]);
-    idepthShader.setFloat("fyinv", fyinv[lvl]);
-    idepthShader.setFloat("cxinv", cxinv[lvl]);
-    idepthShader.setFloat("cyinv", cyinv[lvl]);
-    idepthShader.setFloat("dx", dx[lvl]);
-    idepthShader.setFloat("dy", dy[lvl]);
 
     glBindVertexArray(scene_VAO);
     glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
@@ -2083,29 +2370,37 @@ float mesh_vo::calcSuperposition(Sophus::SE3f framePose, int lvl)
 
 void mesh_vo::visual_odometry(cv::Mat _frame)
 {
+    glfwMakeContextCurrent(frameWindow);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
     float lastSuperpositionPercentaje = superpositionPercentaje;
 
-    std::cout << "last sup " << lastSuperpositionPercentaje << std::endl;
+    //std::cout << "last sup " << lastSuperpositionPercentaje << std::endl;
 
     tic_toc t;
     t.tic();
     trackedPose = calcPose(_frame, trackedPose);
     glFinish();
-    std::cout << "clacPose time " << t.toc() << std::endl;
+    if(calcPoseTime == 0.0)
+        calcPoseTime = t.toc();
+    else
+        calcPoseTime = calcPoseTime*0.9 + t.toc()*0.1;
+    std::cout << "clacPose time " << calcPoseTime << std::endl;
 
-    superpositionPercentaje = calcSuperposition(trackedPose, MAX_LEVELS-1);
+    //superpositionPercentaje = calcSuperposition(trackedPose, MAX_LEVELS-1);
 
-    std::cout << "sup " << superpositionPercentaje << std::endl;
+    //std::cout << "sup " << superpositionPercentaje << std::endl;
 
-    float diff = lastSuperpositionPercentaje - superpositionPercentaje;
+    //float diff = lastSuperpositionPercentaje - superpositionPercentaje;
 
-
+    /*
     if(diff > 0.01)
     {
         std::cout << "sup diff " << diff << " add frame and update map" << std::endl;
         addFrameToStack(_frame, trackedPose);
         updateMap();
     }
+    */
     /*
 
     if(superpositionPercentaje < 0.75)

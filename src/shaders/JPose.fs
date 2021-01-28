@@ -38,7 +38,7 @@ void main()
     float f_pixel = texture(frame, uframeTexCoord).x;
     vec2 f_der = texture(frameDer, uframeTexCoord).xy;
     float kf_pixel = texture(keyframe, ukeyframeTexCoord).x;
-    vec2 kf_der = texture(keyframeDer, ukeyframeTexCoord).xy;
+    //vec2 kf_der = texture(keyframeDer, ukeyframeTexCoord).xy;
 
     //este no me causa nands, muy extraño!
     //if(kf_pixel < 0.0 || f_pixel < 0.0)
