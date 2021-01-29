@@ -180,8 +180,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
 
 
     //generate buffers
-    vwidth = 32;
-    vheight = 32;
+    vwidth = 16;
+    vheight = 16;
 
     //prealocate
     for(int y=0;y<vheight;y++)
@@ -420,7 +420,7 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width[0], height[0], 0, GL_RGB, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width[0], height[0], 0, GL_RGB, GL_FLOAT, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     glGenTextures(1, &rotTexture);
@@ -432,7 +432,7 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width[0], height[0], 0, GL_RGB, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width[0], height[0], 0, GL_RGB, GL_FLOAT, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
 
@@ -733,12 +733,12 @@ void mesh_vo::setKeyframeRandomIdepth(cv::Mat _keyFrame)
 
     frameDerivative(keyframeTexture, keyframeDerivativeTexture);
 
-    /*
+
     Sophus::SE3f pose;
     calcIdepth(pose, 0);
     glBindTexture(GL_TEXTURE_2D, idepthTexture);
     glGenerateMipmap(GL_TEXTURE_2D);
-    */
+
 }
 
 void mesh_vo::setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth)
@@ -801,12 +801,12 @@ void mesh_vo::setKeyframeWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth)
 
     frameDerivative(keyframeTexture, keyframeDerivativeTexture);
 
-    /*
+
     Sophus::SE3f pose;
     calcIdepth(pose, 0);
     glBindTexture(GL_TEXTURE_2D, idepthTexture);
     glGenerateMipmap(GL_TEXTURE_2D);
-    */
+
 }
 
 void mesh_vo::setKeyframe(cv::Mat _keyframe, Sophus::SE3f _keyframePose)
@@ -877,12 +877,12 @@ void mesh_vo::setKeyframe(cv::Mat _keyframe, Sophus::SE3f _keyframePose)
 
     frameDerivative(keyframeTexture, keyframeDerivativeTexture);
 
-    /*
+
     Sophus::SE3f pose;
     calcIdepth(pose, 0);
     glBindTexture(GL_TEXTURE_2D, idepthTexture);
     glGenerateMipmap(GL_TEXTURE_2D);
-    */
+
 }
 
 void mesh_vo::addFrameToStack(cv::Mat _frame, Sophus::SE3f _framePose)
@@ -1257,10 +1257,7 @@ void mesh_vo::updateMap()
     }
     //showTexture(residualTexture, lvl);
 
-    calcIdepth(framePoseStack[lastFrameAdded], lvl);
-    showTexture(idepthTexture, lvl);
-
-    //std::cout << "lvl " << lvl << " init error " << last_error << std::endl;
+    std::cout << "lvl " << lvl << " init error " << last_error << std::endl;
 
     int maxIterations = 5;
 
@@ -1287,7 +1284,7 @@ void mesh_vo::updateMap()
                     acc_H_map_lambda(j,j) *= 1.0+lambda;
 
             //inc = -acc_H_map_lambda.ldlt().solve(acc_J_map);
-            inc = -acc_J_map/(100000.0+lambda);
+            inc = -acc_J_map/(100.0+lambda);
 
             for(int index=0; index < int(scene_vertices.size()); index++)
             {
@@ -1304,11 +1301,11 @@ void mesh_vo::updateMap()
                 error += calcError(keyframeTexture, frameTextureStack[i], framePoseStack[i], lvl);
             }
 
-            //std::cout << "lvl " << lvl << " it " << it << " try " << n_try << " lambda " << lambda << " error " << error << std::endl;
+            std::cout << "lvl " << lvl << " it " << it << " try " << n_try << " lambda " << lambda << " error " << error << std::endl;
 
             if(error < last_error)
             {
-                //std::cout << "update accepted " << std::endl;
+                std::cout << "update accepted " << std::endl;
 
                 //accept update, decrease lambda
                 scene_vertices = scene_vertices_updated;
@@ -1346,7 +1343,7 @@ void mesh_vo::updateMap()
                 glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float)*scene_vertices.size(), scene_vertices.data());
 
                 //reject update, increase lambda, use un-updated data
-                //std::cout << "update rejected " << std::endl;
+                std::cout << "update rejected " << std::endl;
 
                 if(!(inc.dot(inc) > 1e-16))
                 {
@@ -1378,7 +1375,7 @@ void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsign
     glDrawBuffers(sizeof(drawbuffers)/sizeof(unsigned int), drawbuffers);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcHJPose" << std::endl;
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! JPose" << std::endl;
 
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
@@ -1446,7 +1443,7 @@ void mesh_vo::calcHJPose(unsigned int keyframe, unsigned int keyframeDer, unsign
     glDrawBuffers(sizeof(drawbuffers2)/sizeof(unsigned int), drawbuffers2);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcResidual" << std::endl;
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! HJPose" << std::endl;
 
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
@@ -2039,11 +2036,11 @@ void mesh_vo::calcHJPose_CPU(unsigned int frame, unsigned int frameDer, Sophus::
 
 void mesh_vo::calcHJMap(unsigned int keyframe, unsigned int keyframeDer, unsigned int frame, unsigned int frameDer, Sophus::SE3f framePose, int lvl)
 {
-    glfwMakeContextCurrent(frameWindow);
+    //glfwMakeContextCurrent(frameWindow);
 
     glViewport(0,0,width[lvl],height[lvl]);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, vertexID_Texture, lvl);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, primitiveID_Texture, lvl);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, residualTexture, lvl);
@@ -2065,7 +2062,7 @@ void mesh_vo::calcHJMap(unsigned int keyframe, unsigned int keyframeDer, unsigne
 
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
-    glClearColor(-1.0f, -1.0f, -1.0f, -1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glActiveTexture(GL_TEXTURE0);
@@ -2351,7 +2348,6 @@ void mesh_vo::calcIdepth(Sophus::SE3f framePose, int lvl)
 float mesh_vo::calcSuperposition(Sophus::SE3f framePose, int lvl)
 {
     calcIdepth(framePose, lvl);
-
     glBindTexture(GL_TEXTURE_2D, idepthTexture);
     glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, idepth_cpu_data);
 
@@ -2375,7 +2371,7 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
 
     float lastSuperpositionPercentaje = superpositionPercentaje;
 
-    //std::cout << "last sup " << lastSuperpositionPercentaje << std::endl;
+    std::cout << "last sup " << lastSuperpositionPercentaje << std::endl;
 
     tic_toc t;
     t.tic();
@@ -2387,20 +2383,23 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
         calcPoseTime = calcPoseTime*0.9 + t.toc()*0.1;
     std::cout << "clacPose time " << calcPoseTime << std::endl;
 
-    //superpositionPercentaje = calcSuperposition(trackedPose, MAX_LEVELS-1);
+    superpositionPercentaje = calcSuperposition(trackedPose, 1);
 
-    //std::cout << "sup " << superpositionPercentaje << std::endl;
+    std::cout << "sup " << superpositionPercentaje << std::endl;
 
-    //float diff = lastSuperpositionPercentaje - superpositionPercentaje;
+    float diff = lastSuperpositionPercentaje - superpositionPercentaje;
 
-    /*
+
     if(diff > 0.01)
     {
         std::cout << "sup diff " << diff << " add frame and update map" << std::endl;
         addFrameToStack(_frame, trackedPose);
         updateMap();
+
+        calcIdepth(framePoseStack[lastFrameAdded], 2);
+        showTexture(idepthTexture, 2);
     }
-    */
+
     /*
 
     if(superpositionPercentaje < 0.75)

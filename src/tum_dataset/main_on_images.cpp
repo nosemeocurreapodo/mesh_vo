@@ -190,18 +190,19 @@ int main( int argc, char** argv )
 
 		undistorter->undistort(imageDist, image);
 		assert(image.type() == CV_8U);
-        cv::Mat imageFloat;
-        image.convertTo(imageFloat, CV_32FC1, 1.0/1.0);
+        cv::flip(image, image, 0);
+        //cv::Mat imageFloat;
+        //image.convertTo(imageFloat, CV_32FC1, 1.0/1.0);
 
         cv::imshow("image",image);
         cv::waitKey(30);
 
 
 		if(runningIDX == 0)
-            visual_odometry.setKeyframeRandomIdepth(imageFloat);
+            visual_odometry.setKeyframeRandomIdepth(image);
             //system->randomInit(image.data, fakeTimeStamp, runningIDX);
 		else
-            visual_odometry.visual_odometry(imageFloat);
+            visual_odometry.visual_odometry(image);
             //system->trackFrame(image.data, runningIDX ,hz == 0,fakeTimeStamp);
 
 

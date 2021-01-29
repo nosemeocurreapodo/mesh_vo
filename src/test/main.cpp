@@ -55,7 +55,7 @@ int main(void)
 
     mesh_vo visual_odometry(out_fx,out_fy,out_cx,out_cy,out_width,out_height);
 
-    //visual_odometry.setKeyframeRandomIdepth(keyframeFLoat.clone());
+    //visual_odometry.setKeyframeRandomIdepth(keyframeResized.clone());
     visual_odometry.setKeyframeWithIdepth(keyframeResized.clone(), idepthResized.clone());
 
     while(1){
