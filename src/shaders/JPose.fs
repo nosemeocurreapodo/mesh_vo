@@ -7,7 +7,6 @@ in vec3 v_pframe;
 in vec3 v_pkeyframe;
 
 uniform sampler2D keyframe;
-uniform sampler2D keyframeDer;
 uniform sampler2D frame;
 uniform sampler2D frameDer;
 

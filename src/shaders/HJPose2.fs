@@ -11,7 +11,6 @@ in vec3 v_pframe;
 in vec3 v_pkeyframe;
 
 uniform sampler2D keyframe;
-uniform sampler2D keyframeDer;
 uniform sampler2D frame;
 uniform sampler2D frameDer;
 
@@ -42,7 +41,7 @@ void main()
     float f_pixel = texture(frame, uframeTexCoord).x;
     vec2 f_der = texture(frameDer, uframeTexCoord).xy;
     float kf_pixel = texture(keyframe, ukeyframeTexCoord).x;
-    vec2 kf_der = texture(keyframeDer, ukeyframeTexCoord).xy;
+    //vec2 kf_der = texture(keyframeDer, ukeyframeTexCoord).xy;
 
     //este no me causa nands, muy extraño!
     //if(kf_pixel < 0.0 || f_pixel < 0.0)

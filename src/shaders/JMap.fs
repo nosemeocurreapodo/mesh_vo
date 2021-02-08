@@ -44,7 +44,6 @@ uniform mat4 framePose;
 
 // texture samplers
 uniform sampler2D keyframe;
-uniform sampler2D keyframeDer;
 uniform sampler2D frame;
 uniform sampler2D frameDer;
 
@@ -61,7 +60,7 @@ void main()
     vec2 uframeTexCoord = vec2(uframe.x*dx, 1.0-uframe.y*dy);
 
     float ikeyframe = texture(keyframe,ukeyframeTexCoord).x;
-    vec2 dkeyframe = texture(keyframeDer,ukeyframeTexCoord).xy;
+    //vec2 dkeyframe = texture(keyframeDer,ukeyframeTexCoord).xy;
 
     float iframe = texture(frame,uframeTexCoord).x;
     vec2 dframe = texture(frameDer,uframeTexCoord).xy;
