@@ -36,7 +36,7 @@ public:
 
     Sophus::SE3f keyframePose;
     Sophus::SE3f trackedPose;
-    float superpositionPercentaje;
+    float occupancy;
 
 private:
 
@@ -55,9 +55,12 @@ private:
     unsigned int feedbackrbo;
 
     unsigned int keyframeTexture;
+    cv::Mat keyframeMat[MAX_LEVELS];
 
     unsigned int frameTexture;
     unsigned int frameDerivativeTexture;
+    cv::Mat frameMat[MAX_LEVELS];
+    cv::Mat frameDerivativeMat[MAX_LEVELS];
 
     unsigned int frameTextureStack[MAX_FRAMES];
     unsigned int frameDerivativeTextureStack[MAX_FRAMES];
@@ -69,7 +72,10 @@ private:
     unsigned int reduceVec4Texture;
 
     unsigned int idepthTexture;
-    GLfloat* idepth_cpu_data;
+    cv::Mat idepthMat[MAX_LEVELS];
+
+    unsigned int occupancyTexture;
+    cv::Mat occupancyMat[MAX_LEVELS];
 
     unsigned int errorTexture;
     GLfloat* error_cpu_data;
@@ -126,6 +132,7 @@ private:
     Shader showTextureShader;
     Shader debugShader;
     Shader idepthShader;
+    Shader occupancyShader;
 
     float fx[MAX_LEVELS];
     float fy[MAX_LEVELS];
@@ -145,42 +152,49 @@ private:
 
     Eigen::Matrix<float, 6, 1> acc_J_pose;
     Eigen::Matrix<float, 6, 6> acc_H_pose;
+    Eigen::Matrix<float, 6, 1> inc_pose;
 
     Eigen::MatrixXf acc_H_map;
     Eigen::VectorXf acc_J_map;
-    Eigen::VectorXf inc;
+    Eigen::VectorXf inc_map;
 
     void changeKeyframe(unsigned int _keyframeTexture, Sophus::SE3f _keyframePose);
 
     void updateMap();
 
     void calcIdepth(Sophus::SE3f framePose, int lvl);
-    float calcSuperposition(Sophus::SE3f framePose, int lvl);
 
-    float calcError(unsigned int _frameTexture, Sophus::SE3f _framePose, int lvl);
-    float calcError_CPU(cv::Mat frame, Sophus::SE3f framePose, int lvl);
+    //float calcOccupancy(Sophus::SE3f framePose, int lvl);
+    float calcOccupancy_CPU(Sophus::SE3f framePose, int lvl);
 
     Sophus::SE3f calcPose(unsigned int _frameTexture, unsigned int _frameDerivativeTexture, Sophus::SE3f initialGuessPose = Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()));
 
     void addFrameToStack(unsigned int _frameTexture, unsigned int _frameDerTexture, Sophus::SE3f _framePose);
 
+
+    void calcHJMap(unsigned int _frameTexture, unsigned int _frameDerTexture, Sophus::SE3f framePose, int lvl);
+
+
     void calcHJPose(unsigned int _frameTexture, unsigned int _frameDerTexture, Sophus::SE3f framePose, int lvl);
     void calcHJPose2(unsigned int _frameTexture, unsigned int _frameDerTexture, Sophus::SE3f framePose, int lvl);
     void calcHJPose_CPU(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f framePose, int lvl);
 
-    void calcHJMap(unsigned int _frameTexture, unsigned int _frameDerTexture, Sophus::SE3f framePose, int lvl);
+    float calcError(unsigned int _frameTexture, Sophus::SE3f _framePose, int lvl);
+    float calcError_CPU(cv::Mat frame, Sophus::SE3f framePose, int lvl);
 
-    void frameDerivative(unsigned int frame, unsigned int frameDerivative);
-
-    void showTexture(unsigned int texture, int lvl);
-
-    void showDebug(unsigned int frame, Sophus::SE3f framePose, int lvl);
-
-    void reduceFloat(unsigned int texture, int src_lvl, int dst_lvl);
-    void reduceVec4(unsigned int texture, int src_lvl, int dst_lvl);
+    void frameDerivative(unsigned int frame, unsigned int frameDerivative, int lvl);
+    void frameDerivative_CPU(cv::Mat frame, cv::Mat &frameDer, int lvl);
 
     void copyTexture(unsigned int srcTexture, unsigned int dstTexture, int lvl);
 
+    //for reduce
+    void reduceFloat(unsigned int texture, int src_lvl, int dst_lvl);
+    void reduceVec4(unsigned int texture, int src_lvl, int dst_lvl);
+
     //for profiling
     float calcPoseTime;
+
+    //for debugging
+    void showTexture(unsigned int texture, int lvl);
+    void showDebug(unsigned int frame, Sophus::SE3f framePose, int lvl);
 };
