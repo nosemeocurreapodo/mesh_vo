@@ -345,8 +345,20 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     }
     lastFrameAdded = -MAX_FRAMES;
 
-    glGenTextures(1, &idepthTexture);
-    glBindTexture(GL_TEXTURE_2D, idepthTexture);
+    glGenTextures(1, &keyframeIdepthTexture);
+    glBindTexture(GL_TEXTURE_2D, keyframeIdepthTexture);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);//border los de afuera son erroneos
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width[0], height[0], 0, GL_RED, GL_FLOAT, NULL);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glGenTextures(1, &frameIdepthTexture);
+    glBindTexture(GL_TEXTURE_2D, frameIdepthTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
@@ -803,15 +815,8 @@ void mesh_vo::initWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth, Sophus::SE3f _p
     }
 }
 
-void mesh_vo::changeKeyframe(unsigned int _keyframeTexture, Sophus::SE3f _keyframePose)
+void mesh_vo::changeKeyframe(cv::Mat newkeyframe, cv::Mat newidepth, Sophus::SE3f _keyframePose)
 {
-    int lvl = 2;
-
-    calcIdepth(_keyframePose, lvl);
-
-    glBindTexture(GL_TEXTURE_2D, idepthTexture);
-    glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, idepth_cpu_data);
-
     scene_vertices.clear();
     scene_indices.clear();
 
@@ -819,18 +824,16 @@ void mesh_vo::changeKeyframe(unsigned int _keyframeTexture, Sophus::SE3f _keyfra
     {
         for(int x=0;x<vwidth;x++)
         {
-            float xi = (float(x)/float(vwidth-1))*width[lvl];
-            float yi = (float(y)/float(vheight-1))*height[lvl];
+            float xi = (float(x)/float(vwidth-1))*width[0];
+            float yi = (float(y)/float(vheight-1))*height[0];
 
-            int index = (height[lvl] - int(yi))*width[lvl] + int(xi);
-
-            float idepth = idepth_cpu_data[index];
+            float idepth = newidepth.at<float>(yi,xi);
 
             if(idepth <= 0.0)
                 idepth = 0.1 + 0.5f * float(y)/vheight;
 
             Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
-            Eigen::Vector3f r = Eigen::Vector3f(fxinv[lvl]*u(0) + cxinv[lvl], fyinv[lvl]*u(1) + cyinv[lvl], 1.0);
+            Eigen::Vector3f r = Eigen::Vector3f(fxinv[0]*u(0) + cxinv[0], fyinv[0]*u(1) + cyinv[0], 1.0);
             Eigen::Vector3f p = r/idepth;
 
             scene_vertices.push_back(r(0));
@@ -865,10 +868,20 @@ void mesh_vo::changeKeyframe(unsigned int _keyframeTexture, Sophus::SE3f _keyfra
     //glBufferData(GL_ELEMENT_ARRAY_BUFFER, scene_indices.size()*sizeof(unsigned int), scene_indices.data(), GL_STREAM_DRAW);
     glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, scene_indices.size()*sizeof(unsigned int), scene_indices.data());
 
-    //copy texture to keyframetexture, and generate its mipmaps
-    copyTexture(_keyframeTexture, keyframeTexture, 0);
+    //save frame in gpu memory
+    cv::Mat frameResized;//dst image
+    cv::Mat frameFlipped;
+    cv::resize(newkeyframe,frameResized,cv::Size(width[0], height[0]));//resize image
+
+    keyframePose = _keyframePose;
+
     glBindTexture(GL_TEXTURE_2D, keyframeTexture);
-    glGenerateMipmap(GL_TEXTURE_2D);
+    for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
+    {
+        cv::resize(frameResized, keyframeMat[lvl], cv::Size(width[lvl],height[lvl]),0,0,cv::INTER_AREA);
+        cv::flip(keyframeMat[lvl], frameFlipped, 0);
+        glTexSubImage2D(GL_TEXTURE_2D, lvl, 0, 0, width[lvl], height[lvl], GL_RED, GL_UNSIGNED_BYTE, frameFlipped.data);
+    }
 
 }
 
@@ -984,7 +997,7 @@ float mesh_vo::calcError_CPU(cv::Mat frame, Sophus::SE3f framePose, int lvl)
             //std::cout << "pixel: " << y << " " << x << std::endl;
 
             uchar vkf = keyframeMat[lvl].at<uchar>(y,x);
-            float keyframeId = idepthMat[lvl].at<float>(y,x);
+            float keyframeId = keyframeIdepthMat[lvl].at<float>(y,x);
 
             //std::cout << "vkf " << vkf << " id " << id << std::endl;
 
@@ -1958,7 +1971,7 @@ void mesh_vo::calcHJPose_CPU(cv::Mat frame, cv::Mat frameDer, Sophus::SE3f frame
         {
             //std::cout << 1 << std::endl;
             uchar vkf = keyframeMat[lvl].at<uchar>(y,x);
-            float keyframeId = idepthMat[lvl].at<float>(y,x);
+            float keyframeId = keyframeIdepthMat[lvl].at<float>(y,x);
 //std::cout << 2 << std::endl;
             Eigen::Vector3f poinKeyframe = Eigen::Vector3f(fxinv[lvl]*x + cxinv[lvl],fyinv[lvl]*y + cyinv[lvl],1.0)/keyframeId;
             Eigen::Vector3f pointFrame = framePose*poinKeyframe;
@@ -2273,7 +2286,7 @@ void mesh_vo::showDebug(unsigned int frame, Sophus::SE3f framePose, int lvl)
         glfwSwapBuffers(frameWindow);
 }
 
-void mesh_vo::calcIdepth(Sophus::SE3f framePose, int lvl)
+void mesh_vo::calcIdepth(unsigned int idepthTexture, Sophus::SE3f framePose, int lvl)
 {
     //glfwMakeContextCurrent(frameWindow);
 
@@ -2355,7 +2368,7 @@ float mesh_vo::calcOccupancy_CPU(Sophus::SE3f framePose, int lvl)
     for(int y = 0; y < height[lvl]; y++)
         for(int x = 0; x < width[lvl]; x++)
         {
-            float keyframeId = idepthMat[lvl].at<float>(y,x);
+            float keyframeId = frameIdepthMat[lvl].at<float>(y,x);
             Eigen::Vector3f poinKeyframe = Eigen::Vector3f(fxinv[lvl]*x + cxinv[lvl],fyinv[lvl]*y + cyinv[lvl],1.0)/keyframeId;
             Eigen::Vector3f pointFrame = framePose*poinKeyframe;
 
@@ -2432,17 +2445,22 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
         updateMap();
         for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
         {
-          calcIdepth(Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()), lvl);
-          glBindTexture(GL_TEXTURE_2D, idepthTexture);
-          glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, idepthMat[lvl].data);
-          cv::flip(idepthMat[lvl],idepthMat[lvl],0);
+          calcIdepth(keyframeIdepthTexture, Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()), lvl);
+          glBindTexture(GL_TEXTURE_2D, keyframeIdepthTexture);
+          glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, keyframeIdepthMat[lvl].data);
+          cv::flip(keyframeIdepthMat[lvl],keyframeIdepthMat[lvl],0);
+
+          calcIdepth(frameIdepthTexture, trackedPose, lvl);
+          glBindTexture(GL_TEXTURE_2D, frameIdepthTexture);
+          glGetTexImage(GL_TEXTURE_2D, lvl, GL_RED, GL_FLOAT, frameIdepthMat[lvl].data);
+          cv::flip(frameIdepthMat[lvl],frameIdepthMat[lvl],0);
         }
     }
 
     if(occupancy < 0.95)
     {
         std::cout << "change keyframe " << std::endl;
-        changeKeyframe(frameTexture, trackedPose);
+        changeKeyframe(frameMat[0], frameIdepthMat[0], trackedPose);
 
         keyframePose = trackedPose*keyframePose;
 

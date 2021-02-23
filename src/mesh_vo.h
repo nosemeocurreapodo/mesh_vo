@@ -55,12 +55,16 @@ private:
     unsigned int feedbackrbo;
 
     unsigned int keyframeTexture;
+    unsigned int keyframeIdepthTexture;
     cv::Mat keyframeMat[MAX_LEVELS];
+    cv::Mat keyframeIdepthMat[MAX_LEVELS];
 
     unsigned int frameTexture;
     unsigned int frameDerivativeTexture;
+    unsigned int frameIdepthTexture;
     cv::Mat frameMat[MAX_LEVELS];
     cv::Mat frameDerivativeMat[MAX_LEVELS];
+    cv::Mat frameIdepthMat[MAX_LEVELS];
 
     unsigned int frameTextureStack[MAX_FRAMES];
     unsigned int frameDerivativeTextureStack[MAX_FRAMES];
@@ -71,8 +75,8 @@ private:
     unsigned int reduceFloatTexture;
     unsigned int reduceVec4Texture;
 
-    unsigned int idepthTexture;
-    cv::Mat idepthMat[MAX_LEVELS];
+
+
 
     unsigned int occupancyTexture;
     cv::Mat occupancyMat[MAX_LEVELS];
@@ -158,11 +162,11 @@ private:
     Eigen::VectorXf acc_J_map;
     Eigen::VectorXf inc_map;
 
-    void changeKeyframe(unsigned int _keyframeTexture, Sophus::SE3f _keyframePose);
+    void changeKeyframe(cv::Mat newkeyframe, cv::Mat newidepth, Sophus::SE3f _keyframePose);
 
     void updateMap();
 
-    void calcIdepth(Sophus::SE3f framePose, int lvl);
+    void calcIdepth(unsigned int idepthTexture, Sophus::SE3f framePose, int lvl);
 
     //float calcOccupancy(Sophus::SE3f framePose, int lvl);
     float calcOccupancy_CPU(Sophus::SE3f framePose, int lvl);
