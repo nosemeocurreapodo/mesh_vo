@@ -1,7 +1,7 @@
 #version 330 core
 layout (location = 0) in vec3 p;
 
-out vec3 v_pkeyframe;
+out vec3 v_pframe;
 
 uniform mat4 framePose;
 uniform mat4 projection;
@@ -13,7 +13,7 @@ void main()
 
     vec4 pframe = framePose * vec4(pkeyframe,1.0);
 
-    gl_Position = projection * opencv2opengl * pframe;
+    gl_Position = projection * opencv2opengl * vec4(pkeyframe,1.0);
 
-    v_pkeyframe = pkeyframe;
+    v_pframe = pframe.xyz;
 }

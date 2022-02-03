@@ -29,18 +29,18 @@ int main(void)
     float fx, fy, cx, cy;
     fx = 481.20; fy = 480.0; cx = 319.5; cy = 239.5;
 
-    cv::Mat keyFrame = cv::imread("../../desktop_dataset/scene_000.png", cv::IMREAD_GRAYSCALE);
-    Sophus::SE3f keyframePose = readPose("../../desktop_dataset/scene_000.txt");
+    cv::Mat initFrame = cv::imread("../../desktop_dataset/scene_000.png", cv::IMREAD_GRAYSCALE);
+    Sophus::SE3f initPose = readPose("../../desktop_dataset/scene_000.txt");
 
-    cv::Mat iDepth;
+    cv::Mat initIdepth;
     cv::FileStorage fs("../../desktop_dataset/scene_depth_000.yml", cv::FileStorage::READ );
-    fs["idepth"] >> iDepth;
+    fs["idepth"] >> initIdepth;
 
 
     mesh_vo visual_odometry(fx,fy,cx,cy,width,height);
 
-    visual_odometry.initWithRandomIdepth(keyFrame, keyframePose);
-    //visual_odometry.initWithIdepth(keyFrame, iDepth);
+    visual_odometry.initWithRandomIdepth(initFrame, initPose*initPose.inverse());
+    //visual_odometry.initWithIdepth(initFrame, initIdepth, initPose*initPose.inverse());
 
     while(1){
         framesTracked++;
@@ -58,19 +58,20 @@ int main(void)
         sprintf(RT_filename,"../../desktop_dataset/scene_%03d.txt", frameNumber);
 
         cv::Mat frame = cv::imread(image_filename, cv::IMREAD_GRAYSCALE);
-        Sophus::SE3f realPose = readPose(RT_filename);
+        Sophus::SE3f realPose = readPose(RT_filename)*initPose.inverse();
 
-
+        //visual_odometry.mapping(frame, realPose);
         visual_odometry.visual_odometry(frame);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();
 
+        /*
         std::cout << "real pose " << std::endl;
         std::cout << realPose.matrix() << std::endl;
         std::cout << "est pose " << std::endl;
         std::cout << visual_odometry.trackedPose.matrix() << std::endl;
-
+        */
         //cv::imshow("image", frame);
         //cv::imshow("keyframe", keyFrame);
         //cv::imshow("idepth", iDepth);
