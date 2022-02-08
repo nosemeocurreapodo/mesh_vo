@@ -18,6 +18,8 @@ public:
   data idepth;
   Sophus::SE3f pose;
 
+  bool init;
+
 private:
 
 };

@@ -2,15 +2,16 @@
 layout (triangles) in;
 layout (triangle_strip, max_vertices = 3) out;
 
-in vec3 v_pframe[];
-in vec2 v_uframe[];
 in vec3 v_pkeyframe[];
-
+in vec3 v_pframe[];
+in vec2 v_ukeyframe[];
+flat in float v_idepth[];
 flat in int v_vertexID[];
 
 out vec3 g_pframe;
 out vec3 g_pkeyframe;
-
+out vec2 g_ukeyframe;
+flat out float g_idepth[3];
 flat out int g_vertexID[3];
 
 flat out vec3 g_N_p0;
@@ -33,14 +34,18 @@ uniform float dy;
 
 void main() {
 
-    if(v_uframe[0].x < 0.0 || v_uframe[0].x > 1/dx || v_uframe[0].y < 0.0 || v_uframe[0].y > 1/dy)
-        return;
-    if(v_uframe[1].x < 0.0 || v_uframe[1].x > 1/dx || v_uframe[1].y < 0.0 || v_uframe[1].y > 1/dy)
-        return;
-    if(v_uframe[2].x < 0.0 || v_uframe[2].x > 1/dx || v_uframe[2].y < 0.0 || v_uframe[2].y > 1/dy)
-        return;
+    if(v_pframe[0].z <= 0.0 || v_pframe[1].z <= 0.0 || v_pframe[2].z <= 0.0)
+      return;
 
     gl_PrimitiveID = gl_PrimitiveIDIn;
+    g_vertexID[0] = v_vertexID[0];
+    g_vertexID[1] = v_vertexID[1];
+    g_vertexID[2] = v_vertexID[2];
+
+    g_idepth[0] = v_idepth[0];
+    g_idepth[1] = v_idepth[1];
+    g_idepth[2] = v_idepth[2];
+
     vec3 pw2mpw1 = vec3(0.0);
 
     g_N_p0 = cross(v_pkeyframe[0] - v_pkeyframe[1], v_pkeyframe[2] - v_pkeyframe[1]);
@@ -61,26 +66,30 @@ void main() {
     g_N_p2_dot_point = dot(g_N_p2,v_pkeyframe[1]);
     g_pr_p2 = v_pkeyframe[1];
 
+    //if(abs(g_N_p0_dot_point) <= 0.0 || abs(g_N_p1_dot_point) <= 0.0 || abs(g_N_p2_dot_point) <= 0.0)
+    //   return;
+
     // vertice 0
-    g_vertexID[0] = v_vertexID[0];
+
     g_pkeyframe = v_pkeyframe[0];
     g_pframe = v_pframe[0];
+    g_ukeyframe = v_ukeyframe[0];
 
     gl_Position = gl_in[0].gl_Position;
     EmitVertex();
 
     //vertice 1
-    g_vertexID[1] = v_vertexID[1];
     g_pkeyframe = v_pkeyframe[1];
     g_pframe = v_pframe[1];
+    g_ukeyframe = v_ukeyframe[1];
 
     gl_Position = gl_in[1].gl_Position;
     EmitVertex();
 
     //vertice 2
-    g_vertexID[2] = v_vertexID[2];
     g_pkeyframe = v_pkeyframe[2];
     g_pframe = v_pframe[2];
+    g_ukeyframe = v_ukeyframe[2];
 
     gl_Position = gl_in[2].gl_Position;
     EmitVertex();

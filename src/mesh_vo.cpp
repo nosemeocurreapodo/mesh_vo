@@ -66,6 +66,9 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     float out_fx, out_fy, out_cx, out_cy;
     out_fx = _fx*xp; out_fy = _fy*yp; out_cx = _cx*xp; out_cy = _cy*yp;
 
+    max_idepth = 100.0;
+    min_idepth = 0.001;
+
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
         float scale = std::pow(2.0f, float(lvl));
@@ -100,7 +103,7 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
         //std::cout << "Kinv" << std::endl;
         //std::cout << KInv.matrix() << std::endl;
 
-        projMat[lvl] = create_glm_prj_matrix(out_fx/scale, out_fy/scale, out_cx/scale, out_cy/scale, MAX_WIDTH/scale, MAX_HEIGHT/scale, 0.0001, 10000.0);
+        projMat[lvl] = create_glm_prj_matrix(out_fx/scale, out_fy/scale, out_cx/scale, out_cy/scale, MAX_WIDTH/scale, MAX_HEIGHT/scale, 0.000001, 100000.0);
     }
 
     opencv2opengl = glm::mat4(1.0f);
@@ -388,9 +391,9 @@ void mesh_vo::initWithRandomIdepth(cv::Mat _keyFrame, Sophus::SE3f _pose)
     {
         for(int x=0;x<vwidth;x++)
         {
-            float idepth = 0.1 + 0.5f * float(y)/vheight;
+            float idepth = 0.1 + (1.0-0.1) * float(y)/vheight;
             //float idepth = 0.5f + 1.0f * ((rand() % 100001) / 100000.0f);
-            //float idepth = 0.1;
+            //float idepth = 0.5;
 
             float xi = (float(x)/float(vwidth-1))*width[0];
             float yi = (float(y)/float(vheight-1))*height[0];
@@ -400,7 +403,7 @@ void mesh_vo::initWithRandomIdepth(cv::Mat _keyFrame, Sophus::SE3f _pose)
 
             scene_vertices.push_back(r(0));
             scene_vertices.push_back(r(1));
-            scene_vertices.push_back(log(p(2)));
+            scene_vertices.push_back(idepth);
 
             //            scene_vertices.push_back(xi);
             //            scene_vertices.push_back(yi);
@@ -444,9 +447,6 @@ void mesh_vo::initWithRandomIdepth(cv::Mat _keyFrame, Sophus::SE3f _pose)
         calcDerivativeCPU(keyframeData, lvl);
         keyframeData.der.cpu_to_gpu(lvl);
     }
-
-    for(int s = 0; s < MAX_FRAMES; s++)
-        addFrameToStack(keyframeData);
 }
 
 void mesh_vo::initWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth, Sophus::SE3f _pose)
@@ -462,8 +462,14 @@ void mesh_vo::initWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth, Sophus::SE3f _p
             float yi = (float(y)/float(vheight-1))*height[0];
 
             float idepth = _idepth.at<float>(yi,xi);
-            if(idepth <= 0.0)
-                idepth = 0.1 + 0.5f * float(y)/vheight;
+            /*
+            if(idepth <= min_idepth)
+                idepth = min_idepth;
+            if(idepth > max_idepth)
+                idepth = max_idepth;
+                */
+            if(idepth != idepth || idepth < 0.1 || idepth > 1.0)
+                idepth = 0.1 + (1.0-0.1) * float(y)/vheight;
 
             Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
             Eigen::Vector3f r = Eigen::Vector3f(fxinv[0]*u(0) + cxinv[0], fyinv[0]*u(1) + cyinv[0], 1.0);
@@ -471,7 +477,7 @@ void mesh_vo::initWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth, Sophus::SE3f _p
 
             scene_vertices.push_back(r(0));
             scene_vertices.push_back(r(1));
-            scene_vertices.push_back(log(p(2)));
+            scene_vertices.push_back(idepth);
 
             //scene_vertices.push_back(xi);
             //scene_vertices.push_back(yi);
@@ -517,9 +523,6 @@ void mesh_vo::initWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth, Sophus::SE3f _p
         calcDerivativeCPU(keyframeData, lvl);
         keyframeData.der.cpu_to_gpu(lvl);
     }
-
-    for(int s = 0; s < MAX_FRAMES; s++)
-        addFrameToStack(keyframeData);
 }
 
 void mesh_vo::changeKeyframe(frame newkeyFrame)
@@ -527,6 +530,41 @@ void mesh_vo::changeKeyframe(frame newkeyFrame)
     calcIdepthGPU(newkeyFrame, 0);
     newkeyFrame.idepth.gpu_to_cpu(0);
 
+    /*
+    while(true)
+    {
+        cv::Mat oldImage = newkeyFrame.idepth.cpuTexture[0];
+
+        if(cv::countNonZero(oldImage) == width[0]*height[0])
+            break;
+
+        cv::Mat newImage;
+        oldImage.copyTo(newImage);
+
+        for(int y = 0; y < height[0]; y++)
+            for(int x = 0; x < width[0]; x++)
+            {
+                float idepth = oldImage.at<float>(y,x);
+                if(idepth <= 0.0)
+                {
+                    float newIdepth = 0.0;
+                    int count = 0;
+                    for(int yi = -1; yi < 2; yi++)
+                        for(int xi = -1; xi < 2; xi++)
+                        {
+                            if(oldImage.at<float>(y+yi,x+xi) > 0.0)
+                            {
+                                newIdepth += oldImage.at<float>(y+yi,x+xi);
+                                count ++;
+                            }
+                        }
+                    if(count > 0)
+                      newImage.at<float>(y,x) = newIdepth/count;
+                }
+            }
+        newImage.copyTo(newkeyFrame.idepth.cpuTexture[0]);
+    }
+   */
     scene_vertices.clear();
     scene_indices.clear();
 
@@ -539,8 +577,8 @@ void mesh_vo::changeKeyframe(frame newkeyFrame)
 
             float idepth = newkeyFrame.idepth.cpuTexture[0].at<float>(yi,xi);
 
-            if(idepth <= 0.0)
-                idepth = 0.1 + 0.5f * float(y)/vheight;
+            if(idepth < min_idepth || idepth > max_idepth)
+                idepth = 0.1 + (1.0-0.1) * float(y)/vheight;
 
             Eigen::Vector3f u = Eigen::Vector3f(xi,yi,1.0);
             Eigen::Vector3f r = Eigen::Vector3f(fxinv[0]*u(0) + cxinv[0], fyinv[0]*u(1) + cyinv[0], 1.0);
@@ -548,7 +586,7 @@ void mesh_vo::changeKeyframe(frame newkeyFrame)
 
             scene_vertices.push_back(r(0));
             scene_vertices.push_back(r(1));
-            scene_vertices.push_back(log(p(2)));
+            scene_vertices.push_back(idepth);
 
             //scene_vertices.push_back(xi);
             //scene_vertices.push_back(yi);
@@ -603,14 +641,15 @@ void mesh_vo::addFrameToStack(frame &_frame)
     //copy texture and generate its mipmaps
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        copyCPU(_frame.image, frameDataStack[abs(lastFrameAdded)].image,lvl);
-        copyGPU(_frame.image, frameDataStack[abs(lastFrameAdded)].image, lvl);
+        copyCPU(_frame.image, frameDataStack[lastFrameAdded].image,lvl);
+        copyGPU(_frame.image, frameDataStack[lastFrameAdded].image, lvl);
 
-        copyCPU(_frame.der, frameDataStack[abs(lastFrameAdded)].der, lvl);
-        copyGPU(_frame.der, frameDataStack[abs(lastFrameAdded)].der, lvl);
+        copyCPU(_frame.der, frameDataStack[lastFrameAdded].der, lvl);
+        copyGPU(_frame.der, frameDataStack[lastFrameAdded].der, lvl);
     }
 
-    frameDataStack[abs(lastFrameAdded)].pose = _frame.pose;
+    frameDataStack[lastFrameAdded].pose = _frame.pose;
+    frameDataStack[lastFrameAdded].init = true;
 }
 
 float mesh_vo::calcErrorGPU(frame &_frame, int lvl)
@@ -632,9 +671,11 @@ float mesh_vo::calcErrorGPU(frame &_frame, int lvl)
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcResidual" << std::endl;
 
+    float error_value = -1.0;
+
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0, 0, 0, 0);
+    glClearColor(error_value, error_value, error_value, error_value);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glActiveTexture(GL_TEXTURE0);
@@ -681,19 +722,24 @@ float mesh_vo::calcErrorGPU(frame &_frame, int lvl)
         for(int y = 0; y < height[new_lvl]; y++)
         {
             float res = errorData.cpuTexture[new_lvl].at<float>(y,x);
+
+            //if(x == width[new_lvl]/2 && y == height[new_lvl]/2)
             //std::cout << "res " << res << std::endl;
-            if(res <= 0)
-            //    res = 255.0*255.0;
+            if(res == error_value)
+                //    res = 255.0*255.0;
                 continue;
 
             count++;
             error += res;
         }
 
-    if(count > 0)
+    if(count > 0)//width[new_lvl]*height[new_lvl]*0.7)
         error /= count;
     else
+    {
+        std::cout << "some problem in calcErrorGPU, maybe images dont overlap" << std::endl;
         error = 1230000000000000000000000000.0f;
+    }
 
     //std::cout << "max error GPU " << max_error << std::endl;
 
@@ -867,138 +913,202 @@ void mesh_vo::calcPose(frame &_frame, Sophus::SE3f initialGuessPose)
 
 void mesh_vo::updateMap()
 {        
-    int lvl = 1;
-
-    if(lastFrameAdded < 0)
-        return;
-
-    float last_error = 0.0;
-    for(int i = 0; i < MAX_FRAMES; i++)
+    for(int lvl = 0; lvl >= 0; lvl--)
     {
-        //last_error += calcErrorCPU(frameDataStack[i], lvl);
-        last_error += calcErrorGPU(frameDataStack[i], lvl);
-    }
-
-    std::cout << "initial error " << last_error << std::endl;
-
-    int maxIterations = 100;
-
-    for(int it = 0; it < maxIterations; it++)
-    {
-        //acc_H_map.setZero();
-        //acc_J_map.setZero();
-        //inc_map.setZero();
-
-        acc_H_depth.setZero();
-        acc_J_depth.setZero();
-        inc_depth.setZero();
-
+        float last_error = 0.0;
         for(int i = 0; i < MAX_FRAMES; i++)
         {
-            //showGPU(frameDataStack[i].image,0);
-            calcHJMapGPU(frameDataStack[i], lvl);
+            //last_error += calcErrorCPU(frameDataStack[i], lvl);
+            if(frameDataStack[i].init == true)
+              last_error += calcErrorGPU(frameDataStack[i], lvl);
         }
-        //std::cout << "acc_J_map " << acc_J_map << std::endl;
 
-        float lambda = 0.0;
-        int n_try = 0;
-        while(true)
+        //showGPU(errorData,lvl);
+        //cv::waitKey(1000.0);
+        //return;
+
+        std::cout << "lvl " << lvl << " initial error " << last_error << std::endl;
+
+        int maxIterations = 100;
+
+        for(int it = 0; it < maxIterations; it++)
         {
-            Eigen::MatrixXf acc_H_depth_lambda = acc_H_depth;
+            //acc_H_map.setZero();
+            //acc_J_map.setZero();
+            //inc_map.setZero();
 
-            for(int j = 0; j < acc_H_depth_lambda.rows(); j++)
-              acc_H_depth_lambda(j,j) *= 1.0+lambda;
+            acc_H_depth.setZero();
+            acc_J_depth.setZero();
+            inc_depth.setZero();
 
-            //inc_depth = -acc_H_depth_lambda.ldlt().solve(acc_J_depth);
-            inc_depth = -acc_J_depth/((1.0+lambda)*10000.0);
-
-            for(int index=0; index < int(scene_vertices.size()); index++)
+            for(int i = 0; i < MAX_FRAMES; i++)
             {
-                scene_vertices_updated[index] = scene_vertices[index];// + inc_depth(index);
+                //showGPU(frameDataStack[i].image,0);
+                //calcPose(frameDataStack[i],frameDataStack[i].pose);
+                if(frameDataStack[i].init == true)
+                  calcHJMapGPU(frameDataStack[i], lvl);
             }
 
-            for(int index=0; index < int(inc_depth.size()); index++)
+            //showGPU(primitiveIdData,lvl);
+            //cv::waitKey(1000.0);
+            //return;
+            //std::cout << "acc_J_map " << acc_J_map << std::endl;
+
+            float lambda = 0.0;
+            int n_try = 0;
+            while(true)
             {
-                scene_vertices_updated[index*3+2] = scene_vertices[index*3+2] + inc_depth(index);
-            }
+                Eigen::MatrixXf acc_H_depth_lambda = acc_H_depth;
 
-            glBindVertexArray(scene_VAO);
-            glBindBuffer(GL_ARRAY_BUFFER, scene_VBO);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float)*scene_vertices_updated.size(), scene_vertices_updated.data());
+                for(int j = 0; j < acc_H_depth_lambda.rows(); j++)
+                    acc_H_depth_lambda(j,j) *= 1.0+lambda;
 
-            //calcIdepthGPU(keyframeData,0);
-            //keyframeData.idepth.gpu_to_cpu(0);
-            //keyframeData.idepth.generateMipmapsCPU(0);
+                //inc_depth = -acc_H_depth_lambda.ldlt().solve(acc_J_depth);
+                //inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
+                //inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
+                float update_step = 1.0/(1.0+lambda);
 
-            float error = 0.0;
-            for(int i=0; i < MAX_FRAMES; i++)
-            {
-                //error += calcErrorCPU(frameDataStack[i], lvl);
-                error += calcErrorGPU(frameDataStack[i],lvl);
-            }
+                for(int j = 0; j < int(acc_J_depth.size()); j++)
+                  if(fabs(acc_J_depth(j)) > 0.0)
+                    inc_depth(j) = -update_step*acc_J_depth(j)/fabs(acc_J_depth(j));
 
-            std::cout << "new error " << error << std::endl;
+                //std::cout << acc_H_depth << std::endl;
+                //std::cout << "acc_J_depth " << std::endl;
+                //std::cout << acc_J_depth << std::endl;
+                //std::cout << "inc_depth" << std::endl;
+                //std::cout << inc_depth << std::endl;
 
-            if(error < last_error)
-            {
-                //accept update, decrease lambda
-                //std::cout << "update accepted " << std::endl;
-
-                scene_vertices = scene_vertices_updated;
-
-                float p = error / last_error;
-
-                if(lambda < 0.2f)
-                    lambda = 0.0f;
-                else
-                    lambda *= 0.5;
-
-                last_error = error;
-
-                if( p >  0.9999f)
+                for(int index=0; index < int(scene_vertices.size()); index++)
                 {
-                    std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
-                    //if converged, do next level
-                    it = maxIterations;
+                    scene_vertices_updated[index] = scene_vertices[index];// + inc_depth(index);
                 }
 
-                //if update accepted, do next iteration
-                break;
-            }
-            else
-            {
-                n_try++;
 
-                if(lambda < 0.2f)
-                    lambda = 0.2f;
-                else
-                    lambda *= std::pow(2.0, n_try);
+                for(int index=0; index < int(inc_depth.size()); index++)
+                {
+                    /*
+                float max_depth = 1.0/min_idepth;
+                float min_depth = 1.0/max_idepth;
+                float max_depth_jump = (max_depth - min_depth)*0.1;
+
+                if(inc_depth(index) > log(max_depth_jump))
+                    inc_depth(index) = log(max_depth_jump);
+                if(inc_depth(index) < log(-max_depth_jump))
+                    inc_depth(index) = log(-max_depth_jump);
+                */
+                    scene_vertices_updated[index*3+2] = scene_vertices[index*3+2] + inc_depth(index);
+
+                    //if(scene_vertices_updated[index*3+2] != scene_vertices_updated[index*3+2])
+                    //    std::cout << "some nand in updating scene_vertices" << std::endl;
+
+
+                    if(scene_vertices_updated[index*3+2] < min_idepth)
+                        scene_vertices_updated[index*3+2] = scene_vertices[index*3+2];
+                    if(scene_vertices_updated[index*3+2] > max_idepth)
+                        scene_vertices_updated[index*3+2] = scene_vertices[index*3+2];
+
+                    //if(scene_vertices_updated[index*3+2] > log(max_depth))
+                    //    scene_vertices_updated[index*3+2] = log(max_depth);
+
+                    //if(scene_vertices_updated[index*3+2] < 0.0)
+                    //    std::cout << "negative depth " << index << " " << scene_vertices_updated[index*3+2] << std::endl;
+                }
+
 
                 glBindVertexArray(scene_VAO);
                 glBindBuffer(GL_ARRAY_BUFFER, scene_VBO);
-                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float)*scene_vertices.size(), scene_vertices.data());
+                glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float)*scene_vertices_updated.size(), scene_vertices_updated.data());
 
                 //calcIdepthGPU(keyframeData,0);
                 //keyframeData.idepth.gpu_to_cpu(0);
                 //keyframeData.idepth.generateMipmapsCPU(0);
 
-                //reject update, increase lambda, use un-updated data
-                //std::cout << "update rejected " << std::endl;
-
-
-                if(!(inc_depth.dot(inc_depth) > 1e-16))
+                float error = 0.0;
+                for(int i=0; i < MAX_FRAMES; i++)
                 {
-                    std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations with lambda " << lambda << std::endl;
-                    //if too small, do next level!
-                    it = maxIterations;
-                    break;
+                    //error += calcErrorCPU(frameDataStack[i], lvl);
+                    if(frameDataStack[i].init == true)
+                      error += calcErrorGPU(frameDataStack[i],lvl);
                 }
 
+                std::cout << "lvl " << lvl << " new error " << error << std::endl;
+
+                if(error < last_error)
+                {
+                    //accept update, decrease lambda
+                    std::cout << "update accepted " << std::endl;
+
+
+                    for(int index=0; index < int(scene_vertices.size()); index++)
+                    {
+                        scene_vertices[index] = scene_vertices_updated[index];
+                    }
+
+                    /*
+                    //update frames pose
+                    calcIdepthGPU(keyframeData,0);
+                    keyframeData.idepth.gpu_to_cpu(0);
+                    keyframeData.idepth.generateMipmapsCPU(0);
+
+                    for(int i=0; i < MAX_FRAMES; i++)
+                    {
+                       calcPose(frameDataStack[i],frameDataStack[i].pose);
+                    }
+                    */
+
+
+                    float p = error / last_error;
+
+                    if(lambda < 0.2f)
+                        lambda = 0.0f;
+                    else
+                        lambda *= 0.5;
+
+                    last_error = error;
+
+                    if( p > 0.999f)
+                    {
+                        std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
+                        //if converged, do next level
+                        it = maxIterations;
+                    }
+
+                    //if update accepted, do next iteration
+                    break;
+                }
+                else
+                {
+                    n_try++;
+
+                    if(lambda < 0.2f)
+                        lambda = 0.2f;
+                    else
+                        lambda *= std::pow(2.0, n_try);
+
+                    glBindVertexArray(scene_VAO);
+                    glBindBuffer(GL_ARRAY_BUFFER, scene_VBO);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(float)*scene_vertices.size(), scene_vertices.data());
+
+                    //calcIdepthGPU(keyframeData,0);
+                    //keyframeData.idepth.gpu_to_cpu(0);
+                    //keyframeData.idepth.generateMipmapsCPU(0);
+
+                    //reject update, increase lambda, use un-updated data
+                    std::cout << "update rejected " << std::endl;
+
+
+                    if(inc_depth.dot(inc_depth) < update_step)
+                    {
+                        std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations with lambda " << lambda << std::endl;
+                        //if too small, do next level!
+                        it = maxIterations;
+                        break;
+                    }
+                }
             }
         }
     }
 }
-
 
 void mesh_vo::calcHJPoseGPU(frame _frame, int lvl)
 {   
@@ -1678,7 +1788,7 @@ void mesh_vo::calcHJMapGPU(frame &_frame, int lvl)
 
     glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClearColor(-1.0, -1.0f, -1.0f, -1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glActiveTexture(GL_TEXTURE0);
@@ -1745,7 +1855,7 @@ void mesh_vo::calcHJMapGPU(frame &_frame, int lvl)
 
             if(error != error)
             {
-                //std::cout << "nand in error " << error << std::endl;
+                std::cout << "nand in error " << error << std::endl;
                 continue;
             }
 
@@ -1779,14 +1889,17 @@ void mesh_vo::calcHJMapGPU(frame &_frame, int lvl)
 
             //std::cout << "J " << J[0] << " " << J[1] << " " << J[2] << std::endl;
 
+            bool someNand = false;
             for(int i = 0; i < 3; i++)
             {
                 if(J[i]!=J[i])
                 {
                     //std::cout << "J nand " << i << " " << x << " " << y << " " << vertexID[0] << " " << vertexID[1] << " " << vertexID[2] << std::endl;
-                    continue;
+                    someNand = true;
                 }
             }
+            if(someNand == true)
+                continue;
 
             //ahora si, actualizo las matrices usando los indices de cada vertice
             for(int i = 0; i < 3; i++)
@@ -1799,7 +1912,6 @@ void mesh_vo::calcHJMapGPU(frame &_frame, int lvl)
                     //acc_H_map(vertexID[i]*3+2, vertexID[j]*3+2) += J[i]*J[j];
                     acc_H_depth(vertexID[i],vertexID[j]) += J[i]*J[j];
                 }
-
             }
         }
 }
@@ -1809,7 +1921,6 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
     glfwMakeContextCurrent(frameWindow);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
-    calcIdepthGPU(keyframeData,0);
     showGPU(keyframeData.idepth,0);
 
     //save frame in gpu memory, calc derivavites y mipmaps
@@ -1831,6 +1942,7 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
         calcPoseTime = t.toc();
     else
         calcPoseTime = calcPoseTime*0.9 + t.toc()*0.1;
+    std::cout << "estimated pose " << std::endl;
     std::cout << frameData.pose.matrix() << std::endl;
     std::cout << "clacPose time " << calcPoseTime << std::endl;
 
@@ -1846,19 +1958,43 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
     float diff = fabs(occupancy - new_occupancy);
     occupancy = new_occupancy;
 
-    if(occupancy < 0.9)
+    if(occupancy < 0.8)
     {
         changeKeyframe(frameData);
+
+        /*
+        updateMap();
+        calcIdepthGPU(keyframeData,0);
+        showGPU(keyframeData.idepth,0);
+        keyframeData.idepth.gpu_to_cpu(0);
+        keyframeData.idepth.generateMipmapsCPU(0);
+        */
         occupancy = 1.0;
-    }
-    else
-    {
-        if(diff > 0.01)
+
+        /*
+        for(int s = 0; s < MAX_FRAMES; s++)
         {
-            std::cout << "sup diff " << diff << " add frame and update map" << std::endl;
-            addFrameToStack(frameData);
-            updateMap();
+            if(frameDataStack[s].init == true)
+              calcPose(frameDataStack[s],frameDataStack[s].pose);
         }
+        */
+
+        return;
+    }
+
+    if(diff > 0.01)
+    {
+        //std::cout << "sup diff " << diff << " add frame and update map" << std::endl;
+        addFrameToStack(frameData);
+        updateMap();
+
+        /*
+        for(int s = 0; s < MAX_FRAMES; s++)
+        {
+            if(frameDataStack[s].init == true)
+              calcPose(frameDataStack[s],frameDataStack[s].pose);
+        }
+        */
     }
 }
 
@@ -1900,6 +2036,24 @@ void mesh_vo::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
     float diff = fabs(occupancy - new_occupancy);
     occupancy = new_occupancy;
 
+    if(occupancy < 0.8)
+    {
+        t.tic();
+        changeKeyframe(frameData);
+        //updateMap();
+
+        //calcIdepthGPU(keyframeData,0);
+        //showGPU(keyframeData.idepth,0);
+        //keyframeData.idepth.gpu_to_cpu(0);
+        //keyframeData.idepth.generateMipmapsCPU(0);
+
+        glFinish();
+        std::cout << "change keyframe time " << t.toc() << std::endl;
+
+        occupancy = 1.0;
+        return;
+    }
+
     if(diff > 0.01)
     {
         t.tic();
@@ -1909,18 +2063,12 @@ void mesh_vo::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
 
         t.tic();
         updateMap();
+        //calcIdepthGPU(keyframeData,0);
+        //showGPU(keyframeData.idepth,0);
+        //keyframeData.idepth.gpu_to_cpu(0);
+        //keyframeData.idepth.generateMipmapsCPU(0);
         glFinish();
         std::cout << "update map time " << t.toc() << std::endl;
-    }
-
-    if(occupancy < 0.8)
-    {
-        t.tic();
-        changeKeyframe(frameData);
-        glFinish();
-        std::cout << "change keyframe time " << t.toc() << std::endl;
-
-        occupancy = 1.0;
     }
 }
 

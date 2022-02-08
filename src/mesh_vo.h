@@ -49,6 +49,9 @@ private:
     int width[MAX_LEVELS], height[MAX_LEVELS];
     float dx[MAX_LEVELS], dy[MAX_LEVELS];
 
+    float max_idepth;
+    float min_idepth;
+
     glm::mat4 projMat[MAX_LEVELS];
     glm::mat4 opencv2opengl;
 

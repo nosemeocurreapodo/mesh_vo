@@ -8,7 +8,9 @@ layout(location = 5) out float f_d_I_d_z2;
 
 in vec3 g_pframe;
 in vec3 g_pkeyframe;
+in vec2 g_ukeyframe;
 
+flat in float g_idepth[3];
 flat in int g_vertexID[3];
 
 flat in vec3 g_N_p0;
@@ -50,26 +52,20 @@ uniform sampler2D frameDer;
 void main()
 {
     //if point not visible
-    //if(g_pkeyframe.z <= 0.0 || g_pframe.z <= 0.0)
-    //  discard;
+    if(g_pkeyframe.z <= 0.0 || g_pframe.z <= 0.0)
+      discard;
 
-    vec2 ukeyframe = vec2(gl_FragCoord.x,1.0/dy-gl_FragCoord.y);
-    vec2 uframe = vec2(fx*g_pframe.x/g_pframe.z+cx,fy*g_pframe.y/g_pframe.z+cy);
+    vec2 ukeyframe = g_ukeyframe;
+    vec2 uframe  = vec2(gl_FragCoord.x,gl_FragCoord.y);
 
     vec2 ukeyframeTexCoord = vec2(ukeyframe.x*dx, 1.0-ukeyframe.y*dy);
-    vec2 uframeTexCoord = vec2(uframe.x*dx, 1.0-uframe.y*dy);
+    vec2 uframeTexCoord = vec2(uframe.x*dx, uframe.y*dy);
 
-    float ikeyframe = texture(keyframe,ukeyframeTexCoord).x;
+    float ikeyframe = texture(keyframe,ukeyframeTexCoord).x*255.0;
     //vec2 dkeyframe = texture(keyframeDer,ukeyframeTexCoord).xy;
 
-    float iframe = texture(frame,uframeTexCoord).x;
+    float iframe = texture(frame,uframeTexCoord).x*255.0;
     vec2 dframe = texture(frameDer,uframeTexCoord).xy;
-
-    //if(ikeyframe < 0.0 || iframe < 0.0)
-    //  discard;
-
-    //if(abs(dframe.x) < 0.2 || abs(dframe.y) < 0.2)
-    //    discard;
 
     vec3 d_I_d_pframe = vec3(0);
     d_I_d_pframe.x = dframe.x*fx/g_pframe.z;
@@ -90,14 +86,19 @@ void main()
     float d_z_d_z1 = dot(g_d_N_d_z1,g_pr_p1)/N_p1_dot_ray - g_N_p1_dot_point*dot(g_d_N_d_z1,raykeyframe)/(N_p1_dot_ray*N_p1_dot_ray);
     float d_z_d_z2 = dot(g_d_N_d_z2,g_pr_p2)/N_p2_dot_ray - g_N_p2_dot_point*dot(g_d_N_d_z2,raykeyframe)/(N_p2_dot_ray*N_p2_dot_ray);
 
-    float d_I_d_z0 = d_I_d_z*d_z_d_z0;
-    float d_I_d_z1 = d_I_d_z*d_z_d_z1;
-    float d_I_d_z2 = d_I_d_z*d_z_d_z2;
+    //float z0 = 1.0/iz0;
+    float d_z0_d_iz0 = -1.0/(g_idepth[0]*g_idepth[0]);
+    float d_z1_d_iz1 = -1.0/(g_idepth[1]*g_idepth[1]);
+    float d_z2_d_iz2 = -1.0/(g_idepth[2]*g_idepth[2]);
+
+    float d_I_d_z0 = d_I_d_z*d_z_d_z0*d_z0_d_iz0;
+    float d_I_d_z1 = d_I_d_z*d_z_d_z1*d_z1_d_iz1;
+    float d_I_d_z2 = d_I_d_z*d_z_d_z2*d_z2_d_iz2;
 
     float error = iframe - ikeyframe;
 
     f_vertexID = vec3(g_vertexID[0], g_vertexID[1], g_vertexID[2]);
-    f_primitiveID = gl_PrimitiveID;
+    f_primitiveID = 1.0/g_pframe.z - abs(error)/255.0;//d_z_d_z0;// gl_PrimitiveID;
     f_error = error;
     f_d_I_d_z0 = d_I_d_z0;
     f_d_I_d_z1 = d_I_d_z1;

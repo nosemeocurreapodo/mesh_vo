@@ -9,11 +9,8 @@ uniform mat4 opencv2opengl;
 
 void main()
 {
-    vec3 pkeyframe = vec3(p.x,p.y,1.0)*exp(p.z);
-
+    vec3 pkeyframe = vec3(p.x,p.y,1.0)/p.z;
     vec4 pframe = framePose * vec4(pkeyframe,1.0);
-
     gl_Position = projection * opencv2opengl * pframe;
-
     v_depth = pframe.z;
 }
