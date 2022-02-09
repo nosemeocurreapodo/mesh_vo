@@ -4,13 +4,13 @@ layout (triangle_strip, max_vertices = 3) out;
 
 in vec3 v_pkeyframe[];
 in vec3 v_pframe[];
-in vec2 v_ukeyframe[];
+in vec2 v_u[];
 flat in float v_idepth[];
 flat in int v_vertexID[];
 
 out vec3 g_pframe;
 out vec3 g_pkeyframe;
-out vec2 g_ukeyframe;
+out vec2 g_u;
 flat out float g_idepth[3];
 flat out int g_vertexID[3];
 
@@ -73,7 +73,7 @@ void main() {
 
     g_pkeyframe = v_pkeyframe[0];
     g_pframe = v_pframe[0];
-    g_ukeyframe = v_ukeyframe[0];
+    g_u = v_u[0];
 
     gl_Position = gl_in[0].gl_Position;
     EmitVertex();
@@ -81,7 +81,7 @@ void main() {
     //vertice 1
     g_pkeyframe = v_pkeyframe[1];
     g_pframe = v_pframe[1];
-    g_ukeyframe = v_ukeyframe[1];
+    g_u = v_u[1];
 
     gl_Position = gl_in[1].gl_Position;
     EmitVertex();
@@ -89,7 +89,7 @@ void main() {
     //vertice 2
     g_pkeyframe = v_pkeyframe[2];
     g_pframe = v_pframe[2];
-    g_ukeyframe = v_ukeyframe[2];
+    g_u = v_u[2];
 
     gl_Position = gl_in[2].gl_Position;
     EmitVertex();

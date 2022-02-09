@@ -9,9 +9,9 @@ data::data()
 
 }
 
-data::data(int height, int width, int channels, GLenum type)
+data::data(int height, int width, int channels, GLenum datatype, GLint filtertype, GLint wraptype)
 {
-    gltype = type;
+    gltype = datatype;
 
     if(channels == 1)
     {
@@ -54,7 +54,7 @@ data::data(int height, int width, int channels, GLenum type)
         }
     }
 
-    if(type == GL_UNSIGNED_BYTE)
+    if(gltype == GL_UNSIGNED_BYTE)
     {
         if(channels == 1)
         {
@@ -82,11 +82,12 @@ data::data(int height, int width, int channels, GLenum type)
     glBindTexture(GL_TEXTURE_2D, gpuTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);//border los de afuera son erroneos
-    //glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtertype);//GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtertype);//GL_NEAREST_MIPMAP_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wraptype);// GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wraptype);//GL_MIRRORED_REPEAT);//border los de afuera son erroneos
+    float color[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
     glTexImage2D(GL_TEXTURE_2D, 0, glinternalFormat, width, height, 0, glformat, gltype, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -130,7 +131,7 @@ void data::generateMipmapsCPU(int baselvl)
         int width_s = int(MAX_WIDTH/scale);
         int height_s = int(MAX_HEIGHT/scale);
 
-        cv::resize(cpuTexture[baselvl],cpuTexture[lvl], cv::Size(width_s, height_s));
+        cv::resize(cpuTexture[baselvl],cpuTexture[lvl], cv::Size(width_s, height_s), cv::INTER_AREA);
     }
 }
 

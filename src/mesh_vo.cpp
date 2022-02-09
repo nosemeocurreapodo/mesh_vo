@@ -3,6 +3,12 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 
+#include <Eigen/SparseCholesky>
+#include <Eigen/SparseLU>
+#include <Eigen/SparseQR>
+#include <Eigen/OrderingMethods>
+#include <Eigen/IterativeLinearSolvers>
+
 glm::mat4 create_glm_prj_matrix(float fx, float fy, float cx, float cy, float w, float h, float znear, float zfar)
 {
     glm::mat4 projmat = glm::mat4(0.0f);
@@ -192,8 +198,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
 
 
     //generate buffers
-    vwidth = 64;
-    vheight = 64;
+    vwidth = 48;
+    vheight = 32;
 
     //prealocate
     for(int y=0;y<vheight;y++)
@@ -286,26 +292,26 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     for(int i = 0; i < MAX_FRAMES; i++)
         frameDataStack[i] = frame(height[0], width[0]);
 
-    errorData = data(height[0], width[0], 1, GL_FLOAT);
+    errorData = data(height[0], width[0], 1, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
 
-    residualData = data(height[0], width[0], 1, GL_FLOAT);
-    traData = data(height[0], width[0], 3, GL_FLOAT);
-    rotData = data(height[0], width[0], 3, GL_FLOAT);
+    residualData = data(height[0], width[0], 1, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
+    traData = data(height[0], width[0], 3, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
+    rotData = data(height[0], width[0], 3, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
 
-    Jpose1Data = data(height[0], width[0], 4, GL_FLOAT);
-    Jpose2Data = data(height[0], width[0], 4, GL_FLOAT);
-    Jpose3Data = data(height[0], width[0], 4, GL_FLOAT);
-    Jpose4Data = data(height[0], width[0], 4, GL_FLOAT);
-    Jpose5Data = data(height[0], width[0], 4, GL_FLOAT);
-    Jpose6Data = data(height[0], width[0], 4, GL_FLOAT);
-    Jpose7Data = data(height[0], width[0], 4, GL_FLOAT);
+    Jpose1Data = data(height[0], width[0], 4, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
+    Jpose2Data = data(height[0], width[0], 4, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
+    Jpose3Data = data(height[0], width[0], 4, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
+    Jpose4Data = data(height[0], width[0], 4, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
+    Jpose5Data = data(height[0], width[0], 4, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
+    Jpose6Data = data(height[0], width[0], 4, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
+    Jpose7Data = data(height[0], width[0], 4, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
 
-    vertexIdData = data(height[0], width[0], 3, GL_FLOAT);
-    primitiveIdData = data(height[0], width[0], 1, GL_FLOAT);
+    vertexIdData = data(height[0], width[0], 3, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
+    primitiveIdData = data(height[0], width[0], 1, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
 
-    d_I_d_p0Data = data(height[0], width[0], 1, GL_FLOAT);
-    d_I_d_p1Data = data(height[0], width[0], 1, GL_FLOAT);
-    d_I_d_p2Data = data(height[0], width[0], 1, GL_FLOAT);
+    d_I_d_p0Data = data(height[0], width[0], 1, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
+    d_I_d_p1Data = data(height[0], width[0], 1, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
+    d_I_d_p2Data = data(height[0], width[0], 1, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
 
     errorShader.init("error.vs", "error.fs");
     errorShader.use();
@@ -365,11 +371,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     //debugShader.setInt("keyframe", 0);
     //debugShader.setInt("frame", 1);}}
 
-    acc_H_map = Eigen::MatrixXf::Zero(vwidth*vheight*3, vwidth*vheight*3);
-    acc_J_map = Eigen::VectorXf::Zero(vwidth*vheight*3);
-    inc_map = Eigen::VectorXf(vwidth*vheight*3);
-
-    acc_H_depth = Eigen::MatrixXf::Zero(vwidth*vheight, vwidth*vheight);
+    //acc_H_depth = Eigen::MatrixXf::Zero(vwidth*vheight, vwidth*vheight);
+    acc_H_depth = Eigen::SparseMatrix<float>(vwidth*vheight, vwidth*vheight);
     acc_J_depth = Eigen::VectorXf::Zero(vwidth*vheight);
     inc_depth = Eigen::VectorXf(vwidth*vheight);
 
@@ -530,7 +533,6 @@ void mesh_vo::changeKeyframe(frame newkeyFrame)
     calcIdepthGPU(newkeyFrame, 0);
     newkeyFrame.idepth.gpu_to_cpu(0);
 
-    /*
     while(true)
     {
         cv::Mat oldImage = newkeyFrame.idepth.cpuTexture[0];
@@ -564,7 +566,7 @@ void mesh_vo::changeKeyframe(frame newkeyFrame)
             }
         newImage.copyTo(newkeyFrame.idepth.cpuTexture[0]);
     }
-   */
+
     scene_vertices.clear();
     scene_indices.clear();
 
@@ -912,7 +914,13 @@ void mesh_vo::calcPose(frame &_frame, Sophus::SE3f initialGuessPose)
 }
 
 void mesh_vo::updateMap()
-{        
+{
+    for(int i = 0; i < MAX_FRAMES; i++)
+    {
+        if(frameDataStack[i].init == false)
+            return;
+    }
+
     for(int lvl = 0; lvl >= 0; lvl--)
     {
         float last_error = 0.0;
@@ -930,7 +938,7 @@ void mesh_vo::updateMap()
         std::cout << "lvl " << lvl << " initial error " << last_error << std::endl;
 
         int maxIterations = 100;
-
+        float lambda = 0.0;
         for(int it = 0; it < maxIterations; it++)
         {
             //acc_H_map.setZero();
@@ -946,31 +954,48 @@ void mesh_vo::updateMap()
                 //showGPU(frameDataStack[i].image,0);
                 //calcPose(frameDataStack[i],frameDataStack[i].pose);
                 if(frameDataStack[i].init == true)
-                  calcHJMapGPU(frameDataStack[i], lvl);
+                  calcHJMapGPU(frameDataStack[i], lvl,lvl+0);
             }
 
-            //showGPU(primitiveIdData,lvl);
-            //cv::waitKey(1000.0);
+            showGPU(primitiveIdData,lvl);
+            cv::waitKey(100.0);
             //return;
             //std::cout << "acc_J_map " << acc_J_map << std::endl;
 
-            float lambda = 0.0;
             int n_try = 0;
             while(true)
             {
-                Eigen::MatrixXf acc_H_depth_lambda = acc_H_depth;
+/*
+                //Eigen::MatrixXf acc_H_depth_lambda = acc_H_depth;
+                Eigen::SparseMatrix<float> acc_H_depth_lambda = acc_H_depth;
 
                 for(int j = 0; j < acc_H_depth_lambda.rows(); j++)
-                    acc_H_depth_lambda(j,j) *= 1.0+lambda;
-
-                //inc_depth = -acc_H_depth_lambda.ldlt().solve(acc_J_depth);
+                {
+                    acc_H_depth_lambda.coeffRef(j,j) *= 1.0+lambda;
+                    //std::cout << acc_H_depth_lambda.coeffRef(j,j) << std::endl;
+                }
+                acc_H_depth_lambda.makeCompressed();
+                //Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
+                //Eigen::SparseLU<Eigen::SparseMatrix<float> > solver;
+                //Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+                Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+                solver.analyzePattern(acc_H_depth_lambda);
+                //std::cout << solver.info() << std::endl;
+                solver.factorize(acc_H_depth_lambda);
+                //std::cout << solver.lastErrorMessage() << std::endl;
+                inc_depth = -solver.solve(acc_J_depth);
+                //inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
                 //inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
                 //inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
+*/
+
                 float update_step = 1.0/(1.0+lambda);
+
 
                 for(int j = 0; j < int(acc_J_depth.size()); j++)
                   if(fabs(acc_J_depth(j)) > 0.0)
                     inc_depth(j) = -update_step*acc_J_depth(j)/fabs(acc_J_depth(j));
+
 
                 //std::cout << acc_H_depth << std::endl;
                 //std::cout << "acc_J_depth " << std::endl;
@@ -1083,7 +1108,7 @@ void mesh_vo::updateMap()
                     if(lambda < 0.2f)
                         lambda = 0.2f;
                     else
-                        lambda *= std::pow(2.0, n_try);
+                        lambda *= 2.0;// std::pow(2.0, n_try);
 
                     glBindVertexArray(scene_VAO);
                     glBindBuffer(GL_ARRAY_BUFFER, scene_VBO);
@@ -1760,7 +1785,7 @@ void mesh_vo::calcHJPoseCPU(frame &_frame, int lvl)
         }
 }
 
-void mesh_vo::calcHJMapGPU(frame &_frame, int lvl)
+void mesh_vo::calcHJMapGPU(frame &_frame, int lvl, int srclvl)
 {
     //glfwMakeContextCurrent(frameWindow);
 
@@ -1816,6 +1841,7 @@ void mesh_vo::calcHJMapGPU(frame &_frame, int lvl)
     calcHJMapShader.setFloat("cyinv", cyinv[lvl]);
     calcHJMapShader.setFloat("dx", dx[lvl]);
     calcHJMapShader.setFloat("dy", dy[lvl]);
+    calcHJMapShader.setInt("srclvl",srclvl);
 
     glBindVertexArray(scene_VAO);
     glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
@@ -1904,13 +1930,12 @@ void mesh_vo::calcHJMapGPU(frame &_frame, int lvl)
             //ahora si, actualizo las matrices usando los indices de cada vertice
             for(int i = 0; i < 3; i++)
             {
-                //acc_J_map(vertexID[i]*3+2) += J[i]*error;
                 acc_J_depth(vertexID[i]) += J[i]*error;
 
                 for(int j = 0; j < 3; j++)
                 {
-                    //acc_H_map(vertexID[i]*3+2, vertexID[j]*3+2) += J[i]*J[j];
-                    acc_H_depth(vertexID[i],vertexID[j]) += J[i]*J[j];
+                    //acc_H_depth(vertexID[i],vertexID[j]) += J[i]*J[j];
+                    acc_H_depth.coeffRef(vertexID[i],vertexID[j]) += J[i]*J[j];
                 }
             }
         }
@@ -1958,17 +1983,17 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
     float diff = fabs(occupancy - new_occupancy);
     occupancy = new_occupancy;
 
+    float norm = (frameData.pose.translation() - keyframeData.pose.translation()).norm();
+
     if(occupancy < 0.8)
     {
         changeKeyframe(frameData);
-
-        /*
         updateMap();
         calcIdepthGPU(keyframeData,0);
         showGPU(keyframeData.idepth,0);
         keyframeData.idepth.gpu_to_cpu(0);
         keyframeData.idepth.generateMipmapsCPU(0);
-        */
+
         occupancy = 1.0;
 
         /*
@@ -1982,19 +2007,21 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
         return;
     }
 
-    if(diff > 0.01)
+    if(diff > 0.01 && norm > 0.01)
     {
         //std::cout << "sup diff " << diff << " add frame and update map" << std::endl;
         addFrameToStack(frameData);
         updateMap();
+        calcIdepthGPU(keyframeData,0);
+        showGPU(keyframeData.idepth,0);
+        keyframeData.idepth.gpu_to_cpu(0);
+        keyframeData.idepth.generateMipmapsCPU(0);
 
-        /*
         for(int s = 0; s < MAX_FRAMES; s++)
         {
             if(frameDataStack[s].init == true)
               calcPose(frameDataStack[s],frameDataStack[s].pose);
         }
-        */
     }
 }
 
@@ -2040,7 +2067,7 @@ void mesh_vo::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
     {
         t.tic();
         changeKeyframe(frameData);
-        //updateMap();
+        updateMap();
 
         //calcIdepthGPU(keyframeData,0);
         //showGPU(keyframeData.idepth,0);

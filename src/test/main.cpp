@@ -63,8 +63,8 @@ int main(void)
         std::cout << "real pose " << std::endl;
         std::cout << realPose.matrix() << std::endl;
 
-        visual_odometry.mapping(frame, realPose);
-        //visual_odometry.visual_odometry(frame);
+        //visual_odometry.mapping(frame, realPose);
+        visual_odometry.visual_odometry(frame);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();

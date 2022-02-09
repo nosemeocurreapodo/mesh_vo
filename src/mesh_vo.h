@@ -7,6 +7,7 @@
 
 //#include "Common/se3.h"
 #include <Eigen/Core>
+#include <Eigen/Sparse>
 #include "sophus/se3.hpp"
 
 #include "Utils/tictoc.h"
@@ -124,21 +125,20 @@ private:
     Eigen::Matrix<float, 6, 6> acc_H_pose;
     Eigen::Matrix<float, 6, 1> inc_pose;
 
-    Eigen::MatrixXf acc_H_map;
-    Eigen::VectorXf acc_J_map;
-    Eigen::VectorXf inc_map;
+    //Eigen::MatrixXf acc_H_depth;
+    //Eigen::VectorXf acc_J_depth;
+    //Eigen::VectorXf inc_depth;
 
-    Eigen::MatrixXf acc_H_depth;
+    Eigen::SparseMatrix<float> acc_H_depth;
     Eigen::VectorXf acc_J_depth;
     Eigen::VectorXf inc_depth;
-
 
     void changeKeyframe(frame newkeyFrame);
     void updateMap();
     void calcPose(frame &_frame, Sophus::SE3f initialGuessPose = Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()));
     void addFrameToStack(frame &_frame);
 
-    void calcHJMapGPU(frame &_frame, int lvl);
+    void calcHJMapGPU(frame &_frame, int dstlvl, int srclvl);
     void calcHJPoseGPU(frame _frame, int lvl);
     void calcHJPoseGPU2(frame &_frame, int lvl);
     void calcHJPoseCPU(frame &_frame, int lvl);

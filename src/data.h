@@ -10,7 +10,7 @@ class data
 public:
 
     data();
-    data(int height, int width, int channels, GLenum type);
+    data(int height, int width, int channels, GLenum datatype, GLint filtertype, GLint wraptype);
 
     void cpu_to_gpu(int lvl);
     void gpu_to_cpu(int lvl);
