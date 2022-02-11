@@ -53,7 +53,7 @@ uniform sampler2D frameDer;
 
 void main()
 {
-    //if(g_u.x < 0.0 || g_u.x > 1.0/dx || g_u.y < 0.0 || g_u.y > 1.0/dy)
+    //if(g_u.x < 0.05/dx || g_u.x > 0.95/dx || g_u.y < 0.05/dy || g_u.y > 0.95/dy)
     //    discard;
 
     //from frame perspective
@@ -108,7 +108,7 @@ void main()
     float error = iframe - ikeyframe;
 
     f_vertexID = vec3(g_vertexID[0], g_vertexID[1], g_vertexID[2]);
-    f_primitiveID = 1.0/pframe.z - abs(error)/255.0;//d_z_d_z0;// gl_PrimitiveID;
+    f_primitiveID = 1.0/pframe.z - abs(error)/127.0;//d_z_d_z0;// gl_PrimitiveID;
     f_error = error;
     f_d_I_d_z0 = d_I_d_z0;
     f_d_I_d_z1 = d_I_d_z1;

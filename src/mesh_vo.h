@@ -132,6 +132,7 @@ private:
     Eigen::SparseMatrix<float> acc_H_depth;
     Eigen::VectorXf acc_J_depth;
     Eigen::VectorXf inc_depth;
+    Eigen::VectorXi acc_count;
 
     void changeKeyframe(frame newkeyFrame);
     void updateMap();

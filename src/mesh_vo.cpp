@@ -9,6 +9,8 @@
 #include <Eigen/OrderingMethods>
 #include <Eigen/IterativeLinearSolvers>
 
+#include <map>
+
 glm::mat4 create_glm_prj_matrix(float fx, float fy, float cx, float cy, float w, float h, float znear, float zfar)
 {
     glm::mat4 projmat = glm::mat4(0.0f);
@@ -199,7 +201,7 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
 
     //generate buffers
     vwidth = 48;
-    vheight = 32;
+    vheight = 48;
 
     //prealocate
     for(int y=0;y<vheight;y++)
@@ -375,6 +377,7 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     acc_H_depth = Eigen::SparseMatrix<float>(vwidth*vheight, vwidth*vheight);
     acc_J_depth = Eigen::VectorXf::Zero(vwidth*vheight);
     inc_depth = Eigen::VectorXf(vwidth*vheight);
+    acc_count = Eigen::VectorXi(vwidth*vheight);
 
     occupancy = 1.0;
     lastFrameAdded = -1;
@@ -444,7 +447,7 @@ void mesh_vo::initWithRandomIdepth(cv::Mat _keyFrame, Sophus::SE3f _pose)
 
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(_keyFrame,keyframeData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]));
+        cv::resize(_keyFrame,keyframeData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]), cv::INTER_LANCZOS4);
         keyframeData.image.cpu_to_gpu(lvl);
 
         calcDerivativeCPU(keyframeData, lvl);
@@ -520,7 +523,7 @@ void mesh_vo::initWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth, Sophus::SE3f _p
 
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(_keyFrame,keyframeData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]));
+        cv::resize(_keyFrame,keyframeData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]), cv::INTER_LANCZOS4);
         keyframeData.image.cpu_to_gpu(lvl);
 
         calcDerivativeCPU(keyframeData, lvl);
@@ -915,11 +918,13 @@ void mesh_vo::calcPose(frame &_frame, Sophus::SE3f initialGuessPose)
 
 void mesh_vo::updateMap()
 {
+    /*
     for(int i = 0; i < MAX_FRAMES; i++)
     {
         if(frameDataStack[i].init == false)
             return;
     }
+    */
 
     for(int lvl = 0; lvl >= 0; lvl--)
     {
@@ -937,7 +942,7 @@ void mesh_vo::updateMap()
 
         std::cout << "lvl " << lvl << " initial error " << last_error << std::endl;
 
-        int maxIterations = 100;
+        int maxIterations = 10;
         float lambda = 0.0;
         for(int it = 0; it < maxIterations; it++)
         {
@@ -948,6 +953,7 @@ void mesh_vo::updateMap()
             acc_H_depth.setZero();
             acc_J_depth.setZero();
             inc_depth.setZero();
+            acc_count.setZero();
 
             for(int i = 0; i < MAX_FRAMES; i++)
             {
@@ -965,15 +971,24 @@ void mesh_vo::updateMap()
             int n_try = 0;
             while(true)
             {
-/*
+
                 //Eigen::MatrixXf acc_H_depth_lambda = acc_H_depth;
                 Eigen::SparseMatrix<float> acc_H_depth_lambda = acc_H_depth;
 
+                std::vector<float> diagonal(0.0);
                 for(int j = 0; j < acc_H_depth_lambda.rows(); j++)
                 {
-                    acc_H_depth_lambda.coeffRef(j,j) *= 1.0+lambda;
-                    //std::cout << acc_H_depth_lambda.coeffRef(j,j) << std::endl;
+                    //if(acc_count(j) > 0)
+                    {
+                        //acc_J_depth(j) /= acc_count(j);
+                        acc_H_depth_lambda.coeffRef(j,j) *= (1.0+lambda);///acc_count(j);
+                    }
+                    diagonal.push_back(acc_H_depth_lambda.coeffRef(j,j));
+                    //diagonal.push_back(fabs(acc_J_depth(j)));
+
                 }
+
+/*
                 acc_H_depth_lambda.makeCompressed();
                 //Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
                 //Eigen::SparseLU<Eigen::SparseMatrix<float> > solver;
@@ -989,13 +1004,27 @@ void mesh_vo::updateMap()
                 //inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
 */
 
-                float update_step = 1.0/(1.0+lambda);
+
+                std::cout << "lambda " << lambda << std::endl;
+                std::sort(diagonal.begin(), diagonal.end(),std::greater<float>());
+                std::cout << "ini " << diagonal.at(0) << " end " << diagonal.at(diagonal.size()-1) << std::endl;
+                float min_value = diagonal.at(int(diagonal.size()*0.9));
+                std::cout << "min_value " << min_value << std::endl;
 
 
                 for(int j = 0; j < int(acc_J_depth.size()); j++)
-                  if(fabs(acc_J_depth(j)) > 0.0)
-                    inc_depth(j) = -update_step*acc_J_depth(j)/fabs(acc_J_depth(j));
-
+                {
+                    float h = acc_H_depth_lambda.coeffRef(j,j);
+                    float h2 = fabs(acc_J_depth(j));
+                    //if(h > min_value)// && h2 > min_value)
+                    //if(acc_count(j) > 20)
+                    if(fabs(acc_J_depth(j)) > 0.0)
+                    {
+                        //inc_depth(j) = -acc_J_depth(j)/h;
+                        inc_depth(j) = -(1.0/(1.0+lambda))*acc_J_depth(j)/fabs(acc_J_depth(j));
+                        //std::cout << "update" << std::endl;
+                    }
+                }
 
                 //std::cout << acc_H_depth << std::endl;
                 //std::cout << "acc_J_depth " << std::endl;
@@ -1021,6 +1050,18 @@ void mesh_vo::updateMap()
                 if(inc_depth(index) < log(-max_depth_jump))
                     inc_depth(index) = log(-max_depth_jump);
                 */
+
+                    if(inc_depth(index)!=inc_depth(index))
+                    {
+                        std::cout << "some nand in inc_depth" << std::endl;
+                    }
+/*
+                    float max_inc = 0.1;
+                    if(inc_depth(index) > max_inc)
+                        inc_depth(index) = max_inc;
+                    if(inc_depth(index) < -max_inc)
+                        inc_depth(index) = -max_inc;
+*/
                     scene_vertices_updated[index*3+2] = scene_vertices[index*3+2] + inc_depth(index);
 
                     //if(scene_vertices_updated[index*3+2] != scene_vertices_updated[index*3+2])
@@ -1122,7 +1163,7 @@ void mesh_vo::updateMap()
                     std::cout << "update rejected " << std::endl;
 
 
-                    if(inc_depth.dot(inc_depth) < update_step)
+                    if(inc_depth.dot(inc_depth) < 1e-32)
                     {
                         std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations with lambda " << lambda << std::endl;
                         //if too small, do next level!
@@ -1920,7 +1961,7 @@ void mesh_vo::calcHJMapGPU(frame &_frame, int lvl, int srclvl)
             {
                 if(J[i]!=J[i])
                 {
-                    //std::cout << "J nand " << i << " " << x << " " << y << " " << vertexID[0] << " " << vertexID[1] << " " << vertexID[2] << std::endl;
+                    std::cout << "J nand " << i << " " << x << " " << y << " " << vertexID[0] << " " << vertexID[1] << " " << vertexID[2] << std::endl;
                     someNand = true;
                 }
             }
@@ -1931,6 +1972,7 @@ void mesh_vo::calcHJMapGPU(frame &_frame, int lvl, int srclvl)
             for(int i = 0; i < 3; i++)
             {
                 acc_J_depth(vertexID[i]) += J[i]*error;
+                acc_count(vertexID[i]) += 1;
 
                 for(int j = 0; j < 3; j++)
                 {
@@ -1951,7 +1993,7 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
     //save frame in gpu memory, calc derivavites y mipmaps
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(_frame,frameData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]));
+        cv::resize(_frame,frameData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]), cv::INTER_LANCZOS4);
         frameData.image.cpu_to_gpu(lvl);
 
         calcDerivativeCPU(frameData,lvl);
@@ -2007,7 +2049,7 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
         return;
     }
 
-    if(diff > 0.01 && norm > 0.01)
+    //if(diff > 0.01 && norm > 0.01)
     {
         //std::cout << "sup diff " << diff << " add frame and update map" << std::endl;
         addFrameToStack(frameData);
@@ -2039,7 +2081,7 @@ void mesh_vo::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
     //save frame in gpu memory, calc derivavites y mipmaps
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(_frame,frameData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]));
+        cv::resize(_frame,frameData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]), cv::INTER_LANCZOS4);
         frameData.image.cpu_to_gpu(lvl);
 
         calcDerivativeCPU(frameData,lvl);
@@ -2080,6 +2122,8 @@ void mesh_vo::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
         occupancy = 1.0;
         return;
     }
+
+    float norm = (frameData.pose.translation() - keyframeData.pose.translation()).norm();
 
     if(diff > 0.01)
     {

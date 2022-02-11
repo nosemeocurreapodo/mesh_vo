@@ -131,7 +131,7 @@ void data::generateMipmapsCPU(int baselvl)
         int width_s = int(MAX_WIDTH/scale);
         int height_s = int(MAX_HEIGHT/scale);
 
-        cv::resize(cpuTexture[baselvl],cpuTexture[lvl], cv::Size(width_s, height_s), cv::INTER_AREA);
+        cv::resize(cpuTexture[baselvl],cpuTexture[lvl], cv::Size(width_s, height_s), cv::INTER_LANCZOS4);
     }
 }
 

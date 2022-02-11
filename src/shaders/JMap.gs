@@ -34,8 +34,8 @@ uniform float dy;
 
 void main() {
 
-    if(v_pframe[0].z <= 0.0 || v_pframe[1].z <= 0.0 || v_pframe[2].z <= 0.0)
-      return;
+    //if(v_pframe[0].z <= 0.0 || v_pframe[1].z <= 0.0 || v_pframe[2].z <= 0.0)
+    //  return;
 
     gl_PrimitiveID = gl_PrimitiveIDIn;
     g_vertexID[0] = v_vertexID[0];
