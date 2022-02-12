@@ -53,7 +53,7 @@ uniform sampler2D frameDer;
 
 void main()
 {
-    //if(g_u.x < 0.05/dx || g_u.x > 0.95/dx || g_u.y < 0.05/dy || g_u.y > 0.95/dy)
+    //if(g_u.x < 0.1/dx || g_u.x > 0.9/dx || g_u.y < 0.1/dy || g_u.y > 0.9/dy)
     //    discard;
 
     //from frame perspective
@@ -72,9 +72,11 @@ void main()
     vec2 ukeyframeTexCoord = vec2(ukeyframe.x*dx, ukeyframe.y*dy);
     vec2 uframeTexCoord = vec2(uframe.x*dx, uframe.y*dy);
 
+    //float ikeyframe = texture(keyframe, ukeyframeTexCoord).x*255.0;
     float ikeyframe = textureLod(keyframe,ukeyframeTexCoord,srclvl).x*255.0;
     //vec2 dkeyframe = texture(keyframeDer,ukeyframeTexCoord).xy;
 
+    //float iframe = texture(frame, uframeTexCoord).x*255.0;
     float iframe = textureLod(frame,uframeTexCoord,srclvl).x*255.0;
     vec2 dframe = textureLod(frameDer,uframeTexCoord,srclvl).xy;
 

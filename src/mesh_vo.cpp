@@ -200,8 +200,8 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
 
 
     //generate buffers
-    vwidth = 48;
-    vheight = 48;
+    vwidth = 16;
+    vheight = 16;
 
     //prealocate
     for(int y=0;y<vheight;y++)
@@ -976,17 +976,24 @@ void mesh_vo::updateMap()
                 Eigen::SparseMatrix<float> acc_H_depth_lambda = acc_H_depth;
 
                 std::vector<float> diagonal(0.0);
+
+                int max_count = 0;
                 for(int j = 0; j < acc_H_depth_lambda.rows(); j++)
                 {
-                    //if(acc_count(j) > 0)
+                    if(acc_count(j) > 0)
                     {
-                        //acc_J_depth(j) /= acc_count(j);
-                        acc_H_depth_lambda.coeffRef(j,j) *= (1.0+lambda);///acc_count(j);
+                        if(acc_count(j) > max_count)
+                            max_count = acc_count(j);
+
+                        acc_J_depth(j) /= acc_count(j);
+                        //std::cout << acc_count(j) << std::endl;
+                        acc_H_depth_lambda.coeffRef(j,j) *= (1.0+lambda)/acc_count(j);
                     }
                     diagonal.push_back(acc_H_depth_lambda.coeffRef(j,j));
                     //diagonal.push_back(fabs(acc_J_depth(j)));
-
                 }
+
+                std::cout << "max_count " << max_count << std::endl;
 
 /*
                 acc_H_depth_lambda.makeCompressed();
@@ -1008,20 +1015,23 @@ void mesh_vo::updateMap()
                 std::cout << "lambda " << lambda << std::endl;
                 std::sort(diagonal.begin(), diagonal.end(),std::greater<float>());
                 std::cout << "ini " << diagonal.at(0) << " end " << diagonal.at(diagonal.size()-1) << std::endl;
-                float min_value = diagonal.at(int(diagonal.size()*0.9));
+                float min_value = diagonal.at(int(diagonal.size()*0.75));
                 std::cout << "min_value " << min_value << std::endl;
 
+                float area = width[lvl]*height[lvl]/(vheight*vwidth);
+
+                std::cout << "area " << area << std::endl;
 
                 for(int j = 0; j < int(acc_J_depth.size()); j++)
                 {
                     float h = acc_H_depth_lambda.coeffRef(j,j);
                     float h2 = fabs(acc_J_depth(j));
-                    //if(h > min_value)// && h2 > min_value)
+                    if(h > min_value)// && acc_count(j) > area)// && h2 > min_value)
                     //if(acc_count(j) > 20)
-                    if(fabs(acc_J_depth(j)) > 0.0)
+                    //if(fabs(acc_J_depth(j)) > 0.0)
                     {
-                        //inc_depth(j) = -acc_J_depth(j)/h;
-                        inc_depth(j) = -(1.0/(1.0+lambda))*acc_J_depth(j)/fabs(acc_J_depth(j));
+                        inc_depth(j) = -acc_J_depth(j)/h;
+                        //inc_depth(j) = -(1.0/(1.0+lambda))*acc_J_depth(j)/fabs(acc_J_depth(j));
                         //std::cout << "update" << std::endl;
                     }
                 }
@@ -1163,7 +1173,7 @@ void mesh_vo::updateMap()
                     std::cout << "update rejected " << std::endl;
 
 
-                    if(inc_depth.dot(inc_depth) < 1e-32)
+                    if(inc_depth.dot(inc_depth) < 1e-16)
                     {
                         std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations with lambda " << lambda << std::endl;
                         //if too small, do next level!
@@ -2049,7 +2059,7 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
         return;
     }
 
-    //if(diff > 0.01 && norm > 0.01)
+    if(diff > 0.01)// && norm > 0.01)
     {
         //std::cout << "sup diff " << diff << " add frame and update map" << std::endl;
         addFrameToStack(frameData);
