@@ -17,6 +17,7 @@ public:
   data der;
   data idepth;
   Sophus::SE3f pose;
+  Eigen::VectorXi vertexViewCount;
 
   bool init;
 

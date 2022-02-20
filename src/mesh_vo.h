@@ -33,6 +33,7 @@ public:
 
     void visual_odometry(cv::Mat _frame);
     void mapping(cv::Mat _frame, Sophus::SE3f _globalPose);
+    void localization(cv::Mat _frame);
 
 private:
 
@@ -59,9 +60,7 @@ private:
     //opengl data
     GLFWwindow* frameWindow;
 
-    int vwidth, vheight;
     std::vector<float> scene_vertices;
-    std::vector<float> scene_vertices_updated;
     std::vector<unsigned int> scene_indices;
 
     unsigned int scene_VBO, scene_VAO, scene_EBO;
@@ -76,76 +75,88 @@ private:
     frame frameData;
     frame frameDataStack[MAX_FRAMES];
 
-    int lastFrameAdded;
-    float occupancy;
-
     //data
-    data reduceFloatData;
-    data reduceVec4Data;
-
-    data occuData;
+    data vertexIdData;
     data errorData;
-    data residualData;
     data traData;
     data rotData;
-
-    data Jpose1Data;
-    data Jpose2Data;
-    data Jpose3Data;
-    data Jpose4Data;
-    data Jpose5Data;
-    data Jpose6Data;
-    data Jpose7Data;
-
-    data vertexIdData;
-    data primitiveIdData;
     data d_I_d_p0Data;
     data d_I_d_p1Data;
     data d_I_d_p2Data;
+    data debugData;
 
     //shaders
     Shader idepthShader;
     Shader occupancyShader;
+    Shader vertexViewCountShader;
 
     Shader errorShader;
-    Shader reduceFloatShader;
-    Shader reduceVec4Shader;
-    Shader calcJShader;
-    Shader calcHJShader;
-    Shader calcHJShader2;
-    Shader calcHJMapShader;
+    Shader errorVertexShader;
     Shader frameDerivativeShader;
+    Shader jacobianPoseShader;
+    Shader jacobianPoseMapShader;
+    Shader jacobianMapShader;
 
     Shader copyShader;
     Shader showTextureShader;
     Shader debugShader;
 
     //for invertion
-    Eigen::Matrix<float, 6, 1> acc_J_pose;
-    Eigen::Matrix<float, 6, 6> acc_H_pose;
+    Eigen::Matrix<float, 6, 1> J_pose;
+    Eigen::Matrix<float, 6, 6> H_pose;
     Eigen::Matrix<float, 6, 1> inc_pose;
 
-    //Eigen::MatrixXf acc_H_depth;
-    //Eigen::VectorXf acc_J_depth;
-    //Eigen::VectorXf inc_depth;
-
-    Eigen::SparseMatrix<float> acc_H_depth;
-    Eigen::VectorXf acc_J_depth;
+    Eigen::SparseMatrix<float> H_depth;
+    Eigen::VectorXf J_depth;
     Eigen::VectorXf inc_depth;
-    Eigen::VectorXi acc_count;
+    Eigen::VectorXi count_depth;
 
-    void changeKeyframe(frame newkeyFrame);
-    void updateMap();
-    void calcPose(frame &_frame, Sophus::SE3f initialGuessPose = Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()));
+    Eigen::MatrixXf H_joint;
+    Eigen::VectorXf J_joint;
+    Eigen::VectorXf inc_joint;
+    Eigen::VectorXi count_joint;
+
+    void changeKeyframe(frame &newkeyFrame, int lvl, float min_occupancy);
     void addFrameToStack(frame &_frame);
+    void setTriangles();
 
-    void calcHJMapGPU(frame &_frame, int dstlvl, int srclvl);
-    void calcHJPoseGPU(frame _frame, int lvl);
-    void calcHJPoseGPU2(frame &_frame, int lvl);
-    void calcHJPoseCPU(frame &_frame, int lvl);
+    void optPose(frame &_frame);
+    void optMapJoint();
+    //void optMapVertex();
+    void optPoseMapJoint();
 
-    float calcErrorGPU(frame &_frame, int lvl);
-    float calcErrorCPU(frame &_frame, int lvl);
+    void HJPoseCPU(frame &_frame, int lvl);
+    void HJPoseGPU(frame &_frame, int lvl);
+    void jacobianPoseTextureGPU(frame _frame, int lvl);
+    void reduceHJPoseGPU(int lvl);
+
+    void HJPoseMapStackGPU(int lvl);
+    void HJPoseMapGPU(frame &_frame, int lvl);
+    void jacobianPoseMapTextureGPU(frame &_frame, int lvl);
+    void reduceHJPoseMapGPU(int frameIndex, int lvl);
+
+    void HJMapStackGPU(int lvl);
+    void HJMapGPU(frame &_frame, int lvl);
+    void jacobianMapTextureGPU(frame &_frame, int lvl);
+    void reduceHJMapGPU(int lvl);
+
+    float errorMesh();
+    void HJMesh();
+
+    float errorCPU(frame &_frame, int lvl);
+    float errorStackCPU(int lvl);
+
+    float errorGPU(frame &_frame, int lvl);
+    float errorStackGPU(int lvl);
+    void errorTextureGPU(frame &_frame, int lvl);
+    float reduceErrorGPU(int lvl);
+    void errorVertexGPU(frame &_frame, int lvl);
+    float reduceErrorVertexGPU(int lvl);
+
+    float goodVertexViewPercentage(frame &_frame);
+    void vertexViewCountGPU(frame &_frame, int lvl);
+    void vertexViewCountTextureGPU(frame &_frame, int lvl);
+    void reduceVertexViewCountGPU(frame &_frame, int lvl);
 
     //float calcOccupancyGPU(frame _frame, int lvl);
     float calcOccupancyCPU(frame &_frame, int lvl);
@@ -164,8 +175,5 @@ private:
 
     void calcDerivativeCPU(frame &_frame, int lvl);
     void calcDerivativeGPU(frame &_frame, int lvl);
-
-    //for profiling
-    float calcPoseTime;
 
 };

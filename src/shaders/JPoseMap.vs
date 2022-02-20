@@ -43,5 +43,6 @@ void main()
 
     //from keyframe perspective
     //v_u = vec2(fx*pframe.x/pframe.z+cx, fy*pframe.y/pframe.z+cy);
+    //v_u2 = vec2(fx*p.x+cx, fy*p.y+cy);
     //gl_Position = projection * opencv2opengl * vec4(pkeyframe,1.0);
 }

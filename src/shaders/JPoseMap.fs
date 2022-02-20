@@ -1,10 +1,12 @@
 #version 330 core
 layout(location = 0) out vec3 f_vertexID;
 layout(location = 1) out float f_error;
-layout(location = 2) out float f_d_I_d_z0;
-layout(location = 3) out float f_d_I_d_z1;
-layout(location = 4) out float f_d_I_d_z2;
-layout(location = 5) out float f_debug;
+layout(location = 2) out vec3 f_tra;
+layout(location = 3) out vec3 f_rot;
+layout(location = 4) out float f_d_I_d_z0;
+layout(location = 5) out float f_d_I_d_z1;
+layout(location = 6) out float f_d_I_d_z2;
+layout(location = 7) out float f_debug;
 
 in vec3 g_pframe;
 in vec3 g_pkeyframe;
@@ -63,9 +65,12 @@ void main()
     float frameDepth = gl_FragCoord.z/gl_FragCoord.w;
 
     //from keyframe perspective
-    //vec2 uframe  = vec2(g_u.x,1.0/dy-g_u.y);
     //vec2 ukeyframe = vec2(gl_FragCoord.x,gl_FragCoord.y);
+    //vec3 pkeyframe = g_pkeyframe;
     //float keyframeDepth = gl_FragCoord.z/gl_FragCoord.w;
+    //vec2 uframe  = vec2(g_u.x,1.0/dy-g_u.y);
+    //vec3 pframe = g_pframe;
+    //float frameDepth = g_pframe.z;
 
     float cosangle = abs(dot(normalize(pkeyframe),normalize(framePose[3].xyz)));
     if(cosangle >= 0.8)
@@ -80,8 +85,11 @@ void main()
 
     float iframe = texture(frame, uframeTexCoord).x*255.0;
     //float iframe = textureLod(frame,uframeTexCoord,srclvl).x*255.0;
-    vec2 dframe = texture(frameDer,uframeTexCoord).xy;
+    vec2 dframe = texture(frameDer, uframeTexCoord).xy;
     //vec2 dframe = textureLod(frameDer,uframeTexCoord,srclvl).xy;
+
+    if(frameDepth <= 0.0 || keyframeDepth <= 0.0)
+        discard;
 
     vec3 d_I_d_pframe = vec3(0);
     d_I_d_pframe.x = dframe.x*fx/frameDepth;
@@ -98,21 +106,15 @@ void main()
     float N_p1_dot_ray = dot(g_N_p1,raykeyframe);
     float N_p2_dot_ray = dot(g_N_p2,raykeyframe);
 
-//    if(abs(N_p0_dot_ray) <= 0.001 || abs(N_p1_dot_ray) <= 0.001 || abs(N_p2_dot_ray) <= 0.001)
-//        discard;
-
-//    if(abs(N_p0_dot_ray)/(length(g_N_p0)*length(raykeyframe)) <= 0.0)
-//        discard;
-/*
-    vec3 N_frame = normalize(mat3(framePose)*g_N_p0);
-    vec3 rayframe = normalize(pframe/frameDepth);
-    float N_frame_dot_rayframe = dot(N_frame,rayframe);
-    if(abs(N_frame_dot_rayframe) <= 0.02)
+    if(N_p0_dot_ray == 0.0 || N_p1_dot_ray == 0.0 || N_p2_dot_ray == 0.0)
         discard;
-*/
+
     float d_z_d_z0 = dot(g_d_N_d_z0,g_pr_p0)/N_p0_dot_ray - g_N_p0_dot_point*dot(g_d_N_d_z0,raykeyframe)/(N_p0_dot_ray*N_p0_dot_ray);
     float d_z_d_z1 = dot(g_d_N_d_z1,g_pr_p1)/N_p1_dot_ray - g_N_p1_dot_point*dot(g_d_N_d_z1,raykeyframe)/(N_p1_dot_ray*N_p1_dot_ray);
     float d_z_d_z2 = dot(g_d_N_d_z2,g_pr_p2)/N_p2_dot_ray - g_N_p2_dot_point*dot(g_d_N_d_z2,raykeyframe)/(N_p2_dot_ray*N_p2_dot_ray);
+
+    if(g_idepth[0] <= 0.0 || g_idepth[1] <= 0.0 || g_idepth[2] <= 0.0)
+        discard;
 
     float d_z0_d_iz0 = -1.0/(g_idepth[0]*g_idepth[0]);
     float d_z1_d_iz1 = -1.0/(g_idepth[1]*g_idepth[1]);
@@ -124,18 +126,21 @@ void main()
 
     float error = iframe - ikeyframe;
 
+    float id = 1.0/frameDepth;
+
+    float v0 = dframe.x * fx * id;
+    float v1 = dframe.y * fy * id;
+    float v2 = -(v0 * pframe.x + v1 * pframe.y) * id;
+
+    f_tra = vec3(v0, v1, v2);
+    f_rot = vec3( -pframe.z * v1 + pframe.y * v2, pframe.z * v0 - pframe.x * v2, -pframe.y * v0 + pframe.x * v1);
+
     f_vertexID = vec3(g_vertexID[0], g_vertexID[1], g_vertexID[2]);
     f_error = error;
     f_d_I_d_z0 = d_I_d_z0;
     f_d_I_d_z1 = d_I_d_z1;
     f_d_I_d_z2 = d_I_d_z2;
 
-    /*
-    float color = 0.0;
-    if(isinf(d_I_d_z0) || isnan(d_I_d_z0) || isinf(d_I_d_z1) || isnan(d_I_d_z1) || isinf(d_I_d_z2) || isnan(d_I_d_z2))
-        color = 1.0;
-    f_debug = color;
-    */
-
+    //f_debug = cosangle;
     f_debug = 1.0/frameDepth + abs(error)/127.0;
 }

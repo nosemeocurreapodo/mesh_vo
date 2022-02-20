@@ -33,19 +33,23 @@ flat out vec3 g_pr_p2;
 uniform float dx;
 uniform float dy;
 
+uniform mat4 framePose;
+
 void main() {
 
-    if(v_pframe[0].z <= 0.0 || v_pframe[1].z <= 0.0 || v_pframe[2].z <= 0.0)
-      return;
+    //if(v_pframe[0].z <= 0.0 || v_pframe[1].z <= 0.0 || v_pframe[2].z <= 0.0)
+    //  return;
     //if(gl_in[0].gl_Position.x < -1.0 || gl_in[0].gl_Position.x > 1.0 || gl_in[0].gl_Position.y < -1.0 || gl_in[0].gl_Position.y > 1.0)
     //    return;
-
     if(v_u2[0].x < 0.0 || v_u2[0].x > 1.0/dx || v_u2[0].y < 0.0 || v_u2[0].y > 1.0/dy)
         return;
     if(v_u2[1].x < 0.0 || v_u2[1].x > 1.0/dx || v_u2[1].y < 0.0 || v_u2[1].y > 1.0/dy)
         return;
     if(v_u2[2].x < 0.0 || v_u2[2].x > 1.0/dx || v_u2[2].y < 0.0 || v_u2[2].y > 1.0/dy)
         return;
+
+    //if(length(framePose[3].xyz) == 0.0)
+    //    return;
 
     gl_PrimitiveID = gl_PrimitiveIDIn;
     g_vertexID[0] = v_vertexID[0];
@@ -64,17 +68,11 @@ void main() {
     g_N_p0_dot_point = dot(g_N_p0,v_pkeyframe[1]);
     g_pr_p0 = v_pkeyframe[1];
 
-    //if(abs(g_N_p0_dot_point)/(length(g_N_p0)*length(v_pkeyframe[1])) < 0.1)
-    //    return;
-
     g_N_p1 = cross(v_pkeyframe[1] - v_pkeyframe[0], v_pkeyframe[2] - v_pkeyframe[0]);
     pw2mpw1 = (v_pkeyframe[2]-v_pkeyframe[0]);
     g_d_N_d_z1 = cross(v_pkeyframe[1], pw2mpw1);
     g_N_p1_dot_point = dot(g_N_p1,v_pkeyframe[0]);
     g_pr_p1 = v_pkeyframe[0];
-
-    //if(abs(g_N_p1_dot_point)/(length(g_N_p1)*length(v_pkeyframe[0])) < 0.1)
-    //    return;
 
     g_N_p2 = cross(v_pkeyframe[2] - v_pkeyframe[1], v_pkeyframe[0] - v_pkeyframe[1]);
     pw2mpw1 = (v_pkeyframe[0]-v_pkeyframe[1]);
@@ -82,8 +80,8 @@ void main() {
     g_N_p2_dot_point = dot(g_N_p2,v_pkeyframe[1]);
     g_pr_p2 = v_pkeyframe[1];
 
-    //if(abs(g_N_p2_dot_point)/(length(g_N_p2)*length(v_pkeyframe[1])) < 0.1)
-    //    return;
+    //if(abs(g_N_p0_dot_point) <= 0.0 || abs(g_N_p1_dot_point) <= 0.0 || abs(g_N_p2_dot_point) <= 0.0)
+    //   return;
 
     // vertice 0
 

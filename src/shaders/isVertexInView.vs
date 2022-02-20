@@ -1,9 +1,9 @@
 #version 330 core
 layout (location = 0) in vec3 p;
 
-out vec2 v_u;
 out vec3 v_pkeyframe;
-out vec3 v_pframe;
+out vec2 v_u2;
+flat out int v_vertexID;
 
 uniform mat4 framePose;
 uniform mat4 projection;
@@ -24,10 +24,9 @@ void main()
 
     //from frame perspective
     gl_Position = projection * opencv2opengl * pframe;
-    v_u = vec2(fx*p.x+cx, fy*p.y+cy);
-
+    v_u2 = vec2(fx*pframe.x/pframe.z+cx, fy*pframe.y/pframe.z+cy);
+    v_vertexID = gl_VertexID;
     v_pkeyframe = pkeyframe;
-    v_pframe = pframe.xyz;
 
     //from keyframe perspective
     //gl_Position = projection * opencv2opengl * vec4(pkeyframe,1.0);
