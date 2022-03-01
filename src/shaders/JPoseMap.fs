@@ -72,10 +72,6 @@ void main()
     //vec3 pframe = g_pframe;
     //float frameDepth = g_pframe.z;
 
-    float cosangle = abs(dot(normalize(pkeyframe),normalize(framePose[3].xyz)));
-    if(cosangle >= 0.8)
-      discard;
-
     vec2 ukeyframeTexCoord = vec2(ukeyframe.x*dx, ukeyframe.y*dy);
     vec2 uframeTexCoord = vec2(uframe.x*dx, uframe.y*dy);
 
@@ -87,6 +83,10 @@ void main()
     //float iframe = textureLod(frame,uframeTexCoord,srclvl).x*255.0;
     vec2 dframe = texture(frameDer, uframeTexCoord).xy;
     //vec2 dframe = textureLod(frameDer,uframeTexCoord,srclvl).xy;
+
+    float cosangle = abs(dot(normalize(pkeyframe),normalize(framePose[3].xyz)));
+    if(cosangle >= 0.9)
+      discard;
 
     if(frameDepth <= 0.0 || keyframeDepth <= 0.0)
         discard;
@@ -128,18 +128,26 @@ void main()
 
     float id = 1.0/frameDepth;
 
-    float v0 = dframe.x * fx * id;
-    float v1 = dframe.y * fy * id;
-    float v2 = -(v0 * pframe.x + v1 * pframe.y) * id;
+    //float v0 = dframe.x * fx * id;
+    //float v1 = dframe.y * fy * id;
+    //float v2 = -(v0 * pframe.x + v1 * pframe.y) * id;
 
-    f_tra = vec3(v0, v1, v2);
-    f_rot = vec3( -pframe.z * v1 + pframe.y * v2, pframe.z * v0 - pframe.x * v2, -pframe.y * v0 + pframe.x * v1);
+    f_tra = d_I_d_pframe;//vec3(v0, v1, v2);
+    f_rot = vec3( -pframe.z * d_I_d_pframe.y/*v1*/ + pframe.y * d_I_d_pframe.z /*v2*/, pframe.z * d_I_d_pframe.x /*v0*/ - pframe.x * d_I_d_pframe.z/*v2*/, -pframe.y * d_I_d_pframe.x/*v0*/ + pframe.x * d_I_d_pframe.y /*v1*/);
 
     f_vertexID = vec3(g_vertexID[0], g_vertexID[1], g_vertexID[2]);
     f_error = error;
     f_d_I_d_z0 = d_I_d_z0;
     f_d_I_d_z1 = d_I_d_z1;
     f_d_I_d_z2 = d_I_d_z2;
+
+
+    float color = 0.0;
+    //if(isinf(d_I_d_z0) || isinf(d_I_d_z1) || isinf(d_I_d_z2))
+    //    color = 1.0;
+    if(isnan(d_I_d_z0) || isnan(d_I_d_z1) || isnan(d_I_d_z2))
+        color = 1.0;
+    //f_debug = color;
 
     //f_debug = cosangle;
     f_debug = 1.0/frameDepth + abs(error)/127.0;

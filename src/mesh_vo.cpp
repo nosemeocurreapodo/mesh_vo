@@ -295,6 +295,7 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     d_I_d_p1Data = data(height[0], width[0], 1, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
     d_I_d_p2Data = data(height[0], width[0], 1, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
     debugData = data(height[0], width[0], 1, GL_FLOAT, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
+    view3DData = data(height[0], width[0], 4, GL_UNSIGNED_BYTE, GL_NEAREST_MIPMAP_NEAREST, GL_MIRRORED_REPEAT);
 
     vertexViewCountShader.init("isVertexInView.vs","isVertexInView.gs","isVertexInView.fs");
     vertexViewCountShader.use();
@@ -342,11 +343,9 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     copyShader.use();
     copyShader.setInt("inTexture", 0);
 
-
-    //debugShader.init("debug.vs", "debug.gs", "debug.fs");
-    //debugShader.use();
-    //debugShader.setInt("keyframe", 0);
-    //debugShader.setInt("frame", 1);}}
+    view3DShader.init("view3D.vs", "view3D.fs");
+    view3DShader.use();
+    view3DShader.setInt("keyframe", 0);
 
     //acc_H_depth = Eigen::MatrixXf::Zero(vwidth*vheight, vwidth*vheight);
     H_depth = Eigen::SparseMatrix<float>(VERTEX_HEIGH*VERTEX_WIDTH, VERTEX_HEIGH*VERTEX_WIDTH);
@@ -614,7 +613,7 @@ void mesh_vo::addFrameToStack(frame &_frame)
 
     float frameError = errorGPU(_frame, 1);
     float minError = 100000000000.0;
-    int addFrameIndex = -1;
+    int minErrorIndex = -1;
     for(int i = 0; i < MAX_FRAMES; i++)
     {
         if(frameDataStack[i].init == true)
@@ -623,32 +622,31 @@ void mesh_vo::addFrameToStack(frame &_frame)
             if(error < minError)
             {
                 minError = error;
-                if(frameError > minError)
-                    addFrameIndex = i;
+                minErrorIndex = i;
             }
         }
         else
         {
-            addFrameIndex = i;
+            minErrorIndex = i;
             break;
         }
     }
 
-    if(addFrameIndex >= 0)
+    if(minErrorIndex >= 0 && frameError > minErrorIndex)
     {
-        std::cout << "add frame in index " << addFrameIndex << std::endl;
+        std::cout << "add frame in index " << minErrorIndex << std::endl;
         //copy texture and generate its mipmaps
         for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
         {
-            copyCPU(_frame.image, frameDataStack[addFrameIndex].image,lvl);
-            copyGPU(_frame.image, frameDataStack[addFrameIndex].image, lvl);
+            copyCPU(_frame.image, frameDataStack[minErrorIndex].image,lvl);
+            copyGPU(_frame.image, frameDataStack[minErrorIndex].image, lvl);
 
-            copyCPU(_frame.der, frameDataStack[addFrameIndex].der, lvl);
-            copyGPU(_frame.der, frameDataStack[addFrameIndex].der, lvl);
+            copyCPU(_frame.der, frameDataStack[minErrorIndex].der, lvl);
+            copyGPU(_frame.der, frameDataStack[minErrorIndex].der, lvl);
         }
 
-        frameDataStack[addFrameIndex].pose = _frame.pose;
-        frameDataStack[addFrameIndex].init = true;
+        frameDataStack[minErrorIndex].pose = _frame.pose;
+        frameDataStack[minErrorIndex].init = true;
     }
     else
     {
@@ -1352,7 +1350,6 @@ void mesh_vo::optPoseMapJoint()
                     }
                 }
 
-
                 std::cout << "solve time " << t.toc() << std::endl;
 
                 t.tic();
@@ -1365,20 +1362,28 @@ void mesh_vo::optPoseMapJoint()
                         bool good = true;
                         for(int j = 0; j < 6; j++)
                         {
-                            if(inc_joint(i*6+j) != inc_joint(i*6+j))
+                            if(std::isnan(inc_joint(i*6+j)) || std::isinf(inc_joint(i*6+j)))
+                            {
+                                std::cout << "nand in inc_joint pose part" << std::endl;
                                 good = false;
+                            }
                             inc_pose(j) = inc_joint(i*6+j);
                         }
                         if(good == false)
+                        {
                             continue;
+                        }
                         frameDataStack[i].pose = bestPoses[i]*Sophus::SE3f::exp(inc_pose).inverse();
                     }
                 }
 
                 for(int index=0; index < VERTEX_HEIGH*VERTEX_WIDTH; index++)
                 {
-                    if(inc_joint(MAX_FRAMES*6+index) != inc_joint(MAX_FRAMES*6+index))
+                    if(std::isnan(inc_joint(MAX_FRAMES*6+index)))
+                    {
+                        std::cout << "nand in inc_joint depth part " << std::endl;
                         continue;
+                    }
                     scene_vertices[index*3+2] = best_vertices[index*3+2] - inc_joint(MAX_FRAMES*6+index);
                     if(scene_vertices[index*3+2] < min_idepth || scene_vertices[index*3+2] > max_idepth)
                         scene_vertices[index*3+2] = best_vertices[index*3+2];
@@ -2172,8 +2177,8 @@ void mesh_vo::HJPoseMapStackGPU(int lvl)
             reduceHJPoseMapGPU(i,lvl);
             count++;
 
-            showGPU(debugData,lvl);
-            cv::waitKey(100.0);
+            //showGPU(debugData,lvl);
+            //cv::waitKey(100.0);
         }
     }
     if(count > 0)
@@ -2363,9 +2368,14 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
     glfwMakeContextCurrent(frameWindow);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
-    calcIdepthGPU(keyframeData,1);
-    keyframeData.idepth.gpu_to_cpu(1);
-    showGPU(keyframeData.idepth,1);
+    Sophus::SE3f viewPose;
+    viewPose.translation() = Eigen::Vector3f(0.0,-1.0,0.0);
+    view3DTexture(viewPose*frameData.pose, 1);
+    showGPU(view3DData,1);
+
+    //calcIdepthGPU(keyframeData,1);
+    //keyframeData.idepth.gpu_to_cpu(1);
+    //showGPU(keyframeData.idepth,1);
 
     //save frame in gpu memory, calc derivavites y mipmaps
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
@@ -2416,8 +2426,8 @@ void mesh_vo::localization(cv::Mat _frame)
     glfwMakeContextCurrent(frameWindow);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
-    calcIdepthGPU(keyframeData,1);
-    showGPU(keyframeData.idepth,1);
+    //calcIdepthGPU(keyframeData,1);
+    //showGPU(keyframeData.idepth,1);
 
     //save frame in gpu memory, calc derivavites y mipmaps
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
@@ -2445,6 +2455,14 @@ void mesh_vo::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
 
     glfwMakeContextCurrent(frameWindow);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+/*
+    Sophus::SE3f viewPose;
+    Eigen::Matrix<float, 6, 1> viewPoseExp;
+    viewPoseExp << 0.0, 2.0, 2.5, 0.5, 0.0, 0.0;
+    view3DTexture(Sophus::SE3f::exp(viewPoseExp)*keyframeData.pose, 1);
+    showGPU(view3DData,1);
+*/
 
     calcIdepthGPU(keyframeData,1);
     keyframeData.idepth.gpu_to_cpu(1);
@@ -2477,8 +2495,8 @@ void mesh_vo::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
         t.tic();
         changeKeyframe(frameData,1,0.8);
         //optMapVertex();
-        //optMapJoint();
-        optPoseMapJoint();
+        optMapJoint();
+        //optPoseMapJoint();
 
         glFinish();
         std::cout << "change keyframe time " << t.toc() << std::endl;
@@ -2493,8 +2511,8 @@ void mesh_vo::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
 
     t.tic();
     //optMapVertex();
-    //optMapJoint();
-    optPoseMapJoint();
+    optMapJoint();
+    //optPoseMapJoint();
     glFinish();
     std::cout << "update map time " << t.toc() << std::endl;
 
@@ -2862,6 +2880,48 @@ void mesh_vo::calcDerivativeGPU(frame &_frame, int lvl)
     // render frame
     glBindVertexArray(frame_VAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+
+void mesh_vo::view3DTexture(Sophus::SE3f pose, int lvl)
+{
+    //glfwMakeContextCurrent(frameWindow);
+
+    glViewport(0,0, width[lvl], height[lvl]);
+
+    //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, view3DData.gpuTexture, lvl);
+
+    unsigned int drawbuffers[]={GL_COLOR_ATTACHMENT0};
+    glDrawBuffers(sizeof(drawbuffers)/sizeof(unsigned int), drawbuffers);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! calcIdepth" << std::endl;
+
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, keyframeData.image.gpuTexture);
+
+    // activate shader
+    view3DShader.use();
+    view3DShader.setMat4("framePose", eigen2glm_mat4((pose*keyframeData.pose.inverse()).matrix()));
+    view3DShader.setMat4("opencv2opengl", opencv2opengl);
+    view3DShader.setMat4("projection", projMat[lvl]);
+    view3DShader.setFloat("fx", fx[lvl]);
+    view3DShader.setFloat("fy", fy[lvl]);
+    view3DShader.setFloat("cx", cx[lvl]);
+    view3DShader.setFloat("cy", cy[lvl]);
+    view3DShader.setFloat("dx", dx[lvl]);
+    view3DShader.setFloat("dy", dy[lvl]);
+
+    glBindVertexArray(scene_VAO);
+    glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
+
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 0, 0);
 }
 
 

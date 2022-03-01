@@ -84,6 +84,7 @@ private:
     data d_I_d_p1Data;
     data d_I_d_p2Data;
     data debugData;
+    data view3DData;
 
     //shaders
     Shader idepthShader;
@@ -99,7 +100,7 @@ private:
 
     Shader copyShader;
     Shader showTextureShader;
-    Shader debugShader;
+    Shader view3DShader;
 
     //for invertion
     Eigen::Matrix<float, 6, 1> J_pose;
@@ -175,5 +176,7 @@ private:
 
     void calcDerivativeCPU(frame &_frame, int lvl);
     void calcDerivativeGPU(frame &_frame, int lvl);
+
+    void view3DTexture(Sophus::SE3f pose, int lvl);
 
 };

@@ -67,9 +67,6 @@ void main()
     //vec2 ukeyframe = vec2(gl_FragCoord.x,gl_FragCoord.y);
     //float keyframeDepth = gl_FragCoord.z/gl_FragCoord.w;
 
-    float cosangle = abs(dot(normalize(pkeyframe),normalize(framePose[3].xyz)));
-    if(cosangle >= 0.8)
-      discard;
 
     vec2 ukeyframeTexCoord = vec2(ukeyframe.x*dx, ukeyframe.y*dy);
     vec2 uframeTexCoord = vec2(uframe.x*dx, uframe.y*dy);
@@ -82,6 +79,10 @@ void main()
     //float iframe = textureLod(frame,uframeTexCoord,srclvl).x*255.0;
     vec2 dframe = texture(frameDer,uframeTexCoord).xy;
     //vec2 dframe = textureLod(frameDer,uframeTexCoord,srclvl).xy;
+
+    float cosangle = abs(dot(normalize(pkeyframe),normalize(framePose[3].xyz)));
+    if(cosangle >= 0.8)
+        discard;
 
     vec3 d_I_d_pframe = vec3(0);
     d_I_d_pframe.x = dframe.x*fx/frameDepth;
