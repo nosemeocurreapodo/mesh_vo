@@ -78,6 +78,30 @@ data::data(int height, int width, int channels, GLenum datatype, GLint filtertyp
         }
     }
 
+    if(gltype == GL_INT)
+    {
+        if(channels == 1)
+        {
+            glinternalFormat = GL_R32I;
+            cvtype = CV_32SC1;
+        }
+        if(channels == 2)
+        {
+            glinternalFormat = GL_RG32I;
+            cvtype = CV_32SC2;
+        }
+        if(channels == 3)
+        {
+            glinternalFormat = GL_RGB32I;
+            cvtype = CV_32SC3;
+        }
+        if(channels == 4)
+        {
+            glinternalFormat = GL_RGBA32I;
+            cvtype = CV_32SC4;
+        }
+    }
+
     glGenTextures(1, &gpuTexture);
     glBindTexture(GL_TEXTURE_2D, gpuTexture);
     //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);

@@ -17,11 +17,13 @@
 
 //#include <learnopengl/filesystem.h>
 #include <learnopengl/shader_m.h>
+#include <learnopengl/compute.h>
 //#include <learnopengl/feedback_shader.h>
 //#include <learnopengl/camera.h>
 
 #include "data.h"
 #include "frame.h"
+#include "params.h"
 
 class mesh_vo
 {
@@ -77,12 +79,6 @@ private:
 
     //data
     data vertexIdData;
-    data errorData;
-    data traData;
-    data rotData;
-    data d_I_d_p0Data;
-    data d_I_d_p1Data;
-    data d_I_d_p2Data;
     data debugData;
     data view3DData;
 
@@ -102,10 +98,9 @@ private:
     Shader showTextureShader;
     Shader view3DShader;
 
-    //for invertion
-    Eigen::Matrix<float, 6, 1> J_pose;
-    Eigen::Matrix<float, 6, 6> H_pose;
-    Eigen::Matrix<float, 6, 1> inc_pose;
+    Compute errorReduceShader;
+    Compute reduceErrorShader;
+    Compute reduceHJPoseShader;
 
     Eigen::SparseMatrix<float> H_depth;
     Eigen::VectorXf J_depth;
@@ -122,14 +117,15 @@ private:
     void setTriangles();
 
     void optPose(frame &_frame);
+    void optPose2(frame &_frame);
     void optMapJoint();
     //void optMapVertex();
     void optPoseMapJoint();
 
     void HJPoseCPU(frame &_frame, int lvl);
     void HJPoseGPU(frame &_frame, int lvl);
-    void jacobianPoseTextureGPU(frame _frame, int lvl);
-    void reduceHJPoseGPU(int lvl);
+    void jacobianPoseTextureGPU(frame &_frame, int lvl);
+    void reduceHJPoseGPU(frame &_frame, int lvl);
 
     void HJPoseMapStackGPU(int lvl);
     void HJPoseMapGPU(frame &_frame, int lvl);
@@ -139,7 +135,7 @@ private:
     void HJMapStackGPU(int lvl);
     void HJMapGPU(frame &_frame, int lvl);
     void jacobianMapTextureGPU(frame &_frame, int lvl);
-    void reduceHJMapGPU(int lvl);
+    void reduceHJMapGPU(frame &_frame, int lvl);
 
     float errorMesh();
     void HJMesh();
@@ -150,9 +146,10 @@ private:
     float errorGPU(frame &_frame, int lvl);
     float errorStackGPU(int lvl);
     void errorTextureGPU(frame &_frame, int lvl);
-    float reduceErrorGPU(int lvl);
+    float reduceErrorGPU(frame _frame, int lvl, bool useCountData = false);
+    float reduceErrorComputeGPU(frame _frame, int lvl);
     void errorVertexGPU(frame &_frame, int lvl);
-    float reduceErrorVertexGPU(int lvl);
+    float reduceErrorVertexGPU(frame _frame, int lvl);
 
     float goodVertexViewPercentage(frame &_frame);
     void vertexViewCountGPU(frame &_frame, int lvl);

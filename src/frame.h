@@ -16,8 +16,31 @@ public:
   data image;
   data der;
   data idepth;
+  data error;
+  data count;
+
+  data jtra;
+  data jrot;
+
+  data gradient1;
+  data gradient2;
+
+  data hessian1;
+  data hessian2;
+  data hessian3;
+  data hessian4;
+  data hessian5;
+  data hessian6;
+
+  data jp0;
+  data jp1;
+  data jp2;
+
+  Eigen::Matrix<float, 6, 1> J_pose;
+  Eigen::Matrix<float, 6, 6> H_pose;
+  Eigen::Matrix<float, 6, 1> inc_pose;
+
   Sophus::SE3f pose;
-  Eigen::VectorXi vertexViewCount;
 
   bool init;
 

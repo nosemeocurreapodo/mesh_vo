@@ -2,7 +2,6 @@
 layout (location = 0) in vec3 p;
 
 out vec2 v_u;
-out float v_iz;
 
 uniform mat4 framePose;
 uniform mat4 projection;
@@ -24,7 +23,6 @@ void main()
     //from frame perspective
     gl_Position = projection * opencv2opengl * pframe;
     v_u = vec2(fx*p.x+cx, fy*p.y+cy);
-    v_iz = p.z;
 
     //from keyframe perspective
     //gl_Position = projection * opencv2opengl * vec4(pkeyframe,1.0);
