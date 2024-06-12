@@ -70,10 +70,10 @@ int main(void)
         std::cout << "real pose " << std::endl;
         std::cout << realPose.matrix() << std::endl;
 
-        /*
-        std::cout << "est pose " << std::endl;
-        std::cout << visual_odometry.trackedPose.matrix() << std::endl;
-        */
+
+        //std::cout << "est pose " << std::endl;
+        //std::cout << visual_odometry.trackedPose.matrix() << std::endl;
+
         cv::imshow("image", frame);
         cv::waitKey(30);
     }

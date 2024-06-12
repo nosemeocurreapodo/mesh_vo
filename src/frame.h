@@ -36,10 +36,6 @@ public:
   data jp1;
   data jp2;
 
-  Eigen::Matrix<float, 6, 1> J_pose;
-  Eigen::Matrix<float, 6, 6> H_pose;
-  Eigen::Matrix<float, 6, 1> inc_pose;
-
   Sophus::SE3f pose;
 
   bool init;

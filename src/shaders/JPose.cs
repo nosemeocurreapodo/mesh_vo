@@ -1,72 +1,82 @@
 #version 430 core
 
-// inputs from compute shader
-//
-// in uvec3 gl_NumWorkGroups;
-// in uvec3 gl_WorkGroupID;
-// in uvec3 gl_LocalInvocationID;
-// in uvec3 gl_GlobalInvocationID;
-// in uint gl_LocalInvocationIndex;
-//
-// more details at https://www.khronos.org/opengl/wiki/Compute_Shader#Inputs
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-// outputs will need to be either in a shader storage buffer object
-// or an image load store
-//
-// more details at https://www.khronos.org/opengl/wiki/Compute_Shader#Outputs
+layout(r8ui   , binding = 0 ) uniform uimage2D keyframeTex;
+layout(r8ui   , binding = 1 ) uniform uimage2D frameTex;
+layout(rg32f  , binding = 2 ) uniform image2D  frameDerTex;
+layout(r32f   , binding = 3 ) uniform image2D  invDepthTex;
 
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
-layout(rgba32f, binding = 0) uniform image2D traTex;
-layout(rgba32f, binding = 1) uniform image2D rotTex;
-layout(r32f, binding = 2) uniform image2D resTex;
+layout(rgba32f, binding = 4 ) uniform image2D  gradient1Tex;
+layout(rgba32f, binding = 5 ) uniform image2D  gradient2Tex;
+layout(rgba32f, binding = 6 ) uniform image2D  hessian1Tex;
+layout(rgba32f, binding = 7 ) uniform image2D  hessian2Tex;
+layout(rgba32f, binding = 8 ) uniform image2D  hessian3Tex;
+layout(rgba32f, binding = 9 ) uniform image2D  hessian4Tex;
+layout(rgba32f, binding = 10) uniform image2D  hessian5Tex;
+layout(rgba32f, binding = 11) uniform image2D  hessian6Tex;
+layout(r32f   , binding = 12) uniform image2D  errorTex;
+layout(r32f   , binding = 13) uniform image2D  countTex;
 
-layout(rgba32f, binding = 3) uniform image2D gradient1Tex;
-layout(rgba32f, binding = 4) uniform image2D gradient2Tex;
-layout(rgba32f, binding = 5) uniform image2D hessian1Tex;
-layout(rgba32f, binding = 6) uniform image2D hessian2Tex;
-layout(rgba32f, binding = 7) uniform image2D hessian3Tex;
-layout(rgba32f, binding = 8) uniform image2D hessian4Tex;
-layout(rgba32f, binding = 9) uniform image2D hessian5Tex;
-layout(rgba32f, binding = 10) uniform image2D hessian6Tex;
-layout(r32f, binding = 11) uniform image2D errorTex;
-layout(r32f, binding = 12) uniform image2D countTex;
+uniform mat4 framePose;
+
+uniform float fx;
+uniform float fy;
+uniform float cx;
+uniform float cy;
+
+uniform float fxinv;
+uniform float fyinv;
+uniform float cxinv;
+uniform float cyinv;
+
+uniform float dx;
+uniform float dy;
 
 shared float J_pose[6][gl_WorkGroupSize.x*gl_WorkGroupSize.y];
 shared float H_pose[21][gl_WorkGroupSize.x*gl_WorkGroupSize.y];
 shared float error[gl_WorkGroupSize.x*gl_WorkGroupSize.y];
 shared float count[gl_WorkGroupSize.x*gl_WorkGroupSize.y];
 
-void main() {
+void main()
+{
+    bool isGood = true;
 
-    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
-    vec3 tra  = imageLoad(traTex, pos).xyz;
-    vec3 rot  = imageLoad(rotTex, pos).xyz;
-    float res = imageLoad(resTex, pos).x;
+    vec2 kfpixel = vec2(gl_GlobalInvocationID.xy);
+    float kfidepth = imageLoad(invDepthTex, ivec2(kfpixel.x,1.0/dy-kfpixel.y)).x;
+    vec3 kfray = vec3(fxinv*kfpixel.x + cxinv, fyinv*kfpixel.y + cyinv, 1.0);
+    vec3 kfpoint = kfray/kfidepth;
 
-    float J[6];
-    float c;
-    if(res == 0.0)
-    {
-        tra.x = 0.0;
-        tra.y = 0.0;
-        tra.z = 0.0;
-        rot.x = 0.0;
-        rot.y = 0.0;
-        rot.z = 0.0;
+    vec3 fpoint = (framePose*vec4(kfpoint,1.0)).xyz;
 
+    if(fpoint.z <= 0.0)
+        isGood = false;
+
+    vec3 fray = fpoint/fpoint.z;
+    vec2 fpixel = vec2(fx*fray.x+cx,fy*fray.y+cy);
+
+    if(fpixel.x < 0.0 || fpixel.x >= 1.0/dx || fpixel.y < 0.0 || fpixel.y >= 1.0/dy)
+        isGood = false;
+
+    float c = 1.0;
+    if(!isGood)
         c = 0.0;
-    }
-    else
-    {
-        tra.x = tra.x;
-        tra.y = tra.y;
-        tra.z = tra.z;
-        rot.x = rot.x;
-        rot.y = rot.y;
-        rot.z = rot.z;
 
-        c = 1.0;
-    }
+    vec2 f_der = imageLoad(frameDerTex, ivec2(fpixel.x,1.0/dy-fpixel.y)).xy;
+
+    float id = 1.0/fpoint.z;
+
+    float v0 = f_der.x * fx * id;
+    float v1 = f_der.y * fy * id;
+    float v2 = -(v0 * fpoint.x + v1 * fpoint.y) * id;
+
+    vec3 tra = vec3(v0, v1, v2);
+    vec3 rot = vec3( -fpoint.z * v1 + fpoint.y * v2, fpoint.z * v0 - fpoint.x * v2, -fpoint.y * v0 + fpoint.x * v1);
+
+    float kf = imageLoad(keyframeTex, ivec2(kfpixel.x,1.0/dy-kfpixel.y)).x;
+    float f = imageLoad(frameTex, ivec2(fpixel.x,1.0/dy-fpixel.y)).x;
+
+    float res = f - kf;
 
     J_pose[0][gl_LocalInvocationIndex] = tra.x*res;
     J_pose[1][gl_LocalInvocationIndex] = tra.y*res;
@@ -140,4 +150,3 @@ void main() {
         imageStore(countTex, ivec2(gl_WorkGroupID.xy), vec4(count[0],0.0,0.0,0.0));
     }
 }
-

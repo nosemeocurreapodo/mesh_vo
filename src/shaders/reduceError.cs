@@ -48,10 +48,7 @@ void main()
     }
     if(gl_LocalInvocationIndex == 0)
     {
-        float result = -1.0;
-        if(countLocal[0] > 0)
-            result = errorLocal[0];
-        imageStore(errorOutTex, ivec2(gl_WorkGroupID.xy), vec4(result,0.0,0.0,0.0));
+        imageStore(errorOutTex, ivec2(gl_WorkGroupID.xy), vec4(errorLocal[0],0.0,0.0,0.0));
         imageStore(countOutTex, ivec2(gl_WorkGroupID.xy), vec4(float(countLocal[0]),0,0,0));
         //imageStore(countOutTex, ivec2(gl_WorkGroupID.xy), vec4(10,0,0,0));
         //imageStore(errorOutTex, ivec2(gl_WorkGroupID.xy), vec4(2.345,0.0,0.0,0.0));

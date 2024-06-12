@@ -285,7 +285,7 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
 
 
     keyframeData = frame(height[0], width[0]);
-    frameData = frame(height[0], width[0]);
+    lastframeData = frame(height[0], width[0]);
     for(int i = 0; i < MAX_FRAMES; i++)
         frameDataStack[i] = frame(height[0], width[0]);
 
@@ -311,6 +311,12 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     jacobianPoseShader.setInt("keyframe", 0);
     jacobianPoseShader.setInt("frame", 1);
     jacobianPoseShader.setInt("frameDer", 2);
+
+    jacobianPoseShader_v2.init("JPose.vs", "JPose_v2.fs");
+    jacobianPoseShader_v2.use();
+    jacobianPoseShader_v2.setInt("keyframe", 0);
+    jacobianPoseShader_v2.setInt("frame", 1);
+    jacobianPoseShader_v2.setInt("frameDer", 2);
 
     jacobianMapShader.init("JMap.vs", "JMap.gs", "JMap.fs");
     jacobianMapShader.use();
@@ -343,9 +349,12 @@ mesh_vo::mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _he
     view3DShader.use();
     view3DShader.setInt("keyframe", 0);
 
-    errorReduceShader.init("error.cs");
+    computeHJPoseAndReduceCShader.init("JPose.cs");
+    computeErrorAndReduceCShader.init("error.cs");
     reduceErrorShader.init("reduceError.cs");
     reduceHJPoseShader.init("reduceHJPose.cs");
+    reduceRShader.init("reduceRTexture.cs");
+    reduceRGBAShader.init("reduceRGBATexture.cs");
 
     //acc_H_depth = Eigen::MatrixXf::Zero(vwidth*vheight, vwidth*vheight);
     H_depth = Eigen::SparseMatrix<float>(VERTEX_HEIGH*VERTEX_WIDTH, VERTEX_HEIGH*VERTEX_WIDTH);
@@ -611,14 +620,14 @@ void mesh_vo::setTriangles()
 void mesh_vo::addFrameToStack(frame &_frame)
 {
 
-    float frameError = errorGPU(_frame, 1);
+    float frameError = errorGPU(&_frame, 1);
     float minError = 100000000000.0;
     int minErrorIndex = -1;
     for(int i = 0; i < MAX_FRAMES; i++)
     {
         if(frameDataStack[i].init == true)
         {
-            float error = errorGPU(frameDataStack[i],1);
+            float error = errorGPU(&frameDataStack[i],1);
             if(error < minError)
             {
                 minError = error;
@@ -871,16 +880,22 @@ void mesh_vo::HJMesh()
     */
 }
 
-float mesh_vo::errorCPU(frame &_frame, int lvl)
+float mesh_vo::errorCPU(frame *_frame, int lvl)
+{
+    //HJPose _hjpose = errorCPUPerIndex(_frame, lvl, 0, height[lvl]);
+    HJPose _hjpose = treadReducer.reduce(std::bind(&mesh_vo::errorCPUPerIndex, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4), _frame, lvl, 0, height[lvl]);
+    return _hjpose.error/_hjpose.count;
+}
+
+HJPose mesh_vo::errorCPUPerIndex(frame *_frame, int lvl, int ymin, int ymax)
 {
     //std::cout << "entrando calcResidual" << std::endl;
 
-    float residual = 0.0;
-    int num = 0;
+    HJPose _hjpose;
 
-    Sophus::SE3f relativePose = _frame.pose*keyframeData.pose.inverse();
+    Sophus::SE3f relativePose = _frame->pose*keyframeData.pose.inverse();
 
-    for(int y = 0; y < height[lvl]; y++)
+    for(int y = ymin; y < ymax; y++)
         for(int x = 0; x < width[lvl]; x++)
         {
             uchar vkf = keyframeData.image.cpuTexture[lvl].at<uchar>(y,x);
@@ -904,20 +919,18 @@ float mesh_vo::errorCPU(frame &_frame, int lvl)
                 continue;
 
             //std::cout << "pixelFrame " << pixelFrame << std::endl;
-            uchar vf = _frame.image.cpuTexture[lvl].at<uchar>(pixelFrame(1), pixelFrame(0));
+            uchar vf = _frame->image.cpuTexture[lvl].at<uchar>(pixelFrame(1), pixelFrame(0));
 
-            float error = (vkf-vf)*(vkf-vf);
+            float residual = float(vf) - float(vkf);
+            float error = residual*residual;
 
-            _frame.error.cpuTexture[lvl].at<float>(y,x) = error;
+            _frame->error.cpuTexture[lvl].at<float>(y,x) = error;
 
-            residual += error;
-            num++;
+            _hjpose.error += error;
+            _hjpose.count++;
         }
 
-    if(num > 0)
-        residual /= num;
-
-    return residual;
+    return _hjpose;
 }
 
 float mesh_vo::errorStackCPU(int lvl)
@@ -928,7 +941,8 @@ float mesh_vo::errorStackCPU(int lvl)
     {
         if(frameDataStack[i].init == true)
         {
-            error += errorCPU(frameDataStack[i],lvl);
+            //frameData = frameDataStack[i];
+            //error += errorCPU(lvl);
             count++;
         }
     }
@@ -937,11 +951,53 @@ float mesh_vo::errorStackCPU(int lvl)
     return error;
 }
 
-float mesh_vo::errorGPU(frame &_frame, int lvl)
+float mesh_vo::errorGPU(frame *_frame, int lvl)
 {
     errorTextureGPU(_frame, lvl);
     //float error =  reduceErrorGPU(lvl);
     float error = reduceErrorComputeGPU(_frame, lvl);
+    return error;
+}
+
+float mesh_vo::errorGPU_v2(frame *_frame, int lvl)
+{
+    int srclvl = lvl;
+    int dstlvl = srclvl + 5;
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindImageTexture( 0, keyframeData.image.gpuTexture, srclvl, GL_FALSE, 0, GL_READ_ONLY, GL_R8UI);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindImageTexture( 1, _frame->image.gpuTexture, srclvl, GL_FALSE, 0, GL_READ_ONLY, GL_R8UI);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindImageTexture( 2, keyframeData.idepth.gpuTexture, srclvl, GL_FALSE, 0, GL_READ_ONLY, GL_R32F );
+
+    glActiveTexture(GL_TEXTURE3);
+    glBindImageTexture( 3, _frame->error.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F );
+
+    glActiveTexture(GL_TEXTURE4);
+    glBindImageTexture( 4, _frame->count.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F );
+
+    computeErrorAndReduceCShader.use();
+
+    computeErrorAndReduceCShader.setFloat("fx", fx[srclvl]);
+    computeErrorAndReduceCShader.setFloat("fy", fy[srclvl]);
+    computeErrorAndReduceCShader.setFloat("cx", cx[srclvl]);
+    computeErrorAndReduceCShader.setFloat("cy", cy[srclvl]);
+    computeErrorAndReduceCShader.setFloat("fxinv", fxinv[srclvl]);
+    computeErrorAndReduceCShader.setFloat("fyinv", fyinv[srclvl]);
+    computeErrorAndReduceCShader.setFloat("cxinv", cxinv[srclvl]);
+    computeErrorAndReduceCShader.setFloat("cyinv", cyinv[srclvl]);
+    computeErrorAndReduceCShader.setFloat("dx", dx[srclvl]);
+    computeErrorAndReduceCShader.setFloat("dy", dy[srclvl]);
+    computeErrorAndReduceCShader.setMat4("framePose", eigen2glm_mat4((_frame->pose*keyframeData.pose.inverse()).matrix()));
+
+    glDispatchCompute(width[dstlvl], height[dstlvl], 1 );
+    glMemoryBarrier( GL_ALL_BARRIER_BITS );
+
+    float error = reduceErrorGPU(_frame, dstlvl);
+    //float error = reduceErrorComputeGPU(_frame, dstlvl);
     return error;
 }
 
@@ -953,7 +1009,7 @@ float mesh_vo::errorStackGPU(int lvl)
     {
         if(frameDataStack[i].init == true)
         {
-            error += errorGPU(frameDataStack[i],lvl);
+            error += errorGPU(&frameDataStack[i],lvl);
             count++;
         }
     }
@@ -962,7 +1018,7 @@ float mesh_vo::errorStackGPU(int lvl)
     return error;
 }
 
-void mesh_vo::errorTextureGPU(frame &_frame, int lvl)
+void mesh_vo::errorTextureGPU(frame *_frame, int lvl)
 {
     //std::cout << "entrando calcResidual" << std::endl;
 
@@ -973,7 +1029,7 @@ void mesh_vo::errorTextureGPU(frame &_frame, int lvl)
     glViewport(0,0,width[lvl],height[lvl]);
 
     //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, _frame.error.gpuTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, _frame->error.gpuTexture, lvl);
 
     unsigned int drawbuffers[]={GL_COLOR_ATTACHMENT0};
     glDrawBuffers(sizeof(drawbuffers)/sizeof(unsigned int), drawbuffers);
@@ -992,12 +1048,12 @@ void mesh_vo::errorTextureGPU(frame &_frame, int lvl)
     glBindTexture(GL_TEXTURE_2D, keyframeData.image.gpuTexture);
 
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, _frame.image.gpuTexture);
+    glBindTexture(GL_TEXTURE_2D, _frame->image.gpuTexture);
 
     // activate shader
     errorShader.use();
 
-    errorShader.setMat4("framePose", eigen2glm_mat4((_frame.pose*keyframeData.pose.inverse()).matrix()));
+    errorShader.setMat4("framePose", eigen2glm_mat4((_frame->pose*keyframeData.pose.inverse()).matrix()));
     errorShader.setMat4("opencv2opengl", opencv2opengl);
     errorShader.setMat4("projection", projMat[lvl]);
     errorShader.setFloat("fx", fx[lvl]);
@@ -1017,53 +1073,22 @@ void mesh_vo::errorTextureGPU(frame &_frame, int lvl)
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 0, 0);
 }
 
-float mesh_vo::reduceErrorGPU(frame _frame, int lvl, bool useCountData)
+float mesh_vo::reduceErrorGPU(frame* _frame, int lvl)
 {
-    //int new_lvl[MAX_LEVELS] = {5,6,7,8,9};
-    //reduceFloat(errorTexture, lvl, new_lvl[lvl]);
-    //int new_lvl[MAX_LEVELS] = {0,1,2,3,4};
-
-    //errorData.generateMipmapsGPU(lvl);
-
-    //tic_toc t;
-
-    //t.tic();
-
-    _frame.error.gpu_to_cpu(lvl);
-    if(useCountData)
-        _frame.count.gpu_to_cpu(lvl);
-
-    //std::cout << "get data time " << t.toc() << std::endl;
-
-    //t.tic();
+    _frame->error.gpu_to_cpu(lvl);
+    _frame->count.gpu_to_cpu(lvl);
 
     float error = 0.0;
     int count = 0;
     for(int x = 0; x < width[lvl]; x++)
         for(int y = 0; y < height[lvl]; y++)
         {
-            float res = _frame.error.cpuTexture[lvl].at<float>(y,x);
-
-            if(res < 0.0)
-            {
-                continue;
-            }
-
-            error += res;
-            if(useCountData)
-                count += _frame.count.cpuTexture[lvl].at<float>(y,x);
-            else
-                count++;
+            error += _frame->error.cpuTexture[lvl].at<float>(y,x);
+            count += _frame->count.cpuTexture[lvl].at<float>(y,x);
         }
 
-    if(count > 0)//width[new_lvl]*height[new_lvl]*0.7)
+    if(count > 0)
     {
-        /*
-        if(useCountData)
-            std::cout << "with data: " << error << " " << count << std::endl;
-        else
-            std::cout << "without data: " << error << " " << count << std::endl;
-            */
         error /= count;
     }
     else
@@ -1072,15 +1097,13 @@ float mesh_vo::reduceErrorGPU(frame _frame, int lvl, bool useCountData)
         error = 1230000000000000000000000000.0f;
     }
 
-    //std::cout << "reduce time " << t.toc() << std::endl;
-
     return error;
 }
 
-float mesh_vo::reduceErrorComputeGPU(frame _frame, int lvl)
+float mesh_vo::reduceErrorComputeGPU(frame* _frame, int lvl)
 {
     float result = 0.0;
-    int dstlvl = lvl + 4;
+    int dstlvl = lvl + 3;
     if(dstlvl >= MAX_LEVELS)
     {
         result = reduceErrorGPU(_frame, lvl);
@@ -1091,13 +1114,13 @@ float mesh_vo::reduceErrorComputeGPU(frame _frame, int lvl)
         //t.tic();
 
         glActiveTexture(GL_TEXTURE0);
-        glBindImageTexture( 0, _frame.error.gpuTexture, lvl, GL_FALSE, 0, GL_READ_ONLY, GL_R32F );
+        glBindImageTexture( 0, _frame->error.gpuTexture, lvl, GL_FALSE, 0, GL_READ_ONLY, GL_R32F );
 
         glActiveTexture(GL_TEXTURE1);
-        glBindImageTexture( 1, _frame.error.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F );
+        glBindImageTexture( 1, _frame->error.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F );
 
         glActiveTexture(GL_TEXTURE2);
-        glBindImageTexture( 2, _frame.count.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F );
+        glBindImageTexture( 2, _frame->count.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F );
 
         // activate shader
         reduceErrorShader.use();
@@ -1108,7 +1131,7 @@ float mesh_vo::reduceErrorComputeGPU(frame _frame, int lvl)
         //glFinish();
         //std::cout << "reduce compute time " << t.toc() << std::endl;
 
-        result = reduceErrorGPU(_frame, dstlvl, true);
+        result = reduceErrorGPU(_frame, dstlvl);
     }
     return result;
 }
@@ -1246,14 +1269,14 @@ void mesh_vo::optPose(frame &_frame)
     {
         std::cout << "*************************lvl " << lvl << std::endl;
         t.tic();
-        float last_error = errorCPU(_frame,lvl);
+        float last_error = 0.0;//errorCPU(lvl);
         //float last_error = errorGPU(_frame, lvl);
-        std::cout << "init error " << last_error << " time " << t.toc() << std::endl;
+        //std::cout << "init error " << last_error << " time " << t.toc() << std::endl;
 
         for(int it = 0; it < maxIterations[lvl]; it++)
         {
             t.tic();
-            HJPoseCPU(_frame ,lvl);
+            HJPose _hjpose = HJPoseCPU(&_frame, lvl);
             //std::cout << "J_pose cpu: " << acc_J_pose << std::endl;
             //HJPoseGPU(_frame, lvl);
             //std::cout << "J_pose gpu: " << acc_J_pose << std::endl;
@@ -1264,12 +1287,12 @@ void mesh_vo::optPose(frame &_frame)
             while(true)
             {
                 Eigen::Matrix<float, 6, 6> acc_H_pose_lambda;
-                acc_H_pose_lambda = _frame.H_pose;
+                acc_H_pose_lambda = _hjpose.H_pose;
 
                 for(int j = 0; j < 6; j++)
                     acc_H_pose_lambda(j,j) *= 1.0 + lambda;
 
-                Eigen::Matrix<float, 6, 1> inc_pose = acc_H_pose_lambda.ldlt().solve(_frame.J_pose);
+                Eigen::Matrix<float, 6, 1> inc_pose = acc_H_pose_lambda.ldlt().solve(_hjpose.J_pose);
 
                 //std::cout << "acc_J_pose " << acc_J_pose << std::endl;
 
@@ -1284,7 +1307,7 @@ void mesh_vo::optPose(frame &_frame)
                 //std::cout << "new_pose " << new_pose.matrix() << std::endl;
 
                 t.tic();
-                float error = errorCPU(_frame,lvl);
+                float error = 0.0;//errorCPU(lvl);
                 //float error = errorGPU(_frame, lvl);
                 std::cout << "new error time " << t.toc() << std::endl;
 
@@ -1351,34 +1374,47 @@ void mesh_vo::optPose2(frame &_frame)
 
     tic_toc t;
     t.tic();
-    float cpuError = 0;
+    HJPose CPUHJPose;
     for(int i = 0; i < 100; i++)
     {
-        cpuError = 0;
-        for(int index = 0; index < MAX_FRAMES; index++)
+        //for(int index = 0; index < MAX_FRAMES; index++)
         {
-            if(!frameDataStack[index].init)
-                continue;
-            cpuError += errorCPU(frameDataStack[index],tlvl);
-            //HJPoseCPU(frameDataStack[index], tlvl);
+            //if(!frameDataStack[index].init)
+            //    continue;
+
+            CPUHJPose =  HJPoseCPU(&_frame, tlvl);
+            //CPUHJPose.error = errorCPU(&_frame, tlvl);
         }
     }
-    std::cout << "cpu error: " << cpuError << " cpu time " << t.toc() << std::endl;
+    std::cout << "cpu error: " << CPUHJPose.error << " cpu time " << t.toc() << std::endl;
 
     t.tic();
-    float gpuError = 0;
+    HJPose GPUHJPose;
     for(int i = 0; i < 100; i++)
     {
-        gpuError = 0.0;
-        for(int index = 0; index < MAX_FRAMES; index++)
+        //for(int index = 0; index < MAX_FRAMES; index++)
         {
-            if(!frameDataStack[index].init)
-                continue;
-            gpuError += errorGPU(frameDataStack[index],tlvl);
-            //HJPoseGPU(frameDataStack[index], tlvl);
+            //if(!frameDataStack[index].init)
+            //    continue;
+
+            //GPUHJPose.error = errorGPU(&_frame,tlvl);
+            GPUHJPose = HJPoseGPU(&_frame, tlvl);
         }
     }
-    std::cout << "gpu error " << gpuError << " gpu time " << t.toc() << std::endl;
+    std::cout << "gpu error " << GPUHJPose.error << " gpu time " << t.toc() << std::endl;
+
+    t.tic();
+    HJPose GPUHJPose2;
+    for(int i = 0; i < 100; i++)
+    {
+        //GPUHJPose2.error = errorGPU_v2(&_frame, tlvl);
+        GPUHJPose2 = HJPoseGPU_v3(&_frame, tlvl);
+
+    }
+    std::cout << "gpu error2 " << GPUHJPose2.error << " gpu time " << t.toc() << std::endl;
+
+    showCPU(_frame.error, tlvl);
+    showGPU(_frame.error,tlvl);
 
     return;
 
@@ -1451,7 +1487,7 @@ void mesh_vo::optPose2(frame &_frame)
         gpuError2 = 0.0;
         for(int index = 0; index < MAX_FRAMES; index++)
         {
-            gpuError2 += reduceErrorGPU(frameDataStack[index], dstlvl, true);
+            gpuError2 += reduceErrorGPU(&frameDataStack[index], dstlvl);
         }
     }
     std::cout << "gpu2 error " << gpuError2 << " gpu2 time " << t.toc() << std::endl;
@@ -1486,19 +1522,19 @@ void mesh_vo::optPose2(frame &_frame)
             glActiveTexture(GL_TEXTURE4);
             glBindImageTexture( 4, frameDataStack[index].count.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F );
 
-            errorReduceShader.use();
+            computeErrorAndReduceCShader.use();
 
-            errorReduceShader.setFloat("fx", fx[srclvl]);
-            errorReduceShader.setFloat("fy", fy[srclvl]);
-            errorReduceShader.setFloat("cx", cx[srclvl]);
-            errorReduceShader.setFloat("cy", cy[srclvl]);
-            errorReduceShader.setFloat("fxinv", fxinv[srclvl]);
-            errorReduceShader.setFloat("fyinv", fyinv[srclvl]);
-            errorReduceShader.setFloat("cxinv", cxinv[srclvl]);
-            errorReduceShader.setFloat("cyinv", cyinv[srclvl]);
-            errorReduceShader.setFloat("dx", dx[srclvl]);
-            errorReduceShader.setFloat("dy", dy[srclvl]);
-            errorReduceShader.setMat4("framePose", eigen2glm_mat4((frameDataStack[index].pose*keyframeData.pose.inverse()).matrix()));
+            computeErrorAndReduceCShader.setFloat("fx", fx[srclvl]);
+            computeErrorAndReduceCShader.setFloat("fy", fy[srclvl]);
+            computeErrorAndReduceCShader.setFloat("cx", cx[srclvl]);
+            computeErrorAndReduceCShader.setFloat("cy", cy[srclvl]);
+            computeErrorAndReduceCShader.setFloat("fxinv", fxinv[srclvl]);
+            computeErrorAndReduceCShader.setFloat("fyinv", fyinv[srclvl]);
+            computeErrorAndReduceCShader.setFloat("cxinv", cxinv[srclvl]);
+            computeErrorAndReduceCShader.setFloat("cyinv", cyinv[srclvl]);
+            computeErrorAndReduceCShader.setFloat("dx", dx[srclvl]);
+            computeErrorAndReduceCShader.setFloat("dy", dy[srclvl]);
+            computeErrorAndReduceCShader.setMat4("framePose", eigen2glm_mat4((frameDataStack[index].pose*keyframeData.pose.inverse()).matrix()));
 
             glDispatchCompute(width[dstlvl], height[dstlvl], 1 );
             glMemoryBarrier( GL_ALL_BARRIER_BITS );
@@ -1509,7 +1545,7 @@ void mesh_vo::optPose2(frame &_frame)
         {
             if(!frameDataStack[index].init)
                 continue;
-            gpuError3 += reduceErrorGPU(frameDataStack[index], dstlvl, true);
+            gpuError3 += reduceErrorGPU(&frameDataStack[index], dstlvl);
         }
     }
     //gpuError3 = reduceErrorGPU(dstlvl, true);
@@ -1520,7 +1556,7 @@ void mesh_vo::optPose2(frame &_frame)
 
 void mesh_vo::optPoseMapJoint()
 {
-/*
+    /*
     for(int i = 0; i < MAX_FRAMES; i++)
     {
         if(frameDataStack[i].init == false)
@@ -1576,7 +1612,7 @@ void mesh_vo::optPoseMapJoint()
                 {
                     float h = H_joint_lambda(j,j);
                     if(h > 0.0 && abs(J_joint(j)) > 0.0)
-                    //if(J_joint(j) > 0.0)
+                        //if(J_joint(j) > 0.0)
                     {
                         inc_joint(j) = J_joint(j)/h;
                         //inc_joint(j) = (1.0/(1.0+lambda))*J_joint(j)/fabs(J_joint(j));
@@ -1757,7 +1793,7 @@ void mesh_vo::optMapJoint()
                 //inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
                 //inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
 
-/*
+                /*
                 for(int j = 0; j < int(J_depth.size()); j++)
                 {
                     float h = acc_H_depth_lambda.coeffRef(j,j);
@@ -2024,14 +2060,24 @@ void mesh_vo::optMapVertex()
 }
 */
 
-void mesh_vo::HJPoseCPU(frame &_frame, int lvl)
+HJPose mesh_vo::HJPoseCPU(frame *_frame, int lvl)
 {
-    _frame.J_pose.setZero();
-    _frame.H_pose.setZero();
+    //HJPose _hjpose = HJPoseCPUPerIndex(_frame, lvl, 0, height[lvl]);
+    HJPose _hjpose = treadReducer.reduce(std::bind(&mesh_vo::HJPoseCPUPerIndex, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4), _frame, lvl, 0, height[lvl]);
+    _hjpose.H_pose /= _hjpose.count;
+    _hjpose.J_pose /= _hjpose.count;
+    _hjpose.error /= _hjpose.count;
 
-    Sophus::SE3f relativePose = _frame.pose*keyframeData.pose.inverse();
-    int count = 0;
-    for(int y = 0; y < height[lvl]; y++)
+    return _hjpose;
+}
+
+HJPose mesh_vo::HJPoseCPUPerIndex(frame *_frame, int lvl, int ymin, int ymax)
+{
+    HJPose _hjpose;
+
+    Sophus::SE3f relativePose = _frame->pose*keyframeData.pose.inverse();
+
+    for(int y = ymin; y < ymax; y++)
         for(int x = 0; x < width[lvl]; x++)
         {
             uchar vkf = keyframeData.image.cpuTexture[lvl].at<uchar>(y,x);
@@ -2042,7 +2088,7 @@ void mesh_vo::HJPoseCPU(frame &_frame, int lvl)
             if(keyframeId <= 0.0)
                 continue;
 
-            Eigen::Vector3f poinKeyframe = Eigen::Vector3f(fxinv[lvl]*x + cxinv[lvl],fyinv[lvl]*y + cyinv[lvl],1.0)/keyframeId;
+            Eigen::Vector3f poinKeyframe = Eigen::Vector3f(fxinv[lvl]*x + cxinv[lvl],fyinv[lvl]*y + cyinv[lvl],1.0)/key/frameId;
             Eigen::Vector3f pointFrame = relativePose*poinKeyframe;
 
             //std::cout << "pointFrame " << pointFrame << std::endl;
@@ -2057,8 +2103,8 @@ void mesh_vo::HJPoseCPU(frame &_frame, int lvl)
             if(pixelFrame(0) < 0.0 || pixelFrame(0) >= width[lvl] || pixelFrame(1) < 0.0 || pixelFrame(1) >= height[lvl])
                 continue;
 
-            uchar vf = _frame.image.cpuTexture[lvl].at<uchar>(pixelFrame(1), pixelFrame(0));
-            cv::Vec2f der = _frame.der.cpuTexture[lvl].at<cv::Vec2f>(pixelFrame(1),pixelFrame(0));
+            uchar vf = _frame->image.cpuTexture[lvl].at<uchar>(pixelFrame(1), pixelFrame(0));
+            cv::Vec2f der = _frame->der.cpuTexture[lvl].at<cv::Vec2f>(pixelFrame(1),pixelFrame(0));
 
             Eigen::Vector2f d_f_d_uf(der.val[0],der.val[1]);
 
@@ -2074,56 +2120,122 @@ void mesh_vo::HJPoseCPU(frame &_frame, int lvl)
             Eigen::Vector3f d_I_d_rot = Eigen::Vector3f( -pointFrame(2) * v1 + pointFrame(1) * v2, pointFrame(2) * v0 - pointFrame(0) * v2, -pointFrame(1) * v0 + pointFrame(0) * v1);
 
             float residual = (vf - vkf);
+            _hjpose.error += residual*residual;
 
             Eigen::Matrix<float, 6, 1> J;
             J << d_I_d_tra(0), d_I_d_tra(1), d_I_d_tra(2), d_I_d_rot(0), d_I_d_rot(1), d_I_d_rot(2);
 
-            count++;
+            _hjpose.count++;
             for(int i = 0; i < 6; i++)
             {
-                _frame.J_pose(i) += J[i]*residual;
+                _hjpose.J_pose(i) += J[i]*residual;
                 for(int j = i; j < 6; j++)
                 {
                     float jj = J[i]*J[j];
-                    _frame.H_pose(i,j) += jj;
-                    _frame.H_pose(j,i) += jj;
+                    _hjpose.H_pose(i,j) += jj;
+                    _hjpose.H_pose(j,i) += jj;
                 }
             }
         }
 
-    if(count > 0)
-    {
-        _frame.J_pose /= count;
-        _frame.H_pose /= count;
-    }
+    return _hjpose;
 }
 
-void mesh_vo::HJPoseGPU(frame &_frame, int lvl)
+
+
+
+HJPose mesh_vo::HJPoseGPU(frame* _frame, int lvl)
 {
-    _frame.H_pose.setZero();
-    _frame.J_pose.setZero();
     jacobianPoseTextureGPU(_frame, lvl);
-    reduceHJPoseGPU(_frame, lvl);
+
+    //_frame->error.gpu_to_cpu(lvl);
+    //_frame->jtra.gpu_to_cpu(lvl);
+    //_frame->jrot.gpu_to_cpu(lvl);
+    //HJPose _hjpose = reduceHJPoseGPUPerIndex(_frame, lvl, 0, height[0]);
+    //HJPose _hjpose = treadReducer.reduce(std::bind(&mesh_vo::reduceHJPoseGPUPerIndex, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4), _frame, lvl, 0, height[lvl]);
+    HJPose _hjpose = reduceHJPoseGPU(_frame, lvl);
+    //std::cout << "count is " << _hjpose.count << std::endl;
+    //std::cout << "error is " << _hjpose.error << std::endl;
+    _hjpose.H_pose /= _hjpose.count;
+    _hjpose.J_pose /= _hjpose.count;
+    _hjpose.error /= _hjpose.count;
+    return _hjpose;
 }
 
-void mesh_vo::HJPoseGPU_V2(frame &_frame, int lvl)
+void mesh_vo::HJPoseGPU_v2(frame *_frame, int lvl)
 {
-    _frame.H_pose.setZero();
-    _frame.J_pose.setZero();
     jacobianPoseTextureGPU_v2(_frame, lvl);
     reduceHJPoseGPU_v2(_frame, lvl);
 }
 
-void mesh_vo::jacobianPoseTextureGPU(frame &_frame, int lvl)
+HJPose mesh_vo::HJPoseGPU_v3(frame *_frame, int lvl)
+{
+    int srclvl = lvl;
+    int dstlvl = srclvl + 3;
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindImageTexture( 0, keyframeData.image.gpuTexture, srclvl, GL_FALSE, 0, GL_READ_ONLY, GL_R8UI);
+    glActiveTexture(GL_TEXTURE1);
+    glBindImageTexture( 1, _frame->image.gpuTexture, srclvl, GL_FALSE, 0, GL_READ_ONLY, GL_R8UI);
+    glActiveTexture(GL_TEXTURE2);
+    glBindImageTexture( 2, _frame->der.gpuTexture, srclvl, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F);
+    glActiveTexture(GL_TEXTURE2);
+    glBindImageTexture( 3, keyframeData.idepth.gpuTexture, srclvl, GL_FALSE, 0, GL_READ_ONLY, GL_R32F );
+    glActiveTexture(GL_TEXTURE3);
+    glBindImageTexture( 4, _frame->gradient1.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE4);
+    glBindImageTexture( 5, _frame->gradient2.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE5);
+    glBindImageTexture( 6, _frame->hessian1.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE6);
+    glBindImageTexture( 7, _frame->hessian2.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE7);
+    glBindImageTexture( 8, _frame->hessian3.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE8);
+    glBindImageTexture( 9, _frame->hessian4.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE9);
+    glBindImageTexture( 10, _frame->hessian5.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE10);
+    glBindImageTexture( 11, _frame->hessian6.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE11);
+    glBindImageTexture( 12, _frame->error.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+    glActiveTexture(GL_TEXTURE12);
+    glBindImageTexture( 13, _frame->count.gpuTexture, dstlvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+
+    computeHJPoseAndReduceCShader.use();
+
+    computeHJPoseAndReduceCShader.setFloat("fx", fx[srclvl]);
+    computeHJPoseAndReduceCShader.setFloat("fy", fy[srclvl]);
+    computeHJPoseAndReduceCShader.setFloat("cx", cx[srclvl]);
+    computeHJPoseAndReduceCShader.setFloat("cy", cy[srclvl]);
+    computeHJPoseAndReduceCShader.setFloat("fxinv", fxinv[srclvl]);
+    computeHJPoseAndReduceCShader.setFloat("fyinv", fyinv[srclvl]);
+    computeHJPoseAndReduceCShader.setFloat("cxinv", cxinv[srclvl]);
+    computeHJPoseAndReduceCShader.setFloat("cyinv", cyinv[srclvl]);
+    computeHJPoseAndReduceCShader.setFloat("dx", dx[srclvl]);
+    computeHJPoseAndReduceCShader.setFloat("dy", dy[srclvl]);
+    computeHJPoseAndReduceCShader.setMat4("framePose", eigen2glm_mat4((_frame->pose*keyframeData.pose.inverse()).matrix()));
+
+    glDispatchCompute(width[dstlvl], height[dstlvl], 1 );
+    glMemoryBarrier( GL_ALL_BARRIER_BITS );
+
+    HJPose _hjpose = reduceHJPoseGPU_v3(_frame, dstlvl);
+    _hjpose.H_pose /= _hjpose.count;
+    _hjpose.J_pose /= _hjpose.count;
+    _hjpose.error /= _hjpose.count;
+    return _hjpose;
+}
+
+void mesh_vo::jacobianPoseTextureGPU(frame *_frame, int lvl)
 {
     //glfwMakeContextCurrent(frameWindow);
 
     glViewport(0,0,width[lvl],height[lvl]);
 
     //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, _frame.error.gpuTexture, lvl);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, _frame.jrot.gpuTexture, lvl);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, _frame.jtra.gpuTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, _frame->error.gpuTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, _frame->jrot.gpuTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, _frame->jtra.gpuTexture, lvl);
 
     unsigned int drawbuffers[]={GL_COLOR_ATTACHMENT0,
                                 GL_COLOR_ATTACHMENT1,
@@ -2142,15 +2254,15 @@ void mesh_vo::jacobianPoseTextureGPU(frame &_frame, int lvl)
     glBindTexture(GL_TEXTURE_2D, keyframeData.image.gpuTexture);
 
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, _frame.image.gpuTexture);
+    glBindTexture(GL_TEXTURE_2D, _frame->image.gpuTexture);
 
     glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, _frame.der.gpuTexture);
+    glBindTexture(GL_TEXTURE_2D, _frame->der.gpuTexture);
 
     // activate shader
     jacobianPoseShader.use();
 
-    jacobianPoseShader.setMat4("framePose", eigen2glm_mat4((_frame.pose*keyframeData.pose.inverse()).matrix()));
+    jacobianPoseShader.setMat4("framePose", eigen2glm_mat4((_frame->pose*keyframeData.pose.inverse()).matrix()));
     jacobianPoseShader.setMat4("opencv2opengl", opencv2opengl);
     jacobianPoseShader.setMat4("projection", projMat[lvl]);
     jacobianPoseShader.setFloat("fx", fx[lvl]);
@@ -2172,24 +2284,271 @@ void mesh_vo::jacobianPoseTextureGPU(frame &_frame, int lvl)
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
 }
 
-void mesh_vo::reduceHJPoseGPU(frame &_frame,int lvl)
+HJPose mesh_vo::reduceHJPoseGPU(frame *_frame, int lvl)
 {
-    _frame.error.gpu_to_cpu(lvl);
-    _frame.jtra.gpu_to_cpu(lvl);
-    _frame.jrot.gpu_to_cpu(lvl);
+    HJPose _hjpose;
 
-    Eigen::Matrix<float, 6, 1> J_pose_n;
-    Eigen::Matrix<float, 6, 6> H_pose_n;
-    J_pose_n.setZero();
-    H_pose_n.setZero();
+    int src_lvl = lvl;
+    int dst_lvl = lvl + 4;
 
-    int count = 0;
-    for(int y = 0; y < height[lvl]; y++)
+    glActiveTexture(GL_TEXTURE0);
+    glBindImageTexture( 0, _frame->jtra.gpuTexture, src_lvl, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE1);
+    glBindImageTexture( 1, _frame->jrot.gpuTexture, src_lvl, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE2);
+    glBindImageTexture( 2, _frame->error.gpuTexture, src_lvl, GL_FALSE, 0, GL_READ_ONLY, GL_R32F );
+    glActiveTexture(GL_TEXTURE3);
+    glBindImageTexture( 3, _frame->gradient1.gpuTexture, dst_lvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE4);
+    glBindImageTexture( 4, _frame->gradient2.gpuTexture, dst_lvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE5);
+    glBindImageTexture( 5, _frame->hessian1.gpuTexture, dst_lvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE6);
+    glBindImageTexture( 6, _frame->hessian2.gpuTexture, dst_lvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE7);
+    glBindImageTexture( 7, _frame->hessian3.gpuTexture, dst_lvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE8);
+    glBindImageTexture( 8, _frame->hessian4.gpuTexture, dst_lvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE9);
+    glBindImageTexture( 9, _frame->hessian5.gpuTexture, dst_lvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE10);
+    glBindImageTexture( 10, _frame->hessian6.gpuTexture, dst_lvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+    glActiveTexture(GL_TEXTURE11);
+    glBindImageTexture( 11, _frame->error.gpuTexture, dst_lvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+    glActiveTexture(GL_TEXTURE12);
+    glBindImageTexture( 12, _frame->count.gpuTexture, dst_lvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+
+    // activate shader
+    reduceHJPoseShader.use();
+    glDispatchCompute(width[dst_lvl], height[dst_lvl], 1 );
+    glMemoryBarrier( GL_ALL_BARRIER_BITS );
+
+    //_hjpose = reduceHJPoseGPU_v3(_frame, dst_lvl);
+    //return _hjpose;
+
+    _frame->gradient1.gpu_to_cpu(dst_lvl);
+    _frame->gradient2.gpu_to_cpu(dst_lvl);
+    _frame->hessian1.gpu_to_cpu(dst_lvl);
+    _frame->hessian2.gpu_to_cpu(dst_lvl);
+    _frame->hessian3.gpu_to_cpu(dst_lvl);
+    _frame->hessian4.gpu_to_cpu(dst_lvl);
+    _frame->hessian5.gpu_to_cpu(dst_lvl);
+    _frame->hessian6.gpu_to_cpu(dst_lvl);
+    _frame->error.gpu_to_cpu(dst_lvl);
+    _frame->count.gpu_to_cpu(dst_lvl);
+
+    for(int y = 0; y < height[dst_lvl]; y++)
+        for(int x = 0; x < width[dst_lvl]; x++)
+        {
+            cv::Vec4f gradient1 = _frame->gradient1.cpuTexture[dst_lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f gradient2 = _frame->gradient2.cpuTexture[dst_lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f hessian1  = _frame->hessian1.cpuTexture[dst_lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f hessian2  = _frame->hessian2.cpuTexture[dst_lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f hessian3  = _frame->hessian3.cpuTexture[dst_lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f hessian4  = _frame->hessian4.cpuTexture[dst_lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f hessian5  = _frame->hessian5.cpuTexture[dst_lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f hessian6  = _frame->hessian6.cpuTexture[dst_lvl].at<cv::Vec4f>(y,x);
+            float error = _frame->error.cpuTexture[dst_lvl].at<float>(y,x);
+            float count = _frame->count.cpuTexture[dst_lvl].at<float>(y,x);
+
+            _hjpose.J_pose(0) += gradient1[0];
+            _hjpose.J_pose(1) += gradient1[1];
+            _hjpose.J_pose(2) += gradient1[2];
+            _hjpose.J_pose(3) += gradient2[0];
+            _hjpose.J_pose(4) += gradient2[1];
+            _hjpose.J_pose(5) += gradient2[2];
+
+            _hjpose.H_pose(0,0) += hessian1[0];
+            _hjpose.H_pose(1,0) += hessian1[1];
+            _hjpose.H_pose(0,1) += hessian1[1];
+            _hjpose.H_pose(2,0) += hessian1[2];
+            _hjpose.H_pose(0,2) += hessian1[2];
+            _hjpose.H_pose(3,0) += hessian1[3];
+            _hjpose.H_pose(0,3) += hessian1[3];
+            _hjpose.H_pose(4,0) += hessian2[0];
+            _hjpose.H_pose(0,4) += hessian2[0];
+            _hjpose.H_pose(5,0) += hessian2[1];
+            _hjpose.H_pose(0,5) += hessian2[1];
+
+            _hjpose.H_pose(1,1) += hessian2[2];
+            _hjpose.H_pose(2,1) += hessian2[3];
+            _hjpose.H_pose(1,2) += hessian2[3];
+            _hjpose.H_pose(3,1) += hessian3[0];
+            _hjpose.H_pose(1,3) += hessian3[0];
+            _hjpose.H_pose(4,1) += hessian3[1];
+            _hjpose.H_pose(1,4) += hessian3[1];
+            _hjpose.H_pose(5,1) += hessian3[2];
+            _hjpose.H_pose(1,5) += hessian3[2];
+
+            _hjpose.H_pose(2,2) += hessian3[3];
+            _hjpose.H_pose(3,2) += hessian4[0];
+            _hjpose.H_pose(2,3) += hessian4[0];
+            _hjpose.H_pose(4,2) += hessian4[1];
+            _hjpose.H_pose(2,4) += hessian4[1];
+            _hjpose.H_pose(5,2) += hessian4[2];
+            _hjpose.H_pose(2,5) += hessian4[2];
+
+            _hjpose.H_pose(3,3) += hessian4[3];
+            _hjpose.H_pose(4,3) += hessian5[0];
+            _hjpose.H_pose(3,4) += hessian5[0];
+            _hjpose.H_pose(5,3) += hessian5[1];
+            _hjpose.H_pose(3,5) += hessian5[1];
+
+            _hjpose.H_pose(4,4) += hessian5[2];
+            _hjpose.H_pose(5,4) += hessian5[3];
+            _hjpose.H_pose(4,5) += hessian5[3];
+
+            _hjpose.H_pose(5,5) += hessian6[0];
+
+            _hjpose.count += count;
+            _hjpose.error += error;
+        }
+
+    return _hjpose;
+}
+
+HJPose mesh_vo::reduceHJPoseGPU_v3(frame *_frame, int lvl)
+{
+    HJPose _hjpose;
+
+    cv::Vec4f gradient1 = reduceVec4(&(_frame->gradient1), lvl);
+    cv::Vec4f gradient2 = reduceVec4(&(_frame->gradient2), lvl);
+    cv::Vec4f hessian1 = reduceVec4(&(_frame->hessian1), lvl);
+    cv::Vec4f hessian2 = reduceVec4(&(_frame->hessian2), lvl);
+    cv::Vec4f hessian3 = reduceVec4(&(_frame->hessian3), lvl);
+    cv::Vec4f hessian4 = reduceVec4(&(_frame->hessian4), lvl);
+    cv::Vec4f hessian5 = reduceVec4(&(_frame->hessian5), lvl);
+    cv::Vec4f hessian6 = reduceVec4(&(_frame->hessian6), lvl);
+    float error = reduceFloat(&(_frame->error), lvl);
+    float count = reduceFloat(&(_frame->count), lvl);
+
+    _hjpose.J_pose(0) += gradient1[0];
+    _hjpose.J_pose(1) += gradient1[1];
+    _hjpose.J_pose(2) += gradient1[2];
+    _hjpose.J_pose(3) += gradient2[0];
+    _hjpose.J_pose(4) += gradient2[1];
+    _hjpose.J_pose(5) += gradient2[2];
+
+    _hjpose.H_pose(0,0) += hessian1[0];
+    _hjpose.H_pose(1,0) += hessian1[1];
+    _hjpose.H_pose(0,1) += hessian1[1];
+    _hjpose.H_pose(2,0) += hessian1[2];
+    _hjpose.H_pose(0,2) += hessian1[2];
+    _hjpose.H_pose(3,0) += hessian1[3];
+    _hjpose.H_pose(0,3) += hessian1[3];
+    _hjpose.H_pose(4,0) += hessian2[0];
+    _hjpose.H_pose(0,4) += hessian2[0];
+    _hjpose.H_pose(5,0) += hessian2[1];
+    _hjpose.H_pose(0,5) += hessian2[1];
+
+    _hjpose.H_pose(1,1) += hessian2[2];
+    _hjpose.H_pose(2,1) += hessian2[3];
+    _hjpose.H_pose(1,2) += hessian2[3];
+    _hjpose.H_pose(3,1) += hessian3[0];
+    _hjpose.H_pose(1,3) += hessian3[0];
+    _hjpose.H_pose(4,1) += hessian3[1];
+    _hjpose.H_pose(1,4) += hessian3[1];
+    _hjpose.H_pose(5,1) += hessian3[2];
+    _hjpose.H_pose(1,5) += hessian3[2];
+
+    _hjpose.H_pose(2,2) += hessian3[3];
+    _hjpose.H_pose(3,2) += hessian4[0];
+    _hjpose.H_pose(2,3) += hessian4[0];
+    _hjpose.H_pose(4,2) += hessian4[1];
+    _hjpose.H_pose(2,4) += hessian4[1];
+    _hjpose.H_pose(5,2) += hessian4[2];
+    _hjpose.H_pose(2,5) += hessian4[2];
+
+    _hjpose.H_pose(3,3) += hessian4[3];
+    _hjpose.H_pose(4,3) += hessian5[0];
+    _hjpose.H_pose(3,4) += hessian5[0];
+    _hjpose.H_pose(5,3) += hessian5[1];
+    _hjpose.H_pose(3,5) += hessian5[1];
+
+    _hjpose.H_pose(4,4) += hessian5[2];
+    _hjpose.H_pose(5,4) += hessian5[3];
+    _hjpose.H_pose(4,5) += hessian5[3];
+
+    _hjpose.H_pose(5,5) += hessian6[0];
+
+    _hjpose.error = error;
+    _hjpose.count = count;
+
+    return _hjpose;
+}
+
+float mesh_vo::reduceFloat(data* _data, int lvl)
+{
+    float result = 0.0;
+
+    int src_lvl = lvl;
+    int dst_lvl = lvl + 5;
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindImageTexture( 0, _data->gpuTexture, src_lvl, GL_FALSE, 0, GL_READ_ONLY, GL_R32F );
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindImageTexture( 1, _data->gpuTexture, dst_lvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F );
+
+    // activate shader
+    reduceRGBAShader.use();
+    glDispatchCompute(width[dst_lvl], height[dst_lvl], 1 );
+    glMemoryBarrier( GL_ALL_BARRIER_BITS );
+
+    _data->gpu_to_cpu(dst_lvl);
+
+    for(int y = 0; y < height[dst_lvl]; y++)
+        for(int x = 0; x < width[dst_lvl]; x++)
+        {
+            result += _data->cpuTexture[dst_lvl].at<float>(y,x);
+        }
+
+    return result;
+}
+
+cv::Vec4f mesh_vo::reduceVec4(data* _data, int lvl)
+{
+    cv::Vec4f result;
+    result[0] = 0.0;
+    result[1] = 0.0;
+    result[2] = 0.0;
+    result[3] = 0.0;
+
+    int src_lvl = lvl;
+    int dst_lvl = lvl + 5;
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindImageTexture( 0, _data->gpuTexture, src_lvl, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F );
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindImageTexture( 1, _data->gpuTexture, dst_lvl, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F );
+
+    // activate shader
+    reduceRGBAShader.use();
+    glDispatchCompute(width[dst_lvl], height[dst_lvl], 1 );
+    glMemoryBarrier( GL_ALL_BARRIER_BITS );
+
+    _data->gpu_to_cpu(dst_lvl);
+
+    for(int y = 0; y < height[dst_lvl]; y++)
+        for(int x = 0; x < width[dst_lvl]; x++)
+        {
+            result += _data->cpuTexture[dst_lvl].at<cv::Vec4f>(y,x);
+        }
+
+    return result;
+}
+
+HJPose mesh_vo::reduceHJPoseGPUPerIndex(frame* _frame, int lvl, int ymin, int ymax)
+{
+    HJPose _hjpose;
+
+    for(int y = ymin; y < ymax; y++)
         for(int x = 0; x < width[lvl]; x++)
         {
-            cv::Vec3f d_I_d_tra = _frame.jtra.cpuTexture[lvl].at<cv::Vec3f>(y,x);
-            cv::Vec3f d_I_d_rot = _frame.jrot.cpuTexture[lvl].at<cv::Vec3f>(y,x);
-            float residual = _frame.error.cpuTexture[lvl].at<float>(y,x);
+            cv::Vec4f d_I_d_tra = _frame->jtra.cpuTexture[lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f d_I_d_rot = _frame->jrot.cpuTexture[lvl].at<cv::Vec4f>(y,x);
+            float residual = _frame->error.cpuTexture[lvl].at<float>(y,x);
 
             if(residual == 0.0)
                 continue;
@@ -2197,23 +2556,182 @@ void mesh_vo::reduceHJPoseGPU(frame &_frame,int lvl)
             Eigen::Matrix<float, 6, 1> J;
             J << d_I_d_tra[0], d_I_d_tra[1], d_I_d_tra[2], d_I_d_rot[0], d_I_d_rot[1], d_I_d_rot[2];
 
-            count++;
+            _hjpose.error += residual*residual;
+            _hjpose.count++;
             for(int i = 0; i < 6; i++)
             {
-                J_pose_n(i) += J[i]*residual;
+                _hjpose.J_pose(i) += J[i]*residual;
                 for(int j = i; j < 6; j++)
                 {
                     float jj = J[i]*J[j];
-                    H_pose_n(i,j) += jj;
-                    H_pose_n(j,i) += jj;
+                    _hjpose.H_pose(i,j) += jj;
+                    _hjpose.H_pose(j,i) += jj;
                 }
             }
         }
-    if(count > 0)
-    {
-        _frame.J_pose += J_pose_n/count;
-        _frame.H_pose += H_pose_n/count;
-    }
+
+    return _hjpose;
+}
+
+void mesh_vo::jacobianPoseTextureGPU_v2(frame *_frame, int lvl)
+{
+    //glfwMakeContextCurrent(frameWindow);
+
+    glViewport(0,0,width[lvl],height[lvl]);
+
+    //glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, _frame->gradient1.gpuTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, _frame->gradient2.gpuTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, _frame->hessian1.gpuTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, _frame->hessian2.gpuTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, _frame->hessian3.gpuTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, _frame->hessian4.gpuTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, _frame->hessian5.gpuTexture, lvl);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT7, _frame->hessian6.gpuTexture, lvl);
+
+    unsigned int drawbuffers[]={GL_COLOR_ATTACHMENT0,
+                                GL_COLOR_ATTACHMENT1,
+                                GL_COLOR_ATTACHMENT2,
+                                GL_COLOR_ATTACHMENT3,
+                                GL_COLOR_ATTACHMENT4,
+                                GL_COLOR_ATTACHMENT5,
+                                GL_COLOR_ATTACHMENT6,
+                                GL_COLOR_ATTACHMENT7};
+    glDrawBuffers(sizeof(drawbuffers)/sizeof(unsigned int), drawbuffers);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete! JPose" << std::endl;
+
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_DEPTH_TEST);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, keyframeData.image.gpuTexture);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, _frame->image.gpuTexture);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, _frame->der.gpuTexture);
+
+    // activate shader
+    jacobianPoseShader_v2.use();
+
+    jacobianPoseShader_v2.setMat4("framePose", eigen2glm_mat4((_frame->pose*keyframeData.pose.inverse()).matrix()));
+    jacobianPoseShader_v2.setMat4("opencv2opengl", opencv2opengl);
+    jacobianPoseShader_v2.setMat4("projection", projMat[lvl]);
+    jacobianPoseShader_v2.setFloat("fx", fx[lvl]);
+    jacobianPoseShader_v2.setFloat("fy", fy[lvl]);
+    jacobianPoseShader_v2.setFloat("cx", cx[lvl]);
+    jacobianPoseShader_v2.setFloat("cy", cy[lvl]);
+    jacobianPoseShader_v2.setFloat("fxinv", fxinv[lvl]);
+    jacobianPoseShader_v2.setFloat("fyinv", fyinv[lvl]);
+    jacobianPoseShader_v2.setFloat("cxinv", cxinv[lvl]);
+    jacobianPoseShader_v2.setFloat("cyinv", cyinv[lvl]);
+    jacobianPoseShader_v2.setFloat("dx", dx[lvl]);
+    jacobianPoseShader_v2.setFloat("dy", dy[lvl]);
+
+    glBindVertexArray(scene_VAO);
+    glDrawElements(GL_TRIANGLES, scene_indices.size(), GL_UNSIGNED_INT, 0);
+
+
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, 0, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT7, 0, 0);
+
+}
+
+HJPose mesh_vo::reduceHJPoseGPU_v2(frame *_frame,int lvl)
+{
+    HJPose _hjpose;
+
+    _frame->gradient1.gpu_to_cpu(lvl);
+    _frame->gradient2.gpu_to_cpu(lvl);
+    _frame->hessian1.gpu_to_cpu(lvl);
+    _frame->hessian2.gpu_to_cpu(lvl);
+    _frame->hessian3.gpu_to_cpu(lvl);
+    _frame->hessian4.gpu_to_cpu(lvl);
+    _frame->hessian5.gpu_to_cpu(lvl);
+    _frame->hessian6.gpu_to_cpu(lvl);
+    _frame->error.gpu_to_cpu(lvl);
+    _frame->count.gpu_to_cpu(lvl);
+
+    for(int y = 0; y < height[lvl]; y++)
+        for(int x = 0; x < width[lvl]; x++)
+        {
+            cv::Vec4f gradient1 = _frame->gradient1.cpuTexture[lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f gradient2 = _frame->gradient2.cpuTexture[lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f hessian1  = _frame->hessian1.cpuTexture[lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f hessian2  = _frame->hessian2.cpuTexture[lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f hessian3  = _frame->hessian3.cpuTexture[lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f hessian4  = _frame->hessian4.cpuTexture[lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f hessian5  = _frame->hessian5.cpuTexture[lvl].at<cv::Vec4f>(y,x);
+            cv::Vec4f hessian6  = _frame->hessian6.cpuTexture[lvl].at<cv::Vec4f>(y,x);
+            float error = _frame->error.cpuTexture[lvl].at<float>(y,x);
+            float count = _frame->count.cpuTexture[lvl].at<float>(y,x);
+
+            _hjpose.J_pose(0) += gradient1[0];
+            _hjpose.J_pose(1) += gradient1[1];
+            _hjpose.J_pose(2) += gradient1[2];
+            _hjpose.J_pose(3) += gradient2[0];
+            _hjpose.J_pose(4) += gradient2[1];
+            _hjpose.J_pose(5) += gradient2[2];
+
+            _hjpose.H_pose(0,0) += hessian1[0];
+            _hjpose.H_pose(1,0) += hessian1[1];
+            _hjpose.H_pose(0,1) += hessian1[1];
+            _hjpose.H_pose(2,0) += hessian1[2];
+            _hjpose.H_pose(0,2) += hessian1[2];
+            _hjpose.H_pose(3,0) += hessian1[3];
+            _hjpose.H_pose(0,3) += hessian1[3];
+            _hjpose.H_pose(4,0) += hessian2[0];
+            _hjpose.H_pose(0,4) += hessian2[0];
+            _hjpose.H_pose(5,0) += hessian2[1];
+            _hjpose.H_pose(0,5) += hessian2[1];
+
+            _hjpose.H_pose(1,1) += hessian2[2];
+            _hjpose.H_pose(2,1) += hessian2[3];
+            _hjpose.H_pose(1,2) += hessian2[3];
+            _hjpose.H_pose(3,1) += hessian3[0];
+            _hjpose.H_pose(1,3) += hessian3[0];
+            _hjpose.H_pose(4,1) += hessian3[1];
+            _hjpose.H_pose(1,4) += hessian3[1];
+            _hjpose.H_pose(5,1) += hessian3[2];
+            _hjpose.H_pose(1,5) += hessian3[2];
+
+            _hjpose.H_pose(2,2) += hessian3[3];
+            _hjpose.H_pose(3,2) += hessian4[0];
+            _hjpose.H_pose(2,3) += hessian4[0];
+            _hjpose.H_pose(4,2) += hessian4[1];
+            _hjpose.H_pose(2,4) += hessian4[1];
+            _hjpose.H_pose(5,2) += hessian4[2];
+            _hjpose.H_pose(2,5) += hessian4[2];
+
+            _hjpose.H_pose(3,3) += hessian4[3];
+            _hjpose.H_pose(4,3) += hessian5[0];
+            _hjpose.H_pose(3,4) += hessian5[0];
+            _hjpose.H_pose(5,3) += hessian5[1];
+            _hjpose.H_pose(3,5) += hessian5[1];
+
+            _hjpose.H_pose(4,4) += hessian5[2];
+            _hjpose.H_pose(5,4) += hessian5[3];
+            _hjpose.H_pose(4,5) += hessian5[3];
+
+            _hjpose.H_pose(5,5) += hessian6[0];
+
+            _hjpose.error += error;
+            _hjpose.count += count;
+
+        }
+
+    return _hjpose;
 }
 
 void mesh_vo::HJMapStackGPU(int lvl)
@@ -2621,7 +3139,7 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
 
     Sophus::SE3f viewPose;
     viewPose.translation() = Eigen::Vector3f(0.0,-1.0,0.0);
-    view3DTexture(viewPose*frameData.pose, 1);
+    view3DTexture(viewPose*lastframeData.pose, 1);
     showGPU(view3DData,1);
 
     //calcIdepthGPU(keyframeData,1);
@@ -2631,23 +3149,23 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
     //save frame in gpu memory, calc derivavites y mipmaps
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(_frame,frameData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]), cv::INTER_LANCZOS4);
-        frameData.image.cpu_to_gpu(lvl);
+        cv::resize(_frame,lastframeData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]), cv::INTER_LANCZOS4);
+        lastframeData.image.cpu_to_gpu(lvl);
 
-        calcDerivativeCPU(frameData,lvl);
-        frameData.der.cpu_to_gpu(lvl);
+        calcDerivativeCPU(lastframeData,lvl);
+        lastframeData.der.cpu_to_gpu(lvl);
     }
 
     tic_toc t;
     t.tic();
     //frameData.pose = _globalPose*keyframeData.pose.inverse();
-    optPose(frameData);//*Sophus::SE3f::exp(inc_pose).inverse());
+    optPose(lastframeData);//*Sophus::SE3f::exp(inc_pose).inverse());
     glFinish();
     std::cout << "estimated pose " << std::endl;
-    std::cout << frameData.pose.matrix() << std::endl;
+    std::cout << lastframeData.pose.matrix() << std::endl;
     std::cout << "clacPose time " << t.toc() << std::endl;
 
-    float occupancy = calcOccupancyCPU(frameData, 1);
+    float occupancy = calcOccupancyCPU(lastframeData, 1);
 
     std::cout << "occ " << occupancy << std::endl;
 
@@ -2658,7 +3176,7 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
 
     if(occupancy < 0.8)
     {
-        changeKeyframe(frameData,1,0.8);
+        changeKeyframe(lastframeData,1,0.8);
         optPoseMapJoint();
         //optMapVertex();
         return;
@@ -2666,7 +3184,7 @@ void mesh_vo::visual_odometry(cv::Mat _frame)
 
     {
         //std::cout << "sup diff " << diff << " add frame and update map" << std::endl;
-        addFrameToStack(frameData);
+        addFrameToStack(lastframeData);
         optPoseMapJoint();
         //optMapVertex();
     }
@@ -2680,21 +3198,15 @@ void mesh_vo::localization(cv::Mat _frame)
     //save frame in gpu memory, calc derivavites y mipmaps
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(_frame,frameData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]), cv::INTER_LANCZOS4);
-        frameData.image.cpu_to_gpu(lvl);
+        cv::resize(_frame,lastframeData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]), cv::INTER_LANCZOS4);
+        lastframeData.image.cpu_to_gpu(lvl);
 
-        calcDerivativeCPU(frameData,lvl);
-        frameData.der.cpu_to_gpu(lvl);
+        calcDerivativeCPU(lastframeData,lvl);
+        lastframeData.der.cpu_to_gpu(lvl);
     }
 
-    tic_toc t;
-    t.tic();
     //frameData.pose = _globalPose*keyframeData.pose.inverse();
-    optPose2(frameData);//*Sophus::SE3f::exp(inc_pose).inverse());
-    glFinish();
-    std::cout << "estimated pose " << std::endl;
-    std::cout << frameData.pose.matrix() << std::endl;
-    std::cout << "clacPose time " << t.toc() << std::endl;
+    optPose2(lastframeData);//*Sophus::SE3f::exp(inc_pose).inverse());
 }
 
 void mesh_vo::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
@@ -2704,7 +3216,7 @@ void mesh_vo::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
     glfwMakeContextCurrent(frameWindow);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
-/*
+    /*
     Sophus::SE3f viewPose;
     Eigen::Matrix<float, 6, 1> viewPoseExp;
     viewPoseExp << 0.0, 2.0, 2.5, 0.5, 0.0, 0.0;
@@ -2721,27 +3233,27 @@ void mesh_vo::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
 
     for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(_frame,frameData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]), cv::INTER_LANCZOS4);
-        frameData.image.cpu_to_gpu(lvl);
+        cv::resize(_frame,lastframeData.image.cpuTexture[lvl],cv::Size(width[lvl], height[lvl]), cv::INTER_LANCZOS4);
+        lastframeData.image.cpu_to_gpu(lvl);
 
-        calcDerivativeCPU(frameData,lvl);
-        frameData.der.cpu_to_gpu(lvl);
+        calcDerivativeCPU(lastframeData,lvl);
+        lastframeData.der.cpu_to_gpu(lvl);
     }
 
     glFinish();
     std::cout << "save frame time " << t.toc() << std::endl;
 
-    frameData.pose = _globalPose;//*keyframeData.pose.inverse();
+    lastframeData.pose = _globalPose;//*keyframeData.pose.inverse();
 
     t.tic();
-    float occ = calcOccupancyCPU(frameData,1);
+    float occ = calcOccupancyCPU(lastframeData,1);
     glFinish();
     std::cout << "occupancy time " << t.toc() << std::endl;
 
     if(occ < 0.8)
     {
         t.tic();
-        changeKeyframe(frameData,1,0.8);
+        changeKeyframe(lastframeData,1,0.8);
         //optMapVertex();
         //optMapJoint();
         optPoseMapJoint();
@@ -2753,7 +3265,7 @@ void mesh_vo::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
     }
 
     t.tic();
-    addFrameToStack(frameData);
+    addFrameToStack(lastframeData);
     glFinish();
     std::cout << "add frame stack time " << t.toc() << std::endl;
 

@@ -11,6 +11,7 @@
 #include "sophus/se3.hpp"
 
 #include "Utils/tictoc.h"
+#include "Utils/IndexThreadReduce.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -24,6 +25,7 @@
 #include "data.h"
 #include "frame.h"
 #include "params.h"
+#include "HJPose.h"
 
 class mesh_vo
 {
@@ -74,7 +76,7 @@ private:
 
     //frames
     frame keyframeData;
-    frame frameData;
+    frame lastframeData;
     frame frameDataStack[MAX_FRAMES];
 
     //data
@@ -91,6 +93,7 @@ private:
     Shader errorVertexShader;
     Shader frameDerivativeShader;
     Shader jacobianPoseShader;
+    Shader jacobianPoseShader_v2;
     Shader jacobianPoseMapShader;
     Shader jacobianMapShader;
 
@@ -98,9 +101,12 @@ private:
     Shader showTextureShader;
     Shader view3DShader;
 
-    Compute errorReduceShader;
+    Compute computeErrorAndReduceCShader;
+    Compute computeHJPoseAndReduceCShader;
     Compute reduceErrorShader;
     Compute reduceHJPoseShader;
+    Compute reduceRGBAShader;
+    Compute reduceRShader;
 
     Eigen::SparseMatrix<float> H_depth;
     Eigen::VectorXf J_depth;
@@ -122,10 +128,19 @@ private:
     //void optMapVertex();
     void optPoseMapJoint();
 
-    void HJPoseCPU(frame &_frame, int lvl);
-    void HJPoseGPU(frame &_frame, int lvl);
-    void jacobianPoseTextureGPU(frame &_frame, int lvl);
-    void reduceHJPoseGPU(frame &_frame, int lvl);
+    HJPose HJPoseCPU(frame *_frame, int lvl);
+    HJPose HJPoseCPUPerIndex(frame *_frame, int lvl, int ymin, int ymax);
+
+    HJPose HJPoseGPU(frame *_frame, int lvl);
+    void jacobianPoseTextureGPU(frame *_frame, int lvl);
+    HJPose reduceHJPoseGPU(frame *_frame, int lvl);
+    HJPose reduceHJPoseGPUPerIndex(frame* _frame, int lvl, int ymin, int ymax);
+    void HJPoseGPU_v2(frame *_frame, int lvl);
+    HJPose HJPoseGPU_v3(frame *_frame, int lvl);
+    void jacobianPoseTextureGPU_v2(frame *_frame, int lvl);
+    HJPose reduceHJPoseGPU_v2(frame *_frame, int lvl);
+    HJPose reduceHJPoseGPU_v3(frame *_frame, int lvl);
+    void reduceHJPoseComputeGPU_v2(frame &_frame, int lvl);
 
     void HJPoseMapStackGPU(int lvl);
     void HJPoseMapGPU(frame &_frame, int lvl);
@@ -140,14 +155,17 @@ private:
     float errorMesh();
     void HJMesh();
 
-    float errorCPU(frame &_frame, int lvl);
+    float errorCPU(frame *_frame, int lvl);
+    HJPose errorCPUPerIndex(frame *_frame, int lvl, int ymin, int ymax);
+
     float errorStackCPU(int lvl);
 
-    float errorGPU(frame &_frame, int lvl);
+    float errorGPU(frame *_frame, int lvl);
+    float errorGPU_v2(frame *_frame, int lvl);
     float errorStackGPU(int lvl);
-    void errorTextureGPU(frame &_frame, int lvl);
-    float reduceErrorGPU(frame _frame, int lvl, bool useCountData = false);
-    float reduceErrorComputeGPU(frame _frame, int lvl);
+    void errorTextureGPU(frame *_frame, int lvl);
+    float reduceErrorGPU(frame *_frame, int lvl);
+    float reduceErrorComputeGPU(frame *_frame, int lvl);
     void errorVertexGPU(frame &_frame, int lvl);
     float reduceErrorVertexGPU(frame _frame, int lvl);
 
@@ -162,8 +180,8 @@ private:
     void calcIdepthGPU(frame &_frame, int lvl);
 
     //for reduce
-    void reduceFloat(unsigned int texture, int src_lvl, int dst_lvl);
-    void reduceVec4(unsigned int texture, int src_lvl, int dst_lvl);
+    float reduceFloat(data *_data, int lvl);
+    cv::Vec4f reduceVec4(data *_data, int lvl);
 
     void showCPU(data &_data, int lvl);
     void showGPU(data &_data, int lvl);
@@ -175,5 +193,7 @@ private:
     void calcDerivativeGPU(frame &_frame, int lvl);
 
     void view3DTexture(Sophus::SE3f pose, int lvl);
+
+    IndexThreadReduce treadReducer;
 
 };

@@ -1,7 +1,7 @@
 #version 330 core
 layout(location = 0) out float f_residual;
-layout(location = 1) out vec3 f_tra;
-layout(location = 2) out vec3 f_rot;
+layout(location = 1) out vec4 f_tra;
+layout(location = 2) out vec4 f_rot;
 
 in vec2 v_u;
 in vec3 v_pkeyframe;
@@ -52,8 +52,8 @@ void main()
     float v1 = f_der.y * fy * id;
     float v2 = -(v0 * pframe.x + v1 * pframe.y) * id;
 
-    f_tra = vec3(v0, v1, v2);
-    f_rot = vec3( -pframe.z * v1 + pframe.y * v2, pframe.z * v0 - pframe.x * v2, -pframe.y * v0 + pframe.x * v1);
+    f_tra = vec4(v0, v1, v2, 0.0);
+    f_rot = vec4( -pframe.z * v1 + pframe.y * v2, pframe.z * v0 - pframe.x * v2, -pframe.y * v0 + pframe.x * v1, 0.0);
 
     f_residual = f_pixel - kf_pixel;
 }

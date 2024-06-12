@@ -15,7 +15,7 @@
 //
 // more details at https://www.khronos.org/opengl/wiki/Compute_Shader#Outputs
 
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 layout(r8ui, binding = 0) uniform uimage2D keyframeTex;
 layout(r8ui, binding = 1) uniform uimage2D frameTex;
 layout(r32f, binding = 2) uniform image2D invDepthTex;
@@ -89,10 +89,7 @@ void main()
 
     if(gl_LocalInvocationIndex == 0)
     {
-        float result = -1.0;
-        if(countLocal[0] > 0)
-            result = errorLocal[0];
-        imageStore(errorTex, ivec2(gl_WorkGroupID.xy), vec4(result,0.0,0.0,0.0));
+        imageStore(errorTex, ivec2(gl_WorkGroupID.xy), vec4(errorLocal[0],0.0,0.0,0.0));
         imageStore(countTex, ivec2(gl_WorkGroupID.xy), vec4(float(countLocal[0]),0,0,0));
         //imageStore(countOutTex, ivec2(gl_WorkGroupID.xy), vec4(10,0,0,0));
         //imageStore(errorOutTex, ivec2(gl_WorkGroupID.xy), vec4(2.345,0.0,0.0,0.0));
