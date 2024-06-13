@@ -10,22 +10,11 @@
 #include <Eigen/Sparse>
 #include "sophus/se3.hpp"
 
-#include "Utils/tictoc.h"
-#include "Utils/IndexThreadReduce.h"
+#include "utils/tictoc.h"
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
-//#include <learnopengl/filesystem.h>
-#include <learnopengl/shader_m.h>
-#include <learnopengl/compute.h>
-//#include <learnopengl/feedback_shader.h>
-//#include <learnopengl/camera.h>
-
-#include "data.h"
-#include "frame.h"
-#include "params.h"
-#include "HJPose.h"
+#include "cpu/data_cpu.h"
+#include "cpu/frame_cpu.h"
+#include "cpu/HGPose_cpu.h"
 
 class mesh_vo
 {
@@ -36,43 +25,10 @@ public:
     void initWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth, Sophus::SE3f _pose = Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()));
 
     void visual_odometry(cv::Mat _frame);
-    void mapping(cv::Mat _frame, Sophus::SE3f _globalPose);
     void localization(cv::Mat _frame);
+    void mapping(cv::Mat _frame, Sophus::SE3f _globalPose);
 
 private:
-
-    //camera data
-    float fx[MAX_LEVELS];
-    float fy[MAX_LEVELS];
-    float cx[MAX_LEVELS];
-    float cy[MAX_LEVELS];
-
-    float fxinv[MAX_LEVELS];
-    float fyinv[MAX_LEVELS];
-    float cxinv[MAX_LEVELS];
-    float cyinv[MAX_LEVELS];
-
-    int width[MAX_LEVELS], height[MAX_LEVELS];
-    float dx[MAX_LEVELS], dy[MAX_LEVELS];
-
-    float max_idepth;
-    float min_idepth;
-
-    glm::mat4 projMat[MAX_LEVELS];
-    glm::mat4 opencv2opengl;
-
-    //opengl data
-    GLFWwindow* frameWindow;
-
-    std::vector<float> scene_vertices;
-    std::vector<unsigned int> scene_indices;
-
-    unsigned int scene_VBO, scene_VAO, scene_EBO;
-    unsigned int frame_VBO, frame_VAO;
-
-    unsigned int framebuffer;
-    unsigned int rbo;
-    unsigned int feedbackrbo;
 
     //frames
     frame keyframeData;
@@ -84,29 +40,7 @@ private:
     data debugData;
     data view3DData;
 
-    //shaders
-    Shader idepthShader;
-    Shader occupancyShader;
-    Shader vertexViewCountShader;
 
-    Shader errorShader;
-    Shader errorVertexShader;
-    Shader frameDerivativeShader;
-    Shader jacobianPoseShader;
-    Shader jacobianPoseShader_v2;
-    Shader jacobianPoseMapShader;
-    Shader jacobianMapShader;
-
-    Shader copyShader;
-    Shader showTextureShader;
-    Shader view3DShader;
-
-    Compute computeErrorAndReduceCShader;
-    Compute computeHJPoseAndReduceCShader;
-    Compute reduceErrorShader;
-    Compute reduceHJPoseShader;
-    Compute reduceRGBAShader;
-    Compute reduceRShader;
 
     Eigen::SparseMatrix<float> H_depth;
     Eigen::VectorXf J_depth;
@@ -128,72 +62,6 @@ private:
     //void optMapVertex();
     void optPoseMapJoint();
 
-    HJPose HJPoseCPU(frame *_frame, int lvl);
-    HJPose HJPoseCPUPerIndex(frame *_frame, int lvl, int ymin, int ymax);
 
-    HJPose HJPoseGPU(frame *_frame, int lvl);
-    void jacobianPoseTextureGPU(frame *_frame, int lvl);
-    HJPose reduceHJPoseGPU(frame *_frame, int lvl);
-    HJPose reduceHJPoseGPUPerIndex(frame* _frame, int lvl, int ymin, int ymax);
-    void HJPoseGPU_v2(frame *_frame, int lvl);
-    HJPose HJPoseGPU_v3(frame *_frame, int lvl);
-    void jacobianPoseTextureGPU_v2(frame *_frame, int lvl);
-    HJPose reduceHJPoseGPU_v2(frame *_frame, int lvl);
-    HJPose reduceHJPoseGPU_v3(frame *_frame, int lvl);
-    void reduceHJPoseComputeGPU_v2(frame &_frame, int lvl);
-
-    void HJPoseMapStackGPU(int lvl);
-    void HJPoseMapGPU(frame &_frame, int lvl);
-    void jacobianPoseMapTextureGPU(frame &_frame, int lvl);
-    void reduceHJPoseMapGPU(int frameIndex, int lvl);
-
-    void HJMapStackGPU(int lvl);
-    void HJMapGPU(frame &_frame, int lvl);
-    void jacobianMapTextureGPU(frame &_frame, int lvl);
-    void reduceHJMapGPU(frame &_frame, int lvl);
-
-    float errorMesh();
-    void HJMesh();
-
-    float errorCPU(frame *_frame, int lvl);
-    HJPose errorCPUPerIndex(frame *_frame, int lvl, int ymin, int ymax);
-
-    float errorStackCPU(int lvl);
-
-    float errorGPU(frame *_frame, int lvl);
-    float errorGPU_v2(frame *_frame, int lvl);
-    float errorStackGPU(int lvl);
-    void errorTextureGPU(frame *_frame, int lvl);
-    float reduceErrorGPU(frame *_frame, int lvl);
-    float reduceErrorComputeGPU(frame *_frame, int lvl);
-    void errorVertexGPU(frame &_frame, int lvl);
-    float reduceErrorVertexGPU(frame _frame, int lvl);
-
-    float goodVertexViewPercentage(frame &_frame);
-    void vertexViewCountGPU(frame &_frame, int lvl);
-    void vertexViewCountTextureGPU(frame &_frame, int lvl);
-    void reduceVertexViewCountGPU(frame &_frame, int lvl);
-
-    //float calcOccupancyGPU(frame _frame, int lvl);
-    float calcOccupancyCPU(frame &_frame, int lvl);
-
-    void calcIdepthGPU(frame &_frame, int lvl);
-
-    //for reduce
-    float reduceFloat(data *_data, int lvl);
-    cv::Vec4f reduceVec4(data *_data, int lvl);
-
-    void showCPU(data &_data, int lvl);
-    void showGPU(data &_data, int lvl);
-
-    void copyGPU(data &_src, data &_dst, int lvl);
-    void copyCPU(data &_src, data &_dst, int lvl);
-
-    void calcDerivativeCPU(frame &_frame, int lvl);
-    void calcDerivativeGPU(frame &_frame, int lvl);
-
-    void view3DTexture(Sophus::SE3f pose, int lvl);
-
-    IndexThreadReduce treadReducer;
 
 };

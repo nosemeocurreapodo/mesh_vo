@@ -1,15 +1,13 @@
-#include "data.h"
+#include "data_gpu.h"
 
-#include <opencv2/imgproc.hpp>
-#include <opencv2/highgui.hpp>
 #include <iostream>
 
-data::data()
+data_gpu::data_gpu()
 {
 
 }
 
-data::data(int height, int width, int channels, GLenum datatype, GLint filtertype, GLint wraptype)
+data_gpu::data_gpu(int height, int width, int channels, GLenum datatype, GLint filtertype, GLint wraptype)
 {
     gltype = datatype;
 
@@ -35,22 +33,18 @@ data::data(int height, int width, int channels, GLenum datatype, GLint filtertyp
         if(channels == 1)
         {
             glinternalFormat = GL_R32F;
-            cvtype = CV_32FC1;
         }
         if(channels == 2)
         {
             glinternalFormat = GL_RG32F;
-            cvtype = CV_32FC2;
         }
         if(channels == 3)
         {
             glinternalFormat = GL_RGB32F;
-            cvtype = CV_32FC3;
         }
         if(channels == 4)
         {
             glinternalFormat = GL_RGBA32F;
-            cvtype = CV_32FC4;
         }
     }
 
@@ -59,22 +53,18 @@ data::data(int height, int width, int channels, GLenum datatype, GLint filtertyp
         if(channels == 1)
         {
             glinternalFormat = GL_R8;
-            cvtype = CV_8UC1;
         }
         if(channels == 2)
         {
             glinternalFormat = GL_RG8;
-            cvtype = CV_8UC2;
         }
         if(channels == 3)
         {
             glinternalFormat = GL_RGB8;
-            cvtype = CV_8UC3;
         }
         if(channels == 4)
         {
             glinternalFormat = GL_RGBA8;
-            cvtype = CV_8UC4;
         }
     }
 
@@ -83,22 +73,18 @@ data::data(int height, int width, int channels, GLenum datatype, GLint filtertyp
         if(channels == 1)
         {
             glinternalFormat = GL_R32I;
-            cvtype = CV_32SC1;
         }
         if(channels == 2)
         {
             glinternalFormat = GL_RG32I;
-            cvtype = CV_32SC2;
         }
         if(channels == 3)
         {
             glinternalFormat = GL_RGB32I;
-            cvtype = CV_32SC3;
         }
         if(channels == 4)
         {
             glinternalFormat = GL_RGBA32I;
-            cvtype = CV_32SC4;
         }
     }
 
@@ -115,17 +101,9 @@ data::data(int height, int width, int channels, GLenum datatype, GLint filtertyp
     glTexImage2D(GL_TEXTURE_2D, 0, glinternalFormat, width, height, 0, glformat, gltype, NULL);
     glGenerateMipmap(GL_TEXTURE_2D);
 
-    for(int lvl = 0; lvl < MAX_LEVELS; lvl++)
-    {
-        float scale = std::pow(2.0f, float(lvl));
-
-        int width_s = int(MAX_WIDTH/scale);
-        int height_s = int(MAX_HEIGHT/scale);
-
-        cpuTexture[lvl] = cv::Mat(height_s, width_s, cvtype, cv::Scalar(0));
-    }
 }
 
+/*
 void data::cpu_to_gpu(int lvl)
 {
     cv::Mat flipped;
@@ -133,7 +111,6 @@ void data::cpu_to_gpu(int lvl)
     glBindTexture(GL_TEXTURE_2D, gpuTexture);
     glTexSubImage2D(GL_TEXTURE_2D, lvl, 0, 0, cpuTexture[lvl].cols, cpuTexture[lvl].rows, glformat, gltype, (float *)flipped.data);
 }
-
 
 void data::gpu_to_cpu(int lvl)
 {
@@ -145,21 +122,9 @@ void data::gpu_to_cpu(int lvl)
     glReadPixels( 0, 0, cpuTexture[lvl].cols, cpuTexture[lvl].rows, glformat, gltype, (float *)cpuTexture[lvl].data);
     cv::flip(cpuTexture[lvl],cpuTexture[lvl],0);
 }
+*/
 
-void data::generateMipmapsCPU(int baselvl)
-{
-    for(int lvl = baselvl+1; lvl < MAX_LEVELS; lvl++)
-    {
-        float scale = std::pow(2.0f, float(lvl));
-
-        int width_s = int(MAX_WIDTH/scale);
-        int height_s = int(MAX_HEIGHT/scale);
-
-        cv::resize(cpuTexture[baselvl],cpuTexture[lvl], cv::Size(width_s, height_s), cv::INTER_LANCZOS4);
-    }
-}
-
-void data::generateMipmapsGPU(int baselvl)
+void data::generateMipmaps(int baselvl)
 {
     glBindTexture(GL_TEXTURE_2D, gpuTexture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, baselvl);
