@@ -17,11 +17,25 @@ meshVO::meshVO(float _fx, float _fy, float _cx, float _cy, int _width, int _heig
     scene.initWithRandomIdepth(cam);
 }
 
-void meshVO::visualOdometry(cv::Mat _frame)
+void meshVO::setKeyframe(cv::Mat frame, cv::Mat idepth, Sophus::SE3f pose)
 {
     for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(_frame, lastframe.image.texture[lvl], cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cv::resize(frame,  keyframe.image.texture[lvl],  cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cv::resize(idepth, keyframe.idepth.texture[lvl], cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cpu.computeFrameDerivative(keyframe, cam, lvl);
+    }
+    keyframe.pose = pose;
+    keyframe.init = true;
+
+    scene.initWithIdepth(keyframe, cam);
+}
+
+void meshVO::visualOdometry(cv::Mat frame)
+{
+    for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
+    {
+        cv::resize(frame, lastframe.image.texture[lvl], cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
         cpu.computeFrameDerivative(lastframe, cam, lvl);
     }
 
@@ -55,13 +69,14 @@ void meshVO::localization(cv::Mat frame)
 
     cpu.computeFrameIdepth(lastframe, cam, scene, 1);
     lastframe.image.show("lastframe image", 1);
+    lastframe.der.show("lastframe der", 1);
     lastframe.idepth.show("lastframe idepth", 1);
 
     // frameData.pose = _globalPose*keyframeData.pose.inverse();
-    //optPose(lastframe); //*Sophus::SE3f::exp(inc_pose).inverse());
+    optPose(lastframe); //*Sophus::SE3f::exp(inc_pose).inverse());
 }
 
-void meshVO::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
+void meshVO::mapping(cv::Mat frame, Sophus::SE3f pose)
 {
     tic_toc t;
 
@@ -69,13 +84,13 @@ void meshVO::mapping(cv::Mat _frame, Sophus::SE3f _globalPose)
 
     for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(_frame, lastframe.image.texture[lvl], cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cv::resize(frame, lastframe.image.texture[lvl], cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
         cpu.computeFrameDerivative(lastframe, cam, lvl);
     }
 
     std::cout << "save frame time " << t.toc() << std::endl;
 
-    lastframe.pose = _globalPose; //*keyframeData.pose.inverse();
+    lastframe.pose = pose; //*keyframeData.pose.inverse();
 
     t.tic();
     // optMapVertex();

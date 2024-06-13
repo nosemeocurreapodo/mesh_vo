@@ -49,6 +49,14 @@ public:
         cv::Mat toShow;
         cv::resize(texture[lvl], toShow, texture[0].size());
         cv::normalize(toShow, toShow, 1.0, 0.0, cv::NORM_MINMAX, CV_32F);
+        if(toShow.channels() == 2)
+        {
+            cv::Mat zeros = cv::Mat(texture[0].rows, texture[0].cols, texture[0].type(), cv::Scalar(0));
+            std::vector<cv::Mat> tomerge;
+            tomerge.push_back(toShow);
+            tomerge.push_back(zeros);
+            cv::merge(tomerge, toShow);
+        }
         cv::imshow(window_name, toShow);
         cv::waitKey(30);
     }

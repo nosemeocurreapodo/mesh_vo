@@ -19,71 +19,82 @@ void platformCpu::computeFrameIdepth(frameCpu &frame, camera &cam, sceneMesh &sc
     for (std::size_t index = 0; index < scene.scene_indices.size(); index += 3)
     {
         // get its vertices
-        Eigen::Vector3f world_vertex[3];
+        //Eigen::Vector3f world_vertex[3];
+        Eigen::Vector3f keyframe_vertex[3];
         for (int vertex = 0; vertex < 3; vertex++)
         {
             int vertex_index = scene.scene_indices[index + vertex];
 
-            world_vertex[vertex](0) = scene.scene_vertices[vertex_index * 3];
-            world_vertex[vertex](1) = scene.scene_vertices[vertex_index * 3 + 1];
-            world_vertex[vertex](2) = scene.scene_vertices[vertex_index * 3 + 2];
+            //scene vertices are vertex in keyframe coordinates
+            //keyframe_vertex[vertex](0) = scene.scene_vertices[vertex_index * 3];
+            //keyframe_vertex[vertex](1) = scene.scene_vertices[vertex_index * 3 + 1];
+            //keyframe_vertex[vertex](2) = scene.scene_vertices[vertex_index * 3 + 2];
+
+            //scene vertices are ray + idepth in keyframe coordinates
+            Eigen::Vector3f keyframe_ray;
+            keyframe_ray(0) = scene.scene_vertices[vertex_index * 3];
+            keyframe_ray(1) = scene.scene_vertices[vertex_index * 3 + 1];
+            keyframe_ray(2) = 1.0;
+            float keyframe_idepth = scene.scene_vertices[vertex_index * 3 + 2];
+
+            keyframe_vertex[vertex] = keyframe_ray/keyframe_idepth;
         }
 
         Eigen::Vector3f frame_vertex[3];
 
         // vertex from world reference to camera reference system
-        frame_vertex[0] = frame.pose * world_vertex[0];
-        frame_vertex[1] = frame.pose * world_vertex[1];
-        frame_vertex[2] = frame.pose * world_vertex[2];
+        frame_vertex[0] = frame.pose * keyframe_vertex[0];
+        frame_vertex[1] = frame.pose * keyframe_vertex[1];
+        frame_vertex[2] = frame.pose * keyframe_vertex[2];
 
         Eigen::Vector3f frame_normal = (frame_vertex[0] - frame_vertex[2]).cross(frame_vertex[0] - frame_vertex[1]);
 
         // back-face culling
-        //float point_dot_normal = frame_vertex[0].dot(frame_normal);
-        //if (point_dot_normal <= 0.0)
-        //    continue;
+        float point_dot_normal = frame_vertex[0].dot(frame_normal);
+        if (point_dot_normal <= 0.0)
+            continue;
 
         Eigen::Vector2f pixel[3];
         pixel[0] = Eigen::Vector2f(cam.fx[lvl] * frame_vertex[0](0) / frame_vertex[0](2) + cam.cx[lvl], cam.fy[lvl] * frame_vertex[0](1) / frame_vertex[0](2) + cam.cy[lvl]);
-        pixel[1] = Eigen::Vector2f(cam.fx[lvl] * frame_vertex[1](0) / frame_vertex[1](2) + cam.cx[lvl], cam.fy[lvl] * frame_vertex[1](1) / frame_vertex[0](2) + cam.cy[lvl]);
-        pixel[2] = Eigen::Vector2f(cam.fx[lvl] * frame_vertex[2](0) / frame_vertex[2](2) + cam.cx[lvl], cam.fy[lvl] * frame_vertex[2](1) / frame_vertex[0](2) + cam.cy[lvl]);
-
-        // triangle outside of frame
-        //if (pixel[0](0) < 0 || pixel[0](0) >= cam.width[lvl] || pixel[0](1) < 0 || pixel[0](1) >= cam.height[lvl])
-        //    continue;
-        //if (pixel[1](0) < 0 || pixel[1](0) >= cam.width[lvl] || pixel[1](1) < 0 || pixel[1](1) >= cam.height[lvl])
-        //    continue;
-        //if (pixel[2](0) < 0 || pixel[2](0) >= cam.width[lvl] || pixel[2](1) < 0 || pixel[2](1) >= cam.height[lvl])
-        //    continue;
+        pixel[1] = Eigen::Vector2f(cam.fx[lvl] * frame_vertex[1](0) / frame_vertex[1](2) + cam.cx[lvl], cam.fy[lvl] * frame_vertex[1](1) / frame_vertex[1](2) + cam.cy[lvl]);
+        pixel[2] = Eigen::Vector2f(cam.fx[lvl] * frame_vertex[2](0) / frame_vertex[2](2) + cam.cx[lvl], cam.fy[lvl] * frame_vertex[2](1) / frame_vertex[2](2) + cam.cy[lvl]);
 
         int min_x = std::min(std::min(pixel[0](0), pixel[1](0)), pixel[2](0));
         int max_x = std::max(std::max(pixel[0](0), pixel[1](0)), pixel[2](0));
         int min_y = std::min(std::min(pixel[0](1), pixel[1](1)), pixel[2](1));
         int max_y = std::max(std::max(pixel[0](1), pixel[1](1)), pixel[2](1));
 
-        for (int y = min_y; y < max_y; y++)
+        // triangle outside of frame
+        if(min_x >= cam.width[lvl] || max_x < 0.0)
+            continue;
+        if(min_y >= cam.height[lvl] || max_y < 0.0)
+            continue;
+
+        Eigen::Matrix2f T;
+        T(0, 0) = pixel[0](0) - pixel[2](0);
+        T(0, 1) = pixel[1](0) - pixel[2](0);
+        T(1, 0) = pixel[0](1) - pixel[2](1);
+        T(1, 1) = pixel[1](1) - pixel[2](1);
+        Eigen::Matrix2f T_inv;
+        T_inv = T.inverse();
+
+        for (int y = min_y; y <= max_y; y++)
         {
-            for (int x = min_x; x < max_x; x++)
+            for (int x = min_x; x <= max_x; x++)
             {
                 /*
                 Eigen::Vector3f ray = Eigen::Vector3f(cam.fxinv[lvl] * (x + 0.5) + cam.cxinv[lvl], cam.fyinv[lvl] * (y + 0.5) + cam.cyinv[lvl], 1.0);
                 float ray_dot_normal = ray.dot(frame_normal);
                 if (ray_dot_normal <= 0.0) // osea, este punto no se ve desde la camara...
-                    return;
+                    continue;
                 float depth = point_dot_normal / ray_dot_normal; // ya estoy seguro que es positivo
 
                 frame.idepth.texture[lvl].at<float>(y, x) = 1.0 / depth;
                 */
 
-                Eigen::Matrix2f T;
-                T(0, 0) = pixel[0](0) - pixel[2](0);
-                T(0, 1) = pixel[1](0) - pixel[2](0);
-                T(1, 0) = pixel[0](1) - pixel[2](1);
-                T(1, 1) = pixel[1](1) - pixel[2](1);
-                Eigen::Vector2f r = Eigen::Vector2f(x, y);
-                Eigen::Vector2f lambda = T.inverse() * (r - pixel[2]);
-
-                if (lambda(0) < 0.0 || lambda(1) < 0.0)
+                Eigen::Vector2f lambda = T_inv * (Eigen::Vector2f(x, y) - pixel[2]);
+                
+                if (lambda(0) < 0.0 || lambda(1) < 0.0 || (1.0 - lambda(0) - lambda(1)) < 0.0)
                     continue;
 
                 float depth = lambda(0) * frame_vertex[0](2) + lambda(1) * frame_vertex[1](2) + (1 - lambda(0) - lambda(1)) * frame_vertex[2](2);

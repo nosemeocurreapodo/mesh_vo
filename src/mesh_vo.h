@@ -25,9 +25,11 @@ class meshVO
 public:
     meshVO(float _fx, float _fy, float _cx, float _cy, int _width, int _height);
 
+    void setKeyframe(cv::Mat frame, cv::Mat idepth, Sophus::SE3f pose);
+
     void visualOdometry(cv::Mat frame);
     void localization(cv::Mat frame);
-    void mapping(cv::Mat _frame, Sophus::SE3f _globalPose);
+    void mapping(cv::Mat _frame, Sophus::SE3f pose);
 
 private:
 
