@@ -146,7 +146,7 @@ int main( int argc, char** argv )
 	Sophus::Matrix3f K;
 	K << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
 
-    mesh_vo visual_odometry(fx,fy,cx,cy,w,h);
+    meshVO visual_odometry(fx,fy,cx,cy,w,h);
 
 	// open image files: first try to open as file.
     std::string source = argv[2];

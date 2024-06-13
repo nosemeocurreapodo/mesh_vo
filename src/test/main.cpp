@@ -29,18 +29,15 @@ int main(void)
     float fx, fy, cx, cy;
     fx = 481.20; fy = 480.0; cx = 319.5; cy = 239.5;
 
-    cv::Mat initFrame = cv::imread("../../desktop_dataset/scene_000.png", cv::IMREAD_GRAYSCALE);
-    Sophus::SE3f initPose = readPose("../../desktop_dataset/scene_000.txt");
+    cv::Mat initFrame = cv::imread("/mnt/nvme0n1p5/datasets/desktop_dataset/scene_000.png", cv::IMREAD_GRAYSCALE);
+    Sophus::SE3f initPose = readPose("/mnt/nvme0n1p5/datasets/desktop_dataset/scene_000.txt");
 
     cv::Mat initIdepth;
-    cv::FileStorage fs("../../desktop_dataset/scene_depth_000.yml", cv::FileStorage::READ );
+    cv::FileStorage fs("/mnt/nvme0n1p5/datasets/desktop_dataset/scene_depth_000.yml", cv::FileStorage::READ );
     fs["idepth"] >> initIdepth;
 
 
-    mesh_vo visual_odometry(fx,fy,cx,cy,width,height);
-
-    visual_odometry.initWithRandomIdepth(initFrame, initPose*initPose.inverse());
-    //visual_odometry.initWithIdepth(initFrame, initIdepth, initPose*initPose.inverse());
+    meshVO visual_odometry(fx,fy,cx,cy,width,height);
 
     while(1){
         framesTracked++;
@@ -54,8 +51,8 @@ int main(void)
         char RT_filename[500];
 
         //file name
-        sprintf(image_filename,"../../desktop_dataset/scene_%03d.png", frameNumber);
-        sprintf(RT_filename,"../../desktop_dataset/scene_%03d.txt", frameNumber);
+        sprintf(image_filename,"/mnt/nvme0n1p5/datasets/desktop_dataset/scene_%03d.png", frameNumber);
+        sprintf(RT_filename,"/mnt/nvme0n1p5/datasets/desktop_dataset/scene_%03d.txt", frameNumber);
 
         cv::Mat frame = cv::imread(image_filename, cv::IMREAD_GRAYSCALE);
         Sophus::SE3f realPose = readPose(RT_filename)*initPose.inverse();
@@ -74,8 +71,8 @@ int main(void)
         //std::cout << "est pose " << std::endl;
         //std::cout << visual_odometry.trackedPose.matrix() << std::endl;
 
-        cv::imshow("image", frame);
-        cv::waitKey(30);
+        //cv::imshow("image", frame);
+        //cv::waitKey(30);
     }
 
     return 1;

@@ -1,9 +1,9 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required(VERSION 3.22)
 project(mesh_vo)
 
 set(CMAKE_BUILD_TYPE Debug)
 
-set(CMAKE_CXX_FLAGS " -Wall -Wextra")
+set(CMAKE_CXX_FLAGS " -Wall -Wextra -g")
 set(CMAKE_CXX_FLAGS_DEBUG "-pg")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
@@ -33,9 +33,11 @@ include_directories(
         ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
         )
 
-file(GLOB DepthEstimator_SRCS "src/*.cpp"
-                              "src/*.c"
-                              "src/Utils/*.cpp"
+file(GLOB VISUALODOMETRY_SRCS "src/*.cpp"
+                              "src/common/*.cpp"
+                              "src/cpu/*.cpp"
+                              "src/scene/*.cpp"
+                              "src/utils/*.cpp"
 )
 
 file(GLOB TESTAPP_SRCS "src/test/*.cpp"
@@ -50,9 +52,9 @@ foreach(SHADER ${SHADERS})
 endforeach(SHADER)
 
 # build example app
-add_executable(testapp src/test/main.cpp ${TESTAPP_SRCS} ${DepthEstimator_SRCS} ${SHADERS})
+add_executable(testapp src/test/main.cpp ${TESTAPP_SRCS} ${VISUALODOMETRY_SRCS} ${SHADERS})
 #target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})
 target_link_libraries(testapp ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
 
-add_executable(tum_dataset src/tum_dataset/main_on_images.cpp ${TUMDATASET_SRCS} ${DepthEstimator_SRCS} ${SHADERS})
-target_link_libraries(tum_dataset ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
+#add_executable(tum_dataset src/tum_dataset/main_on_images.cpp ${TUMDATASET_SRCS} ${DepthEstimator_SRCS} ${SHADERS})
+#target_link_libraries(tum_dataset ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})

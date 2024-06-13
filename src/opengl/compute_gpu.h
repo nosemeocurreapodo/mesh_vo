@@ -83,8 +83,7 @@ private:
     //opengl data
     GLFWwindow* frameWindow;
 
-    std::vector<float> scene_vertices;
-    std::vector<unsigned int> scene_indices;
+
 
     unsigned int scene_VBO, scene_VAO, scene_EBO;
     unsigned int frame_VBO, frame_VAO;

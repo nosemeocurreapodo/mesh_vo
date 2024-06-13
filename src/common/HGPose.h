@@ -9,10 +9,10 @@
 //    int cout;
 //};
 
-class HGPose_cpu
+class HGPose
 {
 public:
-    HGPose_cpu()
+    HGPose()
     {
         H_pose.setZero();
         G_pose.setZero();
@@ -20,9 +20,9 @@ public:
         count = 0;
     }
 
-    HGPose_cpu operator+(HGPose_cpu _pose)
+    HGPose operator+(HGPose _pose)
     {
-        HGPose_cpu _p;
+        HGPose _p;
         _p.H_pose = H_pose + _pose.H_pose;
         _p.G_pose = G_pose + _pose.G_pose;
         _p.error = error + _pose.error;
@@ -31,7 +31,7 @@ public:
         return _p;
     }
 
-    void operator+=(HGPose_cpu _pose)
+    void operator+=(HGPose _pose)
     {
         H_pose += _pose.H_pose;
         G_pose += _pose.G_pose;
@@ -39,7 +39,7 @@ public:
         count += _pose.count;
     }
 
-    void operator=(HGPose_cpu _pose)
+    void operator=(HGPose _pose)
     {
         H_pose = _pose.H_pose;
         G_pose = _pose.G_pose;
@@ -47,10 +47,12 @@ public:
         count = _pose.count;
     }
 
-private:
     Eigen::Matrix<float, 6, 6> H_pose;
     Eigen::Matrix<float, 6, 1> G_pose;
 
     float error;
     float count;
+
+private:
+
 };

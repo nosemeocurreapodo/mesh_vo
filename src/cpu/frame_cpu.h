@@ -1,18 +1,34 @@
 #pragma once
 
-#include <opencv2/core.hpp>
 #include "sophus/se3.hpp"
 
 #include "data_cpu.h"
 #include "params.h"
 
-class frame_cpu
+class frameCpu
 {
 public:
-  frame_cpu();
-  frame_cpu(int height, int width);
+  frameCpu() : image(CV_8UC1),
+                der(CV_32FC2),
+                idepth(CV_32FC1),
+                error(CV_32FC1),
+                count(CV_32SC1)
+  {
+    init = false;
+  };
 
-private:
+  void copyTo(frameCpu &frame)
+  {
+    image.copyTo(frame.image);
+    der.copyTo(frame.der);
+    idepth.copyTo(frame.idepth);
+    error.copyTo(frame.error);
+    count.copyTo(frame.count);
+
+    frame.pose = pose;
+    frame.init = init;
+  }
+
   data_cpu image;
   data_cpu der;
   data_cpu idepth;

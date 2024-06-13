@@ -12,36 +12,34 @@
 
 #include "utils/tictoc.h"
 
-#include "cpu/data_cpu.h"
+#include "scene/scene_mesh.h"
+#include "common/camera.h"
 #include "cpu/frame_cpu.h"
-#include "cpu/HGPose_cpu.h"
 
-class mesh_vo
+#include "cpu/platform_cpu.h"
+
+#include "common/HGPose.h"
+
+class meshVO
 {
 public:
-    mesh_vo(float _fx, float _fy, float _cx, float _cy, int _width, int _height);
+    meshVO(float _fx, float _fy, float _cx, float _cy, int _width, int _height);
 
-    void initWithRandomIdepth(cv::Mat _keyFrame, Sophus::SE3f _pose = Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()));
-    void initWithIdepth(cv::Mat _keyFrame, cv::Mat _idepth, Sophus::SE3f _pose = Sophus::SE3f(Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()));
-
-    void visual_odometry(cv::Mat _frame);
-    void localization(cv::Mat _frame);
+    void visualOdometry(cv::Mat frame);
+    void localization(cv::Mat frame);
     void mapping(cv::Mat _frame, Sophus::SE3f _globalPose);
 
 private:
 
-    //frames
-    frame keyframeData;
-    frame lastframeData;
-    frame frameDataStack[MAX_FRAMES];
+    camera cam;
+    frameCpu keyframe;
+    frameCpu lastframe;
+    sceneMesh scene;
 
-    //data
-    data vertexIdData;
-    data debugData;
-    data view3DData;
+    //compute platforms
+    platformCpu cpu;
 
-
-
+    //optimization data
     Eigen::SparseMatrix<float> H_depth;
     Eigen::VectorXf J_depth;
     Eigen::VectorXf inc_depth;
@@ -52,16 +50,15 @@ private:
     Eigen::VectorXf inc_joint;
     Eigen::VectorXi count_joint;
 
-    void changeKeyframe(frame &newkeyFrame, int lvl, float min_occupancy);
-    void addFrameToStack(frame &_frame);
-    void setTriangles();
+    //functions
 
-    void optPose(frame &_frame);
-    void optPose2(frame &_frame);
-    void optMapJoint();
+    void optPose(frameCpu &frame);
+    void optMap();
     //void optMapVertex();
-    void optPoseMapJoint();
+    void optPoseMap();
 
 
-
+    //mesh regularization
+    float errorMesh();
+    void addHGMesh();
 };

@@ -3,10 +3,10 @@
 #include <Eigen/Core>
 #include "params.h"
 
-class camera_cpu
+class camera
 {
 public:
-    camera_cpu(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
+    camera(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
     {
         float xp = float(MAX_WIDTH) / _width;
         float yp = float(MAX_HEIGHT) / _height;
