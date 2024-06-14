@@ -21,8 +21,8 @@ void meshVO::setKeyframe(cv::Mat frame, cv::Mat idepth, Sophus::SE3f pose)
 {
     for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(frame,  keyframe.image.texture[lvl],  cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
-        cv::resize(idepth, keyframe.idepth.texture[lvl], cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cv::resize(frame,  keyframe.image.get(lvl),  cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cv::resize(idepth, keyframe.idepth.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
         cpu.computeFrameDerivative(keyframe, cam, lvl);
     }
     keyframe.pose = pose;
@@ -35,7 +35,7 @@ void meshVO::visualOdometry(cv::Mat frame)
 {
     for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(frame, lastframe.image.texture[lvl], cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cv::resize(frame, lastframe.image.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
         cpu.computeFrameDerivative(lastframe, cam, lvl);
     }
 
@@ -63,18 +63,18 @@ void meshVO::localization(cv::Mat frame)
 {
     for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(frame, lastframe.image.texture[lvl], cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cv::resize(frame, lastframe.image.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
         cpu.computeFrameDerivative(lastframe, cam, lvl);
     }
 
     cpu.computeFrameIdepth(lastframe, cam, scene, 1);
-    cpu.computeError(lastframe, keyframe, cam, 1);
-    //lastframe.image.show("lastframe image", 1);
-    //lastframe.der.show("lastframe der", 1);
-
+    cpu.computeError(lastframe, keyframe, cam, scene, 1);
+    
     // frameData.pose = _globalPose*keyframeData.pose.inverse();
     optPose(lastframe); //*Sophus::SE3f::exp(inc_pose).inverse());
 
+    lastframe.image.show("lastframe image", 1);
+    //lastframe.der.show("lastframe der", 1);
     lastframe.error.show("lastframe error", 1);
     lastframe.idepth.show("lastframe idepth", 1);
 }
@@ -87,7 +87,7 @@ void meshVO::mapping(cv::Mat frame, Sophus::SE3f pose)
 
     for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(frame, lastframe.image.texture[lvl], cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cv::resize(frame, lastframe.image.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
         cpu.computeFrameDerivative(lastframe, cam, lvl);
     }
 
@@ -112,14 +112,14 @@ void meshVO::optPose(frameCpu &frame)
     {
         std::cout << "*************************lvl " << lvl << std::endl;
         t.tic();
-        float last_error = cpu.computeError(frame, keyframe, cam, lvl);
+        float last_error = cpu.computeError(frame, keyframe, cam, scene, lvl);
 
         std::cout << "init error " << last_error << " time " << t.toc() << std::endl;
 
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             t.tic();
-            HGPose hgpose = cpu.computeHGPose(frame, keyframe, cam, lvl);
+            HGPose hgpose = cpu.computeHGPose(frame, keyframe, cam, scene, lvl);
             std::cout << "HGPose time " << t.toc() << std::endl;
 
             float lambda = 0.0;
@@ -141,7 +141,7 @@ void meshVO::optPose(frameCpu &frame)
                 frame.pose = new_pose;
 
                 t.tic();
-                float error = cpu.computeError(frame, keyframe, cam, lvl);
+                float error = cpu.computeError(frame, keyframe, cam, scene, lvl);
                 std::cout << "new error " << error << " time " << t.toc() << std::endl;
 
                 if (error < last_error)
@@ -203,7 +203,7 @@ void meshVO::optMap()
         std::vector<float> best_vertices;
         best_vertices = scene.scene_vertices;
 
-        float last_error = cpu.computeError(lastframe, keyframe, cam, lvl); // + errorMesh();
+        float last_error = cpu.computeError(lastframe, keyframe, cam, scene, lvl); // + errorMesh();
 
         std::cout << "init error time " << t.toc() << std::endl;
         std::cout << "lvl " << lvl << " initial error " << last_error << std::endl;
@@ -281,7 +281,7 @@ void meshVO::optMap()
 
                 t.tic();
 
-                float error = cpu.computeError(lastframe, keyframe, cam, lvl); // + errorMesh();
+                float error = cpu.computeError(lastframe, keyframe, cam, scene, lvl); // + errorMesh();
 
                 std::cout << "new error time " << t.toc() << std::endl;
 
@@ -353,7 +353,7 @@ void meshVO::optPoseMap()
 
         best_vertices = scene.scene_vertices;
 
-        float last_error = cpu.computeError(lastframe, keyframe, cam, lvl); // + errorMesh();
+        float last_error = cpu.computeError(lastframe, keyframe, cam, scene, lvl); // + errorMesh();
         std::cout << "initial error time " << t.toc() << std::endl;
         std::cout << "lvl " << lvl << " initial error " << last_error << std::endl;
 

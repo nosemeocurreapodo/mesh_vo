@@ -38,7 +38,7 @@ void sceneMesh::initWithIdepth(frameCpu &frame, camera &cam)
             float xi = (float(x) / float(VERTEX_WIDTH - 1)) * cam.width[0];
             float yi = (float(y) / float(VERTEX_HEIGH - 1)) * cam.height[0];
 
-            float idepth = frame.idepth.texture[0].at<float>(yi, xi);
+            float idepth = frame.idepth.get(yi, xi, 0);
             /*
             if(idepth <= min_idepth)
                 idepth = min_idepth;

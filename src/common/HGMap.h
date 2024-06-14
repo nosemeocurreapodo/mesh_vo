@@ -17,8 +17,7 @@ public:
     {
         H_depth.setZero();
         G_depth.setZero();
-        error = 0.0;
-        count = 0;
+        count_depth.setZero();
     }
 
     Eigen::SparseMatrix<float> H_depth;

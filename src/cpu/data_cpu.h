@@ -4,13 +4,26 @@
 
 #include "params.h"
 
+template <typename Type>
 class data_cpu
 {
 public:
-
-    data_cpu(int dtype)
+    data_cpu(Type nodata_value)
     {
-        int cvtype = dtype;
+        nodata = nodata_value;
+
+        int dtype = CV_8UC1;
+
+        if (typeid(Type) == typeid(uchar))
+            dtype = CV_8UC1;
+        if (typeid(Type) == typeid(char))
+            dtype = CV_8SC1;
+        if (typeid(Type) == typeid(int))
+            dtype = CV_32SC1;
+        if (typeid(Type) == typeid(float))
+            dtype = CV_32FC1;
+        if (typeid(Type) == typeid(double))
+            dtype = CV_64FC1;
 
         for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
         {
@@ -19,8 +32,38 @@ public:
             int width_s = int(MAX_WIDTH / scale);
             int height_s = int(MAX_HEIGHT / scale);
 
-            texture[lvl] = cv::Mat(height_s, width_s, cvtype, cv::Scalar(0));
+            texture[lvl] = cv::Mat(height_s, width_s, dtype, cv::Scalar(nodata));
         }
+    }
+
+    void set(Type value, int y, int x, int lvl)
+    {
+        texture[lvl].at<Type>(y, x) = value;
+    }
+
+    void set(Type value, float y, float x, int lvl)
+    {
+        texture[lvl].at<Type>(int(y), int(x)) = value;
+    }
+
+    void set(Type value, int lvl)
+    {
+        texture[lvl].setTo(value);
+    }
+
+    Type get(int y, int x, int lvl)
+    {
+        return texture[lvl].at<Type>(y, x);
+    }
+
+    Type get(float y, float x, int lvl)
+    {
+        return texture[lvl].at<Type>(int(y), int(x));
+    }
+
+    cv::Mat& get(int lvl)
+    {
+        return texture[lvl];
     }
 
     void generateMipmaps(int baselvl)
@@ -36,8 +79,9 @@ public:
         }
     }
 
-    void copyTo(data_cpu data)
+    void copyTo(data_cpu &data)
     {
+        data.nodata = nodata;
         for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
         {
             texture[lvl].copyTo(data.texture[lvl]);
@@ -49,7 +93,7 @@ public:
         cv::Mat toShow;
         cv::resize(texture[lvl], toShow, texture[0].size());
         cv::normalize(toShow, toShow, 1.0, 0.0, cv::NORM_MINMAX, CV_32F);
-        if(toShow.channels() == 2)
+        if (toShow.channels() == 2)
         {
             cv::Mat zeros = cv::Mat(texture[0].rows, texture[0].cols, texture[0].type(), cv::Scalar(0));
             std::vector<cv::Mat> tomerge;
@@ -61,7 +105,8 @@ public:
         cv::waitKey(30);
     }
 
-    cv::Mat texture[MAX_LEVELS];
+    Type nodata;
 
 private:
+    cv::Mat texture[MAX_LEVELS];
 };

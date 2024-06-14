@@ -17,12 +17,13 @@ public:
 
     void computeFrameDerivative(frameCpu &frame, camera &cam, int lvl);
     void computeFrameIdepth(frameCpu &frame, camera &cam, sceneMesh &scene, int lvl);
-    float computeError(frameCpu &frame, frameCpu &keyframe, camera &cam, int lvl);
-    HGPose computeHGPose(frameCpu &frame, frameCpu &keyframe, camera &cam, int lvl);
+    float computeError(frameCpu &frame, frameCpu &keyframe, camera &cam, sceneMesh &scene, int lvl);
+    HGPose computeHGPose(frameCpu &frame, frameCpu &keyframe, camera &cam, sceneMesh &scene, int lvl);
 
 private:
-    HGPose errorPerIndex(frameCpu &frame, frameCpu &keyframe, camera &cam, int lvl, int ymin, int ymax);
-    HGPose HGPosePerIndex(frameCpu &frame, frameCpu &keyframe, camera &cam, int lvl, int ymin, int ymax);
-    HGMap HGMapPerIndex(frameCpu &frame, frameCpu &keyframe, camera &cam, int lvl, int ymin, int ymax)
-
+    HGPose errorPerIndex(frameCpu &frame, frameCpu &keyframe, camera &cam, sceneMesh &scene, int lvl, int ymin, int ymax);
+    HGPose errorPerIndex2(frameCpu &frame, frameCpu &keyframe, camera &cam, sceneMesh &scene, int lvl);
+    HGPose HGPosePerIndex(frameCpu &frame, frameCpu &keyframe, camera &cam, sceneMesh &scene, int lvl, int ymin, int ymax);
+    HGPose HGPosePerIndex2(frameCpu &frame, frameCpu &keyframe, camera &cam, sceneMesh &scene, int lvl);
+    HGMap HGMapPerIndex(frameCpu &frame, frameCpu &keyframe, camera &cam, sceneMesh &scene, int lvl);
 };

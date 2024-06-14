@@ -8,11 +8,12 @@
 class frameCpu
 {
 public:
-  frameCpu() : image(CV_8UC1),
-                der(CV_32FC2),
-                idepth(CV_32FC1),
-                error(CV_32FC1),
-                count(CV_32SC1)
+  frameCpu() : image(0),
+               dx(0.0),
+               dy(0.0),
+               idepth(-1.0),
+               error(-1.0),
+               count(-1.0)
   {
     init = false;
   };
@@ -20,7 +21,8 @@ public:
   void copyTo(frameCpu &frame)
   {
     image.copyTo(frame.image);
-    der.copyTo(frame.der);
+    dx.copyTo(frame.dx);
+    dy.copyTo(frame.dy);
     idepth.copyTo(frame.idepth);
     error.copyTo(frame.error);
     count.copyTo(frame.count);
@@ -29,11 +31,12 @@ public:
     frame.init = init;
   }
 
-  data_cpu image;
-  data_cpu der;
-  data_cpu idepth;
-  data_cpu error;
-  data_cpu count;
+  data_cpu<uchar> image;
+  data_cpu<float> dx;
+  data_cpu<float> dy;
+  data_cpu<float> idepth;
+  data_cpu<float> error;
+  data_cpu<int> count;
 
   Sophus::SE3f pose;
 
