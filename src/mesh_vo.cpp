@@ -68,12 +68,15 @@ void meshVO::localization(cv::Mat frame)
     }
 
     cpu.computeFrameIdepth(lastframe, cam, scene, 1);
-    lastframe.image.show("lastframe image", 1);
-    lastframe.der.show("lastframe der", 1);
-    lastframe.idepth.show("lastframe idepth", 1);
+    cpu.computeError(lastframe, keyframe, cam, 1);
+    //lastframe.image.show("lastframe image", 1);
+    //lastframe.der.show("lastframe der", 1);
 
     // frameData.pose = _globalPose*keyframeData.pose.inverse();
     optPose(lastframe); //*Sophus::SE3f::exp(inc_pose).inverse());
+
+    lastframe.error.show("lastframe error", 1);
+    lastframe.idepth.show("lastframe idepth", 1);
 }
 
 void meshVO::mapping(cv::Mat frame, Sophus::SE3f pose)
@@ -95,15 +98,13 @@ void meshVO::mapping(cv::Mat frame, Sophus::SE3f pose)
     t.tic();
     // optMapVertex();
     // optMapJoint();
-    optPoseMap();
+    optMap();
     std::cout << "update map time " << t.toc() << std::endl;
 }
 
 void meshVO::optPose(frameCpu &frame)
 {
     int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
-
-    Sophus::SE3f bestPose = frame.pose;
 
     tic_toc t;
 
@@ -133,16 +134,19 @@ void meshVO::optPose(frameCpu &frame)
 
                 Eigen::Matrix<float, 6, 1> inc_pose = acc_H_pose_lambda.ldlt().solve(hgpose.G_pose);
 
-                Sophus::SE3f new_pose = bestPose * Sophus::SE3f::exp(inc_pose).inverse();
+                Sophus::SE3f old_pose = frame.pose;
+                Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose).inverse();
+                //Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
+
+                frame.pose = new_pose;
 
                 t.tic();
                 float error = cpu.computeError(frame, keyframe, cam, lvl);
-                std::cout << "new error time " << t.toc() << std::endl;
+                std::cout << "new error " << error << " time " << t.toc() << std::endl;
 
                 if (error < last_error)
                 {
                     // accept update, decrease lambda
-                    bestPose = new_pose;
 
                     float p = error / last_error;
 
@@ -163,6 +167,8 @@ void meshVO::optPose(frameCpu &frame)
                 }
                 else
                 {
+                    frame.pose = old_pose;
+
                     n_try++;
 
                     if (lambda < 0.2f)
@@ -183,8 +189,6 @@ void meshVO::optPose(frameCpu &frame)
                     }
                 }
             }
-
-            frame.pose = bestPose;
         }
     }
 }

@@ -2,6 +2,7 @@
 
 #include "common/camera.h"
 #include "common/HGPose.h"
+#include "common/HGMap.h"
 #include "cpu/frame_cpu.h"
 #include "scene/scene_mesh.h"
 
@@ -22,4 +23,6 @@ public:
 private:
     HGPose errorPerIndex(frameCpu &frame, frameCpu &keyframe, camera &cam, int lvl, int ymin, int ymax);
     HGPose HGPosePerIndex(frameCpu &frame, frameCpu &keyframe, camera &cam, int lvl, int ymin, int ymax);
+    HGMap HGMapPerIndex(frameCpu &frame, frameCpu &keyframe, camera &cam, int lvl, int ymin, int ymax)
+
 };

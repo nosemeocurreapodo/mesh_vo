@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sophus/se3.hpp"
+#include <Eigen/Core>
 
 //struct HJPose{
 //    float J[6];
