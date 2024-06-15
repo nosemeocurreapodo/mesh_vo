@@ -32,7 +32,8 @@ public:
             int width_s = int(MAX_WIDTH / scale);
             int height_s = int(MAX_HEIGHT / scale);
 
-            texture[lvl] = cv::Mat(height_s, width_s, dtype, cv::Scalar(nodata));
+            sizes[lvl] = cv::Size(width_s, height_s);
+            texture[lvl] = cv::Mat(sizes[lvl], dtype, cv::Scalar(nodata));
         }
     }
 
@@ -51,6 +52,13 @@ public:
         texture[lvl].setTo(value);
     }
 
+    void set(cv::Mat frame, int lvl = 0)
+    {
+        cv::Mat frame_newtype;
+        frame.convertTo(frame_newtype, texture[lvl].type());
+        cv::resize(frame_newtype, texture[lvl], texture[lvl].size(), cv::INTER_AREA);
+    }
+
     Type get(int y, int x, int lvl)
     {
         return texture[lvl].at<Type>(y, x);
@@ -61,21 +69,16 @@ public:
         return texture[lvl].at<Type>(int(y), int(x));
     }
 
-    cv::Mat& get(int lvl)
+    cv::Mat &get(int lvl)
     {
         return texture[lvl];
     }
 
-    void generateMipmaps(int baselvl)
+    void generateMipmaps(int baselvl = 0)
     {
         for (int lvl = baselvl + 1; lvl < MAX_LEVELS; lvl++)
         {
-            float scale = std::pow(2.0f, float(lvl));
-
-            int width_s = int(MAX_WIDTH / scale);
-            int height_s = int(MAX_HEIGHT / scale);
-
-            cv::resize(texture[baselvl], texture[lvl], cv::Size(width_s, height_s), cv::INTER_LANCZOS4);
+            cv::resize(texture[baselvl], texture[lvl], texture[lvl].size(), cv::INTER_AREA);
         }
     }
 
@@ -106,6 +109,7 @@ public:
     }
 
     Type nodata;
+    cv::Size sizes[MAX_LEVELS];
 
 private:
     cv::Mat texture[MAX_LEVELS];

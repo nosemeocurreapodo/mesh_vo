@@ -6,10 +6,10 @@
 #include "cpu/frame_cpu.h"
 #include "params.h"
 
-class sceneMesh
+class pointMesh
 {
 public:
-    sceneMesh()
+    pointMesh()
     {
         // preallocate scene vertices to zero
         for (int y = 0; y < VERTEX_HEIGH; y++)
@@ -70,7 +70,7 @@ public:
     }
 
     void initWithRandomIdepth(camera &cam);
-    void initWithIdepth(frameCpu &frame, camera &cam);
+    void initWithIdepth(data_cpu<float> &data_idepth, camera &cam, int lvl);
 
     // scene
     std::vector<float> scene_vertices;

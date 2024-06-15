@@ -38,7 +38,8 @@ int main(void)
 
     meshVO visual_odometry(fx,fy,cx,cy,width,height);
 
-    visual_odometry.setKeyframe(initFrame, initIdepth, initPose);
+    //visual_odometry.initScene(initFrame, initIdepth, initPose);
+    visual_odometry.initScene(initFrame, initPose);
 
     while(1){
         framesTracked++;

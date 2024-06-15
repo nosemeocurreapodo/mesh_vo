@@ -12,45 +12,31 @@
 #include <map>
 
 meshVO::meshVO(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
-    : cam(_fx, _fy, _cx, _cy, _width, _height)
+    :scene(_fx, _fy, _cx, _cy, _width, _height)
 {
-    scene.initWithRandomIdepth(cam);
-
-    //H_depth = Eigen::SparseMatrix<float>(VERTEX_HEIGH*VERTEX_WIDTH, VERTEX_HEIGH*VERTEX_WIDTH);
-    //J_depth = Eigen::VectorXf::Zero(VERTEX_HEIGH*VERTEX_WIDTH);
-    //inc_depth = Eigen::VectorXf::Zero(VERTEX_HEIGH*VERTEX_WIDTH);
-    //count_depth = Eigen::VectorXi::Zero(VERTEX_HEIGH*VERTEX_WIDTH);
+    // H_depth = Eigen::SparseMatrix<float>(VERTEX_HEIGH*VERTEX_WIDTH, VERTEX_HEIGH*VERTEX_WIDTH);
+    // J_depth = Eigen::VectorXf::Zero(VERTEX_HEIGH*VERTEX_WIDTH);
+    // inc_depth = Eigen::VectorXf::Zero(VERTEX_HEIGH*VERTEX_WIDTH);
+    // count_depth = Eigen::VectorXi::Zero(VERTEX_HEIGH*VERTEX_WIDTH);
 }
 
-void meshVO::setKeyframe(cv::Mat frame, cv::Mat idepth, Sophus::SE3f pose)
+void meshVO::initScene(cv::Mat frame, Sophus::SE3f pose = Sophus::SE3f())
 {
-    cv::Mat frame_newtype;
-    cv::Mat idepth_newtype;
-    frame.convertTo(frame_newtype, lastframe.image.get(0).type());
-    idepth.convertTo(idepth_newtype, lastframe.idepth.get(0).type());
-    for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
-    {
-        cv::resize(frame_newtype,  keyframe.image.get(lvl),  cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_AREA);
-        cv::resize(idepth_newtype, keyframe.idepth.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_AREA);
-        cpu.computeFrameDerivative(keyframe, cam, lvl);
-    }
-    keyframe.pose = pose;
-    keyframe.init = true;
+    keyframe.set(frame, pose);
+    scene.init(keyframe);
+}
 
-    scene.initWithIdepth(keyframe, cam);
+void meshVO::initScene(cv::Mat frame, cv::Mat idepth, Sophus::SE3f pose = Sophus::SE3f())
+{
+    keyframe.set(frame, idepth, pose);
+    scene.init(keyframe);
 }
 
 void meshVO::visualOdometry(cv::Mat frame)
 {
-    cv::Mat frame_newtype;
-    frame.convertTo(frame_newtype, lastframe.image.get(0).type());
-    for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
-    {
-        cv::resize(frame_newtype, lastframe.image.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
-        cpu.computeFrameDerivative(lastframe, cam, lvl);
-    }
+    lastframe.set(frame);
 
-    if(!keyframe.init)
+    if (!keyframe.init)
     {
         lastframe.copyTo(keyframe);
         return;
@@ -66,29 +52,23 @@ void meshVO::visualOdometry(cv::Mat frame)
     std::cout << "clacPose time " << t.toc() << std::endl;
 
     {
-        //optPoseMapJoint();
+        // optPoseMapJoint();
     }
 }
 
 void meshVO::localization(cv::Mat frame)
 {
-    cv::Mat frame_newtype;
-    frame.convertTo(frame_newtype, lastframe.image.get(0).type());
-    for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
-    {
-        cv::resize(frame_newtype, lastframe.image.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
-        cpu.computeFrameDerivative(lastframe, cam, lvl);
-    }
+    lastframe.set(frame);
 
-    //cpu.computeFrameIdepth(lastframe, cam, scene, 1);
-    //cpu.computeError(lastframe, keyframe, cam, scene, 1);
-    //cpu.computeHGPose(lastframe, keyframe, cam, scene, 1);
+    // cpu.computeFrameIdepth(lastframe, cam, scene, 1);
+    // cpu.computeError(lastframe, keyframe, cam, scene, 1);
+    // cpu.computeHGPose(lastframe, keyframe, cam, scene, 1);
 
     // frameData.pose = _globalPose*keyframeData.pose.inverse();
     optPose(lastframe); //*Sophus::SE3f::exp(inc_pose).inverse());
 
     lastframe.image.show("lastframe image", 1);
-    //lastframe.der.show("lastframe der", 1);
+    // lastframe.der.show("lastframe der", 1);
     lastframe.error.show("lastframe error", 1);
     lastframe.idepth.show("lastframe idepth", 1);
 }
@@ -97,25 +77,18 @@ void meshVO::mapping(cv::Mat frame, Sophus::SE3f pose)
 {
     tic_toc t;
 
-    t.tic();
-
-    cv::Mat frame_newtype;
-    frame.convertTo(frame_newtype, lastframe.image.get(0).type());
-    for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
-    {
-        cv::resize(frame_newtype, lastframe.image.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
-        cpu.computeFrameDerivative(lastframe, cam, lvl);
-    }
-
-    std::cout << "save frame time " << t.toc() << std::endl;
-
-    lastframe.pose = pose; //*keyframeData.pose.inverse();
+    lastframe.set(frame, pose); //*keyframeData.pose.inverse();
 
     t.tic();
     // optMapVertex();
     // optMapJoint();
     optMap();
     std::cout << "update map time " << t.toc() << std::endl;
+
+    lastframe.image.show("lastframe image", 1);
+    // lastframe.der.show("lastframe der", 1);
+    lastframe.error.show("lastframe error", 1);
+    lastframe.idepth.show("lastframe idepth", 1);
 }
 
 void meshVO::optPose(frameCpu &frame)
@@ -128,14 +101,14 @@ void meshVO::optPose(frameCpu &frame)
     {
         std::cout << "*************************lvl " << lvl << std::endl;
         t.tic();
-        float last_error = cpu.computeError(frame, keyframe, cam, scene, lvl);
+        float last_error = cpu.computeError(frame, keyframe, scene, lvl);
 
         std::cout << "init error " << last_error << " time " << t.toc() << std::endl;
 
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             t.tic();
-            HGPose hgpose = cpu.computeHGPose(frame, keyframe, cam, scene, lvl);
+            HGPose hgpose = cpu.computeHGPose(frame, keyframe, scene, lvl);
             std::cout << "HGPose time " << t.toc() << std::endl;
 
             float lambda = 0.0;
@@ -151,14 +124,14 @@ void meshVO::optPose(frameCpu &frame)
                 Eigen::Matrix<float, 6, 1> inc_pose = acc_H_pose_lambda.ldlt().solve(hgpose.G_pose);
 
                 Sophus::SE3f old_pose = frame.pose;
-                //Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
+                // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
                 Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose).inverse();
-                //Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
+                // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
 
                 frame.pose = new_pose;
 
                 t.tic();
-                float error = cpu.computeError(frame, keyframe, cam, scene, lvl);
+                float error = cpu.computeError(frame, keyframe, scene, lvl);
                 std::cout << "new error " << error << " time " << t.toc() << std::endl;
 
                 if (error < last_error)
@@ -210,7 +183,6 @@ void meshVO::optPose(frameCpu &frame)
     }
 }
 
-
 void meshVO::optMap()
 {
     tic_toc t;
@@ -220,22 +192,34 @@ void meshVO::optMap()
         std::vector<float> best_vertices;
         best_vertices = scene.scene_vertices;
 
-        float last_error = cpu.computeError(lastframe, keyframe, cam, scene, lvl); // + errorMesh();
+        float last_error = cpu.computeError(lastframe, keyframe, scene, lvl);
+        last_error += errorMeshRegu(scene);
 
-        std::cout << "init error time " << t.toc() << std::endl;
-        std::cout << "lvl " << lvl << " initial error " << last_error << std::endl;
+        std::cout << "--------lvl " << lvl << " initial error " << last_error << " " << t.toc() << std::endl;
 
-        int maxIterations = 100;
+        int maxIterations = 5;
         float lambda = 0.0;
         for (int it = 0; it < maxIterations; it++)
         {
             t.tic();
 
-            HGMap hgmap = cpu.computeHGMap(lastframe, keyframe, cam, scene, lvl);
-            //HJMapStackGPU(lvl);
-            // HJMesh();
+            HGMap hgmap = cpu.computeHGMap(lastframe, keyframe, scene, lvl);
+            HGMeshRegu(hgmap, scene);
+            // HJMapStackGPU(lvl);
+            //  HJMesh();
 
-            std::cout << "HJ time " << t.toc() << std::endl;
+            //check that the hessian is nonsingular
+            //if it is "fix" it
+            for (int i = 0; i < hgmap.G_depth.size(); i++)
+            {
+                int gcount = hgmap.G_count(i);
+                if (gcount == 0)
+                    hgmap.H_depth.coeffRef(i, i) = 1.0;
+                // else
+                //     hgmap.G_depth(i) /= float(gcount);
+            }
+
+            std::cout << "HG time " << t.toc() << std::endl;
 
             int n_try = 0;
             while (true)
@@ -257,8 +241,14 @@ void meshVO::optMap()
                 solver.analyzePattern(H_depth_lambda);
                 // std::cout << solver.info() << std::endl;
                 solver.factorize(H_depth_lambda);
+                if (solver.info() != Eigen::Success)
+                {
+                    // some problem i have still to debug
+                    it = maxIterations;
+                    break;
+                }
                 // std::cout << solver.lastErrorMessage() << std::endl;
-                inc_depth = -solver.solve(hgmap.G_depth);
+                Eigen::VectorXf inc_depth = -solver.solve(hgmap.G_depth);
                 // inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
                 // inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
                 // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
@@ -278,9 +268,6 @@ void meshVO::optMap()
 */
                 std::cout << "solve time " << t.toc() << std::endl;
 
-                t.tic();
-
-                
                 for (int index = 0; index < VERTEX_HEIGH * VERTEX_WIDTH; index++)
                 {
                     if (inc_depth(index) != inc_depth(index))
@@ -289,26 +276,20 @@ void meshVO::optMap()
                         continue;
                     }
                     scene.scene_vertices[index * 3 + 2] = best_vertices[index * 3 + 2] + inc_depth(index);
-                    if (scene.scene_vertices[index * 3 + 2] < 0.01 || scene.scene_vertices[index * 3 + 2] > 100.0)
+                    if (scene.scene_vertices[index * 3 + 2] < 0.01 || scene.scene_vertices[index * 3 + 2] > 10.0)
                         scene.scene_vertices[index * 3 + 2] = best_vertices[index * 3 + 2];
                 }
 
-
-                std::cout << "set data time " << t.toc() << std::endl;
-
                 t.tic();
 
-                float error = cpu.computeError(lastframe, keyframe, cam, scene, lvl); // + errorMesh();
+                float error = cpu.computeError(lastframe, keyframe, scene, lvl);
+                error += errorMeshRegu(scene);
 
-                std::cout << "new error time " << t.toc() << std::endl;
-
-                std::cout << "lvl " << lvl << " new error " << error << std::endl;
+                std::cout << "new error " << error << " " << t.toc() << std::endl;
 
                 if (error < last_error)
                 {
                     // accept update, decrease lambda
-                    std::cout << "update accepted " << std::endl;
-
                     best_vertices = scene.scene_vertices;
 
                     float p = error / last_error;
@@ -322,8 +303,8 @@ void meshVO::optMap()
 
                     if (p > 0.999f)
                     {
-                        std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
-                        // if converged, do next level
+                        // std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
+                        //  if converged, do next level
                         it = maxIterations;
                     }
 
@@ -342,11 +323,9 @@ void meshVO::optMap()
                     scene.scene_vertices = best_vertices;
 
                     // reject update, increase lambda, use un-updated data
-                    std::cout << "update rejected " << std::endl;
 
                     if (inc_depth.dot(inc_depth) < 1e-8)
                     {
-                        std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations with lambda " << lambda << std::endl;
                         // if too small, do next level!
                         it = maxIterations;
                         break;
@@ -356,7 +335,6 @@ void meshVO::optMap()
         }
     }
 }
-
 
 void meshVO::optPoseMap()
 {
@@ -370,7 +348,7 @@ void meshVO::optPoseMap()
 
         best_vertices = scene.scene_vertices;
 
-        float last_error = cpu.computeError(lastframe, keyframe, cam, scene, lvl); // + errorMesh();
+        float last_error = cpu.computeError(lastframe, keyframe, scene, lvl); // + errorMesh();
         std::cout << "initial error time " << t.toc() << std::endl;
         std::cout << "lvl " << lvl << " initial error " << last_error << std::endl;
 
@@ -381,8 +359,8 @@ void meshVO::optPoseMap()
         {
             t.tic();
 
-            //HJPoseMapStackGPU(lvl);
-            //HJMesh();
+            // HJPoseMapStackGPU(lvl);
+            // HJMesh();
 
             std::cout << "HJ time " << t.toc() << std::endl;
 
@@ -391,7 +369,7 @@ void meshVO::optPoseMap()
             {
                 t.tic();
 
-                Eigen::MatrixXf H_joint_lambda = H_joint;
+                Eigen::MatrixXf H_joint_lambda;// = H_joint;
 
                 for (int j = 0; j < H_joint_lambda.rows(); j++)
                 {
@@ -401,13 +379,14 @@ void meshVO::optPoseMap()
                 // inc_joint = H_joint_lambda.ldlt().solve(J_joint);
                 // inc_joint = H_joint_lambda.colPivHouseholderQr().solve(J_joint);
 
-                for (int j = 0; j < int(J_joint.size()); j++)
+                //for (int j = 0; j < int(J_joint.size()); j++)
+                for(int j = 0; j < 10; j++)
                 {
                     float h = H_joint_lambda(j, j);
-                    if (h > 0.0 && abs(J_joint(j)) > 0.0)
+                    if (h > 0.0)// && abs(J_joint(j)) > 0.0)
                     // if(J_joint(j) > 0.0)
                     {
-                        inc_joint(j) = J_joint(j) / h;
+                        //inc_joint(j) = J_joint(j) / h;
                         // inc_joint(j) = (1.0/(1.0+lambda))*J_joint(j)/fabs(J_joint(j));
                         // std::cout << "update" << std::endl;
                     }
@@ -461,13 +440,13 @@ void meshVO::optPoseMap()
 
                 t.tic();
 
-                //float error = errorStackGPU(lvl);// + errorMesh();
+                // float error = errorStackGPU(lvl);// + errorMesh();
 
                 std::cout << "new error time " << t.toc() << std::endl;
-                //std::cout << "lvl " << lvl << " new error " << error << std::endl;
+                // std::cout << "lvl " << lvl << " new error " << error << std::endl;
 
-                //if (error < last_error)
-                if(true)
+                // if (error < last_error)
+                if (true)
                 {
                     // accept update, decrease lambda
                     std::cout << "update accepted " << std::endl;
@@ -478,14 +457,14 @@ void meshVO::optPoseMap()
                     best_vertices = scene_vertices;
                     */
 
-                    float p = 0.0;//error / last_error;
+                    float p = 0.0; // error / last_error;
 
                     if (lambda < 0.2f)
                         lambda = 0.0f;
                     else
                         lambda *= 0.5;
 
-                    last_error = 0.0;//error;
+                    last_error = 0.0; // error;
 
                     if (p > 0.999f)
                     {
@@ -512,9 +491,10 @@ void meshVO::optPoseMap()
                     scene_vertices = best_vertices;
                     */
                     // reject update, increase lambda, use un-updated data
-                    std::cout << "update rejected " << lambda << " " << inc_joint.dot(inc_joint) << std::endl;
+                    //std::cout << "update rejected " << lambda << " " << inc_joint.dot(inc_joint) << std::endl;
 
-                    if (inc_joint.dot(inc_joint) < 1e-16)
+                    //if (inc_joint.dot(inc_joint) < 1e-16)
+                    if(true)
                     {
                         std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations with lambda " << lambda << std::endl;
                         // if too small, do next level!
@@ -527,8 +507,7 @@ void meshVO::optPoseMap()
     }
 }
 
-
-float meshVO::errorMesh()
+float meshVO::errorMeshRegu(rayDepthMeshScene &scene)
 {
     float error = 0;
     for (int i = 0; i < int(scene.scene_indices.size()); i += 3)
@@ -581,7 +560,7 @@ float meshVO::errorMesh()
     */
 }
 
-void meshVO::addHGMesh()
+void meshVO::HGMeshRegu(HGMap &hgmap, rayDepthMeshScene &scene)
 {
     for (int i = 0; i < int(scene.scene_indices.size()); i += 3)
     {
@@ -602,13 +581,14 @@ void meshVO::addHGMesh()
 
         for (int j = 0; j < 3; j++)
         {
-            J_depth(vertexIndex[j]) += (MESH_REGU / (VERTEX_HEIGH * VERTEX_WIDTH)) * (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
-            J_joint(MAX_FRAMES * 6 + vertexIndex[j]) += (MESH_REGU / (VERTEX_HEIGH * VERTEX_WIDTH)) * (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
-
+            if(hgmap.G_count(vertexIndex[j]) == 0)
+                continue;
+            hgmap.G_depth(vertexIndex[j]) += (MESH_REGU / (VERTEX_HEIGH * VERTEX_WIDTH)) * (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
+            // J_joint(MAX_FRAMES * 6 + vertexIndex[j]) += (MESH_REGU / (VERTEX_HEIGH * VERTEX_WIDTH)) * (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
             for (int k = 0; k < 3; k++)
             {
-                H_depth.coeffRef(vertexIndex[j], vertexIndex[k]) += (MESH_REGU / (VERTEX_WIDTH * VERTEX_HEIGH)) * (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
-                H_joint(MAX_FRAMES * 6 + vertexIndex[j], MAX_FRAMES * 6 + vertexIndex[k]) += (MESH_REGU / (VERTEX_WIDTH * VERTEX_HEIGH)) * (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
+                hgmap.H_depth.coeffRef(vertexIndex[j], vertexIndex[k]) += (MESH_REGU / (VERTEX_WIDTH * VERTEX_HEIGH)) * (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
+                // H_joint(MAX_FRAMES * 6 + vertexIndex[j], MAX_FRAMES * 6 + vertexIndex[k]) += (MESH_REGU / (VERTEX_WIDTH * VERTEX_HEIGH)) * (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
             }
         }
     }
