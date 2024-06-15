@@ -8,9 +8,9 @@
 class frameCpu
 {
 public:
-  frameCpu() : image(0),
-               dx(0.0),
-               dy(0.0),
+  frameCpu() : image(-1.0),
+               dx(256.111111),
+               dy(256.111111),
                idepth(-1.0),
                error(-1.0),
                count(-1.0)
@@ -31,7 +31,7 @@ public:
     frame.init = init;
   }
 
-  data_cpu<uchar> image;
+  data_cpu<float> image;
   data_cpu<float> dx;
   data_cpu<float> dy;
   data_cpu<float> idepth;

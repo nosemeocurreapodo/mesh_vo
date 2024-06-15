@@ -58,8 +58,8 @@ int main(void)
         cv::Mat frame = cv::imread(image_filename, cv::IMREAD_GRAYSCALE);
         Sophus::SE3f realPose = readPose(RT_filename)*initPose.inverse();
 
-        visual_odometry.localization(frame);
-        //visual_odometry.mapping(frame, realPose);
+        //visual_odometry.localization(frame);
+        visual_odometry.mapping(frame, realPose);
         //visual_odometry.visual_odometry(frame);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);

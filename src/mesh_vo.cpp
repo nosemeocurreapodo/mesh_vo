@@ -15,14 +15,23 @@ meshVO::meshVO(float _fx, float _fy, float _cx, float _cy, int _width, int _heig
     : cam(_fx, _fy, _cx, _cy, _width, _height)
 {
     scene.initWithRandomIdepth(cam);
+
+    //H_depth = Eigen::SparseMatrix<float>(VERTEX_HEIGH*VERTEX_WIDTH, VERTEX_HEIGH*VERTEX_WIDTH);
+    //J_depth = Eigen::VectorXf::Zero(VERTEX_HEIGH*VERTEX_WIDTH);
+    //inc_depth = Eigen::VectorXf::Zero(VERTEX_HEIGH*VERTEX_WIDTH);
+    //count_depth = Eigen::VectorXi::Zero(VERTEX_HEIGH*VERTEX_WIDTH);
 }
 
 void meshVO::setKeyframe(cv::Mat frame, cv::Mat idepth, Sophus::SE3f pose)
 {
+    cv::Mat frame_newtype;
+    cv::Mat idepth_newtype;
+    frame.convertTo(frame_newtype, lastframe.image.get(0).type());
+    idepth.convertTo(idepth_newtype, lastframe.idepth.get(0).type());
     for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(frame,  keyframe.image.get(lvl),  cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
-        cv::resize(idepth, keyframe.idepth.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cv::resize(frame_newtype,  keyframe.image.get(lvl),  cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_AREA);
+        cv::resize(idepth_newtype, keyframe.idepth.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_AREA);
         cpu.computeFrameDerivative(keyframe, cam, lvl);
     }
     keyframe.pose = pose;
@@ -33,9 +42,11 @@ void meshVO::setKeyframe(cv::Mat frame, cv::Mat idepth, Sophus::SE3f pose)
 
 void meshVO::visualOdometry(cv::Mat frame)
 {
+    cv::Mat frame_newtype;
+    frame.convertTo(frame_newtype, lastframe.image.get(0).type());
     for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(frame, lastframe.image.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cv::resize(frame_newtype, lastframe.image.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
         cpu.computeFrameDerivative(lastframe, cam, lvl);
     }
 
@@ -61,15 +72,18 @@ void meshVO::visualOdometry(cv::Mat frame)
 
 void meshVO::localization(cv::Mat frame)
 {
+    cv::Mat frame_newtype;
+    frame.convertTo(frame_newtype, lastframe.image.get(0).type());
     for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(frame, lastframe.image.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cv::resize(frame_newtype, lastframe.image.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
         cpu.computeFrameDerivative(lastframe, cam, lvl);
     }
 
-    cpu.computeFrameIdepth(lastframe, cam, scene, 1);
-    cpu.computeError(lastframe, keyframe, cam, scene, 1);
-    
+    //cpu.computeFrameIdepth(lastframe, cam, scene, 1);
+    //cpu.computeError(lastframe, keyframe, cam, scene, 1);
+    //cpu.computeHGPose(lastframe, keyframe, cam, scene, 1);
+
     // frameData.pose = _globalPose*keyframeData.pose.inverse();
     optPose(lastframe); //*Sophus::SE3f::exp(inc_pose).inverse());
 
@@ -85,9 +99,11 @@ void meshVO::mapping(cv::Mat frame, Sophus::SE3f pose)
 
     t.tic();
 
+    cv::Mat frame_newtype;
+    frame.convertTo(frame_newtype, lastframe.image.get(0).type());
     for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
-        cv::resize(frame, lastframe.image.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
+        cv::resize(frame_newtype, lastframe.image.get(lvl), cv::Size(cam.width[lvl], cam.height[lvl]), cv::INTER_LANCZOS4);
         cpu.computeFrameDerivative(lastframe, cam, lvl);
     }
 
@@ -135,6 +151,7 @@ void meshVO::optPose(frameCpu &frame)
                 Eigen::Matrix<float, 6, 1> inc_pose = acc_H_pose_lambda.ldlt().solve(hgpose.G_pose);
 
                 Sophus::SE3f old_pose = frame.pose;
+                //Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
                 Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose).inverse();
                 //Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
 
@@ -214,7 +231,7 @@ void meshVO::optMap()
         {
             t.tic();
 
-            //cpu.computeHGMap();
+            HGMap hgmap = cpu.computeHGMap(lastframe, keyframe, cam, scene, lvl);
             //HJMapStackGPU(lvl);
             // HJMesh();
 
@@ -223,7 +240,7 @@ void meshVO::optMap()
             int n_try = 0;
             while (true)
             {
-                Eigen::SparseMatrix<float> H_depth_lambda = H_depth;
+                Eigen::SparseMatrix<float> H_depth_lambda = hgmap.H_depth;
 
                 for (int j = 0; j < H_depth_lambda.rows(); j++)
                 {
@@ -241,7 +258,7 @@ void meshVO::optMap()
                 // std::cout << solver.info() << std::endl;
                 solver.factorize(H_depth_lambda);
                 // std::cout << solver.lastErrorMessage() << std::endl;
-                inc_depth = -solver.solve(J_depth);
+                inc_depth = -solver.solve(hgmap.G_depth);
                 // inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
                 // inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
                 // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
@@ -263,7 +280,7 @@ void meshVO::optMap()
 
                 t.tic();
 
-                /*
+                
                 for (int index = 0; index < VERTEX_HEIGH * VERTEX_WIDTH; index++)
                 {
                     if (inc_depth(index) != inc_depth(index))
@@ -272,10 +289,10 @@ void meshVO::optMap()
                         continue;
                     }
                     scene.scene_vertices[index * 3 + 2] = best_vertices[index * 3 + 2] + inc_depth(index);
-                    if (scene.scene_vertices[index * 3 + 2] < min_idepth || scene.scene_vertices[index * 3 + 2] > max_idepth)
+                    if (scene.scene_vertices[index * 3 + 2] < 0.01 || scene.scene_vertices[index * 3 + 2] > 100.0)
                         scene.scene_vertices[index * 3 + 2] = best_vertices[index * 3 + 2];
                 }
-                */
+
 
                 std::cout << "set data time " << t.toc() << std::endl;
 

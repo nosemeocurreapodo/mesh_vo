@@ -19,6 +19,7 @@ public:
     void computeFrameIdepth(frameCpu &frame, camera &cam, sceneMesh &scene, int lvl);
     float computeError(frameCpu &frame, frameCpu &keyframe, camera &cam, sceneMesh &scene, int lvl);
     HGPose computeHGPose(frameCpu &frame, frameCpu &keyframe, camera &cam, sceneMesh &scene, int lvl);
+    HGMap computeHGMap(frameCpu &frame, frameCpu &keyframe, camera &cam, sceneMesh &scene, int lvl);
 
 private:
     HGPose errorPerIndex(frameCpu &frame, frameCpu &keyframe, camera &cam, sceneMesh &scene, int lvl, int ymin, int ymax);
