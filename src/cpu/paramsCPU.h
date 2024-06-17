@@ -1,3 +1,3 @@
 #pragma once
 
-#define NUM_THREADS 4
+#define NUM_THREADS 12

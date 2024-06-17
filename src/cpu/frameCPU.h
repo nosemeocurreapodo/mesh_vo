@@ -2,7 +2,7 @@
 
 #include "sophus/se3.hpp"
 
-#include "data_cpu.h"
+#include "dataCPU.h"
 #include "params.h"
 
 class frameCPU
@@ -25,25 +25,28 @@ public:
     frame.init = init;
   }
 
-  void set(cv::Mat frame, Sophus::SE3f p = Sophus::SE3f())
+  void set(cv::Mat frame)
   {
     image.set(frame);
     image.generateMipmaps();
-
-    //computeFrameDerivative(0)
-    //dx.generateMipmaps();
-    //dy.generateMipmaps();
+    /*
+    computeFrameDerivative(0);
+    dx.generateMipmaps();
+    dy.generateMipmaps();
+    */
 
     for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
     {
       computeFrameDerivative(lvl);
     }
 
-    setRandomIdepth(0);
-    idepth.generateMipmaps();
-
-    pose = p;
     init = true;
+  }
+
+  void set(cv::Mat frame, Sophus::SE3f p)
+  {
+    set(frame);
+    pose = p;
   }
 
   void computeFrameDerivative(int lvl)
@@ -62,9 +65,9 @@ public:
       }
   }
 
-  data_cpu<float> image;
-  data_cpu<float> dx;
-  data_cpu<float> dy;
+  dataCPU<float> image;
+  dataCPU<float> dx;
+  dataCPU<float> dy;
 
   Sophus::SE3f pose;
 

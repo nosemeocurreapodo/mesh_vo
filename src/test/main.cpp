@@ -38,7 +38,7 @@ int main(void)
 
     meshVO visual_odometry(fx,fy,cx,cy,width,height);
 
-    visual_odometry.initScene(initFrame, initIdepth, initPose);
+    visual_odometry.initScene(initFrame, initIdepth);
     //visual_odometry.initScene(initFrame, initPose);
 
     while(1){
@@ -68,7 +68,6 @@ int main(void)
 
         std::cout << "real pose " << std::endl;
         std::cout << realPose.matrix() << std::endl;
-
 
         //std::cout << "est pose " << std::endl;
         //std::cout << visual_odometry.trackedPose.matrix() << std::endl;

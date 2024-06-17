@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
 project(mesh_vo)
 
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
 
-set(CMAKE_CXX_FLAGS " -Wall -Wextra -g")
+set(CMAKE_CXX_FLAGS " -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-pg")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
@@ -11,6 +11,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
 #SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
 #SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -pg")
+
+find_package(Boost COMPONENTS system thread) 
 
 find_package(OpenCV REQUIRED)
 
@@ -54,7 +56,7 @@ endforeach(SHADER)
 # build example app
 add_executable(testapp src/test/main.cpp ${TESTAPP_SRCS} ${VISUALODOMETRY_SRCS} ${SHADERS})
 #target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})
-target_link_libraries(testapp ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
+target_link_libraries(testapp boost_system boost_thread ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
 
 #add_executable(tum_dataset src/tum_dataset/main_on_images.cpp ${TUMDATASET_SRCS} ${DepthEstimator_SRCS} ${SHADERS})
 #target_link_libraries(tum_dataset ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})

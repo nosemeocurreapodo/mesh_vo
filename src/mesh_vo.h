@@ -10,6 +10,7 @@
 #include "utils/tictoc.h"
 
 #include "scene/rayDepthMeshSceneCPU.h"
+#include "scene/keyframeIdepthSceneCPU.h"
 #include "common/camera.h"
 #include "cpu/frameCPU.h"
 
@@ -21,8 +22,8 @@ class meshVO
 public:
     meshVO(float _fx, float _fy, float _cx, float _cy, int _width, int _height);
 
-    void initScene(cv::Mat frame, Sophus::SE3f pose);
-    void initScene(cv::Mat frame, cv::Mat idepth, Sophus::SE3f pose);
+    void initScene(cv::Mat frame, Sophus::SE3f pose = Sophus::SE3f());
+    void initScene(cv::Mat frame, cv::Mat idepth, Sophus::SE3f pose = Sophus::SE3f());
 
     void visualOdometry(cv::Mat frame);
     void localization(cv::Mat frame);
@@ -44,10 +45,8 @@ public:
     }
 
 private:
-    frameCPU keyframe;
-    frameCPU lastframe;
-    rayDepthMeshSceneCPU scene;
-
-    // void optMapVertex();
-    void optPoseMap();
+    frameCPU lastFrame;
+    std::vector<frameCPU> frames;
+    //rayDepthMeshSceneCPU scene;
+    keyframeIdepthSceneCPU scene;
 };

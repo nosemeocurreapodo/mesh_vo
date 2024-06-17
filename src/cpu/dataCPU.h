@@ -5,10 +5,10 @@
 #include "params.h"
 
 template <typename Type>
-class data_cpu
+class dataCPU
 {
 public:
-    data_cpu(Type nodata_value)
+    dataCPU(Type nodata_value)
     {
         nodata = nodata_value;
 
@@ -52,11 +52,17 @@ public:
         texture[lvl].setTo(value);
     }
 
-    void set(cv::Mat frame, int lvl = 0)
+    void set(cv::Mat frame, int lvl)
     {
         cv::Mat frame_newtype;
         frame.convertTo(frame_newtype, texture[lvl].type());
         cv::resize(frame_newtype, texture[lvl], texture[lvl].size(), cv::INTER_AREA);
+    }
+
+    void set(cv::Mat frame)
+    {
+        set(frame, 0);
+        generateMipmaps();
     }
 
     Type get(int y, int x, int lvl)
@@ -74,6 +80,17 @@ public:
         return texture[lvl];
     }
 
+    void reset(int lvl)
+    {
+        texture[lvl].setTo(nodata);
+    }
+
+    void reset()
+    {
+        for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
+            reset(lvl);
+    }
+
     void generateMipmaps(int baselvl = 0)
     {
         for (int lvl = baselvl + 1; lvl < MAX_LEVELS; lvl++)
@@ -82,7 +99,7 @@ public:
         }
     }
 
-    void copyTo(data_cpu &data)
+    void copyTo(dataCPU &data)
     {
         data.nodata = nodata;
         for (int lvl = 0; lvl < MAX_LEVELS; lvl++)

@@ -1,7 +1,9 @@
 #include "scene/rayDepthMeshSceneCPU.h"
+#include "utils/tictoc.h"
 
 rayDepthMeshSceneCPU::rayDepthMeshSceneCPU(float fx, float fy, float cx, float cy, int width, int height)
-    : cam(fx, fy, cx, cy, width, height)
+    : cam(fx, fy, cx, cy, width, height),
+      z_buffer(-1.0)
 {
     // preallocate scene vertices to zero
     for (int y = 0; y < VERTEX_HEIGH; y++)
@@ -48,13 +50,13 @@ rayDepthMeshSceneCPU::rayDepthMeshSceneCPU(float fx, float fy, float cx, float c
     }
 }
 
-void rayDepthMeshSceneCPU::init(frameCPU &frame, dataCPU<float> idepth)
+void rayDepthMeshSceneCPU::init(frameCPU &frame, dataCPU<float> &idepth)
 {
     frame.copyTo(keyframe);
     setFromIdepth(idepth);
 }
 
-void rayDepthMeshSceneCPU::setFromIdepth(data_cpu<float> id)
+void rayDepthMeshSceneCPU::setFromIdepth(dataCPU<float> id)
 {
     scene_vertices.clear();
 
@@ -197,13 +199,13 @@ dataCPU<float> rayDepthMeshSceneCPU::computeFrameIdepth(frameCPU &frame, int lvl
                 // Eigen::Vector3f f_ray = lambda(0) * f_tri_ray[0] + lambda(1) * f_tri_ray[1] + (1 - lambda(0) - lambda(1)) * f_tri_ray[2];
                 Eigen::Vector3f f_ver = lambda(0) * f_tri_ver[0] + lambda(1) * f_tri_ver[1] + (1 - lambda(0) - lambda(1)) * f_tri_ver[2];
 
-                float idepth = 1.0 / f_ver(2);
+                float id = 1.0 / f_ver(2);
 
                 float l_idepth = idepth.get(f_pix(1), f_pix(0), lvl);
-                if (l_idepth > idepth && l_idepth != idepth.nodata)
+                if (l_idepth > id && l_idepth != idepth.nodata)
                     continue;
 
-                idepth.set(idepth, f_pix(1), f_pix(0), lvl);
+                idepth.set(id, f_pix(1), f_pix(0), lvl);
             }
         }
     }
@@ -215,8 +217,7 @@ float rayDepthMeshSceneCPU::computeError(frameCPU &frame, int lvl)
     float error = 0.0;
     int count = 0;
 
-    frame.error.set(frame.error.nodata, lvl);
-    frame.idepth.set(frame.idepth.nodata, lvl);
+    z_buffer.reset(lvl);
 
     // for each triangle
     for (std::size_t index = 0; index < scene_indices.size(); index += 3)
@@ -338,15 +339,12 @@ float rayDepthMeshSceneCPU::computeError(frameCPU &frame, int lvl)
                 float residual_2 = residual * residual;
 
                 // z buffer
-                float l_idepth = frame.idepth.get(f_pix(1), f_pix(0), lvl);
-                if (l_idepth > f_idepth && l_idepth != frame.idepth.nodata)
+                float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
+                if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
                     continue;
 
                 error += residual_2;
                 count++;
-
-                frame.error.set(residual_2, f_pix(1), f_pix(0), lvl);
-                frame.idepth.set(f_idepth, f_pix(1), f_pix(0), lvl);
             }
         }
     }
@@ -357,12 +355,9 @@ float rayDepthMeshSceneCPU::computeError(frameCPU &frame, int lvl)
     return error;
 }
 
-HGPose rayDepthMeshSceneCPU::computeHGPose(frameCPU &frame, int lvl)
+void rayDepthMeshSceneCPU::computeHGPose(frameCPU &frame, HGPose &hg, int lvl)
 {
-    HGPose hg_pose;
-
-    frame.idepth.set(frame.idepth.nodata, lvl);
-    frame.error.set(frame.error.nodata, lvl);
+    z_buffer.reset(lvl);
 
     // for each triangle
     for (std::size_t index = 0; index < scene_indices.size(); index += 3)
@@ -476,8 +471,8 @@ HGPose rayDepthMeshSceneCPU::computeHGPose(frameCPU &frame, int lvl)
                 float f_idepth = 1.0 / f_ver(2);
 
                 // z-buffer
-                float l_idepth = frame.idepth.get(f_pix(1), f_pix(0), lvl);
-                if (l_idepth > f_idepth && l_idepth != frame.idepth.nodata)
+                float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
+                if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
                     continue;
 
                 float kf_i = float(keyframe.image.get(kf_pix(1), kf_pix(0), lvl));
@@ -500,42 +495,31 @@ HGPose rayDepthMeshSceneCPU::computeHGPose(frameCPU &frame, int lvl)
                 float residual = (f_i - kf_i);
                 float residual_2 = residual * residual;
 
-                hg_pose.error += residual_2;
-
-                frame.error.set(residual_2, f_pix(1), f_pix(0), lvl);
-                frame.idepth.set(f_idepth, f_pix(1), f_pix(0), lvl);
-
                 Eigen::Matrix<float, 6, 1> J;
                 J << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
 
-                hg_pose.count++;
                 for (int i = 0; i < 6; i++)
                 {
-                    hg_pose.G_pose(i) += J[i] * residual;
+                    hg.G(i) += J[i] * residual;
                     for (int j = i; j < 6; j++)
                     {
                         float jj = J[i] * J[j];
-                        hg_pose.H_pose(i, j) += jj;
-                        hg_pose.H_pose(j, i) += jj;
+                        hg.H(i, j) += jj;
+                        hg.H(j, i) += jj;
                     }
                 }
             }
         }
     }
-
-    return hg_pose;
 }
 
-HGMap rayDepthMeshSceneCPU::computeHGMap(frameCPU &frame, int lvl)
+void rayDepthMeshSceneCPU::computeHGMap(frameCPU &frame, HGMap &hg, int lvl)
 {
-    HGMap hg_map;
+    z_buffer.reset(lvl);
 
     // for each triangle
     for (std::size_t index = 0; index < scene_indices.size(); index += 3)
     {
-        // get its vertices
-        // Eigen::Vector3f world_vertex[3];
-
         int vertex_id[3];
 
         Eigen::Vector3f kf_tri_ver[3];
@@ -672,6 +656,13 @@ HGMap rayDepthMeshSceneCPU::computeHGMap(frameCPU &frame, int lvl)
 
                 // Eigen::Vector3f f_ray = lambda(0) * f_tri_ray[0] + lambda(1) * f_tri_ray[1] + (1 - lambda(0) - lambda(1)) * f_tri_ray[2];
                 Eigen::Vector3f f_ver = lambda(0) * f_tri_ver[0] + lambda(1) * f_tri_ver[1] + (1 - lambda(0) - lambda(1)) * f_tri_ver[2];
+
+                float f_idepth = 1.0 / f_ver(2);
+
+                // z-buffer
+                float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
+                if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
+                    continue;
 
                 float kf_i = float(keyframe.image.get(kf_pix(1), kf_pix(0), lvl));
                 float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
@@ -695,9 +686,6 @@ HGMap rayDepthMeshSceneCPU::computeHGMap(frameCPU &frame, int lvl)
 
                 float error = f_i - kf_i;
 
-                hg_map.error += error;
-                hg_map.count += 1;
-
                 float J[3];
                 for (int i = 0; i < 3; i++)
                 {
@@ -714,25 +702,23 @@ HGMap rayDepthMeshSceneCPU::computeHGMap(frameCPU &frame, int lvl)
                     // can make the hessian non-singular
                     if (J[i] == 0)
                         continue;
-                    hg_map.G_depth(vertex_id[i]) += J[i] * error; // / (cam.width[lvl]*cam.height[lvl]);
-                    hg_map.G_count(vertex_id[i]) += 1;
+                    hg.G(vertex_id[i]) += J[i] * error; // / (cam.width[lvl]*cam.height[lvl]);
+                    hg.G(vertex_id[i]) += 1;
                     for (int j = i; j < 3; j++)
                     {
                         float jj = J[i] * J[j]; // / (cam.width[lvl]*cam.height[lvl]);
-                        hg_map.H_depth.coeffRef(vertex_id[i], vertex_id[j]) += jj;
-                        hg_map.H_depth.coeffRef(vertex_id[j], vertex_id[i]) += jj;
+                        hg.H.coeffRef(vertex_id[i], vertex_id[j]) += jj;
+                        hg.H.coeffRef(vertex_id[j], vertex_id[i]) += jj;
                     }
                 }
             }
         }
     }
-
-    return hg_map;
 }
 
-HGPoseMap rayDepthMeshSceneCPU::computeHGPoseMap(frameCPU &frame, int lvl)
+void rayDepthMeshSceneCPU::computeHGPoseMap(frameCPU &frame, HGPoseMap &hg, int frame_index, int lvl)
 {
-    HGPoseMap hg_posemap;
+    z_buffer.reset(lvl);
 
     // for each triangle
     for (std::size_t index = 0; index < scene_indices.size(); index += 3)
@@ -876,6 +862,13 @@ HGPoseMap rayDepthMeshSceneCPU::computeHGPoseMap(frameCPU &frame, int lvl)
 
                 // Eigen::Vector3f f_ray = lambda(0) * f_tri_ray[0] + lambda(1) * f_tri_ray[1] + (1 - lambda(0) - lambda(1)) * f_tri_ray[2];
                 Eigen::Vector3f f_ver = lambda(0) * f_tri_ver[0] + lambda(1) * f_tri_ver[1] + (1 - lambda(0) - lambda(1)) * f_tri_ver[2];
+
+                float f_idepth = 1.0/f_ver(2);
+
+                // z-buffer
+                float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
+                if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
+                    continue;
 
                 float kf_i = float(keyframe.image.get(kf_pix(1), kf_pix(0), lvl));
                 float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
@@ -896,22 +889,34 @@ HGPoseMap rayDepthMeshSceneCPU::computeHGPoseMap(frameCPU &frame, int lvl)
                 Eigen::Vector3f d_f_i_d_tra = d_f_i_d_f_ver;
                 Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
+                Eigen::Matrix<float, 6, 1> J_pose;
+                J_pose << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
+
                 Eigen::Vector3f d_f_ver_d_kf_depth = frame.pose.rotationMatrix() * kf_ray;
 
                 float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
                 float error = f_i - kf_i;
 
-                hg_map.error += error;
-                hg_map.count += 1;
-
-                float J[3];
+                float J_depth[3];
                 for (int i = 0; i < 3; i++)
                 {
                     float n_p_dot_ray = n_p[i].dot(kf_ray);
                     float d_kf_depth_d_z = d_n_d_z[i].dot(pr_p[i]) / n_p_dot_ray - n_p_dot_point[i] * d_n_d_z[i].dot(kf_ray) / (n_p_dot_ray * n_p_dot_ray);
                     float d_f_i_d_z = d_f_i_d_kf_depth * d_kf_depth_d_z * d_z_d_iz[i];
-                    J[i] = d_f_i_d_z;
+                    J_depth[i] = d_f_i_d_z;
+                }
+
+                for (int i = 0; i < 6; i++)
+                {
+                    hg.G(i + frame_index*6) += J_pose[i] * error;
+                    hg.count(i + frame_index*6) += 1;
+                    for (int j = i; j < 6; j++)
+                    {
+                        float jj = J_pose[i] * J_pose[j];
+                        hg.H.coeffRef(i + frame_index*6, j + frame_index*6) += jj;
+                        hg.H.coeffRef(j + frame_index*6, i + frame_index*6) += jj;
+                    }
                 }
 
                 for (int i = 0; i < 3; i++)
@@ -919,22 +924,20 @@ HGPoseMap rayDepthMeshSceneCPU::computeHGPoseMap(frameCPU &frame, int lvl)
                     // if the jacobian is 0
                     // we really cannot say anything about the depth
                     // can make the hessian non-singular
-                    if (J[i] == 0)
+                    if (J_depth[i] == 0)
                         continue;
-                    hg_posemap.G(vertex_id[i]) += J[i] * error; // / (cam.width[lvl]*cam.height[lvl]);
-                    hg_posemap.count(vertex_id[i]) += 1;
+                    hg.G(vertex_id[i] + hg.num_frames) += J_depth[i] * error; // / (cam.width[lvl]*cam.height[lvl]);
+                    hg.count(vertex_id[i] + hg.num_frames) += 1;
                     for (int j = i; j < 3; j++)
                     {
-                        float jj = J[i] * J[j]; // / (cam.width[lvl]*cam.height[lvl]);
-                        hg_map.H.coeffRef(vertex_id[i], vertex_id[j]) += jj;
-                        hg_map.H.coeffRef(vertex_id[j], vertex_id[i]) += jj;
+                        float jj = J_depth[i] * J_depth[j]; // / (cam.width[lvl]*cam.height[lvl]);
+                        hg.H.coeffRef(vertex_id[i] + hg.num_frames, vertex_id[j] + hg.num_frames) += jj;
+                        hg.H.coeffRef(vertex_id[j] + hg.num_frames, vertex_id[i] + hg.num_frames) += jj;
                     }
                 }
             }
         }
     }
-
-    return hg_posemap;
 }
 
 float rayDepthMeshSceneCPU::errorRegu()
@@ -990,7 +993,7 @@ float rayDepthMeshSceneCPU::errorRegu()
     */
 }
 
-void rayDepthMeshSceneCPU::HGRegu(HGMap &hgmap)
+void rayDepthMeshSceneCPU::HGRegu(HGMap &hg)
 {
     for (int i = 0; i < int(scene_indices.size()); i += 3)
     {
@@ -1011,13 +1014,13 @@ void rayDepthMeshSceneCPU::HGRegu(HGMap &hgmap)
 
         for (int j = 0; j < 3; j++)
         {
-            if (hgmap.G_count(vertexIndex[j]) == 0)
+            if (hg.G(vertexIndex[j]) == 0)
                 continue;
-            hgmap.G_depth(vertexIndex[j]) += (MESH_REGU / (VERTEX_HEIGH * VERTEX_WIDTH)) * (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
+            hg.G(vertexIndex[j]) += (MESH_REGU / (VERTEX_HEIGH * VERTEX_WIDTH)) * (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
             // J_joint(MAX_FRAMES * 6 + vertexIndex[j]) += (MESH_REGU / (VERTEX_HEIGH * VERTEX_WIDTH)) * (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
             for (int k = 0; k < 3; k++)
             {
-                hgmap.H_depth.coeffRef(vertexIndex[j], vertexIndex[k]) += (MESH_REGU / (VERTEX_WIDTH * VERTEX_HEIGH)) * (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
+                hg.H.coeffRef(vertexIndex[j], vertexIndex[k]) += (MESH_REGU / (VERTEX_WIDTH * VERTEX_HEIGH)) * (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
                 // H_joint(MAX_FRAMES * 6 + vertexIndex[j], MAX_FRAMES * 6 + vertexIndex[k]) += (MESH_REGU / (VERTEX_WIDTH * VERTEX_HEIGH)) * (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
             }
         }
@@ -1064,8 +1067,7 @@ void rayDepthMeshSceneCPU::HGRegu(HGMap &hgmap)
     */
 }
 
-
-void meshVO::optPose(frameCPU &frame)
+void rayDepthMeshSceneCPU::optPose(frameCPU &frame)
 {
     int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
 
@@ -1075,6 +1077,7 @@ void meshVO::optPose(frameCPU &frame)
     {
         std::cout << "*************************lvl " << lvl << std::endl;
         t.tic();
+        Sophus::SE3f best_pose = frame.pose;
         float last_error = computeError(frame, lvl);
 
         std::cout << "init error " << last_error << " time " << t.toc() << std::endl;
@@ -1082,7 +1085,8 @@ void meshVO::optPose(frameCPU &frame)
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             t.tic();
-            HGPose hgpose = computeHGPose(frame, lvl);
+            HGPose hg;
+            computeHGPose(frame, hg, lvl);
             std::cout << "HGPose time " << t.toc() << std::endl;
 
             float lambda = 0.0;
@@ -1090,19 +1094,16 @@ void meshVO::optPose(frameCPU &frame)
             while (true)
             {
                 Eigen::Matrix<float, 6, 6> H_lambda;
-                H_lambda = hgpose.H;
+                H_lambda = hg.H;
 
                 for (int j = 0; j < 6; j++)
-                    acc_H_pose_lambda(j, j) *= 1.0 + lambda;
+                    H_lambda(j, j) *= 1.0 + lambda;
 
-                Eigen::Matrix<float, 6, 1> inc = H_lambda.ldlt().solve(hgpose.G);
+                Eigen::Matrix<float, 6, 1> inc = H_lambda.ldlt().solve(hg.G);
 
-                Sophus::SE3f old_pose = frame.pose;
                 // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
-                Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc).inverse();
+                frame.pose = best_pose * Sophus::SE3f::exp(inc).inverse();
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
-
-                frame.pose = new_pose;
 
                 t.tic();
                 float error = computeError(frame, lvl);
@@ -1112,6 +1113,7 @@ void meshVO::optPose(frameCPU &frame)
                 {
                     // accept update, decrease lambda
 
+                    best_pose = frame.pose;
                     float p = error / last_error;
 
                     if (lambda < 0.2f)
@@ -1131,7 +1133,7 @@ void meshVO::optPose(frameCPU &frame)
                 }
                 else
                 {
-                    frame.pose = old_pose;
+                    frame.pose = best_pose;
 
                     n_try++;
 
@@ -1157,8 +1159,7 @@ void meshVO::optPose(frameCPU &frame)
     }
 }
 
-
-void rayDepthMeshSceneCPU::optMap(frameCPU &frame)
+void rayDepthMeshSceneCPU::optMap(std::vector<frameCPU> &frames)
 {
     tic_toc t;
     for (int lvl = 1; lvl >= 1; lvl--)
@@ -1166,8 +1167,10 @@ void rayDepthMeshSceneCPU::optMap(frameCPU &frame)
         t.tic();
         std::vector<float> best_vertices = scene_vertices;
 
-        float last_error = computeError(frame, lvl);
-        //last_error += scene.errorRegu();
+        float last_error = 0.0;
+        for (std::size_t i = 0; i < frames.size(); i++)
+            last_error += computeError(frames[i], lvl);
+        // last_error += scene.errorRegu();
 
         std::cout << "--------lvl " << lvl << " initial error " << last_error << " " << t.toc() << std::endl;
 
@@ -1177,18 +1180,17 @@ void rayDepthMeshSceneCPU::optMap(frameCPU &frame)
         {
             t.tic();
 
-            HGMap hgmap = computeHGMap(frame, lvl);
-            //scene.HGRegu(hgmap);
-            // HJMapStackGPU(lvl);
-            //  HJMesh();
+            HGMap hg;
+            for (std::size_t i = 0; i < frames.size(); i++)
+                computeHGMap(frames[i], hg, lvl);
 
-            //check that the hessian is nonsingular
-            //if it is "fix" it
-            for (int i = 0; i < hgmap.G.size(); i++)
+            // check that the hessian is nonsingular
+            // if it is "fix" it
+            for (int i = 0; i < hg.G.size(); i++)
             {
-                int gcount = hgmap.count(i);
+                int gcount = hg.count(i);
                 if (gcount == 0)
-                    hgmap.H.coeffRef(i, i) = 1.0;
+                    hg.H.coeffRef(i, i) = 1.0;
                 // else
                 //     hgmap.G_depth(i) /= float(gcount);
             }
@@ -1198,7 +1200,7 @@ void rayDepthMeshSceneCPU::optMap(frameCPU &frame)
             int n_try = 0;
             while (true)
             {
-                Eigen::SparseMatrix<float> H_lambda = hgmap.H;
+                Eigen::SparseMatrix<float> H_lambda = hg.H;
 
                 for (int j = 0; j < H_lambda.rows(); j++)
                 {
@@ -1222,53 +1224,32 @@ void rayDepthMeshSceneCPU::optMap(frameCPU &frame)
                     break;
                 }
                 // std::cout << solver.lastErrorMessage() << std::endl;
-                Eigen::VectorXf inc = -solver.solve(hgmap.G);
+                Eigen::VectorXf inc = -solver.solve(hg.G);
                 // inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
                 // inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
                 // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
 
-                /*
-                for(int j = 0; j < int(J_depth.size()); j++)
-                {
-                    float h = acc_H_depth_lambda.coeffRef(j,j);
-                    if(h > 0.0)
-                    //if(abs(J_depth(j)) > 0.0)
-                    {
-                        inc_depth(j) = -J_depth(j)/h;
-                        //inc_depth(j) = -(1.0/(1.0+lambda))*J_depth(j)/fabs(J_depth(j));
-                        //std::cout << "update" << std::endl;
-                    }
-                }
-*/
                 std::cout << "solve time " << t.toc() << std::endl;
-
-                std::vector<float> new_vertices = best_vertices;
 
                 for (int index = 0; index < VERTEX_HEIGH * VERTEX_WIDTH; index++)
                 {
-                    if (inc(index) != inc(index))
-                    {
-                        std::cout << "some nand in inc_depth " << std::endl;
-                        continue;
-                    }
-                    new_vertices[index * 3 + 2] = best_vertices[index * 3 + 2] + inc(index);
-                    if (new_vertices[index * 3 + 2] < 0.01 || new_vertices[index * 3 + 2] > 10.0)
-                        new_vertices[index * 3 + 2] = best_vertices[index * 3 + 2];
+                    scene_vertices[index * 3 + 2] = best_vertices[index * 3 + 2] + inc(index);
+                    if (scene_vertices[index * 3 + 2] < 0.01 || scene_vertices[index * 3 + 2] > 10.0)
+                        scene_vertices[index * 3 + 2] = best_vertices[index * 3 + 2];
                 }
-
-                scene_vertices = new_vertices;
 
                 t.tic();
 
-                float error = computeError(frame, lvl);
-                //error += scene.errorRegu();
+                float error = 0.0;
+                for (std::size_t i = 0; i < frames.size(); i++)
+                    error += computeError(frames[i], lvl);
 
                 std::cout << "new error " << error << " " << t.toc() << std::endl;
 
                 if (error < last_error)
                 {
                     // accept update, decrease lambda
-                    best_vertices = new_vertices;
+                    best_vertices = scene_vertices;
 
                     float p = error / last_error;
 
@@ -1291,14 +1272,14 @@ void rayDepthMeshSceneCPU::optMap(frameCPU &frame)
                 }
                 else
                 {
+                    scene_vertices = best_vertices;
+
                     n_try++;
 
                     if (lambda < 0.2f)
                         lambda = 0.2f;
                     else
                         lambda *= 2.0; // std::pow(2.0, n_try);
-
-                    scene_vertices = best_vertices;
 
                     // reject update, increase lambda, use un-updated data
 
@@ -1314,141 +1295,123 @@ void rayDepthMeshSceneCPU::optMap(frameCPU &frame)
     }
 }
 
-void rayDepthMeshSceneCPU::optPoseMap(frameCPU &frame)
+void rayDepthMeshSceneCPU::optPoseMap(std::vector<frameCPU> &frames)
 {
     tic_toc t;
-
-    for (int lvl = 0; lvl >= 0; lvl--)
+    for (int lvl = 1; lvl >= 1; lvl--)
     {
         t.tic();
+        std::vector<Sophus::SE3f> best_poses;
+        for(size_t i = 0; i < frames.size(); i++)
+            best_poses.push_back(frames[i].pose);
+        std::vector<float> best_vertices = scene_vertices;
 
-        std::vector<float> best_vertices;
+        float last_error = 0.0;
+        for (std::size_t i = 0; i < frames.size(); i++)
+            last_error += computeError(frames[i], lvl);
+        // last_error += scene.errorRegu();
 
-        //best_vertices = scene.scene_vertices;
+        std::cout << "--------lvl " << lvl << " initial error " << last_error << " " << t.toc() << std::endl;
 
-        float last_error = computeErrorCPU(frame, lvl); // + errorMesh();
-        std::cout << "initial error time " << t.toc() << std::endl;
-        std::cout << "lvl " << lvl << " initial error " << last_error << std::endl;
-
-        int maxIterations = 100;
+        int maxIterations = 5;
         float lambda = 0.0;
-
         for (int it = 0; it < maxIterations; it++)
         {
             t.tic();
 
-            HGPoseMap hgposemap = HJPoseMap(frame);
-            // HJPoseMapStackGPU(lvl);
-            // HJMesh();
+            HGPoseMap hg(frames.size());
 
-            std::cout << "HJ time " << t.toc() << std::endl;
+            for (std::size_t i = 0; i < frames.size(); i++)
+                computeHGPoseMap(frames[i], hg, i, lvl);
+
+            // check that the hessian is nonsingular
+            // if it is "fix" it
+            for (int i = 0; i < hg.G.size(); i++)
+            {
+                int gcount = hg.count(i);
+                if (gcount == 0)
+                    hg.H.coeffRef(i, i) = 1.0;
+                // else
+                //     hgmap.G_depth(i) /= float(gcount);
+            }
+
+            std::cout << "HG time " << t.toc() << std::endl;
 
             int n_try = 0;
             while (true)
             {
+                Eigen::SparseMatrix<float> H_lambda = hg.H;
+
+                for (int j = 0; j < H_lambda.rows(); j++)
+                {
+                    H_lambda.coeffRef(j, j) *= (1.0 + lambda);
+                }
+
                 t.tic();
 
-                Eigen::MatrixXf H_lambda;// = H_joint;
-
-                for (int j = 0; j < H_joint_lambda.rows(); j++)
+                H_lambda.makeCompressed();
+                // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
+                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                // Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+                // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+                solver.analyzePattern(H_lambda);
+                // std::cout << solver.info() << std::endl;
+                solver.factorize(H_lambda);
+                if (solver.info() != Eigen::Success)
                 {
-                    H_joint_lambda(j, j) *= (1.0 + lambda);
+                    it = maxIterations;
+                    break;
                 }
 
-                // inc_joint = H_joint_lambda.ldlt().solve(J_joint);
-                // inc_joint = H_joint_lambda.colPivHouseholderQr().solve(J_joint);
-
-                //for (int j = 0; j < int(J_joint.size()); j++)
-                for(int j = 0; j < 10; j++)
-                {
-                    float h = H_joint_lambda(j, j);
-                    if (h > 0.0)// && abs(J_joint(j)) > 0.0)
-                    // if(J_joint(j) > 0.0)
-                    {
-                        //inc_joint(j) = J_joint(j) / h;
-                        // inc_joint(j) = (1.0/(1.0+lambda))*J_joint(j)/fabs(J_joint(j));
-                        // std::cout << "update" << std::endl;
-                    }
-                }
+                Eigen::VectorXf inc = -solver.solve(hg.G);
 
                 std::cout << "solve time " << t.toc() << std::endl;
 
-                t.tic();
-
-                /*
-                for (int i = 0; i < MAX_FRAMES; i++)
+                //update poses
+                for(size_t i = 0; i < frames.size(); i++)
                 {
-                    if (frameDataStack[i].init == true)
-                    {
-                        Eigen::VectorXf inc_pose(6);
-                        bool good = true;
-                        for (int j = 0; j < 6; j++)
-                        {
-                            if (std::isnan(inc_joint(i * 6 + j)) || std::isinf(inc_joint(i * 6 + j)))
-                            {
-                                std::cout << "nand in inc_joint pose part" << std::endl;
-                                good = false;
-                            }
-                            inc_pose(j) = inc_joint(i * 6 + j);
-                        }
-                        if (good == false)
-                        {
-                            continue;
-                        }
-                        frameDataStack[i].pose = ((bestPoses[i] * keyframeData.pose.inverse()) * Sophus::SE3f::exp(inc_pose).inverse()) * keyframeData.pose;
-                        // frameDataStack[i].pose = bestPoses[i]*Sophus::SE3f::exp(inc_pose).inverse();
-                    }
+                    Eigen::Matrix<float, 6, 1> pose_inc;
+                    for(int j = 0; j < 6; j++)
+                        pose_inc(j) = inc(j + i*6); 
+                    frames[i].pose = best_poses[i] * Sophus::SE3f::exp(pose_inc).inverse();
                 }
-                */
 
-                /*
+                //update map
                 for (int index = 0; index < VERTEX_HEIGH * VERTEX_WIDTH; index++)
                 {
-                    if (std::isnan(inc_joint(MAX_FRAMES * 6 + index)))
-                    {
-                        std::cout << "nand in inc_joint depth part " << std::endl;
-                        continue;
-                    }
-                    scene_vertices[index * 3 + 2] = best_vertices[index * 3 + 2] - inc_joint(MAX_FRAMES * 6 + index);
-                    if (scene_vertices[index * 3 + 2] < min_idepth || scene_vertices[index * 3 + 2] > max_idepth)
-                        scene_vertices[index * 3 + 2] = best_vertices[index * 3 + 2];
+                    scene_vertices[index * 3 + 2] = best_vertices[index * 3 + 2] + inc(index + frames.size()*6);
+                    if (scene_vertices[index * 3 + 2] < 0.01 || scene_vertices[index * 3 + 2] > 10.0)
+                        scene_vertices[index * 3 + 2] = scene_vertices[index * 3 + 2];
                 }
-                */
-
-                std::cout << "set data time " << t.toc() << std::endl;
 
                 t.tic();
 
-                // float error = errorStackGPU(lvl);// + errorMesh();
+                float error = 0.0;
+                for (std::size_t i = 0; i < frames.size(); i++)
+                    error += computeError(frames[i], lvl);
+                // error += scene.errorRegu();
 
-                std::cout << "new error time " << t.toc() << std::endl;
-                // std::cout << "lvl " << lvl << " new error " << error << std::endl;
+                std::cout << "new error " << error << " " << t.toc() << std::endl;
 
-                // if (error < last_error)
-                if (true)
+                if (error < last_error)
                 {
                     // accept update, decrease lambda
-                    std::cout << "update accepted " << std::endl;
-
-                    /*
-                    for (int i = 0; i < MAX_FRAMES; i++)
-                        bestPoses[i] = frameDataStack[i].pose;
+                    for(size_t i = 0; i < frames.size(); i++)
+                        best_poses[i] = frames[i].pose;
                     best_vertices = scene_vertices;
-                    */
 
-                    float p = 0.0; // error / last_error;
+                    float p = error / last_error;
 
                     if (lambda < 0.2f)
                         lambda = 0.0f;
                     else
                         lambda *= 0.5;
 
-                    last_error = 0.0; // error;
+                    last_error = error;
 
                     if (p > 0.999f)
                     {
-                        std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
-                        // if converged, do next level
+                        //  if converged, do next level
                         it = maxIterations;
                     }
 
@@ -1457,6 +1420,10 @@ void rayDepthMeshSceneCPU::optPoseMap(frameCPU &frame)
                 }
                 else
                 {
+                    for(size_t i = 0; i < frames.size(); i++)
+                        frames[i].pose = best_poses[i];
+                    scene_vertices = best_vertices;
+
                     n_try++;
 
                     if (lambda < 0.2f)
@@ -1464,18 +1431,10 @@ void rayDepthMeshSceneCPU::optPoseMap(frameCPU &frame)
                     else
                         lambda *= 2.0; // std::pow(2.0, n_try);
 
-                    /*
-                    for (int i = 0; i < MAX_FRAMES; i++)
-                        frameDataStack[i].pose = bestPoses[i];
-                    scene_vertices = best_vertices;
-                    */
                     // reject update, increase lambda, use un-updated data
-                    //std::cout << "update rejected " << lambda << " " << inc_joint.dot(inc_joint) << std::endl;
 
-                    //if (inc_joint.dot(inc_joint) < 1e-16)
-                    if(true)
+                    if (inc.dot(inc) < 1e-8)
                     {
-                        std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations with lambda " << lambda << std::endl;
                         // if too small, do next level!
                         it = maxIterations;
                         break;
