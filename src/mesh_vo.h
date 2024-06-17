@@ -47,6 +47,6 @@ public:
 private:
     frameCPU lastFrame;
     std::vector<frameCPU> frames;
-    //rayDepthMeshSceneCPU scene;
-    keyframeIdepthSceneCPU scene;
+    rayDepthMeshSceneCPU scene;
+    //keyframeIdepthSceneCPU scene;
 };

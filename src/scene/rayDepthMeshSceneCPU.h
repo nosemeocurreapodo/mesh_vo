@@ -5,8 +5,10 @@
 #include "common/camera.h"
 #include "common/HGPose.h"
 #include "common/HGMap.h"
+#include "common/Error.h"
 #include "common/HGPoseMap.h"
 #include "cpu/frameCPU.h"
+#include "cpu/IndexThreadReduce.h"
 #include "params.h"
 
 class rayDepthMeshSceneCPU
@@ -17,7 +19,7 @@ public:
     void init(frameCPU &frame, dataCPU<float> &idepth);
 
     dataCPU<float> computeFrameIdepth(frameCPU &frame, int lvl);
-    float computeError(frameCPU &frame, int lvl);
+    dataCPU<float> computeErrorImage(frameCPU &frame, int lvl);
 
     void optPose(frameCPU &frame);
     void optMap(std::vector<frameCPU> &frame);
@@ -40,12 +42,19 @@ private:
 
     void setFromIdepth(dataCPU<float> id);
 
-    void computeHGPose(frameCPU &frame, HGPose &hg, int lvl);
+    float computeError(frameCPU &frame, int lvl);
+    HGPose computeHGPose(frameCPU &frame, int lvl);
     void computeHGMap(frameCPU &frame, HGMap &hg, int lvl);
     void computeHGPoseMap(frameCPU &frame, HGPoseMap &hg, int frame_index, int lvl);
+
+    void errorPerIndex(frameCPU &frame, int lvl, int tmin, int tmax, Error *e, int tid);
+    void HGPosePerIndex(frameCPU &frame, int lvl, int tmin, int tmax, HGPose *hg, int tid);
 
     float errorRegu();
     void HGRegu(HGMap &hgmap);
 
-    //IndexThreadReduce<Vec10> treadReduce;
+    IndexThreadReduce<Error> errorTreadReduce;
+    IndexThreadReduce<HGPose> hgPoseTreadReduce;
+
+    bool multiThreading;
 };

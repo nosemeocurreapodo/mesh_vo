@@ -39,21 +39,31 @@ void meshVO::initScene(cv::Mat image, cv::Mat idepth, Sophus::SE3f pose)
 
 void meshVO::visualOdometry(cv::Mat image)
 {
-    frameCPU frame;
-    frame.set(image);
-
     tic_toc t;
+
+    lastFrame.set(image); //*keyframeData.pose.inverse();
+    scene.optPose(lastFrame);
+
+    std::cout << "estimated pose" << std::endl;
+    std::cout << lastFrame.pose.matrix() << std::endl;
+    
+    frames.clear();
+    frames.push_back(lastFrame);
+
     t.tic();
-    // frameData.pose = _globalPose*keyframeData.pose.inverse();
-    scene.optPose(frame); //*Sophus::SE3f::exp(inc_pose).inverse());
+    // optMapVertex();
+    // optMapJoint();
+    scene.optPoseMap(frames);
+    std::cout << "update pose map time " << t.toc() << std::endl;
 
-    std::cout << "estimated pose " << std::endl;
-    std::cout << frame.pose.matrix() << std::endl;
-    std::cout << "clacPose time " << t.toc() << std::endl;
+    dataCPU<float> idepth = scene.computeFrameIdepth(lastFrame, 1);
+    dataCPU<float> error = scene.computeErrorImage(lastFrame, 1);
 
-    {
-        // optPoseMapJoint();
-    }
+    lastFrame.image.show("lastFrame image", 1);
+    //lastFrame.dx.show("lastFrame dx", 1);
+    //lastFrame.dy.show("lastFrame dy", 1);
+    error.show("lastFrame error", 1);
+    idepth.show("lastFrame idepth", 1);
 }
 
 void meshVO::localization(cv::Mat image)
@@ -74,8 +84,8 @@ void meshVO::localization(cv::Mat image)
     dataCPU<float> error = scene.computeErrorImage(lastFrame, 1);
 
     lastFrame.image.show("lastFrame image", 1);
-    lastFrame.dx.show("lastFrame dx", 1);
-    lastFrame.dy.show("lastFrame dy", 1);
+    //lastFrame.dx.show("lastFrame dx", 1);
+    //lastFrame.dy.show("lastFrame dy", 1);
     error.show("lastFrame error", 1);
     idepth.show("lastFrame idepth", 1);
 }
@@ -84,11 +94,10 @@ void meshVO::mapping(cv::Mat image, Sophus::SE3f pose)
 {
     tic_toc t;
 
-    frameCPU frame;
-    frame.set(image, pose); //*keyframeData.pose.inverse();
+    lastFrame.set(image, pose); //*keyframeData.pose.inverse();
 
     frames.clear();
-    frames.push_back(frame);
+    frames.push_back(lastFrame);
 
     t.tic();
     // optMapVertex();
@@ -96,8 +105,12 @@ void meshVO::mapping(cv::Mat image, Sophus::SE3f pose)
     scene.optMap(frames);
     std::cout << "update map time " << t.toc() << std::endl;
 
-    frame.image.show("lastframe image", 1);
-    // lastframe.der.show("lastframe der", 1);
-    // lastframe.error.show("lastframe error", 1);
-    // lastframe.idepth.show("lastframe idepth", 1);
+    dataCPU<float> idepth = scene.computeFrameIdepth(lastFrame, 1);
+    dataCPU<float> error = scene.computeErrorImage(lastFrame, 1);
+
+    lastFrame.image.show("lastFrame image", 1);
+    //lastFrame.dx.show("lastFrame dx", 1);
+    //lastFrame.dy.show("lastFrame dy", 1);
+    error.show("lastFrame error", 1);
+    idepth.show("lastFrame idepth", 1);
 }

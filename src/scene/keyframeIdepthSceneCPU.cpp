@@ -5,7 +5,7 @@ keyframeIdepthSceneCPU::keyframeIdepthSceneCPU(float fx, float fy, float cx, flo
     : cam(fx, fy, cx, cy, width, height),
       keyframeIdepth(-1.0)
 {
-    multiThreading = true;
+    multiThreading = false;
 }
 void keyframeIdepthSceneCPU::init(frameCPU &frame, dataCPU<float> &idepth)
 {
@@ -116,9 +116,6 @@ void keyframeIdepthSceneCPU::errorPerIndex(frameCPU &frame, int lvl, int ymin, i
 
 dataCPU<float> keyframeIdepthSceneCPU::computeErrorImage(frameCPU &frame, int lvl)
 {
-    // HGPose hgpose = errorPerIndex(frame, lvl, 0, cam.height[lvl]);
-    //   float error = treadReducer.reduce(std::bind(&mesh_vo::errorCPUPerIndex, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4), _frame, lvl, 0, height[lvl]);
-
     dataCPU<float> errorImage(-1.0);
 
     if (multiThreading)
@@ -166,11 +163,10 @@ void keyframeIdepthSceneCPU::errorImagePerIndex(frameCPU &frame, dataCPU<float> 
             float residual = vf - vkf;
             float error = residual * residual;
 
-            //error relative to keyframe
+            // error relative to keyframe
             errorImage.set(error, y, x, lvl);
         }
 }
-
 
 HGPose keyframeIdepthSceneCPU::computeHGPose(frameCPU &frame, int lvl)
 {
@@ -192,7 +188,7 @@ HGPose keyframeIdepthSceneCPU::computeHGPose(frameCPU &frame, int lvl)
         hg.G /= hg.count;
     }
     */
-   return hg;
+    return hg;
 }
 
 void keyframeIdepthSceneCPU::HGPosePerIndex(frameCPU &frame, int lvl, int ymin, int ymax, HGPose *hg, int tid)
