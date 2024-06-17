@@ -5,37 +5,24 @@
 #include "data_cpu.h"
 #include "params.h"
 
-class frameCpu
+class frameCPU
 {
 public:
-  frameCpu() : image(-1.0),
+  frameCPU() : image(-1.0),
                dx(0.0),
-               dy(0.0),
-               idepth(-1.0),
-               error(-1.0),
-               count(-1.0)
+               dy(0.0)
   {
     init = false;
   };
 
-  void copyTo(frameCpu &frame)
+  void copyTo(frameCPU &frame)
   {
     image.copyTo(frame.image);
     dx.copyTo(frame.dx);
     dy.copyTo(frame.dy);
-    idepth.copyTo(frame.idepth);
-    error.copyTo(frame.error);
-    count.copyTo(frame.count);
 
     frame.pose = pose;
     frame.init = init;
-  }
-
-  void set(cv::Mat frame, cv::Mat id, Sophus::SE3f p = Sophus::SE3f())
-  {
-    set(frame, p);
-    idepth.set(id);
-    idepth.generateMipmaps();
   }
 
   void set(cv::Mat frame, Sophus::SE3f p = Sophus::SE3f())
@@ -59,20 +46,6 @@ public:
     init = true;
   }
 
-  void setRandomIdepth(int lvl)
-  {
-    idepth.set(idepth.nodata, lvl);
-
-    for (int y = 0; y < idepth.sizes[lvl].height; y++) // los vertices estan en el medio del pixel!! sino puede agarrar una distancia u otra
-    {
-      for (int x = 0; x < idepth.sizes[lvl].width; x++)
-      {
-        float _idepth = 0.1 + (1.0 - 0.1) * float(y) / idepth.sizes[lvl].height;
-        idepth.set(_idepth, y, x, lvl);
-      }
-    }
-  }
-
   void computeFrameDerivative(int lvl)
   {
     dx.set(dx.nodata, lvl);
@@ -92,9 +65,6 @@ public:
   data_cpu<float> image;
   data_cpu<float> dx;
   data_cpu<float> dy;
-  data_cpu<float> idepth;
-  data_cpu<float> error;
-  data_cpu<int> count;
 
   Sophus::SE3f pose;
 

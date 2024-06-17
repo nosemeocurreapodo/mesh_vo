@@ -14,8 +14,8 @@ class HGPose
 public:
     HGPose()
     {
-        H_pose.setZero();
-        G_pose.setZero();
+        H.setZero();
+        G.setZero();
         error = 0.0;
         count = 0;
     }
@@ -23,8 +23,8 @@ public:
     HGPose operator+(HGPose _pose)
     {
         HGPose _p;
-        _p.H_pose = H_pose + _pose.H_pose;
-        _p.G_pose = G_pose + _pose.G_pose;
+        _p.H = H + _pose.H;
+        _p.G = G + _pose.G;
         _p.error = error + _pose.error;
         _p.count = count + _pose.count;
 
@@ -33,22 +33,22 @@ public:
 
     void operator+=(HGPose _pose)
     {
-        H_pose += _pose.H_pose;
-        G_pose += _pose.G_pose;
+        H += _pose.H;
+        G += _pose.G;
         error += _pose.error;
         count += _pose.count;
     }
 
     void operator=(HGPose _pose)
     {
-        H_pose = _pose.H_pose;
-        G_pose = _pose.G_pose;
+        H = _pose.H;
+        G = _pose.G;
         error = _pose.error;
         count = _pose.count;
     }
 
-    Eigen::Matrix<float, 6, 6> H_pose;
-    Eigen::Matrix<float, 6, 1> G_pose;
+    Eigen::Matrix<float, 6, 6> H;
+    Eigen::Matrix<float, 6, 1> G;
 
     float error;
     float count;

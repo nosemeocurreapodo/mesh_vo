@@ -5,20 +5,16 @@
 #include <iostream>
 #include <fstream>
 
-// #include "Common/se3.h"
-#include <Eigen/Core>
-#include <Eigen/Sparse>
 #include "sophus/se3.hpp"
 
 #include "utils/tictoc.h"
 
-#include "scene/rayDepthMeshScene.h"
+#include "scene/rayDepthMeshSceneCPU.h"
 #include "common/camera.h"
-#include "cpu/frame_cpu.h"
-
-#include "cpu/platform_cpu.h"
+#include "cpu/frameCPU.h"
 
 #include "common/HGPose.h"
+#include "common/HGMap.h"
 
 class meshVO
 {
@@ -32,22 +28,26 @@ public:
     void localization(cv::Mat frame);
     void mapping(cv::Mat _frame, Sophus::SE3f pose);
 
+    dataCPU<float> getRandomIdepth(int lvl)
+    {
+        dataCPU<float> idepth(-1.0);
+
+        for (int y = 0; y < idepth.sizes[lvl].height; y++) // los vertices estan en el medio del pixel!! sino puede agarrar una distancia u otra
+        {
+            for (int x = 0; x < idepth.sizes[lvl].width; x++)
+            {
+                float _idepth = 0.1 + (1.0 - 0.1) * float(y) / idepth.sizes[lvl].height;
+                idepth.set(_idepth, y, x, lvl);
+            }
+        }
+        return idepth;
+    }
+
 private:
+    frameCPU keyframe;
+    frameCPU lastframe;
+    rayDepthMeshSceneCPU scene;
 
-    frameCpu keyframe;
-    frameCpu lastframe;
-    rayDepthMeshScene scene;
-
-    // compute platforms
-    platformCpu cpu;
-
-    // functions
-    void optPose(frameCpu &frame);
-    void optMap();
     // void optMapVertex();
     void optPoseMap();
-
-    // mesh regularization
-    float errorMeshRegu(rayDepthMeshScene &scene);
-    void HGMeshRegu(HGMap &hgmap, rayDepthMeshScene &scene);
 };
