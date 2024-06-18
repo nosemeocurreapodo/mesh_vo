@@ -2,7 +2,6 @@
 
 #include "common/camera.h"
 #include "common/HGPose.h"
-#include "common/HGMap.h"
 #include "common/Error.h"
 #include "cpu/frameCPU.h"
 #include "cpu/IndexThreadReduce.h"

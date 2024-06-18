@@ -65,8 +65,11 @@ public:
 
     inline void reduce(boost::function<void(int, int, Running *, int)> callPerIndex, int first, int end, int stepSize = 0)
     {
-
-        memset(&stats, 0, sizeof(Running));
+        //This memset I think was itended to set the values of the vector stats to 0
+        //So it does not work for with any Running template variable
+        //memset(&stats, 0, sizeof(Running));
+        //This will work with Eigen and with my clases
+        stats.setZero();
 
         //		if(!multiThreading)
         //		{
@@ -172,7 +175,7 @@ private:
                 assert(callPerIndex != 0);
 
                 Running s;
-                memset(&s, 0, sizeof(Running));
+                //memset(&s, 0, sizeof(Running));
                 callPerIndex(todo, std::min(todo + stepSize, maxIndex), &s, idx);
                 gotOne[idx] = true;
                 lock.lock();
@@ -187,7 +190,7 @@ private:
                     lock.unlock();
                     assert(callPerIndex != 0);
                     Running s;
-                    memset(&s, 0, sizeof(Running));
+                    //memset(&s, 0, sizeof(Running));
                     callPerIndex(0, 0, &s, idx);
                     gotOne[idx] = true;
                     lock.lock();

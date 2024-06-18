@@ -2,13 +2,6 @@
 
 #include <Eigen/Core>
 
-//struct HJPose{
-//    float J[6];
-//    float H[21];
-//    float error;
-//    int cout;
-//};
-
 class HGPose
 {
 public:
@@ -16,21 +9,30 @@ public:
     {
         H.setZero();
         G.setZero();
+        count = 0;
     }
 
-    HGPose operator+(HGPose _pose)
+    void setZero()
     {
-        HGPose _p;
-        _p.H = H + _pose.H;
-        _p.G = G + _pose.G;
-
-        return _p;
+        H.setZero();
+        G.setZero();
+        count = 0;
     }
 
-    void operator+=(HGPose _pose)
+    HGPose operator+(HGPose a)
     {
-        H += _pose.H;
-        G += _pose.G;
+        HGPose sum;
+        sum.H = H + a.H;
+        sum.G = G + a.G;
+        sum.count = count + a.count;
+        return sum;
+    }
+
+    void operator+=(HGPose a)
+    {
+        H += a.H;
+        G += a.G;
+        count += a.count;
     }
 
     /*
@@ -43,6 +45,7 @@ public:
 
     Eigen::Matrix<float, 6, 6> H;
     Eigen::Matrix<float, 6, 1> G;
+    int count;
 
 private:
 

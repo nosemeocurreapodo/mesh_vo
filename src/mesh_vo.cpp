@@ -1,15 +1,15 @@
 #include "mesh_vo.h"
 
-#include <opencv2/imgproc.hpp>
-#include <opencv2/highgui.hpp>
+//#include <opencv2/imgproc.hpp>
+//#include <opencv2/highgui.hpp>
 
-#include <Eigen/SparseCholesky>
-#include <Eigen/SparseLU>
-#include <Eigen/SparseQR>
-#include <Eigen/OrderingMethods>
-#include <Eigen/IterativeLinearSolvers>
+//#include <Eigen/SparseCholesky>
+//#include <Eigen/SparseLU>
+//#include <Eigen/SparseQR>
+//#include <Eigen/OrderingMethods>
+//#include <Eigen/IterativeLinearSolvers>
 
-#include <map>
+#include "utils/tictoc.h"
 
 meshVO::meshVO(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
     : scene(_fx, _fy, _cx, _cy, _width, _height)
@@ -107,10 +107,13 @@ void meshVO::mapping(cv::Mat image, Sophus::SE3f pose)
 
     dataCPU<float> idepth = scene.computeFrameIdepth(lastFrame, 1);
     dataCPU<float> error = scene.computeErrorImage(lastFrame, 1);
+    dataCPU<float> sceneImage = scene.computeSceneImage(lastFrame, 1);
 
     lastFrame.image.show("lastFrame image", 1);
     //lastFrame.dx.show("lastFrame dx", 1);
     //lastFrame.dy.show("lastFrame dy", 1);
     error.show("lastFrame error", 1);
     idepth.show("lastFrame idepth", 1);
+    sceneImage.show("lastFrame scene", 1);
+
 }

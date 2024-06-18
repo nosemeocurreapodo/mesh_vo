@@ -4,9 +4,7 @@
 
 #include "common/camera.h"
 #include "common/HGPose.h"
-#include "common/HGMap.h"
 #include "common/Error.h"
-#include "common/HGPoseMap.h"
 #include "cpu/frameCPU.h"
 #include "cpu/IndexThreadReduce.h"
 #include "params.h"
@@ -43,17 +41,40 @@ private:
 
     float computeError(frameCPU &frame, int lvl);
     HGPose computeHGPose(frameCPU &frame, int lvl);
-    void computeHGMap(frameCPU &frame, HGMap &hg, int lvl);
+    void computeHGMap(frameCPU &frame, HGPoseMap &hg, int lvl);
     void computeHGPoseMap(frameCPU &frame, HGPoseMap &hg, int frame_index, int lvl);
 
     void errorPerIndex(frameCPU &frame, int lvl, int tmin, int tmax, Error *e, int tid);
     void HGPosePerIndex(frameCPU &frame, int lvl, int tmin, int tmax, HGPose *hg, int tid);
 
     float errorRegu();
-    void HGRegu(HGMap &hgmap);
+    void HGRegu(HGPoseMap &hgmap);
 
     IndexThreadReduce<Error> errorTreadReduce;
     IndexThreadReduce<HGPose> hgPoseTreadReduce;
 
     bool multiThreading;
+
+    class HGPoseMap
+    {
+    public:
+        HGPoseMap(int frames, int n_surfels)
+        {
+            num_frames = frames;
+            num_surfels = n_surfels;
+
+            H = Eigen::SparseMatrix<float>(num_frames * 6 + num_surfels * 6, num_frames * 6 + num_surfels * 6);
+            G = Eigen::VectorXf::Zero(num_frames * 6 + num_surfels * 6);
+            count = Eigen::VectorXf::Zero(num_frames * 6 + num_surfels * 6);
+        }
+
+        Eigen::SparseMatrix<float> H;
+        Eigen::VectorXf G;
+        Eigen::VectorXf count;
+
+        int num_frames;
+        int num_surfels;
+
+    private:
+    };
 };

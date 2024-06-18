@@ -393,7 +393,7 @@ void surfelSceneCPU::HGPosePerIndex(frameCPU &frame, int lvl, int tmin, int tmax
                 float kf_i = float(keyframe.image.get(kf_pix(0), kf_pix(1), lvl));
                 if (kf_i == keyframe.image.nodata)
                     continue;
-                
+
                 Eigen::Vector3f kf_ray;
                 kf_ray(0) = cam.fxinv[lvl] * kf_pix(0) + cam.cxinv[lvl];
                 kf_ray(1) = cam.fyinv[lvl] * kf_pix(1) + cam.cyinv[lvl];
@@ -463,8 +463,7 @@ void surfelSceneCPU::HGPosePerIndex(frameCPU &frame, int lvl, int tmin, int tmax
     }
 }
 
-
-void surfelSceneCPU::computeHGMap(frameCPU &frame, HGMap &hg, int lvl)
+void surfelSceneCPU::computeHGMap(frameCPU &frame, HGPoseMap &hg, int lvl)
 {
     // z_buffer.reset(lvl);
 
@@ -506,7 +505,7 @@ void surfelSceneCPU::computeHGMap(frameCPU &frame, HGMap &hg, int lvl)
                 float kf_i = float(keyframe.image.get(kf_pix(0), kf_pix(1), lvl));
                 if (kf_i == keyframe.image.nodata)
                     continue;
-                
+
                 Eigen::Vector3f kf_ray;
                 kf_ray(0) = cam.fxinv[lvl] * kf_pix(0) + cam.cxinv[lvl];
                 kf_ray(1) = cam.fyinv[lvl] * kf_pix(1) + cam.cyinv[lvl];
@@ -558,50 +557,58 @@ void surfelSceneCPU::computeHGMap(frameCPU &frame, HGMap &hg, int lvl)
                 float residual = (f_i - kf_i);
                 // float residual_2 = residual * residual;
 
-
                 Eigen::Vector3f d_f_i_d_f_ver;
                 d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx[lvl] * f_idepth;
                 d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy[lvl] * f_idepth;
                 // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) / f_ver(2) + d_f_i_d_f_ver(1) * f_ver(1) / f_ver(2));
                 d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) * f_idepth;
 
-
                 Eigen::Vector3f d_f_ver_d_kf_depth = frame.pose.rotationMatrix() * kf_ray;
-                //vec3 d_pk_d_z = K*mat3(framePose[i])*invK*vec3(ukf,1.0f);
+                // vec3 d_pk_d_z = K*mat3(framePose[i])*invK*vec3(ukf,1.0f);
 
                 float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
-                //vec2 d_uf_d_z = (d_uf_d_pk*d_pk_d_z).xy;
-                //vec2 d_f_d_uf = texture(frameDerivative, vec3(ufTexCoord.x, 1.0 - ufTexCoord.y, (i+0.5)/MAXTEXTURES)).rg;
-                //d_I_d_z += dot(d_f_d_uf, d_uf_d_z);
+                // vec2 d_uf_d_z = (d_uf_d_pk*d_pk_d_z).xy;
+                // vec2 d_f_d_uf = texture(frameDerivative, vec3(ufTexCoord.x, 1.0 - ufTexCoord.y, (i+0.5)/MAXTEXTURES)).rg;
+                // d_I_d_z += dot(d_f_d_uf, d_uf_d_z);
 
+                // float absRes = abs(res);
+                // float hw = 1.0;
+                // if(absRes > huberTH)
+                //     hw = sqrt(2.0*huberTH*absRes-huberTH*huberTH)/absRes;
+                // residual += hw*res;
 
-                //float absRes = abs(res);
-                //float hw = 1.0;
-                //if(absRes > huberTH)
-                //    hw = sqrt(2.0*huberTH*absRes-huberTH*huberTH)/absRes;
-                //residual += hw*res;
+                float kf_ray_dot_normal_2 = kf_ray_dot_normal * kf_ray_dot_normal;
 
+                Eigen::Vector3f d_z_d_N = kf_vec / kf_ray_dot_normal - kf_ray * kf_vec_dot_normal / kf_ray_dot_normal_2;
 
-                float kf_ray_dot_normal_2 = kf_ray_dot_normal*kf_ray_dot_normal;
+                // vec3 d_N_d_theta = vec3( cos(g_normal_spherical.x)*cos(g_normal_spherical.y), cos(g_normal_spherical.x)*sin(g_normal_spherical.y), -sin(g_normal_spherical.x));
+                // vec3 d_N_d_phi  = vec3(-sin(g_normal_spherical.x)*sin(g_normal_spherical.y), sin(g_normal_spherical.x)*cos(g_normal_spherical.y), 0.0);
 
-                Eigen::Vector3f d_z_d_N = kf_vec/kf_ray_dot_normal - kf_ray*kf_vec_dot_normal/kf_ray_dot_normal_2;
+                // float d_z_d_idepth = -kf_depth/g_idepth;
+                float d_z_d_idepth = -kf_ray_dot_normal * kf_vec(2) * kf_vec(2) / kf_vec_dot_normal;
 
-                //vec3 d_N_d_theta = vec3( cos(g_normal_spherical.x)*cos(g_normal_spherical.y), cos(g_normal_spherical.x)*sin(g_normal_spherical.y), -sin(g_normal_spherical.x));
-                //vec3 d_N_d_phi  = vec3(-sin(g_normal_spherical.x)*sin(g_normal_spherical.y), sin(g_normal_spherical.x)*cos(g_normal_spherical.y), 0.0);
+                Eigen::Vector4f d_I_d_plane = d_f_i_d_kf_depth * Eigen::Vector4f(d_z_d_N, d_z_d_idepth);
+                // d_I_d_plane = d_I_d_z*vec4(dot(d_z_d_N, d_N_d_theta), dot(d_z_d_N, d_N_d_phi), 0.0, d_z_d_idepth);
 
-                //float d_z_d_idepth = -kf_depth/g_idepth;
-                float d_z_d_idepth = -kf_ray_dot_normal*kf_vec(2)*kf_vec(2)/kf_vec_dot_normal;
+                Eigen::Vectpr4f J = d_I_d_plane;
+                G = residual * J;
 
-                Eigen::Vector4f d_I_d_plane = d_I_d_z*Eigen::Vector4f(d_z_d_N, d_z_d_idepth);
-                //d_I_d_plane = d_I_d_z*vec4(dot(d_z_d_N, d_N_d_theta), dot(d_z_d_N, d_N_d_phi), 0.0, d_z_d_idepth);
-
-
-                J = d_I_d_plane;
-                G = residual*J;
-
-
-
-
+                for (int i = 0; i < 3; i++)
+                {
+                    // if the jacobian is 0
+                    // we really cannot say anything about the depth
+                    // can make the hessian non-singular
+                    if (J[i] == 0)
+                        continue;
+                    hg.G(vertex_id[i]) += J[i] * error; // / (cam.width[lvl]*cam.height[lvl]);
+                    hg.count(vertex_id[i]) += 1;
+                    for (int j = i; j < 3; j++)
+                    {
+                        float jj = J[i] * J[j]; // / (cam.width[lvl]*cam.height[lvl]);
+                        hg.H.coeffRef(vertex_id[i], vertex_id[j]) += jj;
+                        hg.H.coeffRef(vertex_id[j], vertex_id[i]) += jj;
+                    }
+                }
             }
         }
     }

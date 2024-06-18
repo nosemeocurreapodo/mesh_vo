@@ -18,19 +18,25 @@ public:
         count = 0;
     }
 
-    Error operator+(Error _error)
+    void setZero()
     {
-        Error _p;
-        _p.error = error + _error.error;
-        _p.count = count + _error.count;
-
-        return _p;
+        error = 0.0;
+        count = 0.0;
     }
 
-    void operator+=(Error _error)
+    Error operator+(Error a)
     {
-        error += _error.error;
-        count += _error.count;
+        Error sum;
+        sum.error = error + a.error;
+        sum.count = count + a.count;
+
+        return sum;
+    }
+
+    void operator+=(Error a)
+    {
+        error += a.error;
+        count += a.count;
     }
     
     /*

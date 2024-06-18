@@ -60,8 +60,8 @@ int main(void)
         Sophus::SE3f realPose = readPose(RT_filename)*initPose.inverse();
 
         //visual_odometry.localization(frame);
-        //visual_odometry.mapping(frame, realPose);
-        visual_odometry.visualOdometry(frame);
+        visual_odometry.mapping(frame, realPose);
+        //visual_odometry.visualOdometry(frame);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();

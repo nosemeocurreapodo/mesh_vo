@@ -72,7 +72,24 @@ public:
 
     Type get(float y, float x, int lvl)
     {
-        return texture[lvl].at<Type>(int(y), int(x));
+        //bilinear interpolation
+        int _x = int(x);
+        int _y = int(y);
+        float dx = x-_x;
+        float dy = y-_y;
+
+        float weight_tl = (1.0 - dx) * (1.0 - dy);
+        float weight_tr = (dx)       * (1.0 - dy);
+        float weight_bl = (1.0 - dx) * (dy);
+        float weight_br = (dx)       * (dy);
+
+        Type pix = weight_tl*texture[lvl].at<Type>(_y, _x) + 
+                    weight_tr*texture[lvl].at<Type>(_y, _x + 1) + 
+                    weight_bl*texture[lvl].at<Type>(_y + 1, _x) + 
+                    weight_br*texture[lvl].at<Type>(_y + 1, _x + 1);
+
+        return pix;
+        //return texture[lvl].at<Type>(int(y), int(x));
     }
 
     cv::Mat &get(int lvl)

@@ -7,15 +7,9 @@
 
 #include "sophus/se3.hpp"
 
-#include "utils/tictoc.h"
-
 #include "scene/rayDepthMeshSceneCPU.h"
 #include "scene/keyframeIdepthSceneCPU.h"
-#include "common/camera.h"
 #include "cpu/frameCPU.h"
-
-#include "common/HGPose.h"
-#include "common/HGMap.h"
 
 class meshVO
 {
