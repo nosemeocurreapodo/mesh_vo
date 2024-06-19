@@ -1,16 +1,12 @@
 #pragma once
 
-#include "params.h"
-
-class meshScene
+class mesh
 {
 public:
-    meshScene()
+    mesh()
     {
 
     };
-
-    
 
     // scene
     //the vertices, actual data of the scene

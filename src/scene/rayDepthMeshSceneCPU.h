@@ -6,6 +6,8 @@
 #include "common/HGPose.h"
 #include "common/HGPoseMapMesh.h"
 #include "common/Error.h"
+#include "common/common.h"
+#include "scene/mesh.h"
 #include "cpu/frameCPU.h"
 #include "cpu/IndexThreadReduce.h"
 #include "params.h"
@@ -31,18 +33,16 @@ public:
     }
 
 private:
-    // scene
-    //the vertices, actual data of the scene
-    std::vector<std::array<float, 3> > vertices;
-    //the indices gives me, for each triangle, the vertices indices
-    std::vector<std::array<unsigned int, 3> > triangle_index_to_vertices_indeces;
-    //for each vertices, gives me the triangles indices
-    std::vector<std::vector<unsigned int> > vertex_index_to_triangles_indeces;
+
+    mesh sceneMesh;
+    mesh observedMesh;
 
     frameCPU keyframe;
     camera cam;
 
     dataCPU<float> z_buffer;
+
+    mesh computeObservedMesh(frameCPU &frame);
 
     void setFromIdepth(dataCPU<float> id);
 
@@ -66,4 +66,5 @@ private:
     // params
     bool multiThreading;
     float meshRegularization;
+
 };

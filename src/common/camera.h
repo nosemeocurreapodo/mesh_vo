@@ -48,6 +48,23 @@ public:
         }
     };
 
+    bool isPixVisible(Eigen::Vector2f &pix, int lvl)
+    {
+        // the -1 is for the bilinear interpolation
+        if (pix(0) < 0.0 || pix(0) >= width[lvl] - 1 || pix(1) < 0.0 || pix(1) >= height[lvl] - 1)
+            return false;
+        return true;
+    }
+
+    Eigen::Vector2f project(Eigen::Vector3f vertex, int lvl)
+    {
+        Eigen::Vector3f ray = vertex / vertex(2);
+        Eigen::Vector2f pix;
+        pix(0) = fx[lvl] * ray(0) + cx[lvl];
+        pix(1) = fy[lvl] * ray(1) + cy[lvl];
+        return pix;
+    }
+
     float fx[MAX_LEVELS];
     float fy[MAX_LEVELS];
     float cx[MAX_LEVELS];
