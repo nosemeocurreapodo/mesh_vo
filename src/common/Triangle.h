@@ -2,39 +2,17 @@
 
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
+#include "common/Vertex.h"
 #include "common/camera.h"
 #include "common/common.h"
 
-class triangle
+class Triangle
 {
 public:
-    triangle(std::vector<std::array<float, 3>> &vertices, std::array<unsigned int, 3> &indices, bool isRayIdepth = true)
+    Triangle(std::array<unsigned int, 3> &vert_ids, unsigned int t_id)
     {
-        for (int i = 0; i < 3; i++)
-        {
-            vertex[i](0) = vertices[indices[i]][0];
-            vertex[i](1) = vertices[indices[i]][1];
-            vertex[i](2) = vertices[indices[i]][2];
-
-            if (isRayIdepth)
-                vertex[i] = fromRayIdepthToVertex(vertex[i]);
-        }
-    };
-
-    void transform(Sophus::SE3f &pose)
-    {
-        for (int v_id = 0; v_id < 3; v_id++)
-        {
-            vertex[v_id] = pose * vertex[v_id];
-        }
-    };
-
-    void project(camera &cam, int lvl)
-    {
-        for (int v_id = 0; v_id < 3; v_id++)
-        {
-            pix[v_id] = cam.project(vertex[v_id], lvl);
-        }
+        vertices_indices = vert_ids;
+        index = id;
     };
 
     void computeTinv()
@@ -77,10 +55,10 @@ public:
         return minmax;
     };
 
-    std::array<Eigen::Vector3f, 3> vertex;
-    std::array<Eigen::Vector2f, 3> pix;
-    Eigen::Matrix2f T_inv;
-    Eigen::Vector3f barycentric;
 
 private:
+
+    unsigned int index;
+    std::array<unsigned int, 3> vertices_indices;
+
 };

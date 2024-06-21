@@ -7,7 +7,7 @@
 #include "common/HGPoseMapMesh.h"
 #include "common/Error.h"
 #include "common/common.h"
-#include "scene/mesh.h"
+#include "common/Mesh.h"
 #include "cpu/frameCPU.h"
 #include "cpu/IndexThreadReduce.h"
 #include "params.h"
@@ -34,8 +34,8 @@ public:
 
 private:
 
-    mesh sceneMesh;
-    mesh observedMesh;
+    Mesh sceneMesh;
+    Mesh observedMesh;
 
     frameCPU keyframe;
     camera cam;

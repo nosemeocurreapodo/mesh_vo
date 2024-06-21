@@ -18,3 +18,17 @@ Eigen::Vector3f fromVertexToRayIdepth(Eigen::Vector3f vertex)
 
     return kf_tri_ray;
 }
+
+Eigen::Vector3f arrayToEigen(std::array<float, 3> point)
+{
+    return Eigen::Vector3f(point[0], point[1], point[2]);
+}
+
+std::array<float, 3> eigenToArray(Eigen::Vector3f point)
+{
+    std::array<float, 3> array;
+    array[0] = point(0);
+    array[1] = point(1);
+    array[2] = point(2);
+    return array;
+}

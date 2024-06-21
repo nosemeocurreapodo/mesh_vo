@@ -4,8 +4,6 @@
 #include <Eigen/Sparse>
 #include "params.h"
 
-#define VERTEX_WIDTH 32
-#define VERTEX_HEIGHT 32
 
 class HGPoseMapMesh
 {

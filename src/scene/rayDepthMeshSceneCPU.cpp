@@ -9,102 +9,8 @@ rayDepthMeshSceneCPU::rayDepthMeshSceneCPU(float fx, float fy, float cx, float c
     multiThreading = false;
     meshRegularization = 100.0;
 
-    // preallocate scene vertices to zero
-    for (int y = 0; y < VERTEX_HEIGHT; y++)
-    {
-        for (int x = 0; x < VERTEX_WIDTH; x++)
-        {
-            std::array<float, 3> vertex;
-            vertex[0] = 0.0;
-            vertex[1] = 0.0;
-            vertex[2] = 0.0;
-            sceneMesh.vertices.push_back(vertex);
-            // vertices.push_back(0.0);
-            // vertices.push_back(0.0);
-            // vertices.push_back(0.0);
+    sceneMesh.init();
 
-            // just emtpy list of triangles now
-            std::vector<unsigned int> triangle_indices;
-            sceneMesh.vertex_index_to_triangles_indeces.push_back(triangle_indices);
-        }
-    }
-
-    // init scene indices
-    for (int y = 0; y < VERTEX_HEIGHT; y++)
-    {
-        for (int x = 0; x < VERTEX_WIDTH; x++)
-        {
-            if (x > 0 && y > 0)
-            {
-                // if (((x % 2 == 0)))
-                //  if(((x % 2 == 0) && (y % 2 == 0)) || ((x % 2 != 0) && (y % 2 != 0)))
-                if (rand() > 0.5 * RAND_MAX)
-                {
-                    std::array<unsigned int, 3> vertices_indices1;
-                    vertices_indices1[0] = x - 1 + y * (VERTEX_WIDTH);
-                    vertices_indices1[1] = x + (y - 1) * (VERTEX_WIDTH);
-                    vertices_indices1[2] = x - 1 + (y - 1) * (VERTEX_WIDTH);
-
-                    sceneMesh.triangle_index_to_vertices_indeces.push_back(vertices_indices1);
-
-                    std::vector<unsigned int> triangles_indices11 = sceneMesh.vertex_index_to_triangles_indeces[vertices_indices1[0]];
-                    std::vector<unsigned int> triangles_indices12 = sceneMesh.vertex_index_to_triangles_indeces[vertices_indices1[1]];
-                    std::vector<unsigned int> triangles_indices13 = sceneMesh.vertex_index_to_triangles_indeces[vertices_indices1[2]];
-
-                    triangles_indices11.push_back(sceneMesh.triangle_index_to_vertices_indeces.size());
-                    triangles_indices12.push_back(sceneMesh.triangle_index_to_vertices_indeces.size());
-                    triangles_indices13.push_back(sceneMesh.triangle_index_to_vertices_indeces.size());
-
-                    std::array<unsigned int, 3> vertices_indices2;
-                    vertices_indices2[0] = x + y * (VERTEX_WIDTH);
-                    vertices_indices2[1] = x + (y - 1) * (VERTEX_WIDTH);
-                    vertices_indices2[2] = x - 1 + y * (VERTEX_WIDTH);
-
-                    sceneMesh.triangle_index_to_vertices_indeces.push_back(vertices_indices2);
-
-                    std::vector<unsigned int> triangles_indices21 = sceneMesh.vertex_index_to_triangles_indeces[vertices_indices2[0]];
-                    std::vector<unsigned int> triangles_indices22 = sceneMesh.vertex_index_to_triangles_indeces[vertices_indices2[1]];
-                    std::vector<unsigned int> triangles_indices23 = sceneMesh.vertex_index_to_triangles_indeces[vertices_indices2[2]];
-
-                    triangles_indices21.push_back(sceneMesh.triangle_index_to_vertices_indeces.size());
-                    triangles_indices22.push_back(sceneMesh.triangle_index_to_vertices_indeces.size());
-                    triangles_indices23.push_back(sceneMesh.triangle_index_to_vertices_indeces.size());
-                }
-                else
-                {
-                    std::array<unsigned int, 3> vertices_indices1;
-                    vertices_indices1[0] = x + y * (VERTEX_WIDTH);
-                    vertices_indices1[1] = x - 1 + (y - 1) * (VERTEX_WIDTH);
-                    vertices_indices1[2] = x - 1 + y * (VERTEX_WIDTH);
-
-                    sceneMesh.triangle_index_to_vertices_indeces.push_back(vertices_indices1);
-
-                    std::vector<unsigned int> triangles_indices11 = sceneMesh.vertex_index_to_triangles_indeces[vertices_indices1[0]];
-                    std::vector<unsigned int> triangles_indices12 = sceneMesh.vertex_index_to_triangles_indeces[vertices_indices1[1]];
-                    std::vector<unsigned int> triangles_indices13 = sceneMesh.vertex_index_to_triangles_indeces[vertices_indices1[2]];
-
-                    triangles_indices11.push_back(sceneMesh.triangle_index_to_vertices_indeces.size());
-                    triangles_indices12.push_back(sceneMesh.triangle_index_to_vertices_indeces.size());
-                    triangles_indices13.push_back(sceneMesh.triangle_index_to_vertices_indeces.size());
-
-                    std::array<unsigned int, 3> vertices_indices2;
-                    vertices_indices2[0] = x + y * (VERTEX_WIDTH);
-                    vertices_indices2[1] = x + (y - 1) * (VERTEX_WIDTH);
-                    vertices_indices2[2] = x - 1 + (y - 1) * (VERTEX_WIDTH);
-
-                    sceneMesh.triangle_index_to_vertices_indeces.push_back(vertices_indices2);
-
-                    std::vector<unsigned int> triangles_indices21 = sceneMesh.vertex_index_to_triangles_indeces[vertices_indices2[0]];
-                    std::vector<unsigned int> triangles_indices22 = sceneMesh.vertex_index_to_triangles_indeces[vertices_indices2[1]];
-                    std::vector<unsigned int> triangles_indices23 = sceneMesh.vertex_index_to_triangles_indeces[vertices_indices2[2]];
-
-                    triangles_indices21.push_back(sceneMesh.triangle_index_to_vertices_indeces.size());
-                    triangles_indices22.push_back(sceneMesh.triangle_index_to_vertices_indeces.size());
-                    triangles_indices23.push_back(sceneMesh.triangle_index_to_vertices_indeces.size());
-                }
-            }
-        }
-    }
 }
 
 void rayDepthMeshSceneCPU::init(frameCPU &frame, dataCPU<float> &idepth)
@@ -157,10 +63,14 @@ dataCPU<float> rayDepthMeshSceneCPU::computeFrameIdepth(frameCPU &frame, int lvl
 {
     dataCPU<float> idepth(-1.0);
 
+    Mesh frameMesh = sceneMesh.getTransformed(frame.pose);
+    Mesh frameMesh = frameMesh.getProjected(cam, lvl);
+
     // for each triangle
-    for (std::size_t t_id = 0; t_id < sceneMesh.triangle_index_to_vertices_indeces.size(); t_id++)
+    for (std::size_t t_id = 0; t_id < frameMesh.triangles.size(); t_id++)
     {
-        triangle tri(sceneMesh.vertices, sceneMesh.triangle_index_to_vertices_indeces[t_id]);
+        std::array<unsigned int> vertices_indices = frameMesh.triangles[t_id];
+        triangle tri(sceneMesh.vertices, sceneMesh.triangles[t_id]);
         // tri.transform(keyframe.pose);
         tri.transform(frame.pose);
         std::array<Eigen::Vector3f, 3> f_tri_ver = tri.vertex;
