@@ -153,47 +153,6 @@ void rayDepthMeshSceneCPU::setFromIdepth(dataCPU<float> id)
     }
 }
 
-
-mesh rayDepthMeshSceneCPU::computeObservedMesh(Sophus::SE3f pose)
-{
-    mesh obsMesh;
-
-    //for each vertice
-    std::vector<bool> isVertexVisible;
-    for(size_t v_id = 0; v_id < sceneMesh.vertices.size(); v_id++)
-    {
-        Eigen::Vector3f vertex;
-        vertex(0) = sceneMesh.vertices[v_id][0];
-        vertex(1) = sceneMesh.vertices[v_id][1];
-        vertex(2) = sceneMesh.vertices[v_id][2];
-        if(sceneMesh.isRayIdepth)
-            vertex = fromRayIdepthToVertex(vertex);
-
-        vertex = pose * vertex;
-
-        Eigen::Vector2f pix = cam.project(vertex, lvl);
-        if(cam.isPixVisible(pix, lvl))
-        {
-            isVertexVisible.push_back(true);
-            //obsMesh.vertices.push_back(fromVertexToRayIdepth(vertex));
-        }
-        else
-        {
-            isVertexVisible.push_back(false);
-        }
-    }
-
-    for(size_t v_id = 0; v_id < sceneMesh.vertices.size(); v_id++)
-    {
-        if(isVertexVisible[v_id])
-        {
-            //obsMesh.
-        }
-    }
-
-    return obsMesh;
-}
-
 dataCPU<float> rayDepthMeshSceneCPU::computeFrameIdepth(frameCPU &frame, int lvl)
 {
     dataCPU<float> idepth(-1.0);

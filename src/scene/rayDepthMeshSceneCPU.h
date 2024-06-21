@@ -42,8 +42,6 @@ private:
 
     dataCPU<float> z_buffer;
 
-    mesh computeObservedMesh(frameCPU &frame);
-
     void setFromIdepth(dataCPU<float> id);
 
     Error computeError(frameCPU &frame, int lvl);
