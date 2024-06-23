@@ -9,25 +9,38 @@
 class Triangle
 {
 public:
-    Triangle(std::array<unsigned int, 3> &vert_ids, unsigned int t_id)
+
+    Triangle(Vertex &vert1, Vertex &vert2, Vertex &vert3, unsigned int i)
     {
-        vertices_indices = vert_ids;
-        index = id;
+        vertices[0] = &vert1;
+        vertices[1] = &vert2;
+        vertices[2] = &vert3;
+        id = i;
     };
+
+    bool isBackFace()
+    {
+        Eigen::Vector3f f_tri_nor = (vertices[0]->position - vertices[2]->position).cross(vertices[0]->position - vertices[1]->position);
+        // back-face culling
+        float point_dot_normal = vertices[0]->position.dot(f_tri_nor);
+        if (point_dot_normal <= 0.0)
+            return true;
+        return false;
+    }
 
     void computeTinv()
     {
         Eigen::Matrix2f T;
-        T(0, 0) = pix[0](0) - pix[2](0);
-        T(0, 1) = pix[1](0) - pix[2](0);
-        T(1, 0) = pix[0](1) - pix[2](1);
-        T(1, 1) = pix[1](1) - pix[2](1);
+        T(0, 0) = vertices[0]->texcoord(0) - vertices[2]->texcoord(0);
+        T(0, 1) = vertices[1]->texcoord(0) - vertices[2]->texcoord(0);
+        T(1, 0) = vertices[0]->texcoord(1) - vertices[2]->texcoord(1);
+        T(1, 1) = vertices[1]->texcoord(1) - vertices[2]->texcoord(1);
         T_inv = T.inverse();
     };
 
     void computeBarycentric(Eigen::Vector2f p)
     {
-        Eigen::Vector2f lambda = T_inv * (p - pix[2]);
+        Eigen::Vector2f lambda = T_inv * (p - vertices[2]->texcoord);
         barycentric = Eigen::Vector3f(lambda(0), lambda(1), 1 - lambda(0) - lambda(1));
     };
 
@@ -39,26 +52,27 @@ public:
     };
 
     template <typename Type>
-    Type interpolate(std::array<Type, 3> data)
+    Type interpolate(Type &d1, Type &d2, Type &d3)
     {
-        return barycentric(0) * data[0] + barycentric(1) * data[1] + barycentric(2) * data[2];
+        return barycentric(0) * d1 + barycentric(1) * d2 + barycentric(2) * d2;
     };
 
     std::array<Eigen::Vector2f, 2> getMinMax()
     {
         std::array<Eigen::Vector2f, 2> minmax;
-        minmax[0](0) = std::min(std::min(pix[0](0), pix[1](0)), pix[2](0));
-        minmax[0](1) = std::min(std::min(pix[0](1), pix[1](1)), pix[2](1));
-        minmax[1](0) = std::max(std::max(pix[0](0), pix[1](0)), pix[2](0));
-        minmax[1](1) = std::max(std::max(pix[0](1), pix[1](1)), pix[2](1));
+        minmax[0](0) = std::min(std::min(vertices[0]->texcoord(0), vertices[1]->texcoord(0)), vertices[2]->texcoord(0));
+        minmax[0](1) = std::min(std::min(vertices[0]->texcoord(1), vertices[1]->texcoord(1)), vertices[2]->texcoord(1));
+        minmax[1](0) = std::max(std::max(vertices[0]->texcoord(0), vertices[1]->texcoord(0)), vertices[2]->texcoord(0));
+        minmax[1](1) = std::max(std::max(vertices[0]->texcoord(1), vertices[1]->texcoord(1)), vertices[2]->texcoord(1));
 
         return minmax;
     };
 
+    unsigned int id;
+    std::array<Vertex *, 3> vertices;
+
+    Eigen::Matrix2f T_inv;
+    Eigen::Vector3f barycentric;
 
 private:
-
-    unsigned int index;
-    std::array<unsigned int, 3> vertices_indices;
-
 };

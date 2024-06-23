@@ -9,37 +9,18 @@
 class Vertex
 {
 public:
-    Vertex(Eigen::Vector3f &d, unsigned int ind)
+    Vertex(Eigen::Vector3f &pos, Eigen::Vector2f &tc, unsigned int i)
     {
-        data = d;
-        index = ind;
+        position = pos;
+        texcoord = tc;
+        id = i;
     };
 
-    void operator=(const Eigen::Vector3f a)
-    {
-        data = a;
-    }
-
-    void operator=(const Vertex a)
-    {
-        data = a.data;
-        index = a.index;
-        triangle_indices = a.triangle_indices;
-    }
-
-    void addTriangle(unsigned int t_id)
-    {
-        triangles_indices.push_back(t_id);
-    }
+    Eigen::Vector3f position;
+    Eigen::Vector2f texcoord;
+    unsigned int id;
+    std::vector<Triangle*> triangles;
 
 private:
-    Eigen::Vector3f data;
-    unsigned int index;
 
-    std::vector<unsigned int> triangles_indices;
 };
-
-Eigen::Vector3f operator*(Sophus::SE3f const &pose, Vertex &vert)
-{
-    return pose * vert.data;
-}

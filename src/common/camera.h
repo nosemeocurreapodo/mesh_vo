@@ -48,7 +48,7 @@ public:
         }
     };
 
-    bool isPixVisible(Eigen::Vector3f &pix, int lvl)
+    bool isPixVisible(Eigen::Vector2f &pix, int lvl)
     {
         // the -1 is for the bilinear interpolation
         if (pix(0) < 0.0 || pix(0) >= width[lvl] - 1 || pix(1) < 0.0 || pix(1) >= height[lvl] - 1)
@@ -58,10 +58,10 @@ public:
 
     Eigen::Vector3f project(Eigen::Vector3f vertex, int lvl)
     {
-        Eigen::Vector3f proj = vertex / vertex(2);
-        proj(0) = fx[lvl] * proj(0) + cx[lvl];
-        proj(1) = fy[lvl] * proj(1) + cy[lvl];
-        return proj;
+        Eigen::Vector2f pix = vertex / vertex(2);
+        pix(0) = fx[lvl] * pix(0) + cx[lvl];
+        pix(1) = fy[lvl] * pix(1) + cy[lvl];
+        return pix;
     }
 
     Eigen::Vector3f toRay(Eigen::Vector3f &pix, int lvl)

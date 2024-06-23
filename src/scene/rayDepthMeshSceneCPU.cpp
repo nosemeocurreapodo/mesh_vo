@@ -1,5 +1,5 @@
 #include "scene/rayDepthMeshSceneCPU.h"
-#include "common/triangle.h"
+#include "common/Triangle.h"
 #include "utils/tictoc.h"
 
 rayDepthMeshSceneCPU::rayDepthMeshSceneCPU(float fx, float fy, float cx, float cy, int width, int height)
@@ -25,9 +25,9 @@ void rayDepthMeshSceneCPU::setFromIdepth(dataCPU<float> id)
 
     int lvl = 0;
 
-    for (int y = 0; y < VERTEX_HEIGHT; y++)
+    for (int y = 0; y < MESH_HEIGHT; y++)
     {
-        for (int x = 0; x < VERTEX_WIDTH; x++)
+        for (int x = 0; x < MESH_WIDTH; x++)
         {
             float xi = (float(x) / float(VERTEX_WIDTH - 1)) * cam.width[lvl];
             float yi = (float(y) / float(VERTEX_HEIGHT - 1)) * cam.height[lvl];
@@ -63,20 +63,26 @@ dataCPU<float> rayDepthMeshSceneCPU::computeFrameIdepth(frameCPU &frame, int lvl
 {
     dataCPU<float> idepth(-1.0);
 
-    Mesh frameMesh = sceneMesh.getTransformed(frame.pose);
-    Mesh frameMesh = frameMesh.getProjected(cam, lvl);
+    Mesh frameMesh = sceneMesh.getCopy();
+    frameMesh.transform(frame.pose);
+    frameMesh.project(cam, lvl);
 
     // for each triangle
     for (std::size_t t_id = 0; t_id < frameMesh.triangles.size(); t_id++)
     {
-        std::array<unsigned int> vertices_indices = frameMesh.triangles[t_id];
-        triangle tri(sceneMesh.vertices, sceneMesh.triangles[t_id]);
-        // tri.transform(keyframe.pose);
-        tri.transform(frame.pose);
-        std::array<Eigen::Vector3f, 3> f_tri_ver = tri.vertex;
-        tri.project(cam, lvl);
-        tri.computeTinv();
-        std::array<Eigen::Vector2f, 2> minmax = tri.getMinMax();
+        Triangle kf_tri = sceneMesh.triangles[t_id];
+        if(kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
+            continue;
+        if(kf_tri.isBackFace())
+            continue;
+        Triangle f_tri = frameMesh.triangle[t_id];
+        if(f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
+            continue;
+        if(f_tri.isBackFace())
+            continue;
+
+        f_tri.computeTinv();
+        std::array<Eigen::Vector2f, 2> minmax = f_tri.getMinMax();
 
         for (int y = minmax[0](1); y <= minmax[1](1); y++)
         {
@@ -90,7 +96,7 @@ dataCPU<float> rayDepthMeshSceneCPU::computeFrameIdepth(frameCPU &frame, int lvl
                 if (!tri.isBarycentricOk())
                     continue;
 
-                Eigen::Vector3f f_ver = tri.interpolate(f_tri_ver);
+                Eigen::Vector3f f_ver = tri.interpolate(f_tri.vertices[0]->position, f_tri.vertices[1]->position, f_tri.vertices[2]->position);
 
                 if (f_ver(2) <= 0.0)
                     continue;
@@ -131,29 +137,32 @@ void rayDepthMeshSceneCPU::errorPerIndex(frameCPU &frame, int lvl, int tmin, int
 {
     // z_buffer.reset(lvl);
 
+    Mesh frameMesh = sceneMesh.getCopy();
+
+    frameMesh.transform(frame.pose);
+    frameMesh.project(cam, lvl);
+
     // for each triangle
     for (std::size_t t_id = tmin; t_id < tmax; t_id++)
     {
-        triangle tri(sceneMesh.vertices, sceneMesh.triangle_index_to_vertices_indeces[t_id]);
-        // tri.transform(keyframe.pose);
-        tri.project(cam, lvl);
-        std::array<Eigen::Vector2f, 3> kf_tri_pix = tri.pix;
-        // is the triangle visible??
-        // backface culling??
+        Triangle kf_tri = sceneMesh.triangles[t_id];
+        if(kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
+            continue;
+        if(kf_tri.isBackFace())
+            continue;
+        Triangle f_tri = frameMesh.triangle[t_id];
+        if(f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
+            continue;
+        if(f_tri.isBackFace())
+            continue;
 
-        tri.transform(frame.pose);
-        tri.project(cam, lvl);
-        tri.computeTinv();
-        // is the triangle visible??
-        // backface culling??
-
-        std::array<Eigen::Vector2f, 2> minmax = tri.getMinMax();
+        f_tri.computeTinv();
+        std::array<Eigen::Vector2f, 2> minmax = f_tri.getMinMax();
 
         for (int y = minmax[0](1); y <= minmax[1](1); y++)
         {
             for (int x = minmax[0](0); x <= minmax[1](0); x++)
             {
-
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
                 if (!cam.isPixVisible(f_pix, lvl))
                     continue;
@@ -162,8 +171,7 @@ void rayDepthMeshSceneCPU::errorPerIndex(frameCPU &frame, int lvl, int tmin, int
                 if (!tri.isBarycentricOk())
                     continue;
 
-                Eigen::Vector2f kf_pix = tri.interpolate(kf_tri_pix);
-                // this -1 is for the bilinear interpolation
+                Eigen::Vector2f kf_pix = tri.interpolate(kf_tri.vertices[0]->texcoord, kf_tri.vertices[1]->texcoord, kf_tri.vertices[2]->texcoord);
                 if (!cam.isPixVisible(kf_pix, lvl))
                     continue;
 
@@ -195,15 +203,19 @@ dataCPU<float> rayDepthMeshSceneCPU::computeErrorImage(frameCPU &frame, int lvl)
     // for each triangle
     for (std::size_t t_id = 0; t_id < sceneMesh.triangle_index_to_vertices_indeces.size(); t_id++)
     {
-        triangle tri(sceneMesh.vertices, sceneMesh.triangle_index_to_vertices_indeces[t_id]);
-        // tri.transform(keyframe.pose);
-        tri.project(cam, lvl);
-        std::array<Eigen::Vector2f, 3> kf_tri_pix = tri.pix;
+        Triangle kf_tri = sceneMesh.triangles[t_id];
+        if(kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
+            continue;
+        if(kf_tri.isBackFace())
+            continue;
+        Triangle f_tri = frameMesh.triangle[t_id];
+        if(f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
+            continue;
+        if(f_tri.isBackFace())
+            continue;
 
-        tri.transform(frame.pose);
-        tri.project(cam, lvl);
-        tri.computeTinv();
-        std::array<Eigen::Vector2f, 2> minmax = tri.getMinMax();
+        f_tri.computeTinv();
+        std::array<Eigen::Vector2f, 2> minmax = f_tri.getMinMax();
 
         for (int y = minmax[0](1); y <= minmax[1](1); y++)
         {
@@ -216,7 +228,7 @@ dataCPU<float> rayDepthMeshSceneCPU::computeErrorImage(frameCPU &frame, int lvl)
                 if (!tri.isBarycentricOk())
                     continue;
 
-                Eigen::Vector2f kf_pix = tri.interpolate(kf_tri_pix);
+                Eigen::Vector2f kf_pix = tri.interpolate(kf_tri.vertices[0]->texcoord, kf_tri.vertices[1]->texcoord, kf_tri.vertices[2]->texcoord);
                 if (!cam.isPixVisible(kf_pix, lvl))
                     continue;
 
@@ -247,16 +259,19 @@ dataCPU<float> rayDepthMeshSceneCPU::computeSceneImage(frameCPU &frame, int lvl)
     // for each triangle
     for (std::size_t index = 0; index < sceneMesh.triangle_index_to_vertices_indeces.size(); index++)
     {
-        triangle tri(sceneMesh.vertices, sceneMesh.triangle_index_to_vertices_indeces[index]);
-        // tri.transform(keyframe.pose);
-        tri.project(cam, lvl);
-        std::array<Eigen::Vector2f, 3> kf_tri_pix = tri.pix;
+        Triangle kf_tri = sceneMesh.triangles[t_id];
+        if(kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
+            continue;
+        if(kf_tri.isBackFace())
+            continue;
+        Triangle f_tri = frameMesh.triangle[t_id];
+        if(f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
+            continue;
+        if(f_tri.isBackFace())
+            continue;
 
-        tri.transform(frame.pose);
-        tri.project(cam, lvl);
-        tri.computeTinv();
-
-        std::array<Eigen::Vector2f, 2> minmax = tri.getMinMax();
+        f_tri.computeTinv();
+        std::array<Eigen::Vector2f, 2> minmax = f_tri.getMinMax();
 
         for (int y = minmax[0](1); y <= minmax[1](1); y++)
         {
@@ -270,7 +285,7 @@ dataCPU<float> rayDepthMeshSceneCPU::computeSceneImage(frameCPU &frame, int lvl)
                 if (!tri.isBarycentricOk())
                     continue;
 
-                Eigen::Vector2f kf_pix = tri.interpolate(kf_tri_pix);
+                Eigen::Vector2f kf_pix = tri.interpolate(kf_tri.vertices[0]->texcoord, kf_tri.vertices[1]->texcoord, kf_tri.vertices[2]->texcoord);
                 if (!cam.isPixVisible(kf_pix, lvl))
                     continue;
 
@@ -321,31 +336,31 @@ void rayDepthMeshSceneCPU::HGPosePerIndex(frameCPU &frame, int lvl, int tmin, in
 {
     // z_buffer.reset(lvl);
 
+    Mesh frameMesh = sceneMesh.getCopy();
+    frameMesh.transform(frame.pose);
+    frameMesh.project(cam, lvl);
+
     // for each triangle
     for (int index = tmin; index < tmax; index++)
     {
-        triangle tri(sceneMesh.vertices, sceneMesh.triangle_index_to_vertices_indeces[index]);
-        // tri.transform(keyframe.pose);
-        tri.project(cam, lvl);
-        std::array<Eigen::Vector3f, 3> kf_tri_ver = tri.vertex;
-        std::array<Eigen::Vector2f, 3> kf_tri_pix = tri.pix;
-        if (!cam.isPixVisible(kf_tri_pix[0], lvl) && !cam.isPixVisible(kf_tri_pix[1], lvl) && !cam.isPixVisible(kf_tri_pix[2], lvl))
+        Triangle kf_tri = sceneMesh.triangles[t_id];
+        if(kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
             continue;
-        tri.transform(frame.pose);
-        tri.project(cam, lvl);
-        std::array<Eigen::Vector3f, 3> f_tri_ver = tri.vertex;
-        std::array<Eigen::Vector2f, 3> f_tri_pix = tri.pix;
-        if (!cam.isPixVisible(f_tri_pix[0], lvl) && !cam.isPixVisible(f_tri_pix[1], lvl) && !cam.isPixVisible(f_tri_pix[2], lvl))
+        if(kf_tri.isBackFace())
+            continue;
+        Triangle f_tri = frameMesh.triangle[t_id];
+        if(f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
+            continue;
+        if(f_tri.isBackFace())
             continue;
 
-        tri.computeTinv();
-        std::array<Eigen::Vector2f, 2> minmax = tri.getMinMax();
+        f_tri.computeTinv();
+        std::array<Eigen::Vector2f, 2> minmax = f_tri.getMinMax();
 
         for (int y = minmax[0](1); y <= minmax[1](1); y++)
         {
             for (int x = minmax[0](0); x <= minmax[1](0); x++)
             {
-
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
                 if (!cam.isPixVisible(f_pix, lvl))
                     continue;
@@ -355,11 +370,11 @@ void rayDepthMeshSceneCPU::HGPosePerIndex(frameCPU &frame, int lvl, int tmin, in
                 if (!tri.isBarycentricOk())
                     continue;
 
-                Eigen::Vector2f kf_pix = tri.interpolate(kf_tri_pix);
+                Eigen::Vector2f kf_pix = tri.interpolate(kf_tri.vertices[0]->texcoord, kf_tri.vertices[1]->texcoord, kf_tri.vertices[2]->texcoord);
                 if (!cam.isPixVisible(kf_pix, lvl))
                     continue;
 
-                Eigen::Vector3f f_ver = tri.interpolate(f_tri_ver);
+                Eigen::Vector3f f_ver = tri.interpolate(f_tri.vertices[0]->position, f_tri.vertices[1]->position, f_tri.vertices[2]->position);
 
                 if (f_ver(2) <= 0.0)
                     continue;
@@ -435,58 +450,60 @@ void rayDepthMeshSceneCPU::HGMapPerIndex(frameCPU &frame, int lvl, int tmin, int
 {
     // z_buffer.reset(lvl);
 
+    Mesh frameMesh = sceneMesh.getCopy();
+    frameMesh.transform(frame.pose);
+    frameMesh.project(cam, lvl);
+
     // for each triangle
     for (std::size_t index = tmin; index < tmax; index++)
     {
-        std::array<unsigned int, 3> vertex_id = sceneMesh.triangle_index_to_vertices_indeces[index];
-        triangle tri(sceneMesh.vertices, vertex_id);
-        // tri.transform(keyframe.pose);
-        std::array<Eigen::Vector3f, 3> kf_tri_ver = tri.vertex;
-        tri.project(cam, lvl);
-        std::array<Eigen::Vector2f, 3> kf_tri_pix = tri.pix;
+        Triangle kf_tri = sceneMesh.triangles[t_id];
+        if(kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
+            continue;
+        if(kf_tri.isBackFace())
+            continue;
+        Triangle f_tri = frameMesh.triangle[t_id];
+        if(f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
+            continue;
+        if(f_tri.isBackFace())
+            continue;
 
-        tri.transform(frame.pose);
-        std::array<Eigen::Vector3f, 3> f_tri_ver = tri.vertex;
-        tri.project(cam, lvl);
-        std::array<Eigen::Vector2f, 3> f_tri_pix = tri.pix;
-
-        tri.computeTinv();
-        std::array<Eigen::Vector2f, 2> minmax = tri.getMinMax();
+        f_tri.computeTinv();
+        std::array<Eigen::Vector2f, 2> minmax = f_tri.getMinMax();
 
         Eigen::Vector3f n_p[3];
-        n_p[0] = (kf_tri_ver[0] - kf_tri_ver[1]).cross(kf_tri_ver[2] - kf_tri_ver[1]);
-        n_p[1] = (kf_tri_ver[1] - kf_tri_ver[0]).cross(kf_tri_ver[2] - kf_tri_ver[0]);
-        n_p[2] = (kf_tri_ver[2] - kf_tri_ver[1]).cross(kf_tri_ver[0] - kf_tri_ver[1]);
+        n_p[0] = (kf_tri.vertices[0]->position - kf_tri.vertices[1]->position).cross(kf_tri.vertices[2]->position - kf_tri.vertices[1]->position);
+        n_p[1] = (kf_tri.vertices[1]->position - kf_tri.vertices[0]->position).cross(kf_tri.vertices[2]->position - kf_tri.vertices[0]->position);
+        n_p[2] = (kf_tri.vertices[2]->position - kf_tri.vertices[1]->position).cross(kf_tri.vertices[0]->position - kf_tri.vertices[1]->position);
 
         Eigen::Vector3f pw2mpw1[3];
-        pw2mpw1[0] = (kf_tri_ver[2] - kf_tri_ver[1]);
-        pw2mpw1[1] = (kf_tri_ver[2] - kf_tri_ver[0]);
-        pw2mpw1[2] = (kf_tri_ver[0] - kf_tri_ver[1]);
+        pw2mpw1[0] = (kf_tri.vertices[2]->position - kf_tri.vertices[1]->position);
+        pw2mpw1[1] = (kf_tri.vertices[2]->position - kf_tri.vertices[0]->position);
+        pw2mpw1[2] = (kf_tri.vertices[0]->position - kf_tri.vertices[1]->position);
 
         float n_p_dot_point[3];
-        n_p_dot_point[0] = n_p[0].dot(kf_tri_ver[1]);
-        n_p_dot_point[1] = n_p[1].dot(kf_tri_ver[0]);
-        n_p_dot_point[2] = n_p[2].dot(kf_tri_ver[1]);
+        n_p_dot_point[0] = n_p[0].dot(kf_tri.vertices[1]->position);
+        n_p_dot_point[1] = n_p[1].dot(kf_tri.vertices[0]->position);
+        n_p_dot_point[2] = n_p[2].dot(kf_tri.vertices[1]->position);
 
         Eigen::Vector3f pr_p[3];
-        pr_p[0] = kf_tri_ver[1];
-        pr_p[1] = kf_tri_ver[0];
-        pr_p[2] = kf_tri_ver[1];
+        pr_p[0] = kf_tri.vertices[1]->position;
+        pr_p[1] = kf_tri.vertices[0]->position;
+        pr_p[2] = kf_tri.vertices[1]->position;
 
         Eigen::Vector3f d_n_d_z[3];
         float d_z_d_iz[3];
         for (int i = 0; i < 3; i++)
         {
-            d_n_d_z[i] = kf_tri_ver[i].cross(pw2mpw1[i]);
+            d_n_d_z[i] = kf_tri.vertices[i]->position.cross(pw2mpw1[i]);
             // d_z_d_iz[i] = -1.0 / (kf_tri_idepth[i] * kf_tri_idepth[i]);
-            d_z_d_iz[i] = -(kf_tri_ver[i](2) * kf_tri_ver[i](2));
+            d_z_d_iz[i] = -(kf_tri.vertices[i]->position(2) * kf_tri.vertices[i]->position(2));
         }
 
         for (int y = minmax[0](1); y <= minmax[1](1); y++)
         {
             for (int x = minmax[0](0); x <= minmax[1](0); x++)
             {
-
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
                 if (!cam.isPixVisible(f_pix, lvl))
                     continue;
@@ -495,12 +512,12 @@ void rayDepthMeshSceneCPU::HGMapPerIndex(frameCPU &frame, int lvl, int tmin, int
                 if (!tri.isBarycentricOk())
                     continue;
 
-                Eigen::Vector2f kf_pix = tri.interpolate(kf_tri_pix);
+                Eigen::Vector2f kf_pix = tri.interpolate(kf_tri.vertices[0]->texcoord, kf_tri.vertices[1]->texcoord, kf_tri.vertices[2]->texcoord);
                 if (!cam.isPixVisible(kf_pix, lvl))
                     continue;
 
-                Eigen::Vector3f kf_ver = tri.interpolate(kf_tri_ver);
-                Eigen::Vector3f f_ver = tri.interpolate(f_tri_ver);
+                Eigen::Vector3f kf_ver = tri.interpolate(kf_tri.vertices[0]->position, kf_tri.vertices[1]->position, kf_tri.vertices[2]->position);
+                Eigen::Vector3f f_ver = tri.interpolate(f_tri.vertices[0]->position, f_tri.vertices[1]->position, f_tri.vertices[2]->position);
 
                 // z-buffer
                 // float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);

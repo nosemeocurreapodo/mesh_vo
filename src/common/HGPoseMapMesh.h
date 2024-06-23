@@ -10,9 +10,9 @@ class HGPoseMapMesh
 public:
     HGPoseMapMesh()
     {
-        H = Eigen::SparseMatrix<float>(NUM_FRAMES * 6 + VERTEX_HEIGHT * VERTEX_WIDTH, NUM_FRAMES * 6 + VERTEX_HEIGHT * VERTEX_WIDTH);
-        G = Eigen::VectorXf::Zero(NUM_FRAMES * 6 + VERTEX_HEIGHT * VERTEX_WIDTH);
-        G_count = Eigen::VectorXf::Zero(NUM_FRAMES * 6 + VERTEX_HEIGHT * VERTEX_WIDTH);
+        H = Eigen::SparseMatrix<float>(NUM_FRAMES * 6 + MESH_HEIGHT * MESH_WIDTH, NUM_FRAMES * 6 + MESH_HEIGHT * MESH_WIDTH);
+        G = Eigen::VectorXf::Zero(NUM_FRAMES * 6 + MESH_HEIGHT * MESH_WIDTH);
+        G_count = Eigen::VectorXf::Zero(NUM_FRAMES * 6 + MESH_HEIGHT * MESH_WIDTH);
         //H.setZero();
         //G.setZero();
         //G_count.setZero();
