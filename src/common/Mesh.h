@@ -12,6 +12,7 @@ class Mesh
 public:
     Mesh()
     {
+        isRayIdepth = false;
     };
 
     void init(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl)
@@ -32,10 +33,14 @@ public:
                 ray(1) = cam.fyinv[lvl] * pix[1] + cam.cyinv[lvl];
                 ray(2) = 1.0;
                 float id = idepth.get(pix[1], pix[0], lvl);
-                if(id <= 0.0)
+                if (id <= 0.0)
                     id = 0.5;
 
-                Eigen::Vector3f point = ray / id;
+                Eigen::Vector3f point;
+                if (isRayIdepth)
+                    point = Eigen::Vector3f(ray(0), ray(1), id);
+                else
+                    point = ray / id;
                 Vertice vertex(point, pix, vertices.size());
 
                 vertices.push_back(vertex);
@@ -51,8 +56,8 @@ public:
                 {
                     // if (((x % 2 == 0)))
                     //  if(((x % 2 == 0) && (y % 2 == 0)) || ((x % 2 != 0) && (y % 2 != 0)))
-                    //if (rand() > 0.5 * RAND_MAX)
-                    if(true)
+                    // if (rand() > 0.5 * RAND_MAX)
+                    if (true)
                     {
                         unsigned int v11 = x - 1 + y * (MESH_WIDTH);
                         unsigned int v12 = x + (y - 1) * (MESH_WIDTH);
@@ -62,10 +67,10 @@ public:
                         Triangle tri1(vertices[v11], vertices[v12], vertices[v13], t1_index);
                         triangles.push_back(tri1);
 
-                        //Triangle* tri11 = &triangles[t1_index];
-                        //vertices[v11].triangles.push_back(tri11);
-                        //vertices[v12].triangles.push_back(tri11);
-                        //vertices[v13].triangles.push_back(tri11);
+                        // Triangle* tri11 = &triangles[t1_index];
+                        // vertices[v11].triangles.push_back(tri11);
+                        // vertices[v12].triangles.push_back(tri11);
+                        // vertices[v13].triangles.push_back(tri11);
 
                         unsigned int v21 = x + y * (MESH_WIDTH);
                         unsigned int v22 = x + (y - 1) * (MESH_WIDTH);
@@ -75,10 +80,10 @@ public:
                         Triangle tri2(vertices[v21], vertices[v22], vertices[v23], t2_index);
                         triangles.push_back(tri2);
 
-                        //Triangle* tri22 = &triangles[t2_index];
-                        //vertices[v21].triangles.push_back(tri22);
-                        //vertices[v22].triangles.push_back(tri22);
-                        //vertices[v23].triangles.push_back(tri22);
+                        // Triangle* tri22 = &triangles[t2_index];
+                        // vertices[v21].triangles.push_back(tri22);
+                        // vertices[v22].triangles.push_back(tri22);
+                        // vertices[v23].triangles.push_back(tri22);
                     }
                     else
                     {
@@ -90,9 +95,9 @@ public:
                         Triangle tri1(vertices[v11], vertices[v12], vertices[v13], t1_index);
                         triangles.push_back(tri1);
 
-                        //vertices[v11].triangles.push_back(&triangles[t1_index]);
-                        //vertices[v12].triangles.push_back(&triangles[t1_index]);
-                        //vertices[v13].triangles.push_back(&triangles[t1_index]);
+                        // vertices[v11].triangles.push_back(&triangles[t1_index]);
+                        // vertices[v12].triangles.push_back(&triangles[t1_index]);
+                        // vertices[v13].triangles.push_back(&triangles[t1_index]);
 
                         unsigned int v21 = x + y * (MESH_WIDTH);
                         unsigned int v22 = x + (y - 1) * (MESH_WIDTH);
@@ -102,9 +107,9 @@ public:
                         Triangle tri2(vertices[v21], vertices[v22], vertices[v23], t2_index);
                         triangles.push_back(tri2);
 
-                        //vertices[v21].triangles.push_back(&triangles[t2_index]);
-                        //vertices[v22].triangles.push_back(&triangles[t2_index]);
-                        //vertices[v23].triangles.push_back(&triangles[t2_index]);
+                        // vertices[v21].triangles.push_back(&triangles[t2_index]);
+                        // vertices[v22].triangles.push_back(&triangles[t2_index]);
+                        // vertices[v23].triangles.push_back(&triangles[t2_index]);
                     }
                 }
             }
@@ -149,13 +154,40 @@ public:
         }
         */
 
+    void toRayIdepth()
+    {
+        if (!isRayIdepth)
+        {
+            for (int i = 0; i < (int)vertices.size(); i++)
+            {
+                vertices[i].position = fromVertexToRayIdepth(vertices[i].position);
+            }
+            isRayIdepth = true;
+        }
+    }
+
+    void toVertex()
+    {
+        if (isRayIdepth)
+        {
+            for (int i = 0; i < (int)vertices.size(); i++)
+            {
+                vertices[i].position = fromRayIdepthToVertex(vertices[i].position);
+            }
+            isRayIdepth = false;
+        }
+    }
+
     void transform(Sophus::SE3f &pose)
     {
-
         for (int i = 0; i < (int)vertices.size(); i++)
         {
             Eigen::Vector3f pos = vertices[i].position;
+            if (isRayIdepth)
+                pos = fromRayIdepthToVertex(pos);
             pos = pose * pos;
+            if (isRayIdepth)
+                pos = fromVertexToRayIdepth(pos);
             vertices[i].position = pos;
         }
     }
@@ -164,7 +196,11 @@ public:
     {
         for (int i = 0; i < (int)vertices.size(); i++)
         {
-            Eigen::Vector3f ray = vertices[i].position / vertices[i].position(2);
+            Eigen::Vector3f ray;
+            if (isRayIdepth)
+                ray = vertices[i].position;
+            else
+                ray = vertices[i].position / vertices[i].position(2);
 
             Eigen::Vector2f pix;
             pix(0) = cam.fx[lvl] * ray(0) + cam.cx[lvl];
@@ -191,8 +227,8 @@ public:
             unsigned int v2_in = meshCopy.getVertexIndexFromId(tri.vertices[1]->id);
             unsigned int v3_in = meshCopy.getVertexIndexFromId(tri.vertices[2]->id);
 
-            //should not happen
-            if(v1_in < 0 || v2_in < 0 || v3_in < 0)
+            // should not happen
+            if (v1_in < 0 || v2_in < 0 || v3_in < 0)
                 continue;
 
             unsigned int id = tri.id;
@@ -200,11 +236,12 @@ public:
             Triangle new_tri(meshCopy.vertices[v1_in], meshCopy.vertices[v2_in], meshCopy.vertices[v3_in], id);
             meshCopy.triangles.push_back(new_tri);
 
-            //vertices[v1_in].triangles.push_back(&new_tri);
-            //vertices[v1_in].triangles.push_back(&new_tri);
-            //vertices[v1_in].triangles.push_back(&new_tri);
+            // vertices[v1_in].triangles.push_back(&new_tri);
+            // vertices[v1_in].triangles.push_back(&new_tri);
+            // vertices[v1_in].triangles.push_back(&new_tri);
         }
 
+        meshCopy.isRayIdepth = isRayIdepth;
         return meshCopy;
     }
 
@@ -221,9 +258,9 @@ public:
         for (int i = 0; i < (int)frameMesh.vertices.size(); i++)
         {
             Vertice vert = frameMesh.vertices[i];
-            if(vert.position(2) <= 0)
+            if (vert.position(2) <= 0)
                 continue;
-            if(!cam.isPixVisible(vert.texcoord, lvl))
+            if (!cam.isPixVisible(vert.texcoord, lvl))
                 continue;
             observedMesh.vertices.push_back(Vertice(vert.position, vert.texcoord, vert.id));
         }
@@ -236,7 +273,7 @@ public:
             unsigned int v2_in = observedMesh.getVertexIndexFromId(tri.vertices[1]->id);
             unsigned int v3_in = observedMesh.getVertexIndexFromId(tri.vertices[2]->id);
 
-            if(v1_in < 0 || v2_in < 0 || v3_in < 0)
+            if (v1_in < 0 || v2_in < 0 || v3_in < 0)
                 continue;
 
             unsigned int id = tri.id;
@@ -244,9 +281,9 @@ public:
             Triangle new_tri(observedMesh.vertices[v1_in], observedMesh.vertices[v2_in], observedMesh.vertices[v3_in], id);
             observedMesh.triangles.push_back(new_tri);
 
-            //vertices[v1_in].triangles.push_back(&new_tri);
-            //vertices[v1_in].triangles.push_back(&new_tri);
-            //vertices[v1_in].triangles.push_back(&new_tri);
+            // vertices[v1_in].triangles.push_back(&new_tri);
+            // vertices[v1_in].triangles.push_back(&new_tri);
+            // vertices[v1_in].triangles.push_back(&new_tri);
         }
 
         return observedMesh;

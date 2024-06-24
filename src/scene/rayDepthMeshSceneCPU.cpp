@@ -21,6 +21,7 @@ dataCPU<float> rayDepthMeshSceneCPU::computeFrameIdepth(frameCPU &frame, int lvl
     dataCPU<float> idepth(-1.0);
 
     sceneMesh.computeTexCoords(cam, lvl);
+    sceneMesh.toVertex();
     Mesh frameMesh = sceneMesh.getCopy();
     frameMesh.transform(frame.pose);
     frameMesh.computeTexCoords(cam, lvl);
@@ -31,7 +32,7 @@ dataCPU<float> rayDepthMeshSceneCPU::computeFrameIdepth(frameCPU &frame, int lvl
         // Triangle kf_tri = sceneMesh.triangles[t_id];
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
-        // if (kf_tri.isBackFace())
+        //if (kf_tri.isBackFace())
         //     continue;
         Triangle f_tri = frameMesh.triangles[t_index];
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
@@ -95,6 +96,7 @@ void rayDepthMeshSceneCPU::errorPerIndex(frameCPU &frame, int lvl, int tmin, int
 {
     // z_buffer.reset(lvl);
     sceneMesh.computeTexCoords(cam, lvl);
+    sceneMesh.toVertex();
 
     Mesh frameMesh = sceneMesh.getCopy();
     frameMesh.transform(frame.pose);
@@ -159,6 +161,8 @@ dataCPU<float> rayDepthMeshSceneCPU::computeErrorImage(frameCPU &frame, int lvl)
     dataCPU<float> error(-1.0);
 
     sceneMesh.computeTexCoords(cam, lvl);
+    sceneMesh.toVertex();
+
     Mesh frameMesh = sceneMesh.getCopy();
     frameMesh.transform(frame.pose);
     frameMesh.computeTexCoords(cam, lvl);
@@ -220,6 +224,7 @@ dataCPU<float> rayDepthMeshSceneCPU::computeSceneImage(frameCPU &frame, int lvl)
     dataCPU<float> image(-1.0);
 
     sceneMesh.computeTexCoords(cam, lvl);
+    sceneMesh.toVertex();
 
     Mesh frameMesh = sceneMesh.getCopy();
     frameMesh.transform(frame.pose);
@@ -304,7 +309,9 @@ HGPose rayDepthMeshSceneCPU::computeHGPose(frameCPU &frame, int lvl)
 void rayDepthMeshSceneCPU::HGPosePerIndex(frameCPU &frame, int lvl, int tmin, int tmax, HGPose *hg, int tid)
 {
     // z_buffer.reset(lvl);
+
     sceneMesh.computeTexCoords(cam, lvl);
+    sceneMesh.toVertex();
 
     Mesh frameMesh = sceneMesh.getCopy();
     frameMesh.transform(frame.pose);
@@ -421,6 +428,7 @@ void rayDepthMeshSceneCPU::HGMapPerIndex(frameCPU &frame, int lvl, int tmin, int
     // z_buffer.reset(lvl);
 
     sceneMesh.computeTexCoords(cam, lvl);
+    sceneMesh.toVertex();
 
     Mesh frameMesh = sceneMesh.getCopy();
     frameMesh.transform(frame.pose);
@@ -1028,9 +1036,8 @@ void rayDepthMeshSceneCPU::optMap(std::vector<frameCPU> &frames)
     for (int lvl = 1; lvl >= 1; lvl--)
     {
         t.tic();
+        sceneMesh.toRayIdepth();
         std::vector<Vertice> best_vertices = sceneMesh.vertices;
-        for (int i = 0; i < best_vertices.size(); i++)
-            best_vertices[i].position = fromVertexToRayIdepth(best_vertices[i].position);
 
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
@@ -1062,7 +1069,8 @@ void rayDepthMeshSceneCPU::optMap(std::vector<frameCPU> &frames)
 
             hg.H += meshRegularization * hg_regu.H;
             hg.G += meshRegularization * hg_regu.G;
-            hg.G_count += hg_regu.G_count;
+            if(meshRegularization > 0.0)
+                hg.G_count += hg_regu.G_count;
 
             // check that the hessian is nonsingular
             // if it is "fix" it
@@ -1111,14 +1119,12 @@ void rayDepthMeshSceneCPU::optMap(std::vector<frameCPU> &frames)
 
                 std::cout << "solve time " << t.toc() << std::endl;
 
+                sceneMesh.toRayIdepth();
                 for (int index = 0; index < sceneMesh.vertices.size(); index++)
                 {
-                    float last_idepth = best_vertices[index].position(2);
-                    float inc_idepth = inc(index);
-                    float new_idepth = last_idepth + inc_idepth;
-                    if(new_idepth < 0.001 || new_idepth > 100.0)
-                        new_idepth = last_idepth;
-                    sceneMesh.vertices[index].position(2) = 1.0 / new_idepth;
+                    sceneMesh.vertices[index].position(2) = best_vertices[index].position(2) + inc(index + frames.size() * 6);
+                    if(sceneMesh.vertices[index].position(2) < 0.001 || sceneMesh.vertices[index].position(2) > 100.0)
+                        sceneMesh.vertices[index].position(2) = best_vertices[index].position(2);
                 }
 
                 t.tic();
@@ -1138,8 +1144,9 @@ void rayDepthMeshSceneCPU::optMap(std::vector<frameCPU> &frames)
                 if (error < last_error)
                 {
                     // accept update, decrease lambda
+                    sceneMesh.toRayIdepth();
                     for (int i = 0; i < best_vertices.size(); i++)
-                        best_vertices[i].position(2) = 1.0 / sceneMesh.vertices[i].position(2);
+                        best_vertices[i].position(2) = sceneMesh.vertices[i].position(2);
 
                     float p = error / last_error;
 
@@ -1162,8 +1169,9 @@ void rayDepthMeshSceneCPU::optMap(std::vector<frameCPU> &frames)
                 }
                 else
                 {
+                    sceneMesh.toRayIdepth();
                     for (int i = 0; i < best_vertices.size(); i++)
-                        sceneMesh.vertices[i].position(2) = 1.0 / best_vertices[i].position(2);
+                        sceneMesh.vertices[i].position(2) = best_vertices[i].position(2);
 
                     n_try++;
 
