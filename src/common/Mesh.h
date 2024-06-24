@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/Vertex.h"
+#include "common/Vertice.h"
 #include "common/Triangle.h"
 #include "common/camera.h"
 #include "cpu/dataCPU.h"
@@ -10,8 +10,8 @@
 class Mesh
 {
 public:
-    Mesh(){
-
+    Mesh()
+    {
     };
 
     void init(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl)
@@ -25,16 +25,18 @@ public:
             for (int x = 0; x < MESH_WIDTH; x++)
             {
                 Eigen::Vector2f pix;
-                pix[0] = cam.width[lvl] * float(x) / MESH_WIDTH;
-                pix[1] = cam.height[lvl] * float(y) / MESH_HEIGHT;
+                pix[0] = cam.width[lvl] * float(x) / float(MESH_WIDTH - 1);
+                pix[1] = cam.height[lvl] * float(y) / float(MESH_HEIGHT - 1);
                 Eigen::Vector3f ray;
                 ray(0) = cam.fxinv[lvl] * pix[0] + cam.cxinv[lvl];
                 ray(1) = cam.fyinv[lvl] * pix[1] + cam.cyinv[lvl];
                 ray(2) = 1.0;
                 float id = idepth.get(pix[1], pix[0], lvl);
-                Eigen::Vector3f point = ray / id;
+                if(id <= 0.0)
+                    id = 0.5;
 
-                Vertex vertex(point, pix, vertices.size());
+                Eigen::Vector3f point = ray / id;
+                Vertice vertex(point, pix, vertices.size());
 
                 vertices.push_back(vertex);
             }
@@ -49,29 +51,34 @@ public:
                 {
                     // if (((x % 2 == 0)))
                     //  if(((x % 2 == 0) && (y % 2 == 0)) || ((x % 2 != 0) && (y % 2 != 0)))
-                    if (rand() > 0.5 * RAND_MAX)
+                    //if (rand() > 0.5 * RAND_MAX)
+                    if(true)
                     {
                         unsigned int v11 = x - 1 + y * (MESH_WIDTH);
                         unsigned int v12 = x + (y - 1) * (MESH_WIDTH);
                         unsigned int v13 = x - 1 + (y - 1) * (MESH_WIDTH);
 
-                        Triangle tri1(vertices[v11], vertices[v12], vertices[v13], triangles.size());
+                        unsigned int t1_index = triangles.size();
+                        Triangle tri1(vertices[v11], vertices[v12], vertices[v13], t1_index);
                         triangles.push_back(tri1);
 
-                        vertices[v11].triangles.push_back(&tri1);
-                        vertices[v12].triangles.push_back(&tri1);
-                        vertices[v13].triangles.push_back(&tri1);
+                        //Triangle* tri11 = &triangles[t1_index];
+                        //vertices[v11].triangles.push_back(tri11);
+                        //vertices[v12].triangles.push_back(tri11);
+                        //vertices[v13].triangles.push_back(tri11);
 
                         unsigned int v21 = x + y * (MESH_WIDTH);
                         unsigned int v22 = x + (y - 1) * (MESH_WIDTH);
                         unsigned int v23 = x - 1 + y * (MESH_WIDTH);
 
-                        Triangle tri2(vertices[v21], vertices[v22], vertices[v23], triangles.size());
+                        unsigned int t2_index = triangles.size();
+                        Triangle tri2(vertices[v21], vertices[v22], vertices[v23], t2_index);
                         triangles.push_back(tri2);
 
-                        vertices[v21].triangles.push_back(&tri2);
-                        vertices[v22].triangles.push_back(&tri2);
-                        vertices[v23].triangles.push_back(&tri2);
+                        //Triangle* tri22 = &triangles[t2_index];
+                        //vertices[v21].triangles.push_back(tri22);
+                        //vertices[v22].triangles.push_back(tri22);
+                        //vertices[v23].triangles.push_back(tri22);
                     }
                     else
                     {
@@ -79,128 +86,85 @@ public:
                         unsigned int v12 = x - 1 + (y - 1) * (MESH_WIDTH);
                         unsigned int v13 = x - 1 + y * (MESH_WIDTH);
 
-                        Triangle tri1(vertices[v11], vertices[v12], vertices[v13], triangles.size());
+                        unsigned int t1_index = triangles.size();
+                        Triangle tri1(vertices[v11], vertices[v12], vertices[v13], t1_index);
                         triangles.push_back(tri1);
 
-                        vertices[v11].triangles.push_back(&tri1);
-                        vertices[v12].triangles.push_back(&tri1);
-                        vertices[v13].triangles.push_back(&tri1);
+                        //vertices[v11].triangles.push_back(&triangles[t1_index]);
+                        //vertices[v12].triangles.push_back(&triangles[t1_index]);
+                        //vertices[v13].triangles.push_back(&triangles[t1_index]);
 
                         unsigned int v21 = x + y * (MESH_WIDTH);
                         unsigned int v22 = x + (y - 1) * (MESH_WIDTH);
-                        unsigned int v23 = x - 1 + (y + 1) * (MESH_WIDTH);
+                        unsigned int v23 = x - 1 + (y - 1) * (MESH_WIDTH);
 
-                        Triangle tri2(vertices[v21], vertices[v22], vertices[v23], triangles.size());
+                        unsigned int t2_index = triangles.size();
+                        Triangle tri2(vertices[v21], vertices[v22], vertices[v23], t2_index);
                         triangles.push_back(tri2);
 
-                        vertices[v21].triangles.push_back(&tri2);
-                        vertices[v22].triangles.push_back(&tri2);
-                        vertices[v23].triangles.push_back(&tri2);
+                        //vertices[v21].triangles.push_back(&triangles[t2_index]);
+                        //vertices[v22].triangles.push_back(&triangles[t2_index]);
+                        //vertices[v23].triangles.push_back(&triangles[t2_index]);
                     }
                 }
             }
         }
     }
 
-    unsigned int getVertexIndexById(unsigned int id)
+    int getVertexIndexFromId(unsigned int id)
     {
-        for (size_t i = 0; i < vertices.size(); i++)
+        for (int i = 0; i < (int)vertices.size(); i++)
         {
             if (id == vertices[i].id)
-                return (unsigned int)i;
+                return i;
         }
+        return -1;
     }
 
-    unsigned int getTriangleIndexById(unsigned int id)
+    int getTriangleIndexFromId(unsigned int id)
     {
-        for (size_t i = 0; i < vertices.size(); i++)
+        for (int i = 0; i < (int)triangles.size(); i++)
         {
             if (id == triangles[i].id)
-                return (unsigned int)i;
+                return i;
         }
+        return -1;
     }
 
-    Mesh getCopy()
-    {
-        Mesh meshCopy;
-        for (size_t i = 0; i < vertices.size(); i++)
+    /*
+        bool rayHitsMesh(Eigen::Vector3f &ray)
         {
-            Vertex ver = vertices[i];
-            Eigen::Vector3f pos = ver.position;
-            Eigen::Vector2f tex = ver.texcoord;
-            unsigned int id = ver.id;
-            Vertex new_ver(pos, tex, id);
-            meshCopy.vertices.push_back(new_ver);
         }
 
-        for (size_t i = 0; triangles.size(); i++)
+        unsigned int getClosesVertexIndex(std::array<float, 3> point)
         {
-            Triangle tri = triangles[i];
-            std::array<Vertex *, 3> tri_vertices = tri.vertices;
-
-            unsigned int v1_in = meshCopy.getVertexIndexById(tri_vertices[0]->id);
-            unsigned int v2_in = meshCopy.getVertexIndexById(tri_vertices[1]->id);
-            unsigned int v3_in = meshCopy.getVertexIndexById(tri_vertices[2]->id);
-
-            unsigned int id = tri.id;
-
-            Triangle new_tri(vertices[v1_in], vertices[v2_in], vertices[v3_in], id);
-            meshCopy.triangles.push_back(new_tri);
-
-            vertices[v1_in].triangles.push_back(&new_tri);
-            vertices[v1_in].triangles.push_back(&new_tri);
-            vertices[v1_in].triangles.push_back(&new_tri);
+            Eigen::Vector3f point_e = arrayToEigen(point);
+            for (size_t i = 0; i < vertices.size(); i++)
+            {
+                Eigen::Vector3f vertex = arrayToEigen(vertices[i]);
+                if (isRayIdepth)
+                    vertex = fromRayIdepthToVertex(vertex);
+                float distance = (vertex - point_e).norm();
+            }
         }
-
-        return meshCopy;
-    }
-
-    bool rayHitsMesh(Eigen::Vector3f &ray)
-    {
-    }
-
-    unsigned int getClosesVertexIndex(std::array<float, 3> point)
-    {
-        Eigen::Vector3f point_e = arrayToEigen(point);
-        for (size_t i = 0; i < vertices.size(); i++)
-        {
-            Eigen::Vector3f vertex = arrayToEigen(vertices[i]);
-            if (isRayIdepth)
-                vertex = fromRayIdepthToVertex(vertex);
-            float distance = (vertex - point_e).norm();
-        }
-    }
+        */
 
     void transform(Sophus::SE3f &pose)
     {
 
-        for (size_t i = 0; i < vertices.size(); i++)
+        for (int i = 0; i < (int)vertices.size(); i++)
         {
-            Eigen::Vector3f pos;
-            if (isRayIdepth)
-                pos = fromRayIdepthToVertex(vertices[i].position);
-            else
-                pos = vertices[i].position;
+            Eigen::Vector3f pos = vertices[i].position;
             pos = pose * pos;
-
-            if (isRayIdepth)
-                vertices[i].position = fromVertexToRayIdepth(pos);
-            else
-                vertices[i].position = pos;
+            vertices[i].position = pos;
         }
     }
 
-    void project(camera &cam, int lvl)
+    void computeTexCoords(camera &cam, int lvl)
     {
-        for (size_t i = 0; i < vertices.size(); i++)
+        for (int i = 0; i < (int)vertices.size(); i++)
         {
-            Eigen::Vector3f ray;
-            if (isRayIdepth)
-                ray = vertices[i].position;
-            else
-                ray = vertices[i].position / vertices[i].position(2);
-
-            ray(2) = 1.0;
+            Eigen::Vector3f ray = vertices[i].position / vertices[i].position(2);
 
             Eigen::Vector2f pix;
             pix(0) = cam.fx[lvl] * ray(0) + cam.cx[lvl];
@@ -210,62 +174,87 @@ public:
         }
     }
 
-    Mesh getObservedMesh(Sophus::SE3f &pose, camera &cam)
+    Mesh getCopy()
+    {
+        Mesh meshCopy;
+        for (int i = 0; i < (int)vertices.size(); i++)
+        {
+            Vertice new_ver(vertices[i].position, vertices[i].texcoord, vertices[i].id);
+            meshCopy.vertices.push_back(new_ver);
+        }
+
+        for (int i = 0; i < (int)triangles.size(); i++)
+        {
+            Triangle tri = triangles[i];
+
+            unsigned int v1_in = meshCopy.getVertexIndexFromId(tri.vertices[0]->id);
+            unsigned int v2_in = meshCopy.getVertexIndexFromId(tri.vertices[1]->id);
+            unsigned int v3_in = meshCopy.getVertexIndexFromId(tri.vertices[2]->id);
+
+            //should not happen
+            if(v1_in < 0 || v2_in < 0 || v3_in < 0)
+                continue;
+
+            unsigned int id = tri.id;
+
+            Triangle new_tri(meshCopy.vertices[v1_in], meshCopy.vertices[v2_in], meshCopy.vertices[v3_in], id);
+            meshCopy.triangles.push_back(new_tri);
+
+            //vertices[v1_in].triangles.push_back(&new_tri);
+            //vertices[v1_in].triangles.push_back(&new_tri);
+            //vertices[v1_in].triangles.push_back(&new_tri);
+        }
+
+        return meshCopy;
+    }
+
+    Mesh geObservedMesh(Sophus::SE3f &pose, camera &cam)
     {
         int lvl = 0;
 
-        Mesh obsMesh = getCopy();
-        obsMesh.transform(pose);
+        Mesh frameMesh = getCopy();
+        frameMesh.transform(pose);
+        frameMesh.computeTexCoords(cam, lvl);
 
-        std::vector<unsigned int> vertices_to_remove;
-        std::vector<unsigned int> triangles_to_remove;
-        for (size_t i = 0; i < obsMesh.vertices.size(); i++)
+        Mesh observedMesh;
+
+        for (int i = 0; i < (int)frameMesh.vertices.size(); i++)
         {
-            bool remove = false;
-
-            Vertex vert = obsMesh.vertices[i];
-
-            if (vert.position[2] <= 0.0)
-            {
-                remove = true;
-            }
-
-            Eigen::Vector2f p = cam.project(vert.position, lvl);
-            if (!cam.isPixVisible(p, lvl))
-            {
-                remove = true;
-            }
-
-            if (remove)
-            {
-                vertices_to_remove.push_back(i);
-
-                std::vector<Triangle *> tris = vert.triangles;
-
-                for (size_t j = 0; j < tris.size(); j++)
-                {
-                    Triangle *tri = tris[j];
-                    triangles_to_remove.push_back(tri->id);
-                }
-            }
+            Vertice vert = frameMesh.vertices[i];
+            if(vert.position(2) <= 0)
+                continue;
+            if(!cam.isPixVisible(vert.texcoord, lvl))
+                continue;
+            observedMesh.vertices.push_back(Vertice(vert.position, vert.texcoord, vert.id));
         }
 
-        for (size_t i = 0; i < vertices_to_remove.size(); i++)
+        for (int i = 0; i < (int)frameMesh.triangles.size(); i++)
         {
-            obsMesh.vertices.erase(vertices_to_remove[i]);
+            Triangle tri = triangles[i];
+
+            unsigned int v1_in = observedMesh.getVertexIndexFromId(tri.vertices[0]->id);
+            unsigned int v2_in = observedMesh.getVertexIndexFromId(tri.vertices[1]->id);
+            unsigned int v3_in = observedMesh.getVertexIndexFromId(tri.vertices[2]->id);
+
+            if(v1_in < 0 || v2_in < 0 || v3_in < 0)
+                continue;
+
+            unsigned int id = tri.id;
+
+            Triangle new_tri(observedMesh.vertices[v1_in], observedMesh.vertices[v2_in], observedMesh.vertices[v3_in], id);
+            observedMesh.triangles.push_back(new_tri);
+
+            //vertices[v1_in].triangles.push_back(&new_tri);
+            //vertices[v1_in].triangles.push_back(&new_tri);
+            //vertices[v1_in].triangles.push_back(&new_tri);
         }
 
-        for (size_t i = 0; i < triangles_to_remove.size(); i++)
-        {
-            obsMesh.triangles.erase(triangles_to_remove[i]);
-        }
-
-        return obsMesh;
+        return observedMesh;
     }
 
     // scene
     // the vertices, actual data of the scene
-    std::vector<Vertex> vertices;
+    std::vector<Vertice> vertices;
     std::vector<Triangle> triangles;
 
     bool isRayIdepth;

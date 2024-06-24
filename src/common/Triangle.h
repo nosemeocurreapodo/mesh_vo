@@ -2,15 +2,14 @@
 
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
-#include "common/Vertex.h"
 #include "common/camera.h"
 #include "common/common.h"
+#include "common/Vertice.h"
 
 class Triangle
 {
 public:
-
-    Triangle(Vertex &vert1, Vertex &vert2, Vertex &vert3, unsigned int i)
+    Triangle(Vertice &vert1, Vertice &vert2, Vertice &vert3, unsigned int i)
     {
         vertices[0] = &vert1;
         vertices[1] = &vert2;
@@ -26,7 +25,7 @@ public:
         if (point_dot_normal <= 0.0)
             return true;
         return false;
-    }
+    };
 
     void computeTinv()
     {
@@ -54,7 +53,7 @@ public:
     template <typename Type>
     Type interpolate(Type &d1, Type &d2, Type &d3)
     {
-        return barycentric(0) * d1 + barycentric(1) * d2 + barycentric(2) * d2;
+        return barycentric(0) * d1 + barycentric(1) * d2 + barycentric(2) * d3;
     };
 
     std::array<Eigen::Vector2f, 2> getMinMax()
@@ -69,7 +68,7 @@ public:
     };
 
     unsigned int id;
-    std::array<Vertex *, 3> vertices;
+    std::array<Vertice *, 3> vertices;
 
     Eigen::Matrix2f T_inv;
     Eigen::Vector3f barycentric;

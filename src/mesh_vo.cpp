@@ -82,12 +82,14 @@ void meshVO::localization(cv::Mat image)
 
     dataCPU<float> idepth = scene.computeFrameIdepth(lastFrame, 1);
     dataCPU<float> error = scene.computeErrorImage(lastFrame, 1);
+    dataCPU<float> sceneImage = scene.computeSceneImage(lastFrame, 1);
 
     lastFrame.image.show("lastFrame image", 1);
     //lastFrame.dx.show("lastFrame dx", 1);
     //lastFrame.dy.show("lastFrame dy", 1);
     error.show("lastFrame error", 1);
     idepth.show("lastFrame idepth", 1);
+    sceneImage.show("lastFrame scene", 1);
 }
 
 void meshVO::mapping(cv::Mat image, Sophus::SE3f pose)

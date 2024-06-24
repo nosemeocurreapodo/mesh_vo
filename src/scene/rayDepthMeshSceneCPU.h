@@ -42,8 +42,6 @@ private:
 
     dataCPU<float> z_buffer;
 
-    void setFromIdepth(dataCPU<float> id);
-
     Error computeError(frameCPU &frame, int lvl);
     HGPose computeHGPose(frameCPU &frame, int lvl);
     HGPoseMapMesh computeHGMap(frameCPU &frame, int lvl);

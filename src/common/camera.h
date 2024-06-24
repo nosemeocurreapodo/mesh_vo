@@ -46,7 +46,7 @@ public:
             cxinv[lvl] = KInv(0, 2);
             cyinv[lvl] = KInv(1, 2);
         }
-    };
+    }
 
     bool isPixVisible(Eigen::Vector2f &pix, int lvl)
     {
@@ -56,11 +56,12 @@ public:
         return true;
     }
 
-    Eigen::Vector3f project(Eigen::Vector3f vertex, int lvl)
+    Eigen::Vector2f project(Eigen::Vector3f vertex, int lvl)
     {
-        Eigen::Vector2f pix = vertex / vertex(2);
-        pix(0) = fx[lvl] * pix(0) + cx[lvl];
-        pix(1) = fy[lvl] * pix(1) + cy[lvl];
+        Eigen::Vector3f ray = vertex / vertex(2);
+        Eigen::Vector2f pix;
+        pix(0) = fx[lvl] * ray(0) + cx[lvl];
+        pix(1) = fy[lvl] * ray(1) + cy[lvl];
         return pix;
     }
 
