@@ -281,6 +281,64 @@ dataCPU<float> rayDepthMeshSceneCPU::computeSceneImage(frameCPU &frame, int lvl)
     return image;
 }
 
+
+dataCPU<float> rayDepthMeshSceneCPU::computeDebug(frameCPU &frame, int lvl)
+{
+    dataCPU<float> image(-1.0);
+
+    sceneMesh.computeTexCoords(cam, lvl);
+    sceneMesh.toVertex();
+
+    Mesh frameMesh = sceneMesh.getCopy();
+    frameMesh.transform(frame.pose);
+    frameMesh.computeTexCoords(cam, lvl);
+
+    // for each triangle
+    for (std::size_t index = 0; index < sceneMesh.triangles.size(); index++)
+    {
+        //Triangle kf_tri = sceneMesh.triangles[index];
+        // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
+        //     continue;
+        //if (kf_tri.isBackFace())
+        //    continue;
+        Triangle f_tri = frameMesh.triangles[index];
+        // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
+        //     continue;
+        //if (f_tri.isBackFace())
+        //    continue;
+
+        f_tri.computeTinv();
+        std::array<Eigen::Vector2f, 2> minmax = f_tri.getMinMax();
+
+        for (int y = minmax[0](1); y <= minmax[1](1); y++)
+        {
+            for (int x = minmax[0](0); x <= minmax[1](0); x++)
+            {
+                Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
+                if (!cam.isPixVisible(f_pix, lvl))
+                    continue;
+
+                f_tri.computeBarycentric(f_pix);
+                if (!f_tri.isBarycentricOk())
+                    continue;
+
+                bool isLine = f_tri.isLine();
+
+                // z buffer
+                // float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
+                // if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
+                //    continue;
+
+                if(isLine)
+                    image.set(1.0, y, x, lvl);
+                //else
+                //    image.set(0.0, y, x, lvl);
+            }
+        }
+    }
+    return image;
+}
+
 HGPose rayDepthMeshSceneCPU::computeHGPose(frameCPU &frame, int lvl)
 {
     HGPose hg;

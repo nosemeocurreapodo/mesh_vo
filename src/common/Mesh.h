@@ -119,6 +119,64 @@ public:
         }
     }
 
+    void initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl)
+    {
+        vertices.clear();
+        triangles.clear();
+
+        for (int y = 0; y < 2; y++)
+        {
+            for (int x = 0; x < 2; x++)
+            {
+                Eigen::Vector2f pix;
+                pix[0] = x * (cam.width[lvl] - 1);
+                pix[1] = y * (cam.height[lvl] - 1);
+                Eigen::Vector3f ray;
+                ray(0) = cam.fxinv[lvl] * pix[0] + cam.cxinv[lvl];
+                ray(1) = cam.fyinv[lvl] * pix[1] + cam.cyinv[lvl];
+                ray(2) = 1.0;
+                float id = idepth.get(pix[1], pix[0], lvl);
+                if (id <= 0.0)
+                    id = 0.5;
+
+                Eigen::Vector3f point;
+                if (isRayIdepth)
+                    point = Eigen::Vector3f(ray(0), ray(1), id);
+                else
+                    point = ray / id;
+                Vertice vertex(point, pix, vertices.size());
+
+                vertices.push_back(vertex);
+            }
+        }
+
+        // preallocate scene vertices to zero
+        for (int i = 0; i < MESH_HEIGHT * MESH_HEIGHT - 4; i++)
+        {
+            Eigen::Vector2f pix;
+            pix[0] = rand() % cam.width[lvl];
+            pix[1] = rand() % cam.height[lvl];
+            Eigen::Vector3f ray;
+            ray(0) = cam.fxinv[lvl] * pix[0] + cam.cxinv[lvl];
+            ray(1) = cam.fyinv[lvl] * pix[1] + cam.cyinv[lvl];
+            ray(2) = 1.0;
+            float id = idepth.get(pix[1], pix[0], lvl);
+            if (id <= 0.0)
+                id = 0.5;
+
+            Eigen::Vector3f point;
+            if (isRayIdepth)
+                point = Eigen::Vector3f(ray(0), ray(1), id);
+            else
+                point = ray / id;
+            Vertice vertex(point, pix, vertices.size());
+
+            vertices.push_back(vertex);
+        }
+
+        buildTriangles(cam, lvl);
+    }
+
     int getVertexIndexFromId(unsigned int id)
     {
         for (int i = 0; i < (int)vertices.size(); i++)
@@ -239,31 +297,117 @@ public:
     void buildTriangles(camera &cam, int lvl)
     {
         toVertex();
-        
+
         triangles.clear();
 
         dataCPU<int> triIdImage(-1);
 
-        /*
-        dataCPU<int> triIdImage(-1);
-
-        for(int y = 0; y < cam.height[lvl]; y++)
+        for (int y = 0; y < cam.height[lvl]; y++)
         {
-            for(int x = 0; x < cam.width[lvl]; x++)
+            for (int x = 0; x < cam.width[lvl]; x++)
             {
                 Eigen::Vector2f pix(x, y);
-                if(triIdImage.get(pix(1), pix(0), lvl) == triIdImage.nodata)
-                {
+                if (triIdImage.get(pix(1), pix(0), lvl) != triIdImage.nodata)
+                    continue;
 
+                std::vector<Vertice> verts;
+
+                // search closest
+                verts = vertices;
+                Vertice closest_vertice = getClosestVertice(verts, pix);
+                int closest_vertice_index = getVertexIndexFromId(closest_vertice.id);
+
+                // search second closest
+                verts = vertices;
+                verts.erase(verts.begin() + closest_vertice_index);
+                
+                Vertice second_closest_vertice = getClosestVertice(verts, pix);
+                int second_closest_vertice_index = getVertexIndexFromId(second_closest_vertice.id);
+
+                //search third closest
+                verts = vertices;
+                if (second_closest_vertice_index > closest_vertice_index)
+                {
+                    verts.erase(verts.begin() + second_closest_vertice_index);
+                    verts.erase(verts.begin() + closest_vertice_index);
+                }
+                else
+                {
+                    verts.erase(verts.begin() + closest_vertice_index);
+                    verts.erase(verts.begin() + second_closest_vertice_index);
+                }
+
+                Vertice third_closest_vertice = getClosestVertice(verts, pix);
+                int third_closest_vertice_index = getVertexIndexFromId(third_closest_vertice.id);
+
+                Triangle tri(vertices[closest_vertice_index], vertices[second_closest_vertice_index], vertices[third_closest_vertice_index], triangles.size());
+                if (isTrianglePresent(tri))
+                    continue;
+
+                Eigen::Vector3f ray = cam.toRay(pix, lvl);
+                tri.arrageClockwise(ray);
+                tri.computeTinv();
+
+                tri.computeBarycentric(pix);
+                if(!tri.isBarycentricOk())
+                    continue;
+
+                // rasterize triangle, so we know which pixels are already taken by a triangle
+                bool otherTriangle = false;
+                std::array<Eigen::Vector2f, 2> minmax = tri.getMinMax();
+                for (int py = minmax[0](1); py <= minmax[1](1); py++)
+                {
+                    if(otherTriangle)
+                        break;
+                    for (int px = minmax[0](0); px <= minmax[1](0); px++)
+                    {
+                        Eigen::Vector2f ppix = Eigen::Vector2f(px, py);
+                        if (!cam.isPixVisible(ppix, lvl))
+                            continue;
+
+                        tri.computeBarycentric(ppix);
+                        if (!tri.isBarycentricOk())
+                            continue;
+
+                        if(triIdImage.get(ppix(1), ppix(0), lvl) != triIdImage.nodata)
+                        {
+                            otherTriangle = true;
+                            break;
+                        }
+                    }
+                }
+
+                if(otherTriangle)
+                    continue;
+
+                triangles.push_back(tri);
+
+                // rasterize triangle, so we know which pixels are already taken by a triangle
+
+                for (int py = minmax[0](1); py <= minmax[1](1); py++)
+                {
+                    for (int px = minmax[0](0); px <= minmax[1](0); px++)
+                    {
+                        Eigen::Vector2f ppix = Eigen::Vector2f(px, py);
+                        if (!cam.isPixVisible(ppix, lvl))
+                            continue;
+
+                        tri.computeBarycentric(ppix);
+                        if (!tri.isBarycentricOk())
+                            continue;
+
+                        triIdImage.set(tri.id, ppix(1), ppix(0), lvl);
+                    }
                 }
             }
         }
-        */
+
+        return;
 
         for (int i = 0; i < (int)vertices.size(); i++)
         {
             Vertice vert = vertices[i];
-            
+
             /*
             Eigen::Rotation2Df rot(2.0*3.14*1.0/8.0);
             Eigen::Vector2f shifts[8];
@@ -276,19 +420,18 @@ public:
             shifts[6] = rot*shifts[5];
             shifts[7] = rot*shifts[6];
             */
-            
 
             float pixel_shift = 3.0;
             Eigen::Vector2f shifts[8];
-            shifts[0] = Eigen::Vector2f(pixel_shift , 1.0);
-            shifts[1] = Eigen::Vector2f(pixel_shift , pixel_shift);
-            shifts[2] = Eigen::Vector2f(1.0 , pixel_shift);
-            shifts[3] = Eigen::Vector2f(-pixel_shift , pixel_shift);
-            shifts[4] = Eigen::Vector2f(-pixel_shift , 1.0);
-            shifts[5] = Eigen::Vector2f(-pixel_shift , -pixel_shift);
-            shifts[6] = Eigen::Vector2f(1.0 , -pixel_shift);
-            shifts[7] = Eigen::Vector2f(pixel_shift , -pixel_shift);
-            
+            shifts[0] = Eigen::Vector2f(pixel_shift, 1.0);
+            shifts[1] = Eigen::Vector2f(pixel_shift, pixel_shift);
+            shifts[2] = Eigen::Vector2f(1.0, pixel_shift);
+            shifts[3] = Eigen::Vector2f(-pixel_shift, pixel_shift);
+            shifts[4] = Eigen::Vector2f(-pixel_shift, 1.0);
+            shifts[5] = Eigen::Vector2f(-pixel_shift, -pixel_shift);
+            shifts[6] = Eigen::Vector2f(1.0, -pixel_shift);
+            shifts[7] = Eigen::Vector2f(pixel_shift, -pixel_shift);
+
             // check for triangles moving slighly in the 4 directions
             for (int j = 0; j < 8; j++)
             {
@@ -296,15 +439,15 @@ public:
                 vert_shifted.texcoord += shifts[j];
                 if (!cam.isPixVisible(vert_shifted.texcoord, lvl))
                     continue;
-                
-                if(triIdImage.get(int(vert_shifted.texcoord(1)), int(vert_shifted.texcoord(0)), lvl) != triIdImage.nodata)
+
+                if (triIdImage.get(int(vert_shifted.texcoord(1)), int(vert_shifted.texcoord(0)), lvl) != triIdImage.nodata)
                     continue;
 
                 // search closest
                 std::vector<Vertice> verts = vertices;
 
                 verts.erase(verts.begin() + i);
-                Vertice closest_vertice = getClosestVertice(verts, vert_shifted);
+                Vertice closest_vertice = getClosestVertice(verts, vert_shifted.texcoord);
                 int closest_vertice_index = getVertexIndexFromId(closest_vertice.id);
 
                 // search second closest
@@ -320,7 +463,7 @@ public:
                     verts.erase(verts.begin() + closest_vertice_index);
                 }
 
-                Vertice second_closest_vertice = getClosestVertice(verts, vert_shifted);
+                Vertice second_closest_vertice = getClosestVertice(verts, vert_shifted.texcoord);
                 int second_closest_vertice_index = getVertexIndexFromId(second_closest_vertice.id);
 
                 Triangle tri(vertices[i], vertices[closest_vertice_index], vertices[second_closest_vertice_index], triangles.size());
@@ -331,9 +474,9 @@ public:
                 tri.arrageClockwise(ray);
                 triangles.push_back(tri);
 
-                //rasterize triangle, so we know which pixels are already taken by a triangle
+                // rasterize triangle, so we know which pixels are already taken by a triangle
                 tri.computeTinv();
-                
+
                 std::array<Eigen::Vector2f, 2> minmax = tri.getMinMax();
 
                 for (int y = minmax[0](1); y <= minmax[1](1); y++)
@@ -347,7 +490,7 @@ public:
                         tri.computeBarycentric(pix);
                         if (!tri.isBarycentricOk())
                             continue;
-                        
+
                         triIdImage.set(tri.id, pix(1), pix(0), lvl);
                     }
                 }

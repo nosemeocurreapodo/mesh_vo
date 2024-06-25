@@ -70,7 +70,9 @@ public:
 
     bool isBarycentricOk()
     {
-        if (barycentric(0) < 0.0 || barycentric(1) < 0.0 || barycentric(2) < 0.0)
+        if (barycentric(0) <= 0.0 || barycentric(1) <= 0.0 || barycentric(2) <= 0.0)
+            return false;
+        if (barycentric(0) >= 1.0 || barycentric(1) >= 1.0 || barycentric(2) >= 1.0)
             return false;
         return true;
     };
@@ -79,6 +81,20 @@ public:
     Type interpolate(Type &d1, Type &d2, Type &d3)
     {
         return barycentric(0) * d1 + barycentric(1) * d2 + barycentric(2) * d3;
+    };
+
+    bool isLine()
+    {
+        if(barycentric(0) < 0.01 || barycentric(1) < 0.01 || barycentric(2) < 0.01)
+            return true;
+        return false;
+    };
+
+    bool isPoint()
+    {
+        if(barycentric(0) > 0.99 || barycentric(1) > 0.99 || barycentric(2) > 0.99)
+            return true;
+        return false;
     };
 
     std::array<Eigen::Vector2f, 2> getMinMax()

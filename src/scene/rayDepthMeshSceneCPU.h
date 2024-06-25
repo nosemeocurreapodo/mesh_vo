@@ -22,6 +22,7 @@ public:
     dataCPU<float> computeFrameIdepth(frameCPU &frame, int lvl);
     dataCPU<float> computeErrorImage(frameCPU &frame, int lvl);
     dataCPU<float> computeSceneImage(frameCPU &frame, int lvl);
+    dataCPU<float> computeDebug(frameCPU &frame, int lvl);
 
     void optPose(frameCPU &frame);
     void optMap(std::vector<frameCPU> &frame);

@@ -83,6 +83,7 @@ void meshVO::localization(cv::Mat image)
     dataCPU<float> idepth = scene.computeFrameIdepth(lastFrame, 1);
     dataCPU<float> error = scene.computeErrorImage(lastFrame, 1);
     dataCPU<float> sceneImage = scene.computeSceneImage(lastFrame, 1);
+    dataCPU<float> debug = scene.computeDebug(lastFrame, 1);
 
     lastFrame.image.show("lastFrame image", 1);
     //lastFrame.dx.show("lastFrame dx", 1);
@@ -90,6 +91,7 @@ void meshVO::localization(cv::Mat image)
     error.show("lastFrame error", 1);
     idepth.show("lastFrame idepth", 1);
     sceneImage.show("lastFrame scene", 1);
+    debug.show("lastFrame debug", 1);
 }
 
 void meshVO::mapping(cv::Mat image, Sophus::SE3f pose)
@@ -110,6 +112,7 @@ void meshVO::mapping(cv::Mat image, Sophus::SE3f pose)
     dataCPU<float> idepth = scene.computeFrameIdepth(lastFrame, 1);
     dataCPU<float> error = scene.computeErrorImage(lastFrame, 1);
     dataCPU<float> sceneImage = scene.computeSceneImage(lastFrame, 1);
+    dataCPU<float> debug = scene.computeDebug(lastFrame, 1);
 
     lastFrame.image.show("lastFrame image", 1);
     //lastFrame.dx.show("lastFrame dx", 1);
@@ -117,5 +120,6 @@ void meshVO::mapping(cv::Mat image, Sophus::SE3f pose)
     error.show("lastFrame error", 1);
     idepth.show("lastFrame idepth", 1);
     sceneImage.show("lastFrame scene", 1);
+    debug.show("lastFrame debug", 1);
 
 }

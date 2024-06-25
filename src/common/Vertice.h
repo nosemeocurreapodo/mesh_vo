@@ -27,13 +27,13 @@ public:
 private:
 };
 
-inline Vertice getClosestVertice(std::vector<Vertice> &v_vector, Vertice &v)
+inline Vertice getClosestVertice(std::vector<Vertice> &v_vector, Eigen::Vector2f &v)
 {
     float closest_distance = std::numeric_limits<float>::max();
-    Vertice closest_vertice = v;
+    Vertice closest_vertice = v_vector[0];
     for (int i = 0; i < (int)v_vector.size(); i++)
     {
-        float distance = (v_vector[i].texcoord - v.texcoord).norm();
+        float distance = (v_vector[i].texcoord - v).norm();
         
         //float x_distance = std::fabs(v_vector[i].texcoord(0) - v.texcoord(0));
         //float y_distance = std::fabs(v_vector[i].texcoord(1) - v.texcoord(1));
