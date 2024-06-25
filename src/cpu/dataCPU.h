@@ -125,6 +125,13 @@ public:
         }
     }
 
+    float getPercentNoData(int lvl)
+    {
+        cv::Mat matnodata;
+        cv::inRange(texture[lvl], nodata, nodata, matnodata);
+        return cv::countNonZero(matnodata)/(texture[lvl].cols*texture[lvl].rows);
+    }
+
     void show(std::string window_name, int lvl)
     {
         cv::Mat toShow;

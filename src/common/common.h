@@ -15,8 +15,8 @@ inline Eigen::Vector3f fromRayIdepthToVertex(Eigen::Vector3f rayIdepth)
 
 inline Eigen::Vector3f fromVertexToRayIdepth(Eigen::Vector3f vertex)
 {
-    Eigen::Vector3f kf_tri_ray = vertex/vertex(2);
-    kf_tri_ray(2) = 1.0/vertex(2);
+    Eigen::Vector3f kf_tri_ray = vertex / vertex(2);
+    kf_tri_ray(2) = 1.0 / vertex(2);
 
     return kf_tri_ray;
 }
@@ -34,3 +34,4 @@ inline std::array<float, 3> eigenToArray(Eigen::Vector3f point)
     array[2] = point(2);
     return array;
 }
+

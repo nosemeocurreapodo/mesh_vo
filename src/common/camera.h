@@ -65,11 +65,12 @@ public:
         return pix;
     }
 
-    Eigen::Vector3f toRay(Eigen::Vector3f &pix, int lvl)
+    Eigen::Vector3f toRay(Eigen::Vector2f &pix, int lvl)
     {
         Eigen::Vector3f ray;
-        ray[0] = fxinv[lvl] * pix[0] + cxinv[lvl];
-        ray[1] = fyinv[lvl] * pix[1] + cyinv[lvl];
+        ray(0) = fxinv[lvl] * pix[0] + cxinv[lvl];
+        ray(1) = fyinv[lvl] * pix[1] + cyinv[lvl];
+        ray(2) = 1.0;
         return ray;
     }
 

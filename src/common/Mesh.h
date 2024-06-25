@@ -47,6 +47,9 @@ public:
             }
         }
 
+        buildTriangles(cam, lvl);
+        return;
+
         // init scene indices
         for (int y = 0; y < MESH_HEIGHT; y++)
         {
@@ -210,42 +213,186 @@ public:
         }
     }
 
-    Mesh getCopy()
+    bool isTrianglePresent(Triangle &tri)
     {
-        Mesh meshCopy;
-        for (int i = 0; i < (int)vertices.size(); i++)
-        {
-            Vertice new_ver(vertices[i].position, vertices[i].texcoord, vertices[i].id);
-            meshCopy.vertices.push_back(new_ver);
-        }
-
         for (int i = 0; i < (int)triangles.size(); i++)
         {
-            Triangle tri = triangles[i];
+            Triangle tri2 = triangles[i];
+            bool isVertThere[3];
+            isVertThere[0] = false;
+            isVertThere[1] = false;
+            isVertThere[2] = false;
+            for (int j = 0; j < 3; j++)
+            {
+                for (int k = 0; k < 3; k++)
+                {
+                    if (tri.vertices[j]->id == tri2.vertices[k]->id)
+                        isVertThere[j] = true;
+                }
+            }
+            if (isVertThere[0] == true && isVertThere[1] == true && isVertThere[2] == true)
+                return true;
+        }
+        return false;
+    }
 
-            unsigned int v1_in = meshCopy.getVertexIndexFromId(tri.vertices[0]->id);
-            unsigned int v2_in = meshCopy.getVertexIndexFromId(tri.vertices[1]->id);
-            unsigned int v3_in = meshCopy.getVertexIndexFromId(tri.vertices[2]->id);
+    void buildTriangles(camera &cam, int lvl)
+    {
+        toVertex();
+        
+        triangles.clear();
 
-            // should not happen
+        dataCPU<int> triIdImage(-1);
+
+        /*
+        dataCPU<int> triIdImage(-1);
+
+        for(int y = 0; y < cam.height[lvl]; y++)
+        {
+            for(int x = 0; x < cam.width[lvl]; x++)
+            {
+                Eigen::Vector2f pix(x, y);
+                if(triIdImage.get(pix(1), pix(0), lvl) == triIdImage.nodata)
+                {
+
+                }
+            }
+        }
+        */
+
+        for (int i = 0; i < (int)vertices.size(); i++)
+        {
+            Vertice vert = vertices[i];
+            
+            /*
+            Eigen::Rotation2Df rot(2.0*3.14*1.0/8.0);
+            Eigen::Vector2f shifts[8];
+            shifts[0] = Eigen::Rotation2Df(2.0*3.14*1.0/16.0)*Eigen::Vector2f(3, 0);
+            shifts[1] = rot*shifts[0];
+            shifts[2] = rot*shifts[1];
+            shifts[3] = rot*shifts[2];
+            shifts[4] = rot*shifts[3];
+            shifts[5] = rot*shifts[4];
+            shifts[6] = rot*shifts[5];
+            shifts[7] = rot*shifts[6];
+            */
+            
+
+            float pixel_shift = 3.0;
+            Eigen::Vector2f shifts[8];
+            shifts[0] = Eigen::Vector2f(pixel_shift , 1.0);
+            shifts[1] = Eigen::Vector2f(pixel_shift , pixel_shift);
+            shifts[2] = Eigen::Vector2f(1.0 , pixel_shift);
+            shifts[3] = Eigen::Vector2f(-pixel_shift , pixel_shift);
+            shifts[4] = Eigen::Vector2f(-pixel_shift , 1.0);
+            shifts[5] = Eigen::Vector2f(-pixel_shift , -pixel_shift);
+            shifts[6] = Eigen::Vector2f(1.0 , -pixel_shift);
+            shifts[7] = Eigen::Vector2f(pixel_shift , -pixel_shift);
+            
+            // check for triangles moving slighly in the 4 directions
+            for (int j = 0; j < 8; j++)
+            {
+                Vertice vert_shifted = vert;
+                vert_shifted.texcoord += shifts[j];
+                if (!cam.isPixVisible(vert_shifted.texcoord, lvl))
+                    continue;
+                
+                if(triIdImage.get(int(vert_shifted.texcoord(1)), int(vert_shifted.texcoord(0)), lvl) != triIdImage.nodata)
+                    continue;
+
+                // search closest
+                std::vector<Vertice> verts = vertices;
+
+                verts.erase(verts.begin() + i);
+                Vertice closest_vertice = getClosestVertice(verts, vert_shifted);
+                int closest_vertice_index = getVertexIndexFromId(closest_vertice.id);
+
+                // search second closest
+                verts = vertices;
+                if (closest_vertice_index > i)
+                {
+                    verts.erase(verts.begin() + closest_vertice_index);
+                    verts.erase(verts.begin() + i);
+                }
+                else
+                {
+                    verts.erase(verts.begin() + i);
+                    verts.erase(verts.begin() + closest_vertice_index);
+                }
+
+                Vertice second_closest_vertice = getClosestVertice(verts, vert_shifted);
+                int second_closest_vertice_index = getVertexIndexFromId(second_closest_vertice.id);
+
+                Triangle tri(vertices[i], vertices[closest_vertice_index], vertices[second_closest_vertice_index], triangles.size());
+                if (isTrianglePresent(tri))
+                    continue;
+
+                Eigen::Vector3f ray = cam.toRay(vert_shifted.texcoord, lvl);
+                tri.arrageClockwise(ray);
+                triangles.push_back(tri);
+
+                //rasterize triangle, so we know which pixels are already taken by a triangle
+                tri.computeTinv();
+                
+                std::array<Eigen::Vector2f, 2> minmax = tri.getMinMax();
+
+                for (int y = minmax[0](1); y <= minmax[1](1); y++)
+                {
+                    for (int x = minmax[0](0); x <= minmax[1](0); x++)
+                    {
+                        Eigen::Vector2f pix = Eigen::Vector2f(x, y);
+                        if (!cam.isPixVisible(pix, lvl))
+                            continue;
+
+                        tri.computeBarycentric(pix);
+                        if (!tri.isBarycentricOk())
+                            continue;
+                        
+                        triIdImage.set(tri.id, pix(1), pix(0), lvl);
+                    }
+                }
+            }
+        }
+    }
+
+    void buildTriangles(std::vector<Triangle> &tris)
+    {
+        std::vector<Triangle> new_triangles;
+        for (int i = 0; i < (int)tris.size(); i++)
+        {
+            Triangle tri = tris[i];
+
+            unsigned int v1_in = getVertexIndexFromId(tri.vertices[0]->id);
+            unsigned int v2_in = getVertexIndexFromId(tri.vertices[1]->id);
+            unsigned int v3_in = getVertexIndexFromId(tri.vertices[2]->id);
+
             if (v1_in < 0 || v2_in < 0 || v3_in < 0)
                 continue;
 
             unsigned int id = tri.id;
 
-            Triangle new_tri(meshCopy.vertices[v1_in], meshCopy.vertices[v2_in], meshCopy.vertices[v3_in], id);
-            meshCopy.triangles.push_back(new_tri);
+            Triangle new_tri(vertices[v1_in], vertices[v2_in], vertices[v3_in], id);
+            new_triangles.push_back(new_tri);
 
             // vertices[v1_in].triangles.push_back(&new_tri);
             // vertices[v1_in].triangles.push_back(&new_tri);
             // vertices[v1_in].triangles.push_back(&new_tri);
         }
+        triangles = new_triangles;
+    }
 
+    Mesh getCopy()
+    {
+        Mesh meshCopy;
+
+        meshCopy.vertices = vertices;
+        meshCopy.buildTriangles(triangles);
         meshCopy.isRayIdepth = isRayIdepth;
+
         return meshCopy;
     }
 
-    Mesh geObservedMesh(Sophus::SE3f &pose, camera &cam)
+    Mesh getObservedMesh(Sophus::SE3f &pose, camera &cam)
     {
         int lvl = 0;
 
@@ -265,34 +412,89 @@ public:
             observedMesh.vertices.push_back(Vertice(vert.position, vert.texcoord, vert.id));
         }
 
-        for (int i = 0; i < (int)frameMesh.triangles.size(); i++)
-        {
-            Triangle tri = triangles[i];
-
-            unsigned int v1_in = observedMesh.getVertexIndexFromId(tri.vertices[0]->id);
-            unsigned int v2_in = observedMesh.getVertexIndexFromId(tri.vertices[1]->id);
-            unsigned int v3_in = observedMesh.getVertexIndexFromId(tri.vertices[2]->id);
-
-            if (v1_in < 0 || v2_in < 0 || v3_in < 0)
-                continue;
-
-            unsigned int id = tri.id;
-
-            Triangle new_tri(observedMesh.vertices[v1_in], observedMesh.vertices[v2_in], observedMesh.vertices[v3_in], id);
-            observedMesh.triangles.push_back(new_tri);
-
-            // vertices[v1_in].triangles.push_back(&new_tri);
-            // vertices[v1_in].triangles.push_back(&new_tri);
-            // vertices[v1_in].triangles.push_back(&new_tri);
-        }
+        observedMesh.buildTriangles(frameMesh.triangles);
+        observedMesh.isRayIdepth = frameMesh.isRayIdepth;
 
         return observedMesh;
     }
 
+    Mesh completeMesh(Sophus::SE3f &pose, dataCPU<float> &idepth, camera &cam, int lvl)
+    {
+        Mesh frameMesh = getCopy();
+        frameMesh.transform(pose);
+        frameMesh.computeTexCoords(cam, lvl);
+
+        int vertexToAdd = int(idepth.getPercentNoData(lvl) * MESH_HEIGHT * MESH_WIDTH);
+
+        for (int v = 0; v < vertexToAdd; v++)
+        {
+            while (true)
+            {
+                int x = rand() % cam.width[lvl];
+                int y = rand() % cam.height[lvl];
+
+                Eigen::Vector2f pix(x, y);
+
+                float id = idepth.get(pix(1), pix(0), lvl);
+                if (id < 0)
+                {
+                    // get closest triangle
+                    float closest_distance = std::numeric_limits<float>::max();
+                    int closest_index = -1;
+                    for (int t = 0; t < (int)frameMesh.triangles.size(); t++)
+                    {
+                        Triangle tri = frameMesh.triangles[t];
+                        Eigen::Vector2f tri_mean = tri.getMeanTexCoord();
+                        float distance = (tri_mean - pix).norm();
+                        if (distance < closest_distance)
+                        {
+                            closest_distance = distance;
+                            closest_index = t;
+                        }
+                    }
+
+                    // compute depth extrapolating from triangle
+                    Triangle closest_tri = frameMesh.triangles[closest_index];
+                    Eigen::Vector3f ray = cam.toRay(pix, lvl);
+                    float pix_depth = closest_tri.vertices[0]->position.dot(closest_tri.getNormal()) / ray.dot(closest_tri.getNormal());
+
+                    // get the 2 closest points in the triangle
+                    std::vector<unsigned int> closest_points = {0, 1, 2};
+                    float farthest_distance = 0;
+                    int farthest_index = -1;
+                    for (int t = 0; t < 3; t++)
+                    {
+                        float distance = (pix - closest_tri.vertices[t]->texcoord).norm();
+                        if (distance > farthest_distance)
+                        {
+                            farthest_distance = distance;
+                            farthest_index = t;
+                        }
+                    }
+                    closest_points.erase(closest_points.begin() + farthest_index);
+
+                    Eigen::Vector3f point = ray * pix_depth;
+                    Vertice new_vertice(point, pix, (unsigned int)frameMesh.vertices.size());
+                    frameMesh.vertices.push_back(new_vertice);
+
+                    Triangle new_triangle(frameMesh.vertices[closest_points[0]], frameMesh.vertices[closest_points[1]], new_vertice, frameMesh.triangles.size());
+
+                    // sceneMesh.vertices.push_back(vertex);
+                    // sceneMesh.triangle.push_back()
+
+                    break;
+                }
+            }
+        }
+    }
+
     // scene
-    // the vertices, actual data of the scene
-    std::vector<Vertice> vertices;
+    // Triangles contains basically pointers to the corresponding 3 vertices
     std::vector<Triangle> triangles;
+    // the vertices, actual data of the scene
+    // the vector container can change the pointer if we add or remove elements
+    // so we have to be carefull
+    std::vector<Vertice> vertices;
 
     bool isRayIdepth;
 

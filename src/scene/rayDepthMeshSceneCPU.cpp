@@ -7,7 +7,7 @@ rayDepthMeshSceneCPU::rayDepthMeshSceneCPU(float fx, float fy, float cx, float c
       z_buffer(-1.0)
 {
     multiThreading = false;
-    meshRegularization = 0.0;
+    meshRegularization = 100.0;
 }
 
 void rayDepthMeshSceneCPU::init(frameCPU &frame, dataCPU<float> &idepth)
@@ -32,7 +32,7 @@ dataCPU<float> rayDepthMeshSceneCPU::computeFrameIdepth(frameCPU &frame, int lvl
         // Triangle kf_tri = sceneMesh.triangles[t_id];
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
-        //if (kf_tri.isBackFace())
+        // if (kf_tri.isBackFace())
         //     continue;
         Triangle f_tri = frameMesh.triangles[t_index];
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
@@ -793,6 +793,7 @@ void rayDepthMeshSceneCPU::computeHGPoseMap(frameCPU &frame, HGPoseMapMesh &hg, 
 
 Error rayDepthMeshSceneCPU::errorRegu()
 {
+    sceneMesh.toRayIdepth();
     Error error;
     // for each triangle
     for (size_t i = 0; i < sceneMesh.triangles.size(); i++)
@@ -848,6 +849,7 @@ Error rayDepthMeshSceneCPU::errorRegu()
 
 HGPoseMapMesh rayDepthMeshSceneCPU::HGRegu()
 {
+    sceneMesh.toRayIdepth();
     HGPoseMapMesh hg;
     for (size_t i = 0; i < sceneMesh.triangles.size(); i++)
     {
@@ -1069,7 +1071,7 @@ void rayDepthMeshSceneCPU::optMap(std::vector<frameCPU> &frames)
 
             hg.H += meshRegularization * hg_regu.H;
             hg.G += meshRegularization * hg_regu.G;
-            if(meshRegularization > 0.0)
+            if (meshRegularization > 0.0)
                 hg.G_count += hg_regu.G_count;
 
             // check that the hessian is nonsingular
@@ -1123,7 +1125,7 @@ void rayDepthMeshSceneCPU::optMap(std::vector<frameCPU> &frames)
                 for (int index = 0; index < sceneMesh.vertices.size(); index++)
                 {
                     sceneMesh.vertices[index].position(2) = best_vertices[index].position(2) + inc(index + frames.size() * 6);
-                    if(sceneMesh.vertices[index].position(2) < 0.001 || sceneMesh.vertices[index].position(2) > 100.0)
+                    if (sceneMesh.vertices[index].position(2) < 0.001 || sceneMesh.vertices[index].position(2) > 100.0)
                         sceneMesh.vertices[index].position(2) = best_vertices[index].position(2);
                 }
 

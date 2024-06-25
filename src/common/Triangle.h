@@ -17,9 +17,34 @@ public:
         id = i;
     };
 
+    Eigen::Vector3f getNormal()
+    {
+        return (vertices[0]->position - vertices[2]->position).cross(vertices[0]->position - vertices[1]->position);
+    }
+
+    Eigen::Vector2f getMeanTexCoord()
+    {
+        return (vertices[0]->texcoord + vertices[1]->texcoord + vertices[2]->texcoord) / 3.0;
+    };
+
+    Eigen::Vector3f getMeanPosition()
+    {
+        return (vertices[0]->position + vertices[1]->position + vertices[2]->position) / 3.0;
+    };
+
+    void arrageClockwise(Eigen::Vector3f &reference)
+    {
+        if(reference.dot(getNormal()) <= 0)
+        {
+            Vertice* temp = vertices[1];
+            vertices[1] = vertices[2];
+            vertices[2] = temp;
+        }
+    }
+
     bool isBackFace()
     {
-        Eigen::Vector3f f_tri_nor = (vertices[0]->position - vertices[2]->position).cross(vertices[0]->position - vertices[1]->position);
+        Eigen::Vector3f f_tri_nor = getNormal();
         // back-face culling
         float point_dot_normal = vertices[0]->position.dot(f_tri_nor);
         if (point_dot_normal <= 0.0)
