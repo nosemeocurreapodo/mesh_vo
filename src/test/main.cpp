@@ -6,7 +6,7 @@
 #include <opencv2/imgproc.hpp>
 
 #include "utils/convertAhandaPovRayToStandard.h"
-#include "mesh_vo.h"
+#include "visualOdometry.h"
 
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
@@ -36,10 +36,10 @@ int main(void)
     cv::FileStorage fs("../../desktop_dataset/scene_depth_000.yml", cv::FileStorage::READ );
     fs["idepth"] >> initIdepth;
 
-    meshVO visual_odometry(fx,fy,cx,cy,width,height);
+    visualOdometry odometry(fx,fy,cx,cy,width,height);
 
     //visual_odometry.initScene(initFrame, initIdepth);
-    visual_odometry.initScene(initFrame);
+    odometry.initScene(initFrame);
 
     while(1){
         framesTracked++;
@@ -59,9 +59,9 @@ int main(void)
         cv::Mat frame = cv::imread(image_filename, cv::IMREAD_GRAYSCALE);
         Sophus::SE3f realPose = readPose(RT_filename)*initPose.inverse();
 
-        //visual_odometry.localization(frame);
-        visual_odometry.mapping(frame, realPose);
-        //visual_odometry.visualOdometry(frame);
+        //odometry.localization(frame);
+        odometry.mapping(frame, realPose);
+        //odometry.locAndMap(frame);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();

@@ -7,19 +7,19 @@
 
 #include "sophus/se3.hpp"
 
-#include "scene/rayDepthMeshSceneCPU.h"
-#include "scene/keyframeIdepthSceneCPU.h"
+#include "optimizers/meshOptimizerCPU.h"
+//#include "scene/keyframeIdepthSceneCPU.h"
 #include "cpu/frameCPU.h"
 
-class meshVO
+class visualOdometry
 {
 public:
-    meshVO(float _fx, float _fy, float _cx, float _cy, int _width, int _height);
+    visualOdometry(float _fx, float _fy, float _cx, float _cy, int _width, int _height);
 
     void initScene(cv::Mat frame, Sophus::SE3f pose = Sophus::SE3f());
     void initScene(cv::Mat frame, cv::Mat idepth, Sophus::SE3f pose = Sophus::SE3f());
 
-    void visualOdometry(cv::Mat frame);
+    void locAndMap(cv::Mat frame);
     void localization(cv::Mat frame);
     void mapping(cv::Mat _frame, Sophus::SE3f pose);
 
@@ -41,6 +41,6 @@ public:
 private:
     frameCPU lastFrame;
     std::vector<frameCPU> frames;
-    rayDepthMeshSceneCPU scene;
+    meshOptimizerCPU meshOptimizer;
     //keyframeIdepthSceneCPU scene;
 };

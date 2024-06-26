@@ -4,18 +4,42 @@
 #include "sophus/se3.hpp"
 #include "common/camera.h"
 #include "common/common.h"
-#include "common/Vertice.h"
+#include "cpu/VerticeCPU.h"
 
-class Triangle
+class TriangleCPU
 {
 public:
-    Triangle(Vertice &vert1, Vertice &vert2, Vertice &vert3, unsigned int i)
+    TriangleCPU()
+    {
+        id = -1;
+    };
+
+    TriangleCPU(VerticeCPU &vert1, VerticeCPU &vert2, VerticeCPU &vert3, unsigned int i)
     {
         vertices[0] = &vert1;
         vertices[1] = &vert2;
         vertices[2] = &vert3;
         id = i;
     };
+
+    std::array<VerticeCPU *, 2> toConnect(Eigen::Vector2f &pix)
+    {
+        computeTinv();
+
+        std::array<VerticeCPU *, 2> toc;
+        int index = 0;
+        for (int i = 0; i < 3; i++)
+        {
+            Eigen::Vector2f shifted = vertices[i]->texcoord + (pix - vertices[i]->texcoord).normalized()*2.0;
+            computeBarycentric(shifted);
+            if (!isBarycentricOk())
+            {
+                toc[index] = vertices[i];
+                index++;
+            }
+        }
+        return toc;
+    }
 
     Eigen::Vector3f getNormal()
     {
@@ -32,11 +56,24 @@ public:
         return (vertices[0]->position + vertices[1]->position + vertices[2]->position) / 3.0;
     };
 
+    float getTexArea()
+    {
+        float area = vertices[0]->texcoord(0) * (vertices[1]->texcoord(1) - vertices[2]->texcoord(1));
+        area += vertices[1]->texcoord(0) * (vertices[2]->texcoord(1) - vertices[0]->texcoord(1));
+        area += vertices[2]->texcoord(0) * (vertices[0]->texcoord(1) - vertices[1]->texcoord(1));
+        return area;
+    }
+
+    float getArea()
+    {
+        return getNormal().norm() / 2.0;
+    }
+
     void arrageClockwise(Eigen::Vector3f &reference)
     {
-        if(reference.dot(getNormal()) <= 0)
+        if (reference.dot(getNormal()) <= 0)
         {
-            Vertice* temp = vertices[1];
+            VerticeCPU *temp = vertices[1];
             vertices[1] = vertices[2];
             vertices[2] = temp;
         }
@@ -85,14 +122,14 @@ public:
 
     bool isLine()
     {
-        if(barycentric(0) < 0.01 || barycentric(1) < 0.01 || barycentric(2) < 0.01)
+        if (barycentric(0) < 0.01 || barycentric(1) < 0.01 || barycentric(2) < 0.01)
             return true;
         return false;
     };
 
     bool isPoint()
     {
-        if(barycentric(0) > 0.99 || barycentric(1) > 0.99 || barycentric(2) > 0.99)
+        if (barycentric(0) > 0.99 || barycentric(1) > 0.99 || barycentric(2) > 0.99)
             return true;
         return false;
     };
@@ -109,7 +146,7 @@ public:
     };
 
     unsigned int id;
-    std::array<Vertice *, 3> vertices;
+    std::array<VerticeCPU *, 3> vertices;
 
     Eigen::Matrix2f T_inv;
     Eigen::Vector3f barycentric;

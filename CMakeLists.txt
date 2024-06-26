@@ -37,8 +37,9 @@ include_directories(
 #)
 
 set(VISUALODOMETRY_SRCS
-      "src/scene/rayDepthMeshSceneCPU.cpp"
-      "src/mesh_vo.cpp")
+      "src/cpu/MeshCPU.cpp"
+      "src/optimizers/meshOptimizerCPU.cpp"
+      "src/visualOdometry.cpp")
 
 #file(GLOB TESTAPP_SRCS "src/test/*.cpp"
 #                       "src/test/utils/*.cpp")
