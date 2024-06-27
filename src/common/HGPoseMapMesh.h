@@ -23,7 +23,6 @@ public:
         return vector[id];
     }
 
-    /*
     void add(float value, unsigned int id)
     {
         if(vector.count(id))
@@ -31,7 +30,6 @@ public:
         else
             vector[id] = value;
     }
-    */
 
     void operator+=(MapVector &a)
     {
@@ -103,19 +101,16 @@ public:
         return matrix[id];
     }
 
-    /*
     void add(float value, unsigned int id1, unsigned int id2)
     {
         if(!matrix.count(id1))
             matrix[id1] = MapVector();
 
-        if(matrix[id1].vector.count(id2))
+        if(!matrix[id1].vector.count(id2))
             matrix[id1].vector[id2] = value;
         else
             matrix[id1].vector[id2] += value;
-
     }
-    */
 
     void operator+=(MapMatrix &a)
     {
@@ -157,7 +152,7 @@ public:
                 if (!row.vector.count(ids[x]))
                     continue;
     
-                float value = row.vector[ids[y]];
+                float value = row.vector[ids[x]];
 
                 eigenMatrix.coeffRef(y, x) = value;
             }

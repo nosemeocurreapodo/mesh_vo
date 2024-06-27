@@ -44,7 +44,6 @@ Mesh meshOptimizerCPU::getObservedMesh(Sophus::SE3f &pose, camera &cam)
 }
 */
 
-/*
 void meshOptimizerCPU::completeMesh(frameCPU &frame)
 {
     int lvl = 0;
@@ -56,12 +55,13 @@ void meshOptimizerCPU::completeMesh(frameCPU &frame)
     frameMesh.transform(frame.pose);
     frameMesh.computeTexCoords(cam, lvl);
 
-    float triangleScreenArea = cam.width[lvl]*cam.height[lvl]/(10.0*10.0);
+    float triangleBase = cam.width[lvl] / 10.0;
+    float triangleScreenArea = triangleBase * triangleBase / 2;
 
     // check borders of frame for zones without triangles
-    for (int y = 0; y < cam.height[lvl]; y += cam.height[lvl] - 1)
+    for (int y = 0; y < cam.height[lvl]; y += triangleBase)
     {
-        for (int x = 0; x < cam.width[lvl]; x++)
+        for (int x = 0; x < cam.width[lvl]; x += triangleBase)
         {
             Eigen::Vector2f pix(x, y);
 
@@ -71,7 +71,7 @@ void meshOptimizerCPU::completeMesh(frameCPU &frame)
             // get closest triangle
             unsigned int closest_tri_id = frameMesh.getClosestTriangleId(pix);
             std::array<unsigned int, 3> closest_tri = frameMesh.getTriangle(closest_tri_id);
-            TriangleCPU closest_tri_t = frameMesh.getTriangleStruct(closest_tri_id);
+            TriangleCPU closest_tri_t = frameMesh.getTriangleStructure(closest_tri_id);
 
             // compute depth extrapolating from triangle
             Eigen::Vector3f ray = cam.toRay(pix, lvl);
@@ -87,46 +87,14 @@ void meshOptimizerCPU::completeMesh(frameCPU &frame)
 
             TriangleCPU new_tri(new_vert, *(toConnect[0]), *(toConnect[1]));
 
-            if (new_tri.getTexArea() >= triangleScreenArea)
-            {
-                frameMesh.addVertice(new_vert, frameMesh.getVerticesIds().size());
-
-                std::array<unsigned int, 3> new_tri_ind = {}
-
-                frameMesh.addTriangle()
-
-                std::array<unsigned int, 3> new_tri_ind = {}
-
-
-                new_tris.push_back(new_tri_ind);
-
-                frameMesh.addVertice(new_vert);
-                frameMesh.addTriangle(new_tri);
-                renderIdepth(frame.pose, idepth, lvl);
-                // idepth = computeFrameIdepth(frame, lvl);
-            }
         }
-    }
-
-    if (new_tris.size() > 0)
-    {
-        for (int i = 0; i < new_verts.size(); i++)
-        {
-            new_verts[i].position = frame.pose.inverse() * new_verts[i].position;
-            keyframeMesh.addVertice(new_verts[i]);
-        }
-
-        keyframeMesh.computeTexCoords(cam, lvl);
-        keyframeMesh.buildTriangles(cam, lvl);
-
     }
 }
-*/
 
 void meshOptimizerCPU::renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
-    // keyframeMesh.computeTexCoords(cam, lvl);
-    // keyframeMesh.toVertex();
+    keyframeMesh.computeTexCoords(cam, lvl);
+    keyframeMesh.toVertex();
     MeshCPU frameMesh = keyframeMesh.getCopy();
     frameMesh.transform(pose);
     frameMesh.computeTexCoords(cam, lvl);
@@ -723,16 +691,16 @@ void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
                     // can make the hessian non-singular
                     if (J[i] == 0)
                         continue;
-                    //(*hg).G.add(J[i] * error, v_ids[i]);
-                    (*hg).G[v_ids[i]] += J[i] * error;
-                    
+                    (*hg).G.add(J[i] * error, v_ids[i]);
+                    //(*hg).G[v_ids[i]] += J[i] * error;
+
                     for (int j = i; j < 3; j++)
                     {
                         float jj = J[i] * J[j];
-                        //(*hg).H.add(jj, v_ids[i], v_ids[j]);
-                        //(*hg).H.add(jj, v_ids[j], v_ids[i]);
-                        (*hg).H[v_ids[i]][v_ids[j]] += jj;
-                        (*hg).H[v_ids[j]][v_ids[i]] += jj;
+                        (*hg).H.add(jj, v_ids[i], v_ids[j]);
+                        (*hg).H.add(jj, v_ids[j], v_ids[i]);
+                        //(*hg).H[v_ids[i]][v_ids[j]] += jj;
+                        //(*hg).H[v_ids[j]][v_ids[i]] += jj;
                     }
                 }
             }
@@ -1142,8 +1110,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
     for (int lvl = 1; lvl >= 1; lvl--)
     {
         t.tic();
-        //keyframeMesh.toRayIdepth();
-        //std::vector<float> best_idepths = keyframeMesh.getVerticesIdepths();
+        // keyframeMesh.toRayIdepth();
+        // std::vector<float> best_idepths = keyframeMesh.getVerticesIdepths();
 
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
@@ -1166,7 +1134,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
             hg.setZero();
             for (std::size_t i = 0; i < frames.size(); i++)
                 hg += computeHGMap(frames[i], lvl);
-            
+
             std::vector<unsigned int> ids = hg.G.getIds();
 
             Eigen::VectorXf G = hg.G.toEigen(ids);
@@ -1224,16 +1192,16 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                 keyframeMesh.toRayIdepth();
                 std::vector<float> best_idepths;
-                std::vector<float> new_idepths;
                 for (int index = 0; index < (int)ids.size(); index++)
                 {
                     float best_idepth = keyframeMesh.getVertice(ids[index]).position(2);
-                    float new_idepth = 
-                    new_idepths[index] = keyframeMesh.getVertice(ids[index]).position(2) + inc(index + frames.size() * 6);
-                    if (new_idepths[index] < 0.001 || new_idepths[index] > 100.0)
-                        new_idepths[index] = keyframeMesh.getVertice(ids[index]).position(2);
+                    float new_idepth = best_idepth + inc(index);
+                    if (new_idepth < 0.001 || new_idepth > 100.0)
+                        new_idepth = best_idepth;
+                    best_idepths.push_back(best_idepth);
+                    keyframeMesh.setVerticeIdepth(new_idepth, ids[index]);
                 }
-                //keyframeMesh.setVerticesIdepths(new_idepths);
+                // keyframeMesh.setVerticesIdepths(new_idepths);
 
                 t.tic();
 
@@ -1273,7 +1241,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 }
                 else
                 {
-                    keyframeMesh.setVerticesIdepths(best_idepths);
+                    for (int index = 0; index < ids.size(); index++)
+                        keyframeMesh.setVerticeIdepth(best_idepths[index], ids[index]);
 
                     n_try++;
 

@@ -15,29 +15,15 @@ public:
     void init(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl);
     void initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl);
 
-    std::vector<float> getVerticesIdepths()
+    void setVerticeIdepth(float idepth, unsigned int id)
     {
-        std::vector<float> idepths;
-        for (int i = 0; i < (int)vertices.size(); i++)
+        if (isRayIdepth)
+            vertices[id].position(2) = idepth;
+        else
         {
-            if (isRayIdepth)
-                idepths.push_back(vertices[i].position(2));
-            else
-                idepths.push_back(1.0 / vertices[i].position(2));
-        }
-        return idepths;
-    }
-
-    void setVerticesIdepths(std::vector<float> &idepths)
-    {
-        for (int i = 0; i < (int)vertices.size(); i++)
-        {
-            if (isRayIdepth)
-                vertices[i].position(2) = idepths[i];
-            else
-            {
-                vertices[i].position = (vertices[i].position / vertices[i].position(2)) / idepths[i];
-            }
+            Eigen::Vector3f pos = fromVertexToRayIdepth(vertices[id].position);
+            pos(2) = idepth;
+            vertices[id].position = fromRayIdepthToVertex(pos);
         }
     }
 

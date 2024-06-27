@@ -217,7 +217,7 @@ void MeshCPU::buildTriangles(camera &cam, int lvl)
             if (otherTriangle)
                 continue;
 
-            triangles[triangles.size()] = tri;
+            addTriangle(tri, triangles.size());
 
             // rasterize triangle, so we know which pixels are already taken by a triangle
 

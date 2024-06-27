@@ -29,7 +29,7 @@ public:
     void optMap(std::vector<frameCPU> &frame);
     //void optPoseMap(std::vector<frameCPU> &frame);
 
-    //void completeMesh(frameCPU &frame);
+    void completeMesh(frameCPU &frame);
 
     camera getCam()
     {
