@@ -114,8 +114,8 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
     t.tic();
     // optMapVertex();
     // optMapJoint();
-    // meshOptimizer.optMap(frames);
-    meshOptimizer.completeMesh(lastFrame);
+    meshOptimizer.optMap(frames);
+    //meshOptimizer.completeMesh(lastFrame);
     std::cout << "update map time " << t.toc() << std::endl;
 
     dataCPU<float> idepth(-1.0);

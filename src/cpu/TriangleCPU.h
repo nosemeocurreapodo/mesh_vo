@@ -11,15 +11,15 @@ class TriangleCPU
 public:
     TriangleCPU()
     {
-        id = -1;
+
     };
 
-    TriangleCPU(VerticeCPU &vert1, VerticeCPU &vert2, VerticeCPU &vert3, unsigned int i)
+    TriangleCPU(VerticeCPU &vert1, VerticeCPU &vert2, VerticeCPU &vert3)
     {
         vertices[0] = &vert1;
         vertices[1] = &vert2;
         vertices[2] = &vert3;
-        id = i;
+
     };
 
     std::array<VerticeCPU *, 2> toConnect(Eigen::Vector2f &pix)
@@ -145,7 +145,6 @@ public:
         return minmax;
     };
 
-    unsigned int id;
     std::array<VerticeCPU *, 3> vertices;
 
     Eigen::Matrix2f T_inv;

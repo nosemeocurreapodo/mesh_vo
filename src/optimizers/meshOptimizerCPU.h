@@ -29,7 +29,7 @@ public:
     void optMap(std::vector<frameCPU> &frame);
     //void optPoseMap(std::vector<frameCPU> &frame);
 
-    void completeMesh(frameCPU &frame);
+    //void completeMesh(frameCPU &frame);
 
     camera getCam()
     {
@@ -52,9 +52,9 @@ private:
 
     //void computeHGPoseMap(frameCPU &frame, HGPoseMapMesh &hg, int frame_index, int lvl);
 
-    void errorPerIndex(frameCPU &frame, MeshCPU &frameMesh, int lvl, int tmin, int tmax, Error *e, int tid);
-    void HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, int lvl, int tmin, int tmax, HGPose *hg, int tid);
-    void HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, int lvl, int tmin, int tmax, HGPoseMapMesh *hg, int tid);
+    void errorPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, Error *e, int tid);
+    void HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGPose *hg, int tid);
+    void HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGPoseMapMesh *hg, int tid);
 
     Error errorRegu();
     HGPoseMapMesh HGRegu();
