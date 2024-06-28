@@ -13,7 +13,7 @@ meshOptimizerCPU::meshOptimizerCPU(float fx, float fy, float cx, float cy, int w
 void meshOptimizerCPU::init(frameCPU &frame, dataCPU<float> &idepth)
 {
     frame.copyTo(keyframe);
-    keyframeMesh.init(keyframe, idepth, cam, 0);
+    keyframeMesh.initr(keyframe, idepth, cam, 0);
 }
 
 /*

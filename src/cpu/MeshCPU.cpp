@@ -1,4 +1,5 @@
 #include "cpu/MeshCPU.h"
+#include "common/DelaunayTriangulation.h"
 
 MeshCPU::MeshCPU()
 {
@@ -88,6 +89,7 @@ void MeshCPU::initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lv
     vertices.clear();
     triangles.clear();
 
+    /*
     for (int y = 0; y < 2; y++)
     {
         for (int x = 0; x < 2; x++)
@@ -113,6 +115,7 @@ void MeshCPU::initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lv
             vertices[vertices.size()] = vertex;
         }
     }
+    */
 
     for (int i = 0; i < MESH_HEIGHT * MESH_HEIGHT - 4; i++)
     {
@@ -137,7 +140,41 @@ void MeshCPU::initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lv
         vertices[vertices.size()] = vertex;
     }
 
-    buildTriangles(cam, lvl);
+    std::vector<Eigen::Vector2f> points;
+
+    std::vector<unsigned int> ids = getVerticesIds();
+
+    for(int index = 0; index < ids.size(); index++)
+    {
+        points.push_back(vertices[ids[index]].texcoord);
+    }
+
+    DelaunayTriangulation triangulation(points);
+    triangulation.triangulate();
+
+    std::vector<std::array<unsigned int, 3> > tris = triangulation.getTriangles();
+
+    for(int index = 0; index < ids.size(); index++)
+    {
+        std::array<unsigned int, 3> tri;
+        tri[0] = ids[tris[index][0]];
+        tri[1] = ids[tris[index][1]];
+        tri[2] = ids[tris[index][2]];
+
+        TriangleCPU tristructure(vertices[tri[0]], vertices[tri[1]], vertices[tri[2]]);
+
+        Eigen::Vector3f meanpos = tristructure.getMeanPosition();
+
+        if (meanpos.dot(tristructure.getNormal()) <= 0)
+        {
+            tri[1] = ids[tris[index][2]];
+            tri[2] = ids[tris[index][1]];
+        }
+
+        triangles[ids[index]] = tri;
+    }
+
+    //buildTriangles(cam, lvl);
 }
 
 void MeshCPU::buildTriangles(camera &cam, int lvl)
