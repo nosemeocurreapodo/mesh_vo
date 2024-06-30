@@ -1,5 +1,6 @@
 #include "common/DelaunayTriangulation.h"
 #include "common/common.h"
+#include "cpu/Triangle2D.h"
 
 void DelaunayTriangulation::addSuperTriangle()
 {
@@ -137,6 +138,15 @@ void DelaunayTriangulation::triangulateVertice(Eigen::Vector2f &vertice, unsigne
         tri[0] = edge[0];
         tri[1] = edge[1];
         tri[2] = static_cast<unsigned int>(id);
+
+        Triangle2D triStru = Triangle2D(vertices[tri[0]], vertices[tri[1]], vertices[tri[2]]);
+        float area = triStru.getArea();
+        if(area <= 0)
+        {
+            tri[0] = edge[1];
+            tri[1] = edge[0];
+        }
+
         triangles[triangles.size()] = tri;
     }
 }

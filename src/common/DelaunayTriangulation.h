@@ -1,12 +1,12 @@
 #pragma once
 
-#include <vector>
-#include <cmath>
-#include <algorithm>
-#include <iostream>
+#include <map>
+//#include <vector>
+//#include <cmath>
+//#include <algorithm>
+//#include <iostream>
 
 #include <Eigen/Core>
-#include "cpu/VerticeCPU.h"
 
 class DelaunayTriangulation
 {
@@ -18,12 +18,12 @@ public:
     void addSuperTriangle();
     void removeSuperTriangle();
 
-    void loadPoints(std::map<unsigned int, VerticeCPU> &verts)
+    void loadPoints(std::map<unsigned int, Eigen::Vector2f> &texcoords)
     {
         vertices.clear();
-        for (auto it = verts.begin(); it != verts.end(); ++it)
+        for (auto it = texcoords.begin(); it != texcoords.end(); ++it)
         {
-            vertices[it->first] = it->second.texcoord;
+            vertices[it->first] = it->second;
         }
     }
 

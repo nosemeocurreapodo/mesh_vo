@@ -128,11 +128,11 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
     meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
     meshOptimizer.renderDebug(lastFrame.pose, debug, 0);
 
+    debug.show("lastFrame debug", 0);
     lastFrame.image.show("lastFrame image", 1);
     // lastFrame.dx.show("lastFrame dx", 1);
     // lastFrame.dy.show("lastFrame dy", 1);
     error.show("lastFrame error", 1);
     idepth.show("lastFrame idepth", 1);
     sceneImage.show("lastFrame scene", 1);
-    debug.show("lastFrame debug", 0);
 }
