@@ -90,13 +90,13 @@ void MeshCPU::initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lv
     triangles.clear();
 
     /*
-    for (int y = 0; y < 2; y++)
+    for (int y = 0; y < MESH_HEIGHT; y ++)
     {
-        for (int x = 0; x < 2; x++)
+        for (int x = 0; x < MESH_WIDTH; x ++)
         {
             Eigen::Vector2f pix;
-            pix[0] = x * (cam.width[lvl] - 1);
-            pix[1] = y * (cam.height[lvl] - 1);
+            pix[0] = (float(x) / (MESH_WIDTH - 1)) * (cam.width[lvl] - 1);
+            pix[1] = (float(y) / (MESH_HEIGHT - 1)) * (cam.height[lvl] - 1);
             Eigen::Vector3f ray;
             ray(0) = cam.fxinv[lvl] * pix[0] + cam.cxinv[lvl];
             ray(1) = cam.fyinv[lvl] * pix[1] + cam.cyinv[lvl];
@@ -117,49 +117,43 @@ void MeshCPU::initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lv
     }
     */
 
-    for (int i = 0; i < MESH_HEIGHT * MESH_HEIGHT - 4; i++)
+    for (int y = 0; y < MESH_HEIGHT; y++)
     {
-        Eigen::Vector2f pix;
-        pix[0] = rand() % cam.width[lvl];
-        pix[1] = rand() % cam.height[lvl];
-        Eigen::Vector3f ray;
-        ray(0) = cam.fxinv[lvl] * pix[0] + cam.cxinv[lvl];
-        ray(1) = cam.fyinv[lvl] * pix[1] + cam.cyinv[lvl];
-        ray(2) = 1.0;
-        float id = idepth.get(pix[1], pix[0], lvl);
-        if (id <= 0.0)
-            id = 0.5;
+        for (int x = 0; x < MESH_WIDTH; x++)
+        {
+            Eigen::Vector2f pix;
+            //pix[0] = rand() % cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
+            //pix[1] = rand() % cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
+            pix[0] = (float(y)/(MESH_WIDTH-1)) * cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
+            pix[1] = (float(x)/(MESH_HEIGHT-1)) * cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
+            Eigen::Vector3f ray;
+            ray(0) = cam.fxinv[lvl] * pix[0] + cam.cxinv[lvl];
+            ray(1) = cam.fyinv[lvl] * pix[1] + cam.cyinv[lvl];
+            ray(2) = 1.0;
+            float id = idepth.get(pix[1], pix[0], lvl);
+            if (id <= 0.0)
+                id = 0.5;
 
-        Eigen::Vector3f point;
-        if (isRayIdepth)
-            point = Eigen::Vector3f(ray(0), ray(1), id);
-        else
-            point = ray / id;
-        VerticeCPU vertex(point, pix);
+            Eigen::Vector3f point;
+            if (isRayIdepth)
+                point = Eigen::Vector3f(ray(0), ray(1), id);
+            else
+                point = ray / id;
+            VerticeCPU vertex(point, pix);
 
-        vertices[vertices.size()] = vertex;
+            vertices[vertices.size()] = vertex;
+        }
     }
 
-    std::vector<Eigen::Vector2f> points;
-
-    std::vector<unsigned int> ids = getVerticesIds();
-
-    for(int index = 0; index < ids.size(); index++)
-    {
-        points.push_back(vertices[ids[index]].texcoord);
-    }
-
-    DelaunayTriangulation triangulation(points);
+    DelaunayTriangulation triangulation;
+    triangulation.loadPoints(vertices);
     triangulation.triangulate();
 
-    std::vector<std::array<unsigned int, 3> > tris = triangulation.getTriangles();
+    std::map<unsigned int, std::array<unsigned int, 3>> tris = triangulation.getTriangles();
 
-    for(int index = 0; index < ids.size(); index++)
+    for (auto it = tris.begin(); it != tris.end(); ++it)
     {
-        std::array<unsigned int, 3> tri;
-        tri[0] = ids[tris[index][0]];
-        tri[1] = ids[tris[index][1]];
-        tri[2] = ids[tris[index][2]];
+        std::array<unsigned int, 3> tri = it->second;
 
         TriangleCPU tristructure(vertices[tri[0]], vertices[tri[1]], vertices[tri[2]]);
 
@@ -167,14 +161,14 @@ void MeshCPU::initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lv
 
         if (meanpos.dot(tristructure.getNormal()) <= 0)
         {
-            tri[1] = ids[tris[index][2]];
-            tri[2] = ids[tris[index][1]];
+            tri[1] = it->second[2];
+            tri[2] = it->second[1];
         }
 
-        triangles[ids[index]] = tri;
+        triangles[triangles.size()] = tri;
     }
 
-    //buildTriangles(cam, lvl);
+    // buildTriangles(cam, lvl);
 }
 
 void MeshCPU::buildTriangles(camera &cam, int lvl)

@@ -1,20 +1,18 @@
-#include "DelaunayTriangulation.h"
+#include "common/DelaunayTriangulation.h"
+#include "common/common.h"
 
-DelaunayTriangulation::DelaunayTriangulation(const std::vector<Eigen::Vector2f> &points) : points(points)
-{
-    createSuperTriangle();
-    triangles.push_back(superTriangle);
-}
-
-void DelaunayTriangulation::createSuperTriangle()
+void DelaunayTriangulation::addSuperTriangle()
 {
     double minX = std::numeric_limits<double>::max();
     double minY = std::numeric_limits<double>::max();
     double maxX = std::numeric_limits<double>::lowest();
     double maxY = std::numeric_limits<double>::lowest();
 
-    for (const auto &point : points)
+    for (auto it = vertices.begin(); it != vertices.end(); ++it)
+    // for (const auto &point : points)
     {
+        Eigen::Vector2f point = it->second;
+
         if (point(0) < minX)
             minX = point(0);
         if (point(1) < minY)
@@ -31,24 +29,34 @@ void DelaunayTriangulation::createSuperTriangle()
     double midX = (minX + maxX) / 2;
     double midY = (minY + maxY) / 2;
 
-    points.push_back({midX - 2 * deltaMax, midY - deltaMax});
-    points.push_back({midX, midY + 2 * deltaMax});
-    points.push_back({midX + 2 * deltaMax, midY - deltaMax});
+    unsigned int superA = std::numeric_limits<unsigned int>::max() - 3;
+    unsigned int superB = std::numeric_limits<unsigned int>::max() - 2;
+    unsigned int superC = std::numeric_limits<unsigned int>::max() - 1;
 
-    unsigned int superA = points.size() - 3;
-    unsigned int superB = points.size() - 2;
-    unsigned int superC = points.size() - 1;
+    // vertices[superA] = {minX, minY};
+    // vertices[superB] = {maxX * 2, minY};
+    // vertices[superC] = {minX, maxY * 2};
+
+    vertices[superA] = {midX - 2 * deltaMax, midY - deltaMax};
+    vertices[superB] = {midX, midY + 2 * deltaMax};
+    vertices[superC] = {midX + 2 * deltaMax, midY - deltaMax};
+
+    // points.push_back({midX - 2 * deltaMax, midY - deltaMax});
+    // points.push_back({midX, midY + 2 * deltaMax});
+    // points.push_back({midX + 2 * deltaMax, midY - deltaMax});
 
     superTriangle[0] = superA;
     superTriangle[1] = superB;
     superTriangle[2] = superC;
+
+    triangles[triangles.size()] = superTriangle;
 }
 
-std::pair<Eigen::Vector2f, double> DelaunayTriangulation::circumcircle(const std::array<unsigned int, 3> &tri) const
+std::pair<Eigen::Vector2f, double> DelaunayTriangulation::circumcircle(std::array<unsigned int, 3> &tri)
 {
-    const Eigen::Vector2f &A = points[tri[0]];
-    const Eigen::Vector2f &B = points[tri[1]];
-    const Eigen::Vector2f &C = points[tri[2]];
+    Eigen::Vector2f A = vertices[tri[0]];
+    Eigen::Vector2f B = vertices[tri[1]];
+    Eigen::Vector2f C = vertices[tri[2]];
 
     double D = 2 * (A(0) * (B(1) - C(1)) + B(0) * (C(1) - A(1)) + C(0) * (A(1) - B(1)));
     double Ux = ((A(0) * A(0) + A(1) * A(1)) * (B(1) - C(1)) + (B(0) * B(0) + B(1) * B(1)) * (C(1) - A(1)) + (C(0) * C(0) + C(1) * C(1)) * (A(1) - B(1))) / D;
@@ -60,89 +68,124 @@ std::pair<Eigen::Vector2f, double> DelaunayTriangulation::circumcircle(const std
     return {circumcenter, circumradius};
 }
 
-bool DelaunayTriangulation::isPointInCircumcircle(const Eigen::Vector2f &point, const std::array<unsigned int, 3> &tri) const
+bool DelaunayTriangulation::isPointInCircumcircle(Eigen::Vector2f &point, std::array<unsigned int, 3> &tri)
 {
     auto [circumcenter, circumradius] = circumcircle(tri);
     double dist = std::sqrt((point(0) - circumcenter(0)) * (point(0) - circumcenter(0)) + (point(1) - circumcenter(1)) * (point(1) - circumcenter(1)));
     return dist <= circumradius;
 }
 
-void DelaunayTriangulation::triangulate()
+void DelaunayTriangulation::triangulateVertice(Eigen::Vector2f &vertice, unsigned int id)
 {
-    for (size_t i = 0; i < points.size() - 3; ++i)
-    { // Exclude super triangle points
-        const Eigen::Vector2f &point = points[i];
-        std::vector<std::array<unsigned int, 3>> badTriangles;
-        std::vector<std::array<unsigned int, 2>> polygon;
+    vertices[id] = vertice;
 
-        for (const auto &tri : triangles)
+    std::vector<std::array<unsigned int, 3>> goodTriangles;
+    std::vector<std::array<unsigned int, 3>> badTriangles;
+    std::vector<std::array<unsigned int, 2>> polygon;
+
+    // check for bad triangles
+    for (auto it = triangles.begin(); it != triangles.end(); ++it)
+    {
+        if (isPointInCircumcircle(vertice, it->second))
+            badTriangles.push_back(it->second);
+        else
+            goodTriangles.push_back(it->second);
+    }
+
+    for (const auto &tri : badTriangles)
+    {
+        std::array<std::array<unsigned int, 2>, 3> edges;
+        edges[0] = {tri[0], tri[1]};
+        edges[1] = {tri[1], tri[2]};
+        edges[2] = {tri[2], tri[0]};
+
+        for (int j = 0; j < edges.size(); j++)
         {
-            if (isPointInCircumcircle(point, tri))
+            std::array<unsigned int, 2> edge = edges[j];
+            int edge_index = -1;
+            for (int k = 0; k < polygon.size(); k++)
             {
-                badTriangles.push_back(tri);
-                std::array<std::array<unsigned int, 2>, 3> edges;
-                edges[0] = {tri[0], tri[1]};
-                edges[1] = {tri[1], tri[2]};
-                edges[2] = {tri[2], tri[0]};
+                std::array<unsigned int, 2> pol = polygon[k];
 
-                for( int j = 0; j < polygon.size(); j++)
+                if (isEdgeEqual(edge, pol))
                 {
-                    std::array<unsigned int, 2> pol = polygon[j];
-                    for(int k = 0: k)
-                    if(edges[0][0] == )
+                    edge_index = k;
+                    break;
                 }
+            }
 
-                /*
-                for (const auto &edge : {std::make_pair(tri[0], tri[1]), std::make_pair(tri[1], tri[2]), std::make_pair(tri[2], tri[0])})
-                {
-                    if (std::find(polygon.begin(), polygon.end(), edge) != polygon.end())
-                    {
-                        polygon.erase(std::remove(polygon.begin(), polygon.end(), edge), polygon.end());
-                    }
-                    else
-                    {
-                        polygon.push_back(edge);
-                    }
-                }
-                */
+            if (edge_index >= 0)
+            {
+                polygon.erase(polygon.begin() + edge_index);
+            }
+            else
+            {
+                polygon.push_back(edge);
             }
         }
+    }
 
-        triangles.erase(std::remove_if(triangles.begin(), triangles.end(), [&](const std::array<unsigned int, 3> &tri)
-                                       { return std::find(badTriangles.begin(), badTriangles.end(), tri) != badTriangles.end(); }),
-                        triangles.end());
+    triangles.clear();
+    for (auto tri : goodTriangles)
+    {
+        triangles[triangles.size()] = tri;
+    }
 
-        for (const auto &edge : polygon)
-        {
-            std::array<unsigned int, 3> tri;
-            tri[0] = edge.first;
-            tri[1] = edge.second;
-            tri[2] = static_cast<unsigned int>(i);
-            triangles.push_back(tri);
-        }
+    for (const auto &edge : polygon)
+    {
+        std::array<unsigned int, 3> tri;
+        tri[0] = edge[0];
+        tri[1] = edge[1];
+        tri[2] = static_cast<unsigned int>(id);
+        triangles[triangles.size()] = tri;
+    }
+}
+
+void DelaunayTriangulation::triangulate()
+{
+    triangles.clear();
+    addSuperTriangle();
+    for (auto it = vertices.begin(); it != vertices.end(); ++it)
+    {
+        if (it->first == superTriangle[0] || it->first == superTriangle[1] || it->first == superTriangle[2])
+            continue;
+        triangulateVertice(it->second, it->first);
     }
     removeSuperTriangle();
 }
 
 void DelaunayTriangulation::removeSuperTriangle()
 {
-    int superA = points.size() - 3;
-    int superB = points.size() - 2;
-    int superC = points.size() - 1;
+    // int superA = superTriangle[0];
+    // int superB = superTriangle[1];
+    // int superC = superTriangle[2];
 
-    triangles.erase(std::remove_if(triangles.begin(), triangles.end(), [&](const std::array<unsigned int, 3> &tri)
-                                   { return (tri[0] == superA || tri[0] == superB || tri[0] == superC ||
-                                             tri[1] == superA || tri[1] == superB || tri[1] == superC ||
-                                             tri[2] == superA || tri[2] == superB || tri[2] == superC); }),
-                    triangles.end());
+    // triangles.erase(std::remove_if(triangles.begin(), triangles.end(), [&](const std::array<unsigned int, 3> &tri)
+    //                                { return (tri[0] == superA || tri[0] == superB || tri[0] == superC ||
+    //                                          tri[1] == superA || tri[1] == superB || tri[1] == superC ||
+    //                                          tri[2] == superA || tri[2] == superB || tri[2] == superC); }),
+    //                 triangles.end());
+
+    for (auto it = triangles.begin(); it != triangles.end();)
+    {
+        bool todelete = false;
+        std::array<unsigned int, 3> tri = it->second;
+        for (int i = 0; i < 3; i++)
+        {
+            if (tri[i] == superTriangle[0] || tri[i] == superTriangle[1] || tri[i] == superTriangle[2])
+            {
+                todelete = true;
+                break;
+            }
+        }
+        if (todelete)
+            it = triangles.erase(it);
+        else
+            ++it;
+    }
 }
 
-std::vector<std::array<unsigned int, 3>> DelaunayTriangulation::getTriangles() const
+std::map<unsigned int, std::array<unsigned int, 3>> DelaunayTriangulation::getTriangles()
 {
     return triangles;
-}
-
-void DelaunayTriangulation::plot() const
-{
-    // Implement visualization logic here if needed
 }

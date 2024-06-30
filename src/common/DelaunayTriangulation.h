@@ -6,22 +6,45 @@
 #include <iostream>
 
 #include <Eigen/Core>
+#include "cpu/VerticeCPU.h"
 
-class DelaunayTriangulation {
+class DelaunayTriangulation
+{
 public:
-    DelaunayTriangulation(const std::vector<Eigen::Vector2f>& points);
+    DelaunayTriangulation()
+    {
+    }
+
+    void addSuperTriangle();
+    void removeSuperTriangle();
+
+    void loadPoints(std::map<unsigned int, VerticeCPU> &verts)
+    {
+        vertices.clear();
+        for (auto it = verts.begin(); it != verts.end(); ++it)
+        {
+            vertices[it->first] = it->second.texcoord;
+        }
+    }
+
+    void loadTriangles(std::map<unsigned int, std::array<unsigned int, 3>> &tris)
+    {
+        for (auto it = tris.begin(); it != tris.end(); ++it)
+        {
+            triangles[it->first] = it->second;
+        }
+    }
+
+    void triangulateVertice(Eigen::Vector2f &vertice, unsigned int id);
     void triangulate();
-    void plot() const; // For visualization purposes
-    std::vector<std::array<unsigned int, 3>> getTriangles() const;
+    std::map<unsigned int, std::array<unsigned int, 3>> getTriangles();
 
 private:
-    std::vector<Eigen::Vector2f> points;
-    std::vector<std::array<unsigned int, 3>> triangles;
+    std::map<unsigned int, Eigen::Vector2f> vertices;
+    std::map<unsigned int, std::array<unsigned int, 3>> triangles;
+
     std::array<unsigned int, 3> superTriangle;
 
-    void createSuperTriangle();
-    bool isPointInCircumcircle(const Eigen::Vector2f& point, const std::array<unsigned int, 3>& tri) const;
-    void removeSuperTriangle();
-    std::pair<Eigen::Vector2f, double> circumcircle(const std::array<unsigned int, 3>& tri) const;
+    bool isPointInCircumcircle(Eigen::Vector2f &vertice, std::array<unsigned int, 3> &tri);
+    std::pair<Eigen::Vector2f, double> circumcircle(std::array<unsigned int, 3> &tri);
 };
-

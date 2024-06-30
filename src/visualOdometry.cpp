@@ -115,7 +115,7 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
     // optMapVertex();
     // optMapJoint();
     //meshOptimizer.optMap(frames);
-    //meshOptimizer.completeMesh(lastFrame);
+    meshOptimizer.completeMesh(lastFrame);
     std::cout << "update map time " << t.toc() << std::endl;
 
     dataCPU<float> idepth(-1.0);
@@ -126,7 +126,7 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
     meshOptimizer.renderIdepth(lastFrame.pose, idepth, 1);
     meshOptimizer.renderError(lastFrame, error, 1);
     meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
-    meshOptimizer.renderDebug(lastFrame.pose, debug, 1);
+    meshOptimizer.renderDebug(lastFrame.pose, debug, 0);
 
     lastFrame.image.show("lastFrame image", 1);
     // lastFrame.dx.show("lastFrame dx", 1);
@@ -134,5 +134,5 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
     error.show("lastFrame error", 1);
     idepth.show("lastFrame idepth", 1);
     sceneImage.show("lastFrame scene", 1);
-    debug.show("lastFrame debug", 1);
+    debug.show("lastFrame debug", 0);
 }

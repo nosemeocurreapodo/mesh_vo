@@ -122,14 +122,14 @@ public:
 
     bool isLine()
     {
-        if (barycentric(0) < 0.01 || barycentric(1) < 0.01 || barycentric(2) < 0.01)
+        if (barycentric(0) < 0.04 || barycentric(1) < 0.04 || barycentric(2) < 0.04)
             return true;
         return false;
     };
 
     bool isPoint()
     {
-        if (barycentric(0) > 0.99 || barycentric(1) > 0.99 || barycentric(2) > 0.99)
+        if (barycentric(0) > 0.98 || barycentric(1) > 0.98 || barycentric(2) > 0.98)
             return true;
         return false;
     };

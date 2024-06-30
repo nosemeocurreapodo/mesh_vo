@@ -102,9 +102,11 @@ public:
     unsigned int getClosestTriangleId(Eigen::Vector3f &pos);
     unsigned int getClosestTriangleId(Eigen::Vector2f &pix);
 
-private:
     std::map<unsigned int, VerticeCPU> vertices;
     std::map<unsigned int, std::array<unsigned int, 3>> triangles;
 
     bool isRayIdepth;
+    
+private:
+
 };

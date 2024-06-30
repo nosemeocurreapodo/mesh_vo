@@ -1,5 +1,6 @@
 #include "optimizers/meshOptimizerCPU.h"
 #include "cpu/TriangleCPU.h"
+#include "common/DelaunayTriangulation.h"
 #include "utils/tictoc.h"
 
 meshOptimizerCPU::meshOptimizerCPU(float fx, float fy, float cx, float cy, int width, int height)
@@ -55,13 +56,14 @@ void meshOptimizerCPU::completeMesh(frameCPU &frame)
     frameMesh.transform(frame.pose);
     frameMesh.computeTexCoords(cam, lvl);
 
-    float triangleBase = cam.width[lvl] / 10.0;
-    float triangleScreenArea = triangleBase * triangleBase / 2;
+    DelaunayTriangulation triangulator;
+    triangulator.loadPoints(keyframeMesh.vertices);
+    triangulator.loadTriangles(keyframeMesh.triangles);
 
     // check borders of frame for zones without triangles
-    for (int y = 0; y < cam.height[lvl]; y += triangleBase)
+    for (int y = 0; y < cam.height[lvl]; y +=cam.height[lvl]/10.0)
     {
-        for (int x = 0; x < cam.width[lvl]; x += triangleBase)
+        for (int x = 0; x < cam.width[lvl]; x +=cam.width[lvl]/10.0)
         {
             Eigen::Vector2f pix(x, y);
 
@@ -82,13 +84,19 @@ void meshOptimizerCPU::completeMesh(frameCPU &frame)
             Eigen::Vector3f pos = ray * pix_depth;
 
             VerticeCPU new_vert(pos, pix);
+            
+            unsigned int id = keyframeMesh.vertices.size();
+            keyframeMesh.vertices[id] = new_vert;
 
-            std::array<VerticeCPU *, 2> toConnect = closest_tri_t.toConnect(pix);
+            triangulator.triangulateVertice(pix, id);
 
-            TriangleCPU new_tri(new_vert, *(toConnect[0]), *(toConnect[1]));
+            //std::array<VerticeCPU *, 2> toConnect = closest_tri_t.toConnect(pix);
 
+            //TriangleCPU new_tri(new_vert, *(toConnect[0]), *(toConnect[1]));
+            
         }
     }
+    keyframeMesh.triangles = triangulator.getTriangles();
 }
 
 void meshOptimizerCPU::renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
