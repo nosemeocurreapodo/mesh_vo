@@ -33,7 +33,7 @@ public:
         return vertices[id];
     }
 
-    Eigen::Vector2f& getTexCoord(unsigned int id)
+    Eigen::Vector2f &getTexCoord(unsigned int id)
     {
         return texcoords[id];
     }
@@ -60,9 +60,9 @@ public:
     unsigned int addVertice(Eigen::Vector3f &vert)
     {
         unsigned int v_id = 0;
-        for(auto vert : vertices)
+        for (auto vert : vertices)
         {
-            if(vert.first > v_id)
+            if (vert.first > v_id)
                 v_id = vert.first;
         }
         v_id++;
@@ -73,9 +73,9 @@ public:
     unsigned int addVertice(Eigen::Vector3f &vert, Eigen::Vector2f &tex)
     {
         unsigned int v_id = 0;
-        for(auto vert : vertices)
+        for (auto vert : vertices)
         {
-            if(vert.first > v_id)
+            if (vert.first > v_id)
                 v_id = vert.first;
         }
         v_id++;
@@ -87,9 +87,9 @@ public:
     unsigned int addTriangle(std::array<unsigned int, 3> &tri)
     {
         unsigned int t_id = 0;
-        for(auto tri : triangles)
+        for (auto tri : triangles)
         {
-            if(tri.first > t_id)
+            if (tri.first > t_id)
                 t_id = tri.first;
         }
         t_id++;
@@ -140,12 +140,6 @@ public:
     void transform(Sophus::SE3f &pose);
 
     bool isTrianglePresent(std::array<unsigned int, 3> &tri);
-
-    unsigned int getClosestVerticeId(Eigen::Vector2f &pix);
-    unsigned int getClosestVerticeId(Eigen::Vector3f &v);
-
-    unsigned int getClosestTriangleId(Eigen::Vector3f &pos);
-    unsigned int getClosestTriangleId(Eigen::Vector2f &pix);
 
     void computeTexCoords(camera &cam, int lvl)
     {
@@ -202,6 +196,61 @@ public:
             }
         }
         return edgeFront;
+    }
+
+    std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> getSortedEdgeFront(Eigen::Vector2f &pix)
+    {
+        std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> sortedEdgeFront;
+
+        std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> edgeFront = computeEdgeFront();
+
+        while (edgeFront.size() > 0)
+        {
+            size_t closest;
+            float closest_distance = std::numeric_limits<float>::max();
+            for (auto it = edgeFront.begin(); it != edgeFront.end(); it++)
+            {
+                std::array<unsigned int, 2> edge = it->first;
+                Eigen::Vector2f e1 = texcoords[edge[0]];
+                Eigen::Vector2f e2 = texcoords[edge[1]];
+                float distance = ((e1 + e2)/2.0 - pix).norm();
+                if (distance < closest_distance)
+                {
+                    closest_distance = distance;
+                    closest = it - edgeFront.begin();
+                }
+            }
+            sortedEdgeFront.push_back(edgeFront[closest]);
+            edgeFront.erase(edgeFront.begin() + closest);
+        }
+
+        return sortedEdgeFront;
+    }
+
+    std::vector<unsigned int> getSortedTriangles(Eigen::Vector2f &pix)
+    {
+        std::vector<unsigned int> sortedTriangles;
+        std::vector<unsigned int> trisIds = getTrianglesIds();
+
+        while (trisIds.size() > 0)
+        {
+            size_t closestIndex;
+            float closest_distance = std::numeric_limits<float>::max();
+            for (auto it = trisIds.begin(); it != trisIds.end(); it++)
+            {
+                Triangle2D tri = getTriangle2D(*it);
+                float distance = (tri.getMean() - pix).norm();
+                if (distance < closest_distance)
+                {
+                    closest_distance = distance;
+                    closestIndex = it - trisIds.begin();
+                }
+            }
+            sortedTriangles.push_back(trisIds[closestIndex]);
+            trisIds.erase(trisIds.begin() + closestIndex);
+        }
+
+        return sortedTriangles;
     }
 
 private:

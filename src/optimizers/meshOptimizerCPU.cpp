@@ -1,4 +1,5 @@
 #include "optimizers/meshOptimizerCPU.h"
+#include <math.h>
 #include "common/DelaunayTriangulation.h"
 #include "utils/tictoc.h"
 
@@ -56,50 +57,60 @@ void meshOptimizerCPU::completeMesh(frameCPU &frame)
     frameMesh.computeTexCoords(cam, lvl);
 
     // check borders of frame for zones without triangles
-    for (int y = 0; y < cam.height[lvl]; y += cam.height[lvl] / 4.0)
+    for (int y = 0; y < cam.height[lvl]; y += (cam.height[lvl] -1) / (MESH_HEIGHT - 1.0))
     {
-        for (int x = 0; x < cam.width[lvl]; x += cam.width[lvl] / 4.0)
+        for (int x = 0; x < cam.width[lvl]; x += (cam.width[lvl]-1) / (MESH_WIDTH - 1.0))
         {
             Eigen::Vector2f pix(x, y);
 
             if (idepth.get(pix(1), pix(0), lvl) != idepth.nodata)
                 continue;
 
-            std::pair<Eigen::Vector3f, std::array<unsigned int, 2>> pos_and_edge = triangulatePixel(frameMesh, pix, lvl);
-            Eigen::Vector3f pos = pos_and_edge.first;
-            std::array<unsigned int, 2> edge = pos_and_edge.second;
-            
-            Triangle2D frame_tri(frameMesh.getTexCoord(edge[0]), frameMesh.getTexCoord(edge[1]), pix);
+            Eigen::Vector3f pos = triangulatePixel(frameMesh, pix, lvl);
+            int v_id = -1;
 
-            float tri_area = frame_tri.getArea();
-            if(fabs(tri_area) < 100.0)
-                continue;
+            std::vector<std::array<unsigned int, 2>> edge_vector = getPixelEdges(frameMesh, pix, lvl);
 
-            std::array<unsigned int, 3> new_tri;
-
-            if (tri_area > 0.0)
+            for (auto edge : edge_vector)
             {
-                new_tri[0] = edge[0];
-                new_tri[1] = edge[1];
+                std::array<unsigned int, 2> ed = edge;
+                Triangle2D frame_tri(frameMesh.getTexCoord(ed[0]), frameMesh.getTexCoord(ed[1]), pix);
+
+                if (frame_tri.getArea() < 0.0)
+                {
+                    ed[0] = edge[1];
+                    ed[1] = edge[0];
+                    frame_tri.vertices[0] = frameMesh.getTexCoord(edge[1]);
+                    frame_tri.vertices[1] = frameMesh.getTexCoord(edge[0]);
+                }
+
+                std::array<float, 3> tri_angles = frame_tri.getAngles();
+
+                bool anglesOk = true;
+                for (int i = 0; i < 3; i++)
+                {
+                    if (fabs(tri_angles[i]) < M_PI / 10.0)
+                        anglesOk = false;
+                }
+                if (!anglesOk)
+                    continue;
+
+                std::array<unsigned int, 3> new_tri;
+                new_tri[0] = ed[0];
+                new_tri[1] = ed[1];
+
+                if (v_id < 0)
+                {
+                    v_id = frameMesh.addVertice(pos, pix);
+                    Eigen::Vector3f kfPos = frame.pose.inverse() * pos;
+                    keyframeMesh.addVertice(kfPos);
+                }
+
+                new_tri[2] = v_id;
+
+                frameMesh.addTriangle(new_tri);
+                keyframeMesh.addTriangle(new_tri);
             }
-            else
-            {
-                new_tri[0] = edge[1];
-                new_tri[1] = edge[0];
-            }
-
-            unsigned int v_id = frameMesh.addVertice(pos, pix);
-
-            new_tri[2] = v_id;
-
-            frameMesh.addTriangle(new_tri);
-
-            Eigen::Vector3f kfPos = frame.pose.inverse() * pos;
-
-            keyframeMesh.addVertice(kfPos);
-            keyframeMesh.addTriangle(new_tri);
-
-            return;
         }
     }
 }

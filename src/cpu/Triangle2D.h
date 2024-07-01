@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <math.h>
 
 class Triangle2D
 {
@@ -24,6 +25,25 @@ public:
         area += vertices[1](0) * (vertices[2](1) - vertices[0](1));
         area += vertices[2](0) * (vertices[0](1) - vertices[1](1));
         return area;
+    }
+
+    std::array<float, 3> getAngles()
+    {
+        Eigen::Vector2f a = (vertices[1] - vertices[0]).normalized();
+        Eigen::Vector2f b = (vertices[2] - vertices[0]).normalized();
+
+        float cosalpha = a.dot(b);
+        float alpha = acos(cosalpha);
+
+        a = (vertices[0] - vertices[1]).normalized();
+        b = (vertices[2] - vertices[1]).normalized();
+
+        float cosbeta = a.dot(b);
+        float beta = acos(cosbeta);
+
+        float gamma = M_PI - alpha - beta;
+
+        return {alpha, beta, gamma};
     }
 
     void computeTinv()

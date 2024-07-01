@@ -31,7 +31,24 @@ public:
 
     void completeMesh(frameCPU &frame);
 
-    std::pair<Eigen::Vector3f, std::array<unsigned int, 2>> triangulatePixel(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
+    Eigen::Vector3f triangulatePixel(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
+    {
+        std::vector<unsigned int> trisIds = frameMesh.getSortedTriangles(pix);
+        Eigen::Vector3f pos;
+        for (auto triId : trisIds)
+        {
+            Triangle3D tri = frameMesh.getTriangle3D(triId);
+            //if (tri.isBackFace())
+            //    continue;
+            Eigen::Vector3f ray = cam.toRay(pix, lvl);
+            float depth = tri.getDepth(ray);
+            pos = ray*depth;
+            break;
+        }
+        return pos;
+    }
+
+    std::vector<std::array<unsigned int, 2>> getPixelEdges(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
     {
         // adding a new vertice should be done with respect to a particular image
         // meaning, a particular projection
@@ -41,38 +58,29 @@ public:
         // if it is not inside the current mesh
         // connect to edge, and update the edge
 
+        std::vector<std::array<unsigned int, 2>> edge_vector;
+
         std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> edgeFront = frameMesh.computeEdgeFront();
+        // std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> edgeFront = frameMesh.getSortedEdgeFront(pix);
 
-        std::array<unsigned int, 2> closestEdge;
-        unsigned int closestTri;
-        float closestDistance = std::numeric_limits<float>::max();
-        for (int i = 0; i < edgeFront.size(); i++)
+        for (auto edge : edgeFront)
         {
-            std::array<unsigned int, 2> edge = edgeFront[i].first;
-            unsigned int t_id = edgeFront[i].second;
+            std::array<unsigned int, 2> ed = edge.first;
+            unsigned int t_id = edge.second;
 
-            Eigen::Vector2f med = (frameMesh.getTexCoord(edge[0]) + frameMesh.getTexCoord(edge[1])) / 2.0;
-            float distance = (pix - med).norm();
-            if (distance < closestDistance)
-            {
-                closestEdge = edge;
-                closestTri = t_id;
-                closestDistance = distance;
-            }
+            Triangle2D tri2D = frameMesh.getTriangle2D(t_id);
+            Eigen::Vector2f edgeMean = (frameMesh.getTexCoord(ed[0]) + frameMesh.getTexCoord(ed[1])) / 2.0;
+            Eigen::Vector2f dir = (pix - edgeMean).normalized();
+            Eigen::Vector2f testpix = edgeMean + 2.0 * dir;
+            tri2D.computeTinv();
+            tri2D.computeBarycentric(testpix);
+            if (tri2D.isBarycentricOk())
+                continue;
+
+            edge_vector.push_back(ed);
         }
 
-        Triangle3D closest_tri_t = frameMesh.getTriangle3D(closestTri);
-        Eigen::Vector3f ray = cam.toRay(pix, lvl);
-        float depth = closest_tri_t.getDepth(ray);
-
-        Eigen::Vector3f pos = ray * depth;
-
-        std::pair<Eigen::Vector3f, std::array<unsigned int, 2>> pos_and_edge;
-
-        pos_and_edge.first = pos;
-        pos_and_edge.second = closestEdge;
-
-        return pos_and_edge;
+        return edge_vector;
     }
 
 private:

@@ -10,3 +10,4 @@ std::array<float, 3> eigenToArray(Eigen::Vector3f point);
 
 bool isTriangleEqual(std::array<unsigned int, 3> tri_indices_1, std::array<unsigned int, 3> tri_indices_2);
 bool isEdgeEqual(std::array<unsigned int, 2> edge_indices_1, std::array<unsigned int, 2> edge_indices_2);
+

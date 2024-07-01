@@ -90,41 +90,15 @@ void MeshCPU::initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lv
     texcoords.clear();
     triangles.clear();
 
-    /*
-    for (int y = 0; y < MESH_HEIGHT; y ++)
-    {
-        for (int x = 0; x < MESH_WIDTH; x ++)
-        {
-            Eigen::Vector2f pix;
-            pix[0] = (float(x) / (MESH_WIDTH - 1)) * (cam.width[lvl] - 1);
-            pix[1] = (float(y) / (MESH_HEIGHT - 1)) * (cam.height[lvl] - 1);
-            Eigen::Vector3f ray;
-            ray(0) = cam.fxinv[lvl] * pix[0] + cam.cxinv[lvl];
-            ray(1) = cam.fyinv[lvl] * pix[1] + cam.cyinv[lvl];
-            ray(2) = 1.0;
-            float id = idepth.get(pix[1], pix[0], lvl);
-            if (id <= 0.0)
-                id = 0.5;
-
-            Eigen::Vector3f point;
-            if (isRayIdepth)
-                point = Eigen::Vector3f(ray(0), ray(1), id);
-            else
-                point = ray / id;
-            VerticeCPU vertex(point, pix);
-
-            vertices[vertices.size()] = vertex;
-        }
-    }
-    */
-
     for (int y = 0; y < MESH_HEIGHT; y++)
     {
         for (int x = 0; x < MESH_WIDTH; x++)
         {
             Eigen::Vector2f pix;
-            //pix[0] = rand() % cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
-            //pix[1] = rand() % cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
+            //pix[0] = rand() % cam.width[lvl];
+            //pix[1] = rand() % cam.height[lvl];
+            // pix[0] = rand() % cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
+            // pix[1] = rand() % cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
             pix[0] = (float(x)/(MESH_WIDTH-1)) * cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
             pix[1] = (float(y)/(MESH_HEIGHT-1)) * cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
             Eigen::Vector3f ray;
@@ -144,7 +118,7 @@ void MeshCPU::initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lv
             vertices[vertices.size()] = point;
         }
     }
-
+    
     computeTexCoords(cam, lvl);
     DelaunayTriangulation triangulation;
     triangulation.loadPoints(texcoords);
@@ -204,93 +178,9 @@ bool MeshCPU::isTrianglePresent(std::array<unsigned int, 3> &tri)
     for (auto it = triangles.begin(); it != triangles.end(); ++it)
     {
         std::array<unsigned int, 3> tri2 = it->second;
-        bool isVertThere[3];
-        isVertThere[0] = false;
-        isVertThere[1] = false;
-        isVertThere[2] = false;
-        for (int j = 0; j < 3; j++)
-        {
-            for (int k = 0; k < 3; k++)
-            {
-                if (tri[j] == tri2[k])
-                    isVertThere[j] = true;
-            }
-        }
-        if (isVertThere[0] == true && isVertThere[1] == true && isVertThere[2] == true)
+
+        if (isTriangleEqual(tri, tri2))
             return true;
     }
     return false;
-}
-
-unsigned int MeshCPU::getClosestTriangleId(Eigen::Vector3f &pos)
-{
-    float closest_distance = std::numeric_limits<float>::max();
-    unsigned int closest_id = 0;
-    for (std::map<unsigned int, std::array<unsigned int, 3>>::iterator it = triangles.begin(); it != triangles.end(); ++it)
-    {
-        Triangle3D tri = getTriangle3D(it->first);
-        Eigen::Vector3f tri_mean = tri.getMean();
-        float distance = (tri_mean - pos).norm();
-        if (distance < closest_distance)
-        {
-            closest_distance = distance;
-            closest_id = it->first;
-        }
-    }
-    return closest_id;
-}
-
-unsigned int MeshCPU::getClosestTriangleId(Eigen::Vector2f &tex)
-{
-    float closest_distance = std::numeric_limits<float>::max();
-    unsigned int closest_id = 0;
-    for (auto it = triangles.begin(); it != triangles.end(); ++it)
-    {
-        Triangle2D tri = getTriangle2D(it->first);
-        Eigen::Vector2f tri_mean = tri.getMean();
-        float distance = (tri_mean - tex).norm();
-        if (distance < closest_distance)
-        {
-            closest_distance = distance;
-            closest_id = it->first;
-        }
-    }
-    return closest_id;
-}
-
-unsigned int MeshCPU::getClosestVerticeId(Eigen::Vector2f &pix)
-{
-    float closest_distance = std::numeric_limits<float>::max();
-    unsigned int closest_d = 0;
-    for (auto it = texcoords.begin(); it != texcoords.end(); ++it)
-    {
-        float distance = (it->second - pix).norm();
-
-        // float x_distance = std::fabs(v_vector[i].texcoord(0) - v.texcoord(0));
-        // float y_distance = std::fabs(v_vector[i].texcoord(1) - v.texcoord(1));
-        // float distance = std::max(x_distance, y_distance);
-
-        if (distance < closest_distance)
-        {
-            closest_distance = distance;
-            closest_d = it->first;
-        }
-    }
-    return closest_d;
-}
-
-unsigned int MeshCPU::getClosestVerticeId(Eigen::Vector3f &v)
-{
-    float closest_distance = std::numeric_limits<float>::max();
-    unsigned int closest_vertice = 0;
-    for (auto it = vertices.begin(); it != vertices.end(); ++it)
-    {
-        float distance = (it->second - v).norm();
-        if (distance < closest_distance)
-        {
-            closest_distance = distance;
-            closest_vertice = it->first;
-        }
-    }
-    return closest_vertice;
 }
