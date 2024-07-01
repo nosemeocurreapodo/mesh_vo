@@ -106,7 +106,8 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
 {
     tic_toc t;
 
-    lastFrame.set(image, pose); //*keyframeData.pose.inverse();
+    //lastFrame.set(image, pose);
+    lastFrame.set(image, pose*meshOptimizer.keyframe.pose.inverse());
 
     frames.clear();
     frames.push_back(lastFrame);
@@ -114,8 +115,9 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
     t.tic();
     // optMapVertex();
     // optMapJoint();
-    //meshOptimizer.optMap(frames);
+    meshOptimizer.optMap(frames);
     meshOptimizer.completeMesh(lastFrame);
+    meshOptimizer.changeKeyframe(lastFrame);
     std::cout << "update map time " << t.toc() << std::endl;
 
     dataCPU<float> idepth(-1.0);

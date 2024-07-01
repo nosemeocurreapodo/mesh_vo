@@ -95,12 +95,14 @@ void MeshCPU::initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lv
         for (int x = 0; x < MESH_WIDTH; x++)
         {
             Eigen::Vector2f pix;
+            pix[0] = float(x)/(MESH_WIDTH-1)*cam.width[lvl];
+            pix[1] = float(y)/(MESH_HEIGHT-1)*cam.height[lvl];
             //pix[0] = rand() % cam.width[lvl];
             //pix[1] = rand() % cam.height[lvl];
             // pix[0] = rand() % cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
             // pix[1] = rand() % cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
-            pix[0] = (float(x)/(MESH_WIDTH-1)) * cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
-            pix[1] = (float(y)/(MESH_HEIGHT-1)) * cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
+            //pix[0] = (float(x)/(MESH_WIDTH-1)) * cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
+            //pix[1] = (float(y)/(MESH_HEIGHT-1)) * cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
             Eigen::Vector3f ray;
             ray(0) = cam.fxinv[lvl] * pix[0] + cam.cxinv[lvl];
             ray(1) = cam.fyinv[lvl] * pix[1] + cam.cyinv[lvl];

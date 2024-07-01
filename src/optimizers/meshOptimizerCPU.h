@@ -29,6 +29,13 @@ public:
     void optMap(std::vector<frameCPU> &frame);
     // void optPoseMap(std::vector<frameCPU> &frame);
 
+    void changeKeyframe(frameCPU &frame)
+    {
+        frame.copyTo(keyframe);
+        keyframeMesh.transform(frame.pose);
+        keyframeMesh.computeTexCoords(cam, 1);
+    }
+
     void completeMesh(frameCPU &frame);
 
     Eigen::Vector3f triangulatePixel(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
@@ -38,6 +45,8 @@ public:
         for (auto triId : trisIds)
         {
             Triangle3D tri = frameMesh.getTriangle3D(triId);
+            if(tri.getArea() < 0.0)
+                continue;
             //if (tri.isBackFace())
             //    continue;
             Eigen::Vector3f ray = cam.toRay(pix, lvl);
@@ -69,6 +78,8 @@ public:
             unsigned int t_id = edge.second;
 
             Triangle2D tri2D = frameMesh.getTriangle2D(t_id);
+            if(tri2D.getArea() < 0.0)
+                continue;
             Eigen::Vector2f edgeMean = (frameMesh.getTexCoord(ed[0]) + frameMesh.getTexCoord(ed[1])) / 2.0;
             Eigen::Vector2f dir = (pix - edgeMean).normalized();
             Eigen::Vector2f testpix = edgeMean + 2.0 * dir;
@@ -83,11 +94,12 @@ public:
         return edge_vector;
     }
 
+    frameCPU keyframe;
+
 private:
     MeshCPU globalMesh;
     MeshCPU keyframeMesh;
 
-    frameCPU keyframe;
     camera cam;
 
     dataCPU<float> z_buffer;
