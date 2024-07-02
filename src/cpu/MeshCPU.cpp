@@ -50,15 +50,15 @@ void MeshCPU::init(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl
                 if (true)
                 {
                     std::array<unsigned int, 3> tri1;
-                    tri1[0] = x - 1 + y * (MESH_WIDTH);
-                    tri1[1] = x + (y - 1) * (MESH_WIDTH);
+                    tri1[1] = x - 1 + y * (MESH_WIDTH);
+                    tri1[0] = x + (y - 1) * (MESH_WIDTH);
                     tri1[2] = x - 1 + (y - 1) * (MESH_WIDTH);
 
                     triangles[triangles.size()] = tri1;
 
                     std::array<unsigned int, 3> tri2;
-                    tri2[0] = x + y * (MESH_WIDTH);
-                    tri2[1] = x + (y - 1) * (MESH_WIDTH);
+                    tri2[1] = x + y * (MESH_WIDTH);
+                    tri2[0] = x + (y - 1) * (MESH_WIDTH);
                     tri2[2] = x - 1 + y * (MESH_WIDTH);
 
                     triangles[triangles.size()] = tri2;
@@ -99,8 +99,8 @@ void MeshCPU::initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lv
             pix[1] = float(y)/(MESH_HEIGHT-1)*cam.height[lvl];
             //pix[0] = rand() % cam.width[lvl];
             //pix[1] = rand() % cam.height[lvl];
-            // pix[0] = rand() % cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
-            // pix[1] = rand() % cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
+            //pix[0] = rand() % cam.width[lvl] * 0.75 + cam.width[lvl] * 0.125;
+            //pix[1] = rand() % cam.height[lvl] * 0.75 + cam.height[lvl] * 0.125;
             //pix[0] = (float(x)/(MESH_WIDTH-1)) * cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
             //pix[1] = (float(y)/(MESH_HEIGHT-1)) * cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
             Eigen::Vector3f ray;
@@ -161,7 +161,7 @@ void MeshCPU::toVertex()
     }
 }
 
-void MeshCPU::transform(Sophus::SE3f &pose)
+void MeshCPU::transform(Sophus::SE3f pose)
 {
     for (auto it = vertices.begin(); it != vertices.end(); ++it)
     {

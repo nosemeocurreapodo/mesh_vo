@@ -137,7 +137,7 @@ public:
 
     void toRayIdepth();
     void toVertex();
-    void transform(Sophus::SE3f &pose);
+    void transform(Sophus::SE3f pose);
 
     bool isTrianglePresent(std::array<unsigned int, 3> &tri);
 

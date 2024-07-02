@@ -31,9 +31,12 @@ public:
 
     void changeKeyframe(frameCPU &frame)
     {
-        frame.copyTo(keyframe);
-        keyframeMesh.transform(frame.pose);
+        //the keyframemesh is relative to the keyframe pose
+        //so to transform the pose coordinate system
+        //just have to multiply with the pose increment from the keyframe
+        keyframeMesh.transform(frame.pose*keyframe.pose.inverse());
         keyframeMesh.computeTexCoords(cam, 1);
+        frame.copyTo(keyframe);
     }
 
     void completeMesh(frameCPU &frame);
@@ -80,6 +83,11 @@ public:
             Triangle2D tri2D = frameMesh.getTriangle2D(t_id);
             if(tri2D.getArea() < 0.0)
                 continue;
+            if(!cam.isPixVisible(frameMesh.getTexCoord(ed[0]), lvl))
+                continue;
+            if(!cam.isPixVisible(frameMesh.getTexCoord(ed[1]), lvl))
+                continue;
+
             Eigen::Vector2f edgeMean = (frameMesh.getTexCoord(ed[0]) + frameMesh.getTexCoord(ed[1])) / 2.0;
             Eigen::Vector2f dir = (pix - edgeMean).normalized();
             Eigen::Vector2f testpix = edgeMean + 2.0 * dir;

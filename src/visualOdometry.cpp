@@ -106,25 +106,22 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
 {
     tic_toc t;
 
-    //lastFrame.set(image, pose);
-    lastFrame.set(image, pose*meshOptimizer.keyframe.pose.inverse());
-
-    frames.clear();
-    frames.push_back(lastFrame);
-
-    t.tic();
-    // optMapVertex();
-    // optMapJoint();
-    meshOptimizer.optMap(frames);
-    meshOptimizer.completeMesh(lastFrame);
-    meshOptimizer.changeKeyframe(lastFrame);
-    std::cout << "update map time " << t.toc() << std::endl;
-
     dataCPU<float> idepth(-1.0);
     dataCPU<float> error(-1.0);
     dataCPU<float> sceneImage(-1.0);
     dataCPU<float> debug(-1.0);
 
+    //lastFrame.set(image, pose);
+    lastFrame.set(image, pose);
+
+    frames.clear();
+    frames.push_back(lastFrame);
+
+    
+    t.tic();
+    //meshOptimizer.optMap(frames);
+    std::cout << "update map time " << t.toc() << std::endl;
+    
     meshOptimizer.renderIdepth(lastFrame.pose, idepth, 1);
     meshOptimizer.renderError(lastFrame, error, 1);
     meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
@@ -132,9 +129,11 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
 
     debug.show("lastFrame debug", 0);
     lastFrame.image.show("lastFrame image", 1);
-    // lastFrame.dx.show("lastFrame dx", 1);
-    // lastFrame.dy.show("lastFrame dy", 1);
     error.show("lastFrame error", 1);
     idepth.show("lastFrame idepth", 1);
     sceneImage.show("lastFrame scene", 1);
+    
+    meshOptimizer.completeMesh(lastFrame);
+    meshOptimizer.changeKeyframe(lastFrame);
+
 }

@@ -38,7 +38,7 @@ int main(void)
 
     visualOdometry odometry(fx,fy,cx,cy,width,height);
 
-    //visual_odometry.initScene(initFrame, initIdepth);
+    //odometry.initScene(initFrame, initIdepth);
     odometry.initScene(initFrame);
 
     while(1){

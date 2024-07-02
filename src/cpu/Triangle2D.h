@@ -59,14 +59,14 @@ public:
     void computeBarycentric(Eigen::Vector2f p)
     {
         Eigen::Vector2f lambda = T_inv * (p - vertices[2]);
-        barycentric = Eigen::Vector3f(lambda(0), lambda(1), 1 - lambda(0) - lambda(1));
+        barycentric = Eigen::Vector3f(lambda(0), lambda(1), 1.0 - lambda(0) - lambda(1));
     };
 
     bool isBarycentricOk()
     {
-        if (barycentric(0) <= 0.0 || barycentric(1) <= 0.0 || barycentric(2) <= 0.0)
+        if (barycentric(0) < 0.0 || barycentric(1) < 0.0 || barycentric(2) < 0.0)
             return false;
-        if (barycentric(0) >= 1.0 || barycentric(1) >= 1.0 || barycentric(2) >= 1.0)
+        if (barycentric(0) > 1.0 || barycentric(1) > 1.0 || barycentric(2) > 1.0)
             return false;
         return true;
     };
