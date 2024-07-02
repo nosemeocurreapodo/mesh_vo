@@ -81,12 +81,14 @@ public:
             unsigned int t_id = edge.second;
 
             Triangle2D tri2D = frameMesh.getTriangle2D(t_id);
-            if(tri2D.getArea() < 0.0)
+            /*
+            if(tri2D.getArea() < MIN_TRIANGLE_AREA)
                 continue;
             if(!cam.isPixVisible(frameMesh.getTexCoord(ed[0]), lvl))
                 continue;
             if(!cam.isPixVisible(frameMesh.getTexCoord(ed[1]), lvl))
                 continue;
+            */
 
             Eigen::Vector2f edgeMean = (frameMesh.getTexCoord(ed[0]) + frameMesh.getTexCoord(ed[1])) / 2.0;
             Eigen::Vector2f dir = (pix - edgeMean).normalized();
