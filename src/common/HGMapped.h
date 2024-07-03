@@ -4,10 +4,10 @@
 #include <Eigen/Sparse>
 #include "params.h"
 
-class MapVector
+class VectorMapped
 {
 public:
-    MapVector()
+    VectorMapped()
     {
     }
 
@@ -16,14 +16,14 @@ public:
         vector.clear();
     }
 
-    float &operator[](unsigned int id)
+    float &operator[](int id)
     {
         if (!vector.count(id))
             vector[id] = 0.0;
         return vector[id];
     }
 
-    void add(float value, unsigned int id)
+    void add(float value, int id)
     {
         if(vector.count(id))
             vector[id] += value;
@@ -31,9 +31,9 @@ public:
             vector[id] = value;
     }
 
-    void operator+=(MapVector &a)
+    void operator+=(VectorMapped &a)
     {
-        for (std::map<unsigned int, float>::iterator it = a.vector.begin(); it != a.vector.end(); ++it)
+        for (std::map<int, float>::iterator it = a.vector.begin(); it != a.vector.end(); ++it)
         {
             if (!vector.count(it->first))
             {
@@ -46,46 +46,46 @@ public:
         }
     }
 
-    MapVector operator+(MapVector &a)
+    VectorMapped operator+(VectorMapped &a)
     {
-        MapVector result;
+        VectorMapped result;
         result += a;
         result += *this;
         return result;
     }
 
-    std::vector<unsigned int> getIds()
+    std::vector<int> getIds()
     {
-        std::vector<unsigned int> ids;
-        for (std::map<unsigned int, float>::iterator it = vector.begin(); it != vector.end(); ++it)
+        std::vector<int> ids;
+        for (std::map<int, float>::iterator it = vector.begin(); it != vector.end(); ++it)
         {
             ids.push_back(it->first);
         }
         return ids;
     }
 
-    Eigen::VectorXf toEigen(std::vector<unsigned int> &ids)
+    Eigen::VectorXf toEigen(std::vector<int> &ids)
     {
         Eigen::VectorXf eigenVector;
         eigenVector = Eigen::VectorXf::Zero(ids.size());
 
         for (int index = 0; index < ids.size(); index++)
         {
-            unsigned int id = ids[index];
+            int id = ids[index];
             eigenVector(index) = vector[id];
         }
         return eigenVector;
     }
 
-    std::map<unsigned int, float> vector;
+    std::map<int, float> vector;
 
 private:
 };
 
-class MapMatrix
+class MatrixMapped
 {
 public:
-    MapMatrix()
+    MatrixMapped()
     {
     }
 
@@ -94,17 +94,17 @@ public:
         matrix.clear();
     }
 
-    MapVector &operator[](unsigned int id)
+    VectorMapped &operator[](int id)
     {
         if (!matrix.count(id))
-            matrix[id] = MapVector();
+            matrix[id] = VectorMapped();
         return matrix[id];
     }
 
-    void add(float value, unsigned int id1, unsigned int id2)
+    void add(float value, int id1, int id2)
     {
         if(!matrix.count(id1))
-            matrix[id1] = MapVector();
+            matrix[id1] = VectorMapped();
 
         if(!matrix[id1].vector.count(id2))
             matrix[id1].vector[id2] = value;
@@ -112,9 +112,9 @@ public:
             matrix[id1].vector[id2] += value;
     }
 
-    void operator+=(MapMatrix &a)
+    void operator+=(MatrixMapped &a)
     {
-        for (std::map<unsigned int, MapVector>::iterator it = a.matrix.begin(); it != a.matrix.end(); ++it)
+        for (std::map<int, VectorMapped>::iterator it = a.matrix.begin(); it != a.matrix.end(); ++it)
         {
             if (!matrix.count(it->first))
             {
@@ -127,15 +127,15 @@ public:
         }
     }
 
-    MapMatrix operator+(MapMatrix &a)
+    MatrixMapped operator+(MatrixMapped &a)
     {
-        MapMatrix result;
+        MatrixMapped result;
         result += a;
         result += *this;
         return result;
     }
 
-    Eigen::SparseMatrix<float> toEigen(std::vector<unsigned int> ids)
+    Eigen::SparseMatrix<float> toEigen(std::vector<int> ids)
     {
         Eigen::SparseMatrix<float> eigenMatrix;
         eigenMatrix = Eigen::SparseMatrix<float>(ids.size(), ids.size());
@@ -145,7 +145,7 @@ public:
             if (!matrix.count(ids[y]))
                 continue;
 
-            MapVector row = matrix[ids[y]];
+            VectorMapped row = matrix[ids[y]];
 
             for (int x = 0; x < ids.size(); x++)
             {
@@ -160,15 +160,15 @@ public:
         return eigenMatrix;
     }
 
-    std::map<unsigned int, MapVector> matrix;
+    std::map<int, VectorMapped> matrix;
 
 private:
 };
 
-class HGPoseMapMesh
+class HGMapped
 {
 public:
-    HGPoseMapMesh()
+    HGMapped()
     {
         count = 0;
     }
@@ -180,9 +180,9 @@ public:
         count = 0;
     }
 
-    HGPoseMapMesh operator+(HGPoseMapMesh a)
+    HGMapped operator+(HGMapped a)
     {
-        HGPoseMapMesh sum;
+        HGMapped sum;
 
         sum.H = H + a.H;
         sum.G = G + a.G;
@@ -191,16 +191,16 @@ public:
         return sum;
     }
 
-    void operator+=(HGPoseMapMesh a)
+    void operator+=(HGMapped a)
     {
         G += a.G;
         H += a.H;
         count += a.count;
     }
 
-    MapMatrix H;
-    MapVector G;
-    unsigned int count;
+    MatrixMapped H;
+    VectorMapped G;
+    int count;
 
 private:
 };

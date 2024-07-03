@@ -8,13 +8,13 @@
 #include "sophus/se3.hpp"
 
 #include "optimizers/meshOptimizerCPU.h"
-//#include "scene/keyframeIdepthSceneCPU.h"
+// #include "scene/keyframeIdepthSceneCPU.h"
 #include "cpu/frameCPU.h"
 
 class visualOdometry
 {
 public:
-    visualOdometry(float _fx, float _fy, float _cx, float _cy, int _width, int _height);
+    visualOdometry(camera &cam);
 
     void initScene(cv::Mat frame, Sophus::SE3f pose = Sophus::SE3f());
     void initScene(cv::Mat frame, cv::Mat idepth, Sophus::SE3f pose = Sophus::SE3f());
@@ -23,24 +23,25 @@ public:
     void localization(cv::Mat frame);
     void mapping(cv::Mat _frame, Sophus::SE3f pose);
 
-    dataCPU<float> getRandomIdepth(int lvl)
+    dataCPU<float> getRandomIdepth()
     {
-        dataCPU<float> idepth(-1.0);
+        dataCPU<float> idepth(cam.width, cam.height, -1.0);
 
-        for (int y = 0; y < idepth.sizes[lvl].height; y++) // los vertices estan en el medio del pixel!! sino puede agarrar una distancia u otra
+        for (int y = 0; y < cam.height; y++)
         {
-            for (int x = 0; x < idepth.sizes[lvl].width; x++)
+            for (int x = 0; x < cam.width; x++)
             {
-                float _idepth = 0.1 + (1.0 - 0.1) * float(y) / idepth.sizes[lvl].height;
-                idepth.set(_idepth, y, x, lvl);
+                float _idepth = 0.1 + (1.0 - 0.1) * float(y) / (cam.height-1.0);
+                idepth.set(_idepth, y, x, 0);
             }
         }
         return idepth;
     }
 
 private:
+    camera cam;
     frameCPU lastFrame;
     std::vector<frameCPU> frames;
     meshOptimizerCPU meshOptimizer;
-    //keyframeIdepthSceneCPU scene;
+    // keyframeIdepthSceneCPU scene;
 };

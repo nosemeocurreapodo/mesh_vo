@@ -7,6 +7,7 @@
 
 #include "utils/convertAhandaPovRayToStandard.h"
 #include "visualOdometry.h"
+#include "common/camera.h"
 
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
@@ -29,6 +30,8 @@ int main(void)
     float fx, fy, cx, cy;
     fx = 481.20; fy = 480.0; cx = 319.5; cy = 239.5;
 
+    camera cam(fx, fy, cx, cy, width, height);
+
     cv::Mat initFrame = cv::imread("../../desktop_dataset/scene_000.png", cv::IMREAD_GRAYSCALE);
     Sophus::SE3f initPose = readPose("../../desktop_dataset/scene_000.txt");
 
@@ -36,7 +39,7 @@ int main(void)
     cv::FileStorage fs("../../desktop_dataset/scene_depth_000.yml", cv::FileStorage::READ );
     fs["idepth"] >> initIdepth;
 
-    visualOdometry odometry(fx,fy,cx,cy,width,height);
+    visualOdometry odometry(cam);
 
     //odometry.initScene(initFrame, initIdepth);
     odometry.initScene(initFrame);

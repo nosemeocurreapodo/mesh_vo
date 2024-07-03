@@ -7,6 +7,7 @@
 #include "cpu/dataCPU.h"
 #include "cpu/frameCPU.h"
 #include "params.h"
+#include "common/DelaunayTriangulation.h"
 
 class MeshCPU
 {
@@ -14,243 +15,92 @@ public:
     MeshCPU();
 
     void init(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl);
-    void initr(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl);
 
-    void setVerticeIdepth(float idepth, unsigned int id)
-    {
-        if (isRayIdepth)
-            vertices[id](2) = idepth;
-        else
-        {
-            Eigen::Vector3f pos = fromVertexToRayIdepth(vertices[id]);
-            pos(2) = idepth;
-            vertices[id] = fromRayIdepthToVertex(pos);
-        }
-    }
+    Eigen::Vector3f getVertice(unsigned int id);
+    Eigen::Vector2f &getTexCoord(unsigned int id);
+    std::array<unsigned int, 3> getTriangleIndices(unsigned int id);
+    Triangle2D getTriangle2D(unsigned int id);
+    Triangle3D getTriangle3D(unsigned int id);
+    MeshCPU getCopy();
+    std::vector<unsigned int> getVerticesIds();
+    std::vector<unsigned int> getTrianglesIds();
 
-    Eigen::Vector3f getVertice(unsigned int id)
-    {
-        return vertices[id];
-    }
-
-    Eigen::Vector2f &getTexCoord(unsigned int id)
-    {
-        return texcoords[id];
-    }
-
-    std::array<unsigned int, 3> getTriangleIndices(unsigned int id)
-    {
-        return triangles[id];
-    }
-
-    Triangle2D getTriangle2D(unsigned int id)
-    {
-        std::array<unsigned int, 3> tri = triangles[id];
-        Triangle2D t(texcoords[tri[0]], texcoords[tri[1]], texcoords[tri[2]]);
-        return t;
-    }
-
-    Triangle3D getTriangle3D(unsigned int id)
-    {
-        std::array<unsigned int, 3> tri = triangles[id];
-        Triangle3D t(vertices[tri[0]], vertices[tri[1]], vertices[tri[2]]);
-        return t;
-    }
-
-    unsigned int addVertice(Eigen::Vector3f &vert)
-    {
-        unsigned int v_id = 0;
-        for (auto vert : vertices)
-        {
-            if (vert.first > v_id)
-                v_id = vert.first;
-        }
-        v_id++;
-        vertices[v_id] = vert;
-        return v_id;
-    }
-
-    unsigned int addVertice(Eigen::Vector3f &vert, Eigen::Vector2f &tex)
-    {
-        unsigned int v_id = 0;
-        for (auto vert : vertices)
-        {
-            if (vert.first > v_id)
-                v_id = vert.first;
-        }
-        v_id++;
-        vertices[v_id] = vert;
-        texcoords[v_id] = tex;
-        return v_id;
-    }
-
-    unsigned int addTriangle(std::array<unsigned int, 3> &tri)
-    {
-        unsigned int t_id = 0;
-        for (auto tri : triangles)
-        {
-            if (tri.first > t_id)
-                t_id = tri.first;
-        }
-        t_id++;
-        triangles[t_id] = tri;
-        return t_id;
-    }
-
-    /*
-    void addTriangle(std::array<unsigned int, 3> &tri, unsigned int id)
-    {
-        triangles[id] = tri;
-    }
-    */
-
-    MeshCPU getCopy()
-    {
-        MeshCPU meshCopy;
-
-        meshCopy.vertices = vertices;
-        meshCopy.triangles = triangles;
-        meshCopy.isRayIdepth = isRayIdepth;
-
-        return meshCopy;
-    }
-
-    std::vector<unsigned int> getVerticesIds()
-    {
-        std::vector<unsigned int> keys;
-        for (auto it = vertices.begin(); it != vertices.end(); ++it)
-        {
-            keys.push_back(it->first);
-        }
-        return keys;
-    }
-
-    std::vector<unsigned int> getTrianglesIds()
-    {
-        std::vector<unsigned int> keys;
-        for (auto it = triangles.begin(); it != triangles.end(); ++it)
-        {
-            keys.push_back(it->first);
-        }
-        return keys;
-    }
+    unsigned int addVertice(Eigen::Vector3f &vert);
+    unsigned int addVertice(Eigen::Vector3f &vert, Eigen::Vector2f &tex);
+    unsigned int addTriangle(std::array<unsigned int, 3> &tri);
+    void setVerticeIdepth(float idepth, unsigned int id);
 
     void toRayIdepth();
     void toVertex();
     void transform(Sophus::SE3f pose);
+    void computeTexCoords(camera &cam);
+    void computeNormalizedTexCoords(camera &cam);
+
+    std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> computeEdgeFront();
+    std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> getSortedEdgeFront(Eigen::Vector2f &pix);
+    std::vector<unsigned int> getSortedTriangles(Eigen::Vector2f &pix);
 
     bool isTrianglePresent(std::array<unsigned int, 3> &tri);
 
-    void computeTexCoords(camera &cam, int lvl)
+    void buildTriangles(camera &cam)
     {
-        texcoords.clear();
-        for (auto it = vertices.begin(); it != vertices.end(); ++it)
+        triangles.clear();
+        computeTexCoords(cam);
+        DelaunayTriangulation triangulation;
+        triangulation.loadPoints(texcoords);
+        triangulation.triangulate();
+        triangles = triangulation.getTriangles();
+    }
+
+    void removePointsWithoutTriangles()
+    {
+        std::vector<unsigned int> vertsIds = getVerticesIds();
+        for (auto it = vertsIds.begin(); it != vertsIds.end(); it++)
         {
-            Eigen::Vector3f ray;
-            if (isRayIdepth)
-                ray = it->second;
-            else
-                ray = it->second / it->second(2);
-
-            Eigen::Vector2f pix;
-            pix(0) = cam.fx[lvl] * ray(0) + cam.cx[lvl];
-            pix(1) = cam.fy[lvl] * ray(1) + cam.cy[lvl];
-
-            texcoords[it->first] = pix;
+            bool remove = true;
+            for (auto t_it = triangles.begin(); t_it != triangles.end(); t_it++)
+            {
+                if (*it == t_it->second[0] || *it == t_it->second[1] || *it == t_it->second[2])
+                {
+                    remove = false;
+                    break;
+                }
+            }
+            if (remove)
+                vertices.erase(*it);
         }
     }
 
-    std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> computeEdgeFront()
+    void removeOcluded(camera &cam)
     {
-        std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> edgeFront;
-        for (auto it = triangles.begin(); it != triangles.end(); ++it)
+        std::vector<unsigned int> trisIds = getTrianglesIds();
+        for (auto it = trisIds.begin(); it != trisIds.end(); it++)
         {
-            auto triIndices = it->second;
+            // remove triangle if:
+            // 1-is backface
+            // 2-any vertex lays outside the image
+            // afterwards, remove any vertex witouh triangles
+            Triangle2D tri = getTriangle2D(*it);
+            if (tri.getArea() < 0.0)
+            {
+                triangles.erase(*it);
+                continue;
+            }
 
-            // Triangle3D tri3D = getTriangle3D(it->first);
-            // if (tri3D.isBackFace())
-            //     continue;
-
-            std::array<unsigned int, 2> edges[3];
-            edges[0] = {triIndices[0], triIndices[1]};
-            edges[1] = {triIndices[1], triIndices[2]};
-            edges[2] = {triIndices[2], triIndices[0]};
-
+            std::array<unsigned int, 3> vertsIds = getTriangleIndices(*it);
             for (int i = 0; i < 3; i++)
             {
-                int edge_index = -1;
-                for (int j = 0; j < edgeFront.size(); j++)
+                Eigen::Vector3f ray = vertices[vertsIds[i]] / vertices[vertsIds[i]](2);
+                Eigen::Vector2f pix = cam.rayToPix(ray);
+                if (!cam.isPixVisible(pix))
                 {
-                    std::array<unsigned int, 2> ef = edgeFront[j].first;
-                    unsigned int t_id = edgeFront[j].second;
-                    if (isEdgeEqual(edges[i], ef))
-                    {
-                        edge_index = j;
-                        break;
-                    }
-                }
-                if (edge_index >= 0)
-                    edgeFront.erase(edgeFront.begin() + edge_index);
-                else
-                    edgeFront.push_back({edges[i], it->first});
-            }
-        }
-        return edgeFront;
-    }
-
-    std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> getSortedEdgeFront(Eigen::Vector2f &pix)
-    {
-        std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> sortedEdgeFront;
-
-        std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> edgeFront = computeEdgeFront();
-
-        while (edgeFront.size() > 0)
-        {
-            size_t closest;
-            float closest_distance = std::numeric_limits<float>::max();
-            for (auto it = edgeFront.begin(); it != edgeFront.end(); it++)
-            {
-                std::array<unsigned int, 2> edge = it->first;
-                Eigen::Vector2f e1 = texcoords[edge[0]];
-                Eigen::Vector2f e2 = texcoords[edge[1]];
-                float distance = ((e1 + e2)/2.0 - pix).norm();
-                if (distance < closest_distance)
-                {
-                    closest_distance = distance;
-                    closest = it - edgeFront.begin();
+                    triangles.erase(*it);
+                    break;
                 }
             }
-            sortedEdgeFront.push_back(edgeFront[closest]);
-            edgeFront.erase(edgeFront.begin() + closest);
         }
 
-        return sortedEdgeFront;
-    }
-
-    std::vector<unsigned int> getSortedTriangles(Eigen::Vector2f &pix)
-    {
-        std::vector<unsigned int> sortedTriangles;
-        std::vector<unsigned int> trisIds = getTrianglesIds();
-
-        while (trisIds.size() > 0)
-        {
-            size_t closestIndex;
-            float closest_distance = std::numeric_limits<float>::max();
-            for (auto it = trisIds.begin(); it != trisIds.end(); it++)
-            {
-                Triangle2D tri = getTriangle2D(*it);
-                float distance = (tri.getMean() - pix).norm();
-                if (distance < closest_distance)
-                {
-                    closest_distance = distance;
-                    closestIndex = it - trisIds.begin();
-                }
-            }
-            sortedTriangles.push_back(trisIds[closestIndex]);
-            trisIds.erase(trisIds.begin() + closestIndex);
-        }
-
-        return sortedTriangles;
+        removePointsWithoutTriangles();
     }
 
 private:

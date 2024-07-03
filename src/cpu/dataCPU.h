@@ -8,7 +8,7 @@ template <typename Type>
 class dataCPU
 {
 public:
-    dataCPU(Type nodata_value)
+    dataCPU(int width, int height, Type nodata_value)
     {
         nodata = nodata_value;
 
@@ -29,12 +29,16 @@ public:
         {
             float scale = std::pow(2.0f, float(lvl));
 
-            int width_s = int(MAX_WIDTH / scale);
-            int height_s = int(MAX_HEIGHT / scale);
+            int width_s = int(width / scale);
+            int height_s = int(height / scale);
 
-            sizes[lvl] = cv::Size(width_s, height_s);
-            texture[lvl] = cv::Mat(sizes[lvl], dtype, cv::Scalar(nodata));
+            texture[lvl] = cv::Mat(cv::Size(width_s, height_s), dtype, cv::Scalar(nodata));
         }
+    }
+
+    std::array<int, 2> getSize(int lvl)
+    {
+        return {texture[lvl].cols, texture[lvl].rows};
     }
 
     void set(Type value, int y, int x, int lvl)
@@ -44,6 +48,13 @@ public:
 
     void set(Type value, float y, float x, int lvl)
     {
+        texture[lvl].at<Type>(int(y), int(x)) = value;
+    }
+
+    void setNormalized(Type value, float norm_y, float norm_x, int lvl)
+    {
+        float y = norm_y*texture[lvl].rows;
+        float x = norm_x*texture[lvl].cols;
         texture[lvl].at<Type>(int(y), int(x)) = value;
     }
 
@@ -72,9 +83,9 @@ public:
 
     Type get(float y, float x, int lvl)
     {
-        // bilinear interpolation
-        int _x = int(x);
-        int _y = int(y);
+        // bilinear interpolation (-2 because the read the next pixel)
+        int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
+        int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
         float dx = x - _x;
         float dy = y - _y;
 
@@ -90,6 +101,13 @@ public:
 
         return pix;
         // return texture[lvl].at<Type>(int(y), int(x));
+    }
+
+    Type getNormalized(float norm_y, float norm_x, int lvl)
+    {
+        float y = norm_y*texture[lvl].rows;
+        float x = norm_x*texture[lvl].cols;
+        return get(y, x, lvl);
     }
 
     cv::Mat &get(int lvl)
@@ -125,12 +143,19 @@ public:
         }
     }
 
-    float getPercentNoData(int lvl)
+    cv::Mat getNoDataMask(int lvl)
     {
         cv::Mat matnodata;
         cv::inRange(texture[lvl], nodata, nodata, matnodata);
-        return cv::countNonZero(matnodata) / (texture[lvl].cols * texture[lvl].rows);
+        return matnodata;
     }
+
+    float getPercentNoData(int lvl)
+    {
+        cv::Mat matnodata = getNoDataMask(lvl);
+        return float(cv::countNonZero(matnodata)) / (texture[lvl].cols * texture[lvl].rows);
+    }
+
 
     void show(std::string window_name, int lvl)
     {
@@ -164,7 +189,6 @@ public:
     }
 
     Type nodata;
-    cv::Size sizes[MAX_LEVELS];
 
 private:
     cv::Mat texture[MAX_LEVELS];

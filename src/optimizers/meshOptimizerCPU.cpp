@@ -1,12 +1,18 @@
 #include "optimizers/meshOptimizerCPU.h"
 #include <math.h>
-#include "common/DelaunayTriangulation.h"
 #include "utils/tictoc.h"
 
-meshOptimizerCPU::meshOptimizerCPU(float fx, float fy, float cx, float cy, int width, int height)
-    : cam(fx, fy, cx, cy, width, height),
-      z_buffer(-1.0)
+meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
+    : z_buffer(_cam.width, _cam.height, -1.0),
+      keyframe(_cam.width, _cam.height)
 {
+    cam[0] = _cam;
+    for (int i = 1; i < MAX_LEVELS; i++)
+    {
+        cam[i] = _cam;
+        cam[i].resize(i * 2);
+    }
+
     multiThreading = false;
     meshRegularization = 200.0;
 }
@@ -14,7 +20,7 @@ meshOptimizerCPU::meshOptimizerCPU(float fx, float fy, float cx, float cy, int w
 void meshOptimizerCPU::init(frameCPU &frame, dataCPU<float> &idepth)
 {
     frame.copyTo(keyframe);
-    keyframeMesh.initr(keyframe, idepth, cam, 0);
+    keyframeMesh.init(keyframe, idepth, cam[0], 0);
 }
 
 /*
@@ -49,32 +55,32 @@ void meshOptimizerCPU::completeMesh(frameCPU &frame)
 {
     int lvl = 1;
 
-    float min_distance = 0.5 * cam.width[lvl] / MESH_WIDTH;
-    float max_distance = 5.0 * cam.width[lvl] / MESH_WIDTH;
+    float min_distance = 0.5 * cam[lvl].width / MESH_WIDTH;
+    float max_distance = 5.0 * cam[lvl].width / MESH_WIDTH;
 
-    float min_area = (cam.width[lvl] / MESH_WIDTH) * (cam.height[lvl] / MESH_HEIGHT) / 4.0;
-    float max_area = (cam.width[lvl] / MESH_WIDTH) * (cam.height[lvl] / MESH_HEIGHT);
+    float min_area = (cam[lvl].width / MESH_WIDTH) * (cam[lvl].height / MESH_HEIGHT) / 4.0;
+    float max_area = (cam[lvl].width / MESH_WIDTH) * (cam[lvl].height / MESH_HEIGHT);
 
-    dataCPU<float> idepth(-1);
+    dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
     renderIdepth(frame.pose, idepth, lvl);
 
     MeshCPU frameMesh = keyframeMesh.getCopy();
     frameMesh.transform(frame.pose * keyframe.pose.inverse());
-    frameMesh.computeTexCoords(cam, lvl);
+    frameMesh.computeTexCoords(cam[lvl]);
 
     // check borders of frame for zones without triangles
-    for (int y = 0; y < cam.height[lvl]; y += float(cam.height[lvl] - 1) / (MESH_HEIGHT - 1))
+    for (int y = 0; y < cam[lvl].height; y += float(cam[lvl].height - 1) / (MESH_HEIGHT - 1))
     {
-        for (int x = 0; x < cam.width[lvl]; x += float(cam.width[lvl] - 1) / (MESH_WIDTH - 1))
+        for (int x = 0; x < cam[lvl].width; x += float(cam[lvl].width - 1) / (MESH_WIDTH - 1))
         {
             Eigen::Vector2f pix(x, y);
 
             if (idepth.get(pix(1), pix(0), lvl) != idepth.nodata)
                 continue;
 
-            Eigen::Vector2f center(cam.width[lvl] / 2.0, cam.height[lvl] / 2.0);
+            Eigen::Vector2f center(cam[lvl].width / 2.0, cam[lvl].height / 2.0);
 
-            if ((pix - center).norm() > cam.width[lvl] / 2.0)
+            if ((pix - center).norm() > cam[lvl].width / 2.0)
                 continue;
 
             std::vector<std::array<unsigned int, 2>> edge_vector = getPixelEdges(frameMesh, pix, lvl);
@@ -152,11 +158,11 @@ void meshOptimizerCPU::completeMesh(frameCPU &frame)
 
 void meshOptimizerCPU::renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
-    keyframeMesh.computeTexCoords(cam, lvl);
+    keyframeMesh.computeTexCoords(cam[lvl]);
     keyframeMesh.toVertex();
     MeshCPU frameMesh = keyframeMesh.getCopy();
     frameMesh.transform(pose * keyframe.pose.inverse());
-    frameMesh.computeTexCoords(cam, lvl);
+    frameMesh.computeTexCoords(cam[lvl]);
 
     std::vector<unsigned int> trianglesIds = frameMesh.getTrianglesIds();
 
@@ -184,7 +190,7 @@ void meshOptimizerCPU::renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, 
             for (int x = minmax[0](0); x <= minmax[1](0); x++)
             {
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam.isPixVisible(f_pix, lvl))
+                if (!cam[lvl].isPixVisible(f_pix))
                     continue;
 
                 f_tri2d.computeBarycentric(f_pix);
@@ -210,12 +216,12 @@ Error meshOptimizerCPU::computeError(frameCPU &frame, int lvl)
 {
     Error e;
 
-    keyframeMesh.computeTexCoords(cam, lvl);
+    keyframeMesh.computeTexCoords(cam[lvl]);
     keyframeMesh.toVertex();
 
     MeshCPU frameMesh = keyframeMesh.getCopy();
     frameMesh.transform(frame.pose * keyframe.pose.inverse());
-    frameMesh.computeTexCoords(cam, lvl);
+    frameMesh.computeTexCoords(cam[lvl]);
 
     std::vector<unsigned int> trianglesIds = frameMesh.getTrianglesIds();
 
@@ -271,7 +277,7 @@ void meshOptimizerCPU::errorPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
             for (int x = minmax[0](0); x <= minmax[1](0); x++)
             {
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam.isPixVisible(f_pix, lvl))
+                if (!cam[lvl].isPixVisible(f_pix))
                     continue;
 
                 f_tri.computeBarycentric(f_pix);
@@ -279,7 +285,7 @@ void meshOptimizerCPU::errorPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
                     continue;
 
                 Eigen::Vector2f kf_pix = f_tri.interpolate(kf_tri.vertices[0], kf_tri.vertices[1], kf_tri.vertices[2]);
-                if (!cam.isPixVisible(kf_pix, lvl))
+                if (!cam[lvl].isPixVisible(kf_pix))
                     continue;
 
                 float kf_i = float(keyframe.image.get(kf_pix(1), kf_pix(0), lvl));
@@ -305,12 +311,12 @@ void meshOptimizerCPU::errorPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
 
 void meshOptimizerCPU::renderError(frameCPU &frame, dataCPU<float> &buffer, int lvl)
 {
-    keyframeMesh.computeTexCoords(cam, lvl);
+    keyframeMesh.computeTexCoords(cam[lvl]);
     keyframeMesh.toVertex();
 
     MeshCPU frameMesh = keyframeMesh.getCopy();
     frameMesh.transform(frame.pose * keyframe.pose.inverse());
-    frameMesh.computeTexCoords(cam, lvl);
+    frameMesh.computeTexCoords(cam[lvl]);
 
     std::vector<unsigned int> trisIds = frameMesh.getTrianglesIds();
 
@@ -338,14 +344,14 @@ void meshOptimizerCPU::renderError(frameCPU &frame, dataCPU<float> &buffer, int 
             for (int x = minmax[0](0); x <= minmax[1](0); x++)
             {
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam.isPixVisible(f_pix, lvl))
+                if (!cam[lvl].isPixVisible(f_pix))
                     continue;
                 f_tri.computeBarycentric(f_pix);
                 if (!f_tri.isBarycentricOk())
                     continue;
 
                 Eigen::Vector2f kf_pix = f_tri.interpolate(kf_tri.vertices[0], kf_tri.vertices[1], kf_tri.vertices[2]);
-                if (!cam.isPixVisible(kf_pix, lvl))
+                if (!cam[lvl].isPixVisible(kf_pix))
                     continue;
 
                 float kf_i = float(keyframe.image.get(kf_pix(1), kf_pix(0), lvl));
@@ -369,12 +375,12 @@ void meshOptimizerCPU::renderError(frameCPU &frame, dataCPU<float> &buffer, int 
 
 void meshOptimizerCPU::renderImage(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
-    keyframeMesh.computeTexCoords(cam, lvl);
+    keyframeMesh.computeTexCoords(cam[lvl]);
     keyframeMesh.toVertex();
 
     MeshCPU frameMesh = keyframeMesh.getCopy();
     frameMesh.transform(pose * keyframe.pose.inverse());
-    frameMesh.computeTexCoords(cam, lvl);
+    frameMesh.computeTexCoords(cam[lvl]);
 
     std::vector<unsigned int> trisIds = frameMesh.getTrianglesIds();
 
@@ -402,7 +408,7 @@ void meshOptimizerCPU::renderImage(Sophus::SE3f &pose, dataCPU<float> &buffer, i
             for (int x = minmax[0](0); x <= minmax[1](0); x++)
             {
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam.isPixVisible(f_pix, lvl))
+                if (!cam[lvl].isPixVisible(f_pix))
                     continue;
 
                 f_tri.computeBarycentric(f_pix);
@@ -410,7 +416,7 @@ void meshOptimizerCPU::renderImage(Sophus::SE3f &pose, dataCPU<float> &buffer, i
                     continue;
 
                 Eigen::Vector2f kf_pix = f_tri.interpolate(kf_tri.vertices[0], kf_tri.vertices[1], kf_tri.vertices[2]);
-                if (!cam.isPixVisible(kf_pix, lvl))
+                if (!cam[lvl].isPixVisible(kf_pix))
                     continue;
 
                 float kf_i = float(keyframe.image.get(kf_pix(1), kf_pix(0), lvl));
@@ -432,12 +438,12 @@ void meshOptimizerCPU::renderImage(Sophus::SE3f &pose, dataCPU<float> &buffer, i
 
 void meshOptimizerCPU::renderDebug(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
-    keyframeMesh.computeTexCoords(cam, lvl);
+    keyframeMesh.computeTexCoords(cam[lvl]);
     keyframeMesh.toVertex();
 
     MeshCPU frameMesh = keyframeMesh.getCopy();
     frameMesh.transform(pose * keyframe.pose.inverse());
-    frameMesh.computeTexCoords(cam, lvl);
+    frameMesh.computeTexCoords(cam[lvl]);
 
     std::vector<unsigned int> trisIds = frameMesh.getTrianglesIds();
 
@@ -464,7 +470,7 @@ void meshOptimizerCPU::renderDebug(Sophus::SE3f &pose, dataCPU<float> &buffer, i
             for (int x = minmax[0](0); x <= minmax[1](0); x++)
             {
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam.isPixVisible(f_pix, lvl))
+                if (!cam[lvl].isPixVisible(f_pix))
                     continue;
 
                 f_tri.computeBarycentric(f_pix);
@@ -487,23 +493,23 @@ void meshOptimizerCPU::renderDebug(Sophus::SE3f &pose, dataCPU<float> &buffer, i
     }
 }
 
-HGPose meshOptimizerCPU::computeHGPose(frameCPU &frame, int lvl)
+HGMapped meshOptimizerCPU::computeHGPose(frameCPU &frame, int lvl)
 {
-    HGPose hg;
+    HGMapped hg;
 
-    keyframeMesh.computeTexCoords(cam, lvl);
+    keyframeMesh.computeTexCoords(cam[lvl]);
     keyframeMesh.toVertex();
 
     MeshCPU frameMesh = keyframeMesh.getCopy();
     frameMesh.transform(frame.pose * keyframe.pose.inverse());
-    frameMesh.computeTexCoords(cam, lvl);
+    frameMesh.computeTexCoords(cam[lvl]);
 
     std::vector<unsigned int> trisIds = frameMesh.getTrianglesIds();
 
     if (multiThreading)
     {
-        hgPoseTreadReduce.reduce(boost::bind(&meshOptimizerCPU::HGPosePerIndex, this, frame, frameMesh, trisIds, lvl, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4), 0, trisIds.size(), 0);
-        hg = hgPoseTreadReduce.stats;
+        hgMappedTreadReduce.reduce(boost::bind(&meshOptimizerCPU::HGPosePerIndex, this, frame, frameMesh, trisIds, lvl, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4), 0, trisIds.size(), 0);
+        hg = hgMappedTreadReduce.stats;
     }
     else
     {
@@ -521,7 +527,7 @@ HGPose meshOptimizerCPU::computeHGPose(frameCPU &frame, int lvl)
     return hg;
 }
 
-void meshOptimizerCPU::HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGPose *hg, int tid)
+void meshOptimizerCPU::HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid)
 {
     // z_buffer.reset(lvl);
 
@@ -550,7 +556,7 @@ void meshOptimizerCPU::HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::
             for (int x = minmax[0](0); x <= minmax[1](0); x++)
             {
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam.isPixVisible(f_pix, lvl))
+                if (!cam[lvl].isPixVisible(f_pix))
                     continue;
 
                 f_tri_2d.computeBarycentric(f_pix);
@@ -559,7 +565,7 @@ void meshOptimizerCPU::HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::
                     continue;
 
                 Eigen::Vector2f kf_pix = f_tri_2d.interpolate(kf_tri.vertices[0], kf_tri.vertices[1], kf_tri.vertices[2]);
-                if (!cam.isPixVisible(kf_pix, lvl))
+                if (!cam[lvl].isPixVisible(kf_pix))
                     continue;
 
                 Eigen::Vector3f f_ver = f_tri_2d.interpolate(f_tri_3d.vertices[0], f_tri_3d.vertices[1], f_tri_3d.vertices[2]);
@@ -582,8 +588,8 @@ void meshOptimizerCPU::HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::
 
                 Eigen::Vector2f d_f_i_d_pix(dx, dy);
 
-                float v0 = d_f_i_d_pix(0) * cam.fx[lvl] / f_ver(2);
-                float v1 = d_f_i_d_pix(1) * cam.fy[lvl] / f_ver(2);
+                float v0 = d_f_i_d_pix(0) * cam[lvl].fx / f_ver(2);
+                float v1 = d_f_i_d_pix(1) * cam[lvl].fy / f_ver(2);
                 float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
 
                 Eigen::Vector3f d_f_i_d_tra = Eigen::Vector3f(v0, v1, v2);
@@ -595,15 +601,18 @@ void meshOptimizerCPU::HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::
                 Eigen::Matrix<float, 6, 1> J;
                 J << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
 
-                (*hg).count += 1;
+                //(*hg).count += 1;
+                hg->count++;
                 for (int i = 0; i < 6; i++)
                 {
-                    (*hg).G(i) += J[i] * residual;
+                    //(*hg).G(i) += J[i] * residual;
+                    hg->G.add(J[i]*residual, -i);
                     for (int j = i; j < 6; j++)
                     {
                         float jj = J[i] * J[j];
-                        (*hg).H(i, j) += jj;
-                        (*hg).H(j, i) += jj;
+                        //hg.
+                        //(*hg).H(i, j) += jj;
+                        //(*hg).H(j, i) += jj;
                     }
                 }
             }
@@ -611,16 +620,16 @@ void meshOptimizerCPU::HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::
     }
 }
 
-HGPoseMapMesh meshOptimizerCPU::computeHGMap(frameCPU &frame, int lvl)
+HGMapped meshOptimizerCPU::computeHGMap(frameCPU &frame, int lvl)
 {
-    HGPoseMapMesh hg;
+    HGMapped hg;
 
-    keyframeMesh.computeTexCoords(cam, lvl);
+    keyframeMesh.computeTexCoords(cam[lvl]);
     keyframeMesh.toVertex();
 
     MeshCPU frameMesh = keyframeMesh.getCopy();
     frameMesh.transform(frame.pose * keyframe.pose.inverse());
-    frameMesh.computeTexCoords(cam, lvl);
+    frameMesh.computeTexCoords(cam[lvl]);
 
     std::vector<unsigned int> trisIds = frameMesh.getTrianglesIds();
 
@@ -643,7 +652,7 @@ HGPoseMapMesh meshOptimizerCPU::computeHGMap(frameCPU &frame, int lvl)
     return hg;
 }
 
-void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGPoseMapMesh *hg, int tid)
+void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid)
 {
     // z_buffer.reset(lvl);
 
@@ -711,7 +720,7 @@ void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
             for (int x = minmax[0](0); x <= minmax[1](0); x++)
             {
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam.isPixVisible(f_pix, lvl))
+                if (!cam[lvl].isPixVisible(f_pix))
                     continue;
 
                 f_tri_2d.computeBarycentric(f_pix);
@@ -719,7 +728,7 @@ void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
                     continue;
 
                 Eigen::Vector2f kf_pix = f_tri_2d.interpolate(kf_tri_2d.vertices[0], kf_tri_2d.vertices[1], kf_tri_2d.vertices[2]);
-                if (!cam.isPixVisible(kf_pix, lvl))
+                if (!cam[lvl].isPixVisible(kf_pix))
                     continue;
 
                 Eigen::Vector3f kf_ver = f_tri_2d.interpolate(kf_tri_3d.vertices[0], kf_tri_3d.vertices[1], kf_tri_3d.vertices[2]);
@@ -741,8 +750,8 @@ void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
                 Eigen::Vector2f d_f_i_d_pix(dx, dy);
 
                 Eigen::Vector3f d_f_i_d_f_ver;
-                d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx[lvl] / f_ver(2);
-                d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy[lvl] / f_ver(2);
+                d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam[lvl].fx / f_ver(2);
+                d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam[lvl].fy / f_ver(2);
                 // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) / f_ver(2) + d_f_i_d_f_ver(1) * f_ver(1) / f_ver(2));
                 d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
@@ -786,150 +795,118 @@ void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
     }
 }
 
-/*
-void meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, HGPoseMapMesh &hg, int frame_index, int lvl)
+HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, int frame_index, int lvl)
+{
+    HGMapped hg;
+
+    keyframeMesh.computeTexCoords(cam[lvl]);
+    keyframeMesh.toVertex();
+
+    MeshCPU frameMesh = keyframeMesh.getCopy();
+    frameMesh.transform(frame.pose * keyframe.pose.inverse());
+    frameMesh.computeTexCoords(cam[lvl]);
+
+    std::vector<unsigned int> trisIds = frameMesh.getTrianglesIds();
+
+    if (multiThreading)
+    {
+        //hgPoseMapTreadReduce.reduce(boost::bind(&meshOptimizerCPU::HGPoseMapPerIndex, this, frame, frame_index, frameMesh, trisIds, lvl, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4), 0, trisIds.size(), 0);
+        //hg = hgPoseMapTreadReduce.stats;
+    }
+    else
+    {
+        HGPoseMapPerIndex(frame, frame_index, frameMesh, trisIds, lvl, 0, trisIds.size(), &hg, 0);
+    }
+
+    // if(hg.count > 0)
+    //{
+    //      hg.H /= hg.count;
+    //      hg.G /= hg.count;
+    // }
+
+    return hg;
+}
+
+void meshOptimizerCPU::HGPoseMapPerIndex(frameCPU &frame, int frame_index, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid)
 {
     // z_buffer.reset(lvl);
 
-    // for each triangle
-    for (std::size_t t_id = 0; t_id < keyframeMesh.getTrianglesSize(); t_id++)
+    for (std::size_t index = tmin; index < tmax; index++)
     {
-        // get its vertices
-        // Eigen::Vector3f world_vertex[3];
+        unsigned int t_id = trisIds[index];
 
-        int vertex_index[3];
+        std::array<unsigned int, 3> v_ids = keyframeMesh.getTriangleIndices(t_id);
 
-        Eigen::Vector3f kf_tri_ver[3];
-        Eigen::Vector3f kf_tri_ray[3];
-        Eigen::Vector2f kf_tri_pix[3];
-        float kf_tri_idepth[3];
-
-        for (int vertex = 0; vertex < 3; vertex++)
-        {
-            int vertex_i = keyframeMesh.triangles[t_id].vertices[vertex]->id;
-            vertex_i = keyframeMesh.getVertexIndexFromId(vertex_i);
-            if (vertex_i < 0)
-                continue;
-
-            vertex_index[vertex] = vertex_i;
-
-            // scene vertices are ray + idepth in keyframe coordinates
-            kf_tri_ray[vertex](0) = keyframeMesh.vertices[vertex_i].position(0);
-            kf_tri_ray[vertex](1) = keyframeMesh.vertices[vertex_i].position(1);
-            kf_tri_ray[vertex](2) = 1.0;
-            kf_tri_idepth[vertex] = keyframeMesh.vertices[vertex_i].position(2);
-
-            kf_tri_ver[vertex] = kf_tri_ray[vertex] / kf_tri_idepth[vertex];
-
-            kf_tri_pix[vertex](0) = cam.fx[lvl] * kf_tri_ray[vertex](0) + cam.cx[lvl];
-            kf_tri_pix[vertex](1) = cam.fy[lvl] * kf_tri_ray[vertex](1) + cam.cy[lvl];
-        }
-
-        int min_x = std::min(std::min(kf_tri_pix[0](0), kf_tri_pix[1](0)), kf_tri_pix[2](0));
-        int max_x = std::max(std::max(kf_tri_pix[0](0), kf_tri_pix[1](0)), kf_tri_pix[2](0));
-        int min_y = std::min(std::min(kf_tri_pix[0](1), kf_tri_pix[1](1)), kf_tri_pix[2](1));
-        int max_y = std::max(std::max(kf_tri_pix[0](1), kf_tri_pix[1](1)), kf_tri_pix[2](1));
-
-        // triangle outside of frame
-        if (min_x >= cam.width[lvl] || max_x < 0.0)
+        Triangle2D kf_tri_2d = keyframeMesh.getTriangle2D(t_id);
+        Triangle3D kf_tri_3d = keyframeMesh.getTriangle3D(t_id);
+        // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
+        //     continue;
+        if (kf_tri_2d.getArea() < 0.0)
             continue;
-        if (min_y >= cam.height[lvl] || max_y < 0.0)
+        std::array<float, 3> kf_tri_angles = kf_tri_2d.getAngles();
+        if (kf_tri_angles[0] < MIN_TRIANGLE_ANGLE || kf_tri_angles[1] < MIN_TRIANGLE_ANGLE || kf_tri_angles[2] < MIN_TRIANGLE_ANGLE)
             continue;
 
-        Eigen::Vector3f f_tri_ver[3];
-        Eigen::Vector3f f_tri_ray[3];
-        Eigen::Vector2f f_tri_pix[3];
-
-        for (int vertex = 0; vertex < 3; vertex++)
-        {
-            // vertex from world reference to camera reference system
-            f_tri_ver[vertex] = frame.pose * kf_tri_ver[vertex];
-            f_tri_ray[vertex] = f_tri_ver[vertex] / f_tri_ver[vertex](2);
-
-            f_tri_pix[vertex](0) = cam.fx[lvl] * f_tri_ray[vertex](0) + cam.cx[lvl];
-            f_tri_pix[vertex](1) = cam.fy[lvl] * f_tri_ray[vertex](1) + cam.cy[lvl];
-        }
-
-        Eigen::Vector3f f_tri_nor = (f_tri_ver[0] - f_tri_ver[2]).cross(f_tri_ver[0] - f_tri_ver[1]);
-
-        // back-face culling
-        float point_dot_normal = f_tri_ver[0].dot(f_tri_nor);
-        if (point_dot_normal <= 0.0)
+        Triangle3D f_tri_3d = frameMesh.getTriangle3D(t_id);
+        Triangle2D f_tri_2d = frameMesh.getTriangle2D(t_id);
+        // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
+        //     continue;
+        if (f_tri_2d.getArea() < 0.0)
+            continue;
+        std::array<float, 3> f_tri_angles = f_tri_2d.getAngles();
+        if (f_tri_angles[0] < MIN_TRIANGLE_ANGLE || f_tri_angles[1] < MIN_TRIANGLE_ANGLE || f_tri_angles[2] < MIN_TRIANGLE_ANGLE)
             continue;
 
-        min_x = std::min(std::min(f_tri_pix[0](0), f_tri_pix[1](0)), f_tri_pix[2](0));
-        max_x = std::max(std::max(f_tri_pix[0](0), f_tri_pix[1](0)), f_tri_pix[2](0));
-        min_y = std::min(std::min(f_tri_pix[0](1), f_tri_pix[1](1)), f_tri_pix[2](1));
-        max_y = std::max(std::max(f_tri_pix[0](1), f_tri_pix[1](1)), f_tri_pix[2](1));
-
-        // triangle outside of frame
-        if (min_x >= cam.width[lvl] || max_x < 0.0)
-            continue;
-        if (min_y >= cam.height[lvl] || max_y < 0.0)
-            continue;
+        f_tri_2d.computeTinv();
+        std::array<Eigen::Vector2f, 2> minmax = f_tri_2d.getMinMax();
 
         Eigen::Vector3f n_p[3];
-        n_p[0] = (kf_tri_ver[0] - kf_tri_ver[1]).cross(kf_tri_ver[2] - kf_tri_ver[1]);
-        n_p[1] = (kf_tri_ver[1] - kf_tri_ver[0]).cross(kf_tri_ver[2] - kf_tri_ver[0]);
-        n_p[2] = (kf_tri_ver[2] - kf_tri_ver[1]).cross(kf_tri_ver[0] - kf_tri_ver[1]);
+        n_p[0] = (kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]).cross(kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]);
+        n_p[1] = (kf_tri_3d.vertices[1] - kf_tri_3d.vertices[0]).cross(kf_tri_3d.vertices[2] - kf_tri_3d.vertices[0]);
+        n_p[2] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]).cross(kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]);
 
         Eigen::Vector3f pw2mpw1[3];
-        pw2mpw1[0] = (kf_tri_ver[2] - kf_tri_ver[1]);
-        pw2mpw1[1] = (kf_tri_ver[2] - kf_tri_ver[0]);
-        pw2mpw1[2] = (kf_tri_ver[0] - kf_tri_ver[1]);
+        pw2mpw1[0] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]);
+        pw2mpw1[1] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[0]);
+        pw2mpw1[2] = (kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]);
 
         float n_p_dot_point[3];
-        n_p_dot_point[0] = n_p[0].dot(kf_tri_ver[1]);
-        n_p_dot_point[1] = n_p[1].dot(kf_tri_ver[0]);
-        n_p_dot_point[2] = n_p[2].dot(kf_tri_ver[1]);
+        n_p_dot_point[0] = n_p[0].dot(kf_tri_3d.vertices[1]);
+        n_p_dot_point[1] = n_p[1].dot(kf_tri_3d.vertices[0]);
+        n_p_dot_point[2] = n_p[2].dot(kf_tri_3d.vertices[1]);
 
         Eigen::Vector3f pr_p[3];
-        pr_p[0] = kf_tri_ver[1];
-        pr_p[1] = kf_tri_ver[0];
-        pr_p[2] = kf_tri_ver[1];
+        pr_p[0] = kf_tri_3d.vertices[1];
+        pr_p[1] = kf_tri_3d.vertices[0];
+        pr_p[2] = kf_tri_3d.vertices[1];
 
         Eigen::Vector3f d_n_d_z[3];
         float d_z_d_iz[3];
         for (int i = 0; i < 3; i++)
         {
-            d_n_d_z[i] = kf_tri_ver[i].cross(pw2mpw1[i]);
-            d_z_d_iz[i] = -1.0 / (kf_tri_idepth[i] * kf_tri_idepth[i]);
+            d_n_d_z[i] = kf_tri_3d.vertices[i].cross(pw2mpw1[i]);
+            // d_z_d_iz[i] = -1.0 / (kf_tri_idepth[i] * kf_tri_idepth[i]);
+            d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
         }
 
-        Eigen::Matrix2f T;
-        T(0, 0) = f_tri_pix[0](0) - f_tri_pix[2](0);
-        T(0, 1) = f_tri_pix[1](0) - f_tri_pix[2](0);
-        T(1, 0) = f_tri_pix[0](1) - f_tri_pix[2](1);
-        T(1, 1) = f_tri_pix[1](1) - f_tri_pix[2](1);
-        Eigen::Matrix2f T_inv;
-        T_inv = T.inverse();
-
-        for (int y = min_y; y <= max_y; y++)
+        for (int y = minmax[0](1); y <= minmax[1](1); y++)
         {
-            for (int x = min_x; x <= max_x; x++)
+            for (int x = minmax[0](0); x <= minmax[1](0); x++)
             {
-
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (f_pix(0) < 0.0 || f_pix(0) >= cam.width[lvl] || f_pix(1) < 0.0 || f_pix(1) >= cam.height[lvl])
+                if (!cam[lvl].isPixVisible(f_pix))
                     continue;
 
-                Eigen::Vector2f lambda = T_inv * (f_pix - f_tri_pix[2]);
-
-                if (lambda(0) < 0.0 || lambda(1) < 0.0 || (1.0 - lambda(0) - lambda(1)) < 0.0)
+                f_tri_2d.computeBarycentric(f_pix);
+                if (!f_tri_2d.isBarycentricOk())
                     continue;
 
-                Eigen::Vector2f kf_pix = lambda(0) * kf_tri_pix[0] + lambda(1) * kf_tri_pix[1] + (1 - lambda(0) - lambda(1)) * kf_tri_pix[2];
-                // this -1 is for the bilinear interpolation
-                if (kf_pix(0) < 0.0 || kf_pix(0) >= cam.width[lvl] - 1 || kf_pix(1) < 0.0 || kf_pix(1) >= cam.height[lvl] - 1)
+                Eigen::Vector2f kf_pix = f_tri_2d.interpolate(kf_tri_2d.vertices[0], kf_tri_2d.vertices[1], kf_tri_2d.vertices[2]);
+                if (!cam[lvl].isPixVisible(kf_pix))
                     continue;
 
-                Eigen::Vector3f kf_ray = lambda(0) * kf_tri_ray[0] + lambda(1) * kf_tri_ray[1] + (1 - lambda(0) - lambda(1)) * kf_tri_ray[2];
-                // Eigen::Vector3f kf_ver = lambda(0) * kf_tri_ver[0] + lambda(1) * kf_tri_ver[1] + (1 - lambda(0) - lambda(1)) * kf_tri_ver[2];
-
-                // Eigen::Vector3f f_ray = lambda(0) * f_tri_ray[0] + lambda(1) * f_tri_ray[1] + (1 - lambda(0) - lambda(1)) * f_tri_ray[2];
-                Eigen::Vector3f f_ver = lambda(0) * f_tri_ver[0] + lambda(1) * f_tri_ver[1] + (1 - lambda(0) - lambda(1)) * f_tri_ver[2];
-
-                float f_idepth = 1.0 / f_ver(2);
+                Eigen::Vector3f kf_ver = f_tri_2d.interpolate(kf_tri_3d.vertices[0], kf_tri_3d.vertices[1], kf_tri_3d.vertices[2]);
+                Eigen::Vector3f f_ver = f_tri_2d.interpolate(f_tri_3d.vertices[0], f_tri_3d.vertices[1], f_tri_3d.vertices[2]);
 
                 // z-buffer
                 // float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
@@ -947,10 +924,10 @@ void meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, HGPoseMapMesh &hg, int 
                 Eigen::Vector2f d_f_i_d_pix(dx, dy);
 
                 Eigen::Vector3f d_f_i_d_f_ver;
-                d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx[lvl] * f_idepth;
-                d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy[lvl] * f_idepth;
+                d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam[lvl].fx / f_ver(2);
+                d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam[lvl].fy / f_ver(2);
                 // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) / f_ver(2) + d_f_i_d_f_ver(1) * f_ver(1) / f_ver(2));
-                d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) * f_idepth;
+                d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
                 Eigen::Vector3f d_f_i_d_tra = d_f_i_d_f_ver;
                 Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
@@ -958,31 +935,32 @@ void meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, HGPoseMapMesh &hg, int 
                 Eigen::Matrix<float, 6, 1> J_pose;
                 J_pose << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
 
-                Eigen::Vector3f d_f_ver_d_kf_depth = frame.pose.rotationMatrix() * kf_ray;
+                Eigen::Vector3f d_f_ver_d_kf_depth = frame.pose.rotationMatrix() * kf_ver / kf_ver(2);
 
                 float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
                 float error = f_i - kf_i;
 
-                float J_depth[3];
+                float J[3];
                 for (int i = 0; i < 3; i++)
                 {
-                    float n_p_dot_ray = n_p[i].dot(kf_ray);
-                    float d_kf_depth_d_z = d_n_d_z[i].dot(pr_p[i]) / n_p_dot_ray - n_p_dot_point[i] * d_n_d_z[i].dot(kf_ray) / (n_p_dot_ray * n_p_dot_ray);
+                    float n_p_dot_ray = n_p[i].dot(kf_ver / kf_ver(2));
+                    float d_kf_depth_d_z = d_n_d_z[i].dot(pr_p[i]) / n_p_dot_ray - n_p_dot_point[i] * d_n_d_z[i].dot(kf_ver / kf_ver(2)) / (n_p_dot_ray * n_p_dot_ray);
                     float d_f_i_d_z = d_f_i_d_kf_depth * d_kf_depth_d_z * d_z_d_iz[i];
-                    J_depth[i] = d_f_i_d_z;
+                    J[i] = d_f_i_d_z;
                 }
 
-                hg.count += 1;
+                (*hg).count += 1;
+
                 for (int i = 0; i < 6; i++)
                 {
-                    hg.G(i + frame_index * 6) += J_pose[i] * error;
-                    hg.G_count(i + frame_index * 6) += 1;
+                    (*hg).G.add(J_pose[i] * error, -i - frame_index * 6);
+
                     for (int j = i; j < 6; j++)
                     {
                         float jj = J_pose[i] * J_pose[j];
-                        hg.H.coeffRef(i + frame_index * 6, j + frame_index * 6) += jj;
-                        hg.H.coeffRef(j + frame_index * 6, i + frame_index * 6) += jj;
+                        (*hg).H.add(jj, -i - frame_index * 6, -j - frame_index * 6);
+                        (*hg).H.add(jj, -j - frame_index * 6, -i - frame_index * 6);
                     }
                 }
 
@@ -991,22 +969,24 @@ void meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, HGPoseMapMesh &hg, int 
                     // if the jacobian is 0
                     // we really cannot say anything about the depth
                     // can make the hessian non-singular
-                    if (J_depth[i] == 0)
+                    if (J[i] == 0)
                         continue;
-                    hg.G(vertex_index[i] + NUM_FRAMES * 6) += J_depth[i] * error; // / (cam.width[lvl]*cam.height[lvl]);
-                    hg.G_count(vertex_index[i] + NUM_FRAMES * 6) += 1;
+                    (*hg).G.add(J[i] * error, v_ids[i]);
+                    //(*hg).G[v_ids[i]] += J[i] * error;
+
                     for (int j = i; j < 3; j++)
                     {
-                        float jj = J_depth[i] * J_depth[j]; // / (cam.width[lvl]*cam.height[lvl]);
-                        hg.H.coeffRef(vertex_index[i] + NUM_FRAMES * 6, vertex_index[j] + NUM_FRAMES * 6) += jj;
-                        hg.H.coeffRef(vertex_index[j] + NUM_FRAMES * 6, vertex_index[i] + NUM_FRAMES * 6) += jj;
+                        float jj = J[i] * J[j];
+                        (*hg).H.add(jj, v_ids[i], v_ids[j]);
+                        (*hg).H.add(jj, v_ids[j], v_ids[i]);
+                        //(*hg).H[v_ids[i]][v_ids[j]] += jj;
+                        //(*hg).H[v_ids[j]][v_ids[i]] += jj;
                     }
                 }
             }
         }
     }
 }
-*/
 
 Error meshOptimizerCPU::errorRegu()
 {
@@ -1037,10 +1017,10 @@ Error meshOptimizerCPU::errorRegu()
     return error;
 }
 
-HGPoseMapMesh meshOptimizerCPU::HGRegu()
+HGMapped meshOptimizerCPU::HGRegu()
 {
     keyframeMesh.toRayIdepth();
-    HGPoseMapMesh hg;
+    HGMapped hg;
 
     std::vector<unsigned int> triIds = keyframeMesh.getTrianglesIds();
 
@@ -1053,7 +1033,7 @@ HGPoseMapMesh meshOptimizerCPU::HGRegu()
         float idepth[3];
         for (int j = 0; j < 3; j++)
         {
-            idepth[j] = keyframeMesh.getVertice(v_ids[0])(2);
+            idepth[j] = keyframeMesh.getVertice(v_ids[j])(2);
         }
         float diff1 = idepth[0] - idepth[1];
         float diff2 = idepth[0] - idepth[2];
@@ -1070,7 +1050,7 @@ HGPoseMapMesh meshOptimizerCPU::HGRegu()
             hg.G[v_ids[j]] += (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
             for (int k = 0; k < 3; k++)
             {
-                hg.H[v_ids[j]][v_ids[i]] += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
+                hg.H[v_ids[j]][v_ids[k]] += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
             }
         }
     }
@@ -1092,6 +1072,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
         std::cout << "*************************lvl " << lvl << std::endl;
         t.tic();
         Sophus::SE3f best_pose = frame.pose;
+        e.setZero();
         e = computeError(frame, lvl);
         float last_error = e.error / e.count;
 
@@ -1122,6 +1103,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
 
                 t.tic();
+                e.setZero();
                 e = computeError(frame, lvl);
                 float error = e.error / e.count;
                 std::cout << "new error " << error << " time " << t.toc() << std::endl;
@@ -1182,8 +1164,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
     Error e;
     Error e_regu;
-    HGPoseMapMesh hg;
-    HGPoseMapMesh hg_regu;
+    HGMapped hg;
+    HGMapped hg_regu;
 
     for (int lvl = 1; lvl >= 1; lvl--)
     {
@@ -1213,7 +1195,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
             for (std::size_t i = 0; i < frames.size(); i++)
                 hg += computeHGMap(frames[i], lvl);
 
-            std::vector<unsigned int> ids = hg.G.getIds();
+            std::vector<int> ids = hg.G.getIds();
 
             Eigen::VectorXf G = hg.G.toEigen(ids);
             Eigen::SparseMatrix<float> H = hg.H.toEigen(ids);
@@ -1319,6 +1301,188 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 }
                 else
                 {
+                    for (int index = 0; index < ids.size(); index++)
+                        keyframeMesh.setVerticeIdepth(best_idepths[index], ids[index]);
+
+                    n_try++;
+
+                    if (lambda < 0.2f)
+                        lambda = 0.2f;
+                    else
+                        lambda *= 2.0; // std::pow(2.0, n_try);
+
+                    // reject update, increase lambda, use un-updated data
+
+                    if (inc.dot(inc) < 1e-8)
+                    {
+                        // if too small, do next level!
+                        it = maxIterations;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
+{
+    tic_toc t;
+
+    Error e;
+    Error e_regu;
+    HGMapped hg;
+    HGMapped hg_regu;
+
+    for (int lvl = 1; lvl >= 1; lvl--)
+    {
+        t.tic();
+
+        e.setZero();
+        for (std::size_t i = 0; i < frames.size(); i++)
+            e += computeError(frames[i], lvl);
+        e.error /= e.count;
+
+        e_regu = errorRegu();
+        e_regu.error /= e_regu.count;
+
+        float last_error = e.error + meshRegularization * e_regu.error;
+
+        std::cout << "--------lvl " << lvl << " initial error " << last_error << " " << t.toc() << std::endl;
+
+        int maxIterations = 100;
+        float lambda = 0.0;
+        for (int it = 0; it < maxIterations; it++)
+        {
+            t.tic();
+
+            hg.setZero();
+            for (std::size_t i = 0; i < frames.size(); i++)
+                hg += computeHGPoseMap(frames[i], i, lvl);
+
+            std::vector<int> ids = hg.G.getIds();
+
+            Eigen::VectorXf G = hg.G.toEigen(ids);
+            Eigen::SparseMatrix<float> H = hg.H.toEigen(ids);
+
+            H /= hg.count;
+            G /= hg.count;
+
+            hg_regu = HGRegu();
+
+            Eigen::VectorXf G_regu = hg_regu.G.toEigen(ids);
+            Eigen::SparseMatrix<float> H_regu = hg_regu.H.toEigen(ids);
+
+            H_regu /= hg_regu.count;
+            G_regu /= hg_regu.count;
+
+            H += meshRegularization * H_regu;
+            G += meshRegularization * G_regu;
+
+            std::cout << "HG time " << t.toc() << std::endl;
+
+            int n_try = 0;
+            while (true)
+            {
+                Eigen::SparseMatrix<float> H_lambda = H;
+
+                for (int j = 0; j < H_lambda.rows(); j++)
+                {
+                    H_lambda.coeffRef(j, j) *= (1.0 + lambda);
+                }
+
+                t.tic();
+
+                H_lambda.makeCompressed();
+                // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
+                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                // Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+                // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+                solver.analyzePattern(H_lambda);
+                // std::cout << solver.info() << std::endl;
+                solver.factorize(H_lambda);
+                if (solver.info() != Eigen::Success)
+                {
+                    // some problem i have still to debug
+                    it = maxIterations;
+                    break;
+                }
+                // std::cout << solver.lastErrorMessage() << std::endl;
+                Eigen::VectorXf inc = -solver.solve(G);
+                // inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
+                // inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
+                // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
+
+                std::cout << "solve time " << t.toc() << std::endl;
+
+                // update poses
+                std::vector<Sophus::SE3f> best_poses;
+                for (size_t i = 0; i < frames.size(); i++)
+                {
+                    Eigen::Matrix<float, 6, 1> pose_inc;
+                    for (int j = 0; j < 6; j++)
+                        pose_inc(j) = inc(-j - i * 6);
+                    best_poses.push_back(frames[i].pose);
+                    frames[i].pose = frames[i].pose * Sophus::SE3f::exp(pose_inc).inverse();
+                }
+
+                // update map
+                keyframeMesh.toRayIdepth();
+                std::vector<float> best_idepths;
+                for (int index = 0; index < (int)ids.size(); index++)
+                {
+                    // negative ids are for the poses
+                    if (ids[index] < 0)
+                        continue;
+                    float best_idepth = keyframeMesh.getVertice(ids[index])(2);
+                    float new_idepth = best_idepth + inc(index);
+                    if (new_idepth < 0.001 || new_idepth > 100.0)
+                        new_idepth = best_idepth;
+                    best_idepths.push_back(best_idepth);
+                    keyframeMesh.setVerticeIdepth(new_idepth, ids[index]);
+                }
+                // keyframeMesh.setVerticesIdepths(new_idepths);
+
+                t.tic();
+
+                e.setZero();
+                for (std::size_t i = 0; i < frames.size(); i++)
+                    e += computeError(frames[i], lvl);
+                e.error /= e.count;
+
+                e_regu = errorRegu();
+                e_regu.error /= e_regu.count;
+
+                float error = e.error + meshRegularization * e_regu.error;
+
+                std::cout << "new error " << error << " " << t.toc() << std::endl;
+
+                if (error < last_error)
+                {
+                    // accept update, decrease lambda
+                    float p = error / last_error;
+
+                    if (lambda < 0.2f)
+                        lambda = 0.0f;
+                    else
+                        lambda *= 0.5;
+
+                    last_error = error;
+
+                    if (p > 0.999f)
+                    {
+                        // std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
+                        //  if converged, do next level
+                        it = maxIterations;
+                    }
+
+                    // if update accepted, do next iteration
+                    break;
+                }
+                else
+                {
+                    for (int index = 0; frames.size(); index++)
+                        frames[index].pose = best_poses[index];
                     for (int index = 0; index < ids.size(); index++)
                         keyframeMesh.setVerticeIdepth(best_idepths[index], ids[index]);
 

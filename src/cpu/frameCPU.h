@@ -8,9 +8,10 @@
 class frameCPU
 {
 public:
-    frameCPU() : image(-1.0),
-                 dx(0.0),
-                 dy(0.0)
+    frameCPU(int width, int height)
+        : image(width, height, -1.0),
+          dx(width, height, 0.0),
+          dy(width, height, 0.0)
     {
         init = false;
     };
@@ -54,8 +55,9 @@ public:
         dx.set(dx.nodata, lvl);
         dy.set(dy.nodata, lvl);
 
-        for (int y = 1; y < image.sizes[lvl].height - 1; y++)
-            for (int x = 1; x < image.sizes[lvl].width - 1; x++)
+        std::array<int, 2> size = image.getSize(lvl);
+        for (int y = 1; y < size[1] - 1; y++)
+            for (int x = 1; x < size[0] - 1; x++)
             {
                 float _dx = (float(image.get(y, x + 1, lvl)) - float(image.get(y, x - 1, lvl))) / 2.0;
                 float _dy = (float(image.get(y + 1, x, lvl)) - float(image.get(y - 1, x, lvl))) / 2.0;

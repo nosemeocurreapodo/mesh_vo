@@ -4,7 +4,7 @@
 
 #include "common/camera.h"
 #include "common/HGPose.h"
-#include "common/HGPoseMapMesh.h"
+#include "common/HGMapped.h"
 #include "common/Error.h"
 #include "common/common.h"
 #include "cpu/dataCPU.h"
@@ -16,7 +16,7 @@
 class meshOptimizerCPU
 {
 public:
-    meshOptimizerCPU(float fx, float fy, float cx, float cy, int width, int height);
+    meshOptimizerCPU(camera &cam);
 
     void init(frameCPU &frame, dataCPU<float> &idepth);
 
@@ -27,19 +27,47 @@ public:
 
     void optPose(frameCPU &frame);
     void optMap(std::vector<frameCPU> &frame);
-    // void optPoseMap(std::vector<frameCPU> &frame);
+    void optPoseMap(std::vector<frameCPU> &frame);
 
     void changeKeyframe(frameCPU &frame)
     {
-        //the keyframemesh is relative to the keyframe pose
-        //so to transform the pose coordinate system
-        //just have to multiply with the pose increment from the keyframe
-        keyframeMesh.transform(frame.pose*keyframe.pose.inverse());
-        keyframeMesh.computeTexCoords(cam, 1);
+        // the keyframemesh is relative to the keyframe pose
+        // so to transform the pose coordinate system
+        // just have to multiply with the pose increment from the keyframe
+        keyframeMesh.transform(frame.pose * keyframe.pose.inverse());
+        completeMesh2(keyframeMesh);
         frame.copyTo(keyframe);
     }
 
     void completeMesh(frameCPU &frame);
+
+    void completeMesh2(MeshCPU &mesh)
+    {
+        int lvl = 1;
+
+        dataCPU<float> image(cam[0].width, cam[0].height, -1);
+        Sophus::SE3f pose;
+        mesh.removeOcluded(cam[lvl]);
+        renderImage(pose, image, lvl);
+
+        float percentNoData = image.getPercentNoData(lvl);
+
+        for (int y = 0; y < cam[lvl].height; y += float(cam[lvl].height - 1) / (MESH_HEIGHT - 1.0))
+        {
+            for (int x = 0; x < cam[lvl].width; x += float(cam[lvl].width - 1) / (MESH_WIDTH - 1.0))
+            {
+                if (image.get(y, x, lvl) != image.nodata)
+                    continue;
+
+                Eigen::Vector2f pix(x, y);
+                Eigen::Vector3f new_vertice = triangulatePixel(mesh, pix, lvl);
+
+                mesh.addVertice(new_vertice);
+            }
+        }
+
+        mesh.buildTriangles(cam[lvl]);
+    }
 
     Eigen::Vector3f triangulatePixel(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
     {
@@ -48,13 +76,13 @@ public:
         for (auto triId : trisIds)
         {
             Triangle3D tri = frameMesh.getTriangle3D(triId);
-            if(tri.getArea() < 0.0)
+            if (tri.getArea() < 0.0)
                 continue;
-            //if (tri.isBackFace())
-            //    continue;
-            Eigen::Vector3f ray = cam.toRay(pix, lvl);
+            // if (tri.isBackFace())
+            //     continue;
+            Eigen::Vector3f ray = cam[lvl].pixToRay(pix);
             float depth = tri.getDepth(ray);
-            pos = ray*depth;
+            pos = ray * depth;
             break;
         }
         return pos;
@@ -107,29 +135,27 @@ public:
     frameCPU keyframe;
 
 private:
-    MeshCPU globalMesh;
     MeshCPU keyframeMesh;
 
-    camera cam;
+    camera cam[MAX_LEVELS];
 
     dataCPU<float> z_buffer;
 
     Error computeError(frameCPU &frame, int lvl);
-    HGPose computeHGPose(frameCPU &frame, int lvl);
-    HGPoseMapMesh computeHGMap(frameCPU &frame, int lvl);
-
-    // void computeHGPoseMap(frameCPU &frame, HGPoseMapMesh &hg, int frame_index, int lvl);
+    HGMapped computeHGPose(frameCPU &frame, int lvl);
+    HGMapped computeHGMap(frameCPU &frame, int lvl);
+    HGMapped computeHGPoseMap(frameCPU &frame, int frame_index, int lvl);
 
     void errorPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, Error *e, int tid);
-    void HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGPose *hg, int tid);
-    void HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGPoseMapMesh *hg, int tid);
+    void HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid);
+    void HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid);
+    void HGPoseMapPerIndex(frameCPU &frame, int frame_index, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid);
 
     Error errorRegu();
-    HGPoseMapMesh HGRegu();
+    HGMapped HGRegu();
 
     IndexThreadReduce<Error> errorTreadReduce;
-    IndexThreadReduce<HGPose> hgPoseTreadReduce;
-    IndexThreadReduce<HGPoseMapMesh> hgPoseMapTreadReduce;
+    IndexThreadReduce<HGMapped> hgMappedTreadReduce;
 
     // params
     bool multiThreading;

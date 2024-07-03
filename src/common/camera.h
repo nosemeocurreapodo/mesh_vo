@@ -6,84 +6,142 @@
 class camera
 {
 public:
+    camera()
+    {
+    }
     camera(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
     {
-        float xp = float(MAX_WIDTH) / _width;
-        float yp = float(MAX_HEIGHT) / _height;
+        width = _width;
+        height = _height;
 
-        float out_fx, out_fy, out_cx, out_cy;
-        out_fx = _fx * xp;
-        out_fy = _fy * yp;
-        out_cx = _cx * xp;
-        out_cy = _cy * yp;
+        fx = _fx;
+        fy = _fy;
+        cx = _cx;
+        cy = _cy;
 
-        for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
-        {
-            float scale = std::pow(2.0f, float(lvl));
+        fx_norm = fx/width;
+        fy_norm = fy/height;
+        cx_norm = cx/width;
+        cy_norm = cy/height;
 
-            width[lvl] = int(MAX_WIDTH / scale);
-            height[lvl] = int(MAX_HEIGHT / scale);
-
-            dx[lvl] = 1.0 / width[lvl];
-            dy[lvl] = 1.0 / height[lvl];
-
-            Eigen::Matrix3f K = Eigen::Matrix3f::Zero();
-            K(0, 0) = out_fx / scale;
-            K(1, 1) = out_fy / scale;
-            K(2, 2) = 1.0f;
-            K(0, 2) = out_cx / scale;
-            K(1, 2) = out_cy / scale;
-
-            fx[lvl] = K(0, 0);
-            fy[lvl] = K(1, 1);
-            cx[lvl] = K(0, 2);
-            cy[lvl] = K(1, 2);
-
-            Eigen::Matrix3f KInv = K.inverse();
-
-            fxinv[lvl] = KInv(0, 0);
-            fyinv[lvl] = KInv(1, 1);
-            cxinv[lvl] = KInv(0, 2);
-            cyinv[lvl] = KInv(1, 2);
-        }
+        computeKinv();
     }
 
-    bool isPixVisible(Eigen::Vector2f &pix, int lvl)
+    void computeKinv()
     {
-        // the -1 is for the bilinear interpolation
-        if (pix(0) < 0.0 || pix(0) >= width[lvl] - 1 || pix(1) < 0.0 || pix(1) >= height[lvl] - 1)
+        Eigen::Matrix3f K = Eigen::Matrix3f::Zero();
+        K(0, 0) = fx;
+        K(1, 1) = fy;
+        K(2, 2) = 1.0f;
+        K(0, 2) = cx;
+        K(1, 2) = cy;
+
+        Eigen::Matrix3f KInv = K.inverse();
+
+        fxinv = KInv(0, 0);
+        fyinv = KInv(1, 1);
+        cxinv = KInv(0, 2);
+        cyinv = KInv(1, 2);
+
+        fxinv_norm = fxinv*width;
+        fyinv_norm = fyinv*height;
+        cxinv_norm = cxinv*width;
+        cyinv_norm = cyinv*height;
+    }
+
+    void resize(int _width, int _height)
+    {
+        float scale_x = _width / width;
+        float scale_y = _height / height;
+
+        width = int(width / scale_x);
+        height = int(height / scale_y);
+
+        fx = fx / scale_x;
+        fy = fy / scale_y;
+        cx = cx / scale_x;
+        cy = cy / scale_y;
+
+        computeKinv();
+    }
+
+    void resize(float scale)
+    {
+        int new_width = width * scale;
+        int new_height = height * scale;
+        resize(new_width, new_height);
+    }
+
+    bool isPixVisible(Eigen::Vector2f &pix)
+    {
+        if (pix(0) < 0.0 || pix(0) >= width || pix(1) < 0.0 || pix(1) >= height)
             return false;
         return true;
     }
 
-    Eigen::Vector2f project(Eigen::Vector3f vertex, int lvl)
+    bool isPixVisibleNormalized(Eigen::Vector2f &norm_pix)
     {
-        Eigen::Vector3f ray = vertex / vertex(2);
+        if (norm_pix(0) < 0.0 || norm_pix(0) > 1.0 || norm_pix(1) < 0.0 || norm_pix(1) > 1.0)
+            return false;
+        return true;
+    }
+
+    Eigen::Vector2f rayToPix(Eigen::Vector3f &ray)
+    {
         Eigen::Vector2f pix;
-        pix(0) = fx[lvl] * ray(0) + cx[lvl];
-        pix(1) = fy[lvl] * ray(1) + cy[lvl];
+        pix(0) = fx * ray(0) + cx;
+        pix(1) = fy * ray(1) + cy;
         return pix;
     }
 
-    Eigen::Vector3f toRay(Eigen::Vector2f &pix, int lvl)
+    Eigen::Vector2f rayToPixNormalized(Eigen::Vector3f &ray)
+    {
+        Eigen::Vector2f pix;
+        pix(0) = (fx_norm * ray(0) + cx_norm);
+        pix(1) = (fy_norm * ray(1) + cy_norm);
+        return pix;
+    }
+
+    Eigen::Vector3f pixToRay(Eigen::Vector2f &pix)
     {
         Eigen::Vector3f ray;
-        ray(0) = fxinv[lvl] * pix[0] + cxinv[lvl];
-        ray(1) = fyinv[lvl] * pix[1] + cyinv[lvl];
+        ray(0) = fxinv * pix[0] + cxinv;
+        ray(1) = fyinv * pix[1] + cyinv;
         ray(2) = 1.0;
         return ray;
     }
 
-    float fx[MAX_LEVELS];
-    float fy[MAX_LEVELS];
-    float cx[MAX_LEVELS];
-    float cy[MAX_LEVELS];
+    Eigen::Vector3f pixToRayNormalized(Eigen::Vector2f &normPix)
+    {
+        //fxinv_norm is already multiplyed by width
+        Eigen::Vector3f ray;
+        ray(0) = fxinv_norm * normPix[0] + cxinv;
+        ray(1) = fyinv_norm * normPix[1] + cyinv;
+        ray(2) = 1.0;
+        return ray;
+    }
 
-    float fxinv[MAX_LEVELS];
-    float fyinv[MAX_LEVELS];
-    float cxinv[MAX_LEVELS];
-    float cyinv[MAX_LEVELS];
+    int width, height;
 
-    int width[MAX_LEVELS], height[MAX_LEVELS];
-    float dx[MAX_LEVELS], dy[MAX_LEVELS];
+    float fx;
+    float fy;
+    float cx;
+    float cy;
+
+    float fxinv;
+    float fyinv;
+    float cxinv;
+    float cyinv;
+
+    float fx_norm;
+    float fy_norm;
+    float cx_norm;
+    float cy_norm;
+
+    float fxinv_norm;
+    float fyinv_norm;
+    float cxinv_norm;
+    float cyinv_norm;
+
+private:
 };
