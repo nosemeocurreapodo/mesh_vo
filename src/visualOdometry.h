@@ -41,6 +41,7 @@ public:
 private:
     camera cam;
     frameCPU lastFrame;
+    Sophus::SE3f lastMovement;
     std::vector<frameCPU> frames;
     meshOptimizerCPU meshOptimizer;
     // keyframeIdepthSceneCPU scene;

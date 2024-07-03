@@ -78,14 +78,11 @@ void visualOdometry::locAndMap(cv::Mat image)
 void visualOdometry::localization(cv::Mat image)
 {
     lastFrame.set(image);
-
-    // cpu.computeFrameIdepth(lastframe, cam, scene, 1);
-    // cpu.computeError(lastframe, keyframe, cam, scene, 1);
-    // cpu.computeHGPose(lastframe, keyframe, cam, scene, 1);
-
-    // frameData.pose = _globalPose*keyframeData.pose.inverse();
-    meshOptimizer.optPose(lastFrame); //*Sophus::SE3f::exp(inc_pose).inverse());
-
+    Sophus::SE3f iniPose = lastFrame.pose;
+    lastFrame.pose = lastMovement*lastFrame.pose;
+    meshOptimizer.optPose(lastFrame);
+    lastMovement = lastFrame.pose*iniPose.inverse();
+    
     std::cout << "estimated pose" << std::endl;
     std::cout << lastFrame.pose.matrix() << std::endl;
 
@@ -117,13 +114,14 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
     dataCPU<float> sceneImage(cam.width, cam.height, -1.0);
     dataCPU<float> debug(cam.width, cam.height, -1.0);
 
-    // lastFrame.set(image, pose);
+    //lastFrame.set(image);
     lastFrame.set(image, pose);
 
     frames.clear();
     frames.push_back(lastFrame);
 
     t.tic();
+    meshOptimizer.optPose(lastFrame);
     meshOptimizer.optMap(frames);
     std::cout << "update map time " << t.toc() << std::endl;
 

@@ -51,24 +51,24 @@ public:
 
     void resize(int _width, int _height)
     {
-        float scale_x = _width / width;
-        float scale_y = _height / height;
+        float scale_x = float(_width)/width;
+        float scale_y = float(_height)/height;
 
-        width = int(width / scale_x);
-        height = int(height / scale_y);
+        width = _width;
+        height = _height;
 
-        fx = fx / scale_x;
-        fy = fy / scale_y;
-        cx = cx / scale_x;
-        cy = cy / scale_y;
+        fx = fx * scale_x;
+        fy = fy * scale_y;
+        cx = cx * scale_x;
+        cy = cy * scale_y;
 
         computeKinv();
     }
 
     void resize(float scale)
     {
-        int new_width = width * scale;
-        int new_height = height * scale;
+        int new_width = int(width * scale);
+        int new_height = int(height * scale);
         resize(new_width, new_height);
     }
 

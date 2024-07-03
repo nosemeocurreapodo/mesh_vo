@@ -10,7 +10,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     for (int i = 1; i < MAX_LEVELS; i++)
     {
         cam[i] = _cam;
-        cam[i].resize(i * 2);
+        cam[i].resize(1.0 / (i * 2));
     }
 
     multiThreading = false;
@@ -254,20 +254,20 @@ void meshOptimizerCPU::errorPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         float kf_tri_area = kf_tri.getArea();
-        std::array<float, 3> kf_tri_angles = kf_tri.getAngles();
         if (kf_tri_area < 0.0)
             continue;
-        if (fabs(kf_tri_angles[0]) < MIN_TRIANGLE_ANGLE || fabs(kf_tri_angles[1]) < MIN_TRIANGLE_ANGLE || fabs(kf_tri_angles[2]) < MIN_TRIANGLE_ANGLE)
-            continue;
+        // std::array<float, 3> kf_tri_angles = kf_tri.getAngles();
+        // if (fabs(kf_tri_angles[0]) < MIN_TRIANGLE_ANGLE || fabs(kf_tri_angles[1]) < MIN_TRIANGLE_ANGLE || fabs(kf_tri_angles[2]) < MIN_TRIANGLE_ANGLE)
+        //     continue;
         Triangle2D f_tri = frameMesh.getTriangle2D(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         float f_tri_area = f_tri.getArea();
-        std::array<float, 3> f_tri_angles = f_tri.getAngles();
         if (f_tri_area < 0.0)
             continue;
-        if (fabs(f_tri_angles[0]) < MIN_TRIANGLE_ANGLE || fabs(f_tri_angles[1]) < MIN_TRIANGLE_ANGLE || fabs(f_tri_angles[2]) < MIN_TRIANGLE_ANGLE)
-            continue;
+        // std::array<float, 3> f_tri_angles = f_tri.getAngles();
+        // if (fabs(f_tri_angles[0]) < MIN_TRIANGLE_ANGLE || fabs(f_tri_angles[1]) < MIN_TRIANGLE_ANGLE || fabs(f_tri_angles[2]) < MIN_TRIANGLE_ANGLE)
+        //     continue;
 
         f_tri.computeTinv();
         std::array<Eigen::Vector2f, 2> minmax = f_tri.getMinMax();
@@ -290,8 +290,8 @@ void meshOptimizerCPU::errorPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
 
                 float kf_i = float(keyframe.image.get(kf_pix(1), kf_pix(0), lvl));
                 float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
-                // if (kf_i == keyframe.image.nodata || f_i == frame.image.nodata)
-                //     continue;
+                if (kf_i == keyframe.image.nodata || f_i == frame.image.nodata)
+                    continue;
 
                 float residual = f_i - kf_i;
                 float residual_2 = residual * residual;
@@ -420,8 +420,8 @@ void meshOptimizerCPU::renderImage(Sophus::SE3f &pose, dataCPU<float> &buffer, i
                     continue;
 
                 float kf_i = float(keyframe.image.get(kf_pix(1), kf_pix(0), lvl));
-                // if (kf_i == keyframe.image.nodata)
-                //     continue;
+                if (kf_i == keyframe.image.nodata)
+                    continue;
 
                 // float f_idepth = 1.0 / f_ver(2);
 
@@ -601,18 +601,16 @@ void meshOptimizerCPU::HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::
                 Eigen::Matrix<float, 6, 1> J;
                 J << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
 
-                //(*hg).count += 1;
                 hg->count++;
                 for (int i = 0; i < 6; i++)
                 {
-                    //(*hg).G(i) += J[i] * residual;
-                    hg->G.add(J[i]*residual, -i);
+                    hg->G.add(J[i] * residual, i - 6);
+                    // hg->G[i - 6] = J[i] * residual;
                     for (int j = i; j < 6; j++)
                     {
                         float jj = J[i] * J[j];
-                        //hg.
-                        //(*hg).H(i, j) += jj;
-                        //(*hg).H(j, i) += jj;
+                        hg->H.add(jj, i - 6, j - 6);
+                        hg->H.add(jj, j - 6, i - 6);
                     }
                 }
             }
@@ -635,19 +633,13 @@ HGMapped meshOptimizerCPU::computeHGMap(frameCPU &frame, int lvl)
 
     if (multiThreading)
     {
-        hgPoseMapTreadReduce.reduce(boost::bind(&meshOptimizerCPU::HGMapPerIndex, this, frame, frameMesh, trisIds, lvl, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4), 0, trisIds.size(), 0);
-        hg = hgPoseMapTreadReduce.stats;
+        hgMappedTreadReduce.reduce(boost::bind(&meshOptimizerCPU::HGMapPerIndex, this, frame, frameMesh, trisIds, lvl, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4), 0, trisIds.size(), 0);
+        hg = hgMappedTreadReduce.stats;
     }
     else
     {
         HGMapPerIndex(frame, frameMesh, trisIds, lvl, 0, trisIds.size(), &hg, 0);
     }
-
-    // if(hg.count > 0)
-    //{
-    //      hg.H /= hg.count;
-    //      hg.G /= hg.count;
-    // }
 
     return hg;
 }
@@ -778,6 +770,7 @@ void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
                     // can make the hessian non-singular
                     if (J[i] == 0)
                         continue;
+
                     (*hg).G.add(J[i] * error, v_ids[i]);
                     //(*hg).G[v_ids[i]] += J[i] * error;
 
@@ -810,19 +803,13 @@ HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, int frame_index, in
 
     if (multiThreading)
     {
-        //hgPoseMapTreadReduce.reduce(boost::bind(&meshOptimizerCPU::HGPoseMapPerIndex, this, frame, frame_index, frameMesh, trisIds, lvl, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4), 0, trisIds.size(), 0);
-        //hg = hgPoseMapTreadReduce.stats;
+        // hgMappedTreadReduce.reduce(boost::bind(&meshOptimizerCPU::HGPoseMapPerIndex, this, frame, frame_index, frameMesh, trisIds, lvl, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4), 0, trisIds.size(), 0);
+        // hg = hgMappedTreadReduce.stats;
     }
     else
     {
         HGPoseMapPerIndex(frame, frame_index, frameMesh, trisIds, lvl, 0, trisIds.size(), &hg, 0);
     }
-
-    // if(hg.count > 0)
-    //{
-    //      hg.H /= hg.count;
-    //      hg.G /= hg.count;
-    // }
 
     return hg;
 }
@@ -954,13 +941,13 @@ void meshOptimizerCPU::HGPoseMapPerIndex(frameCPU &frame, int frame_index, MeshC
 
                 for (int i = 0; i < 6; i++)
                 {
-                    (*hg).G.add(J_pose[i] * error, -i - frame_index * 6);
+                    (*hg).G.add(J_pose[i] * error, i - (frame_index + 1) * 6);
 
                     for (int j = i; j < 6; j++)
                     {
                         float jj = J_pose[i] * J_pose[j];
-                        (*hg).H.add(jj, -i - frame_index * 6, -j - frame_index * 6);
-                        (*hg).H.add(jj, -j - frame_index * 6, -i - frame_index * 6);
+                        (*hg).H.add(jj, i - (frame_index + 1) * 6, j - (frame_index + 1) * 6);
+                        (*hg).H.add(jj, j - (frame_index + 1) * 6, i - (frame_index + 1) * 6);
                     }
                 }
 
@@ -1066,6 +1053,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
     tic_toc t;
     Error e;
+    HGMapped hg;
 
     for (int lvl = 4; lvl >= 1; lvl--)
     {
@@ -1081,9 +1069,17 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             t.tic();
-            HGPose hg = computeHGPose(frame, lvl);
-            hg.H /= hg.count;
-            hg.G /= hg.count;
+            hg.setZero();
+            hg += computeHGPose(frame, lvl);
+
+            std::vector<int> ids = hg.G.getIds();
+
+            Eigen::VectorXf G = hg.G.toEigen(ids);
+            Eigen::SparseMatrix<float> H = hg.H.toEigen(ids);
+
+            H /= hg.count;
+            G /= hg.count;
+
             std::cout << "HGPose time " << t.toc() << std::endl;
 
             float lambda = 0.0;
@@ -1091,12 +1087,12 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
             while (true)
             {
                 Eigen::Matrix<float, 6, 6> H_lambda;
-                H_lambda = hg.H;
+                H_lambda = H;
 
                 for (int j = 0; j < 6; j++)
                     H_lambda(j, j) *= 1.0 + lambda;
 
-                Eigen::Matrix<float, 6, 1> inc = H_lambda.ldlt().solve(hg.G);
+                Eigen::Matrix<float, 6, 1> inc = H_lambda.ldlt().solve(G);
 
                 // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
                 frame.pose = best_pose * Sophus::SE3f::exp(inc).inverse();
@@ -1301,6 +1297,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 }
                 else
                 {
+                    keyframeMesh.toRayIdepth();
                     for (int index = 0; index < ids.size(); index++)
                         keyframeMesh.setVerticeIdepth(best_idepths[index], ids[index]);
 
@@ -1415,30 +1412,36 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                 std::cout << "solve time " << t.toc() << std::endl;
 
-                // update poses
+                // update pose
                 std::vector<Sophus::SE3f> best_poses;
                 for (size_t i = 0; i < frames.size(); i++)
                 {
                     Eigen::Matrix<float, 6, 1> pose_inc;
+                    // if ids are in order, like this I get the correct pose increment
+                    // have to fix it some better way
                     for (int j = 0; j < 6; j++)
-                        pose_inc(j) = inc(-j - i * 6);
+                    {
+                        int index = j - (i + 1) * 6 + frames.size() * 6;
+                        pose_inc(j) = inc(index);
+                    }
                     best_poses.push_back(frames[i].pose);
                     frames[i].pose = frames[i].pose * Sophus::SE3f::exp(pose_inc).inverse();
                 }
 
                 // update map
                 keyframeMesh.toRayIdepth();
-                std::vector<float> best_idepths;
+                std::map<unsigned int, float> best_idepths;
                 for (int index = 0; index < (int)ids.size(); index++)
                 {
                     // negative ids are for the poses
                     if (ids[index] < 0)
                         continue;
+
                     float best_idepth = keyframeMesh.getVertice(ids[index])(2);
                     float new_idepth = best_idepth + inc(index);
                     if (new_idepth < 0.001 || new_idepth > 100.0)
                         new_idepth = best_idepth;
-                    best_idepths.push_back(best_idepth);
+                    best_idepths[ids[index]] = best_idepth;
                     keyframeMesh.setVerticeIdepth(new_idepth, ids[index]);
                 }
                 // keyframeMesh.setVerticesIdepths(new_idepths);
@@ -1481,10 +1484,16 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 }
                 else
                 {
-                    for (int index = 0; frames.size(); index++)
+                    for (int index = 0; index < frames.size(); index++)
                         frames[index].pose = best_poses[index];
+                    keyframeMesh.toRayIdepth();
                     for (int index = 0; index < ids.size(); index++)
-                        keyframeMesh.setVerticeIdepth(best_idepths[index], ids[index]);
+                    {
+                        // negative ids are for the poses
+                        if (ids[index] < 0)
+                            continue;
+                        keyframeMesh.setVerticeIdepth(best_idepths[ids[index]], ids[index]);
+                    }
 
                     n_try++;
 

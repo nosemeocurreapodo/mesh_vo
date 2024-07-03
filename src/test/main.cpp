@@ -31,6 +31,7 @@ int main(void)
     fx = 481.20; fy = 480.0; cx = 319.5; cy = 239.5;
 
     camera cam(fx, fy, cx, cy, width, height);
+    cam.resize(512, 512);
 
     cv::Mat initFrame = cv::imread("../../desktop_dataset/scene_000.png", cv::IMREAD_GRAYSCALE);
     Sophus::SE3f initPose = readPose("../../desktop_dataset/scene_000.txt");
@@ -63,8 +64,8 @@ int main(void)
         Sophus::SE3f realPose = readPose(RT_filename)*initPose.inverse();
 
         //odometry.localization(frame);
-        odometry.mapping(frame, realPose);
-        //odometry.locAndMap(frame);
+        //odometry.mapping(frame, realPose);
+        odometry.locAndMap(frame);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();

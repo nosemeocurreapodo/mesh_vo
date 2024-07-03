@@ -53,8 +53,8 @@ public:
 
     void setNormalized(Type value, float norm_y, float norm_x, int lvl)
     {
-        float y = norm_y*texture[lvl].rows;
-        float x = norm_x*texture[lvl].cols;
+        float y = norm_y * texture[lvl].rows;
+        float x = norm_x * texture[lvl].cols;
         texture[lvl].at<Type>(int(y), int(x)) = value;
     }
 
@@ -84,8 +84,13 @@ public:
     Type get(float y, float x, int lvl)
     {
         // bilinear interpolation (-2 because the read the next pixel)
-        int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
-        int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
+        // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
+        // int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
+        if (y < 1.0 || y > texture[lvl].rows - 2 || x < 1.0 || x > texture[lvl].cols - 2)
+            return nodata;
+
+        int _x = int(x);
+        int _y = int(y);
         float dx = x - _x;
         float dy = y - _y;
 
@@ -105,8 +110,8 @@ public:
 
     Type getNormalized(float norm_y, float norm_x, int lvl)
     {
-        float y = norm_y*texture[lvl].rows;
-        float x = norm_x*texture[lvl].cols;
+        float y = norm_y * texture[lvl].rows;
+        float x = norm_x * texture[lvl].cols;
         return get(y, x, lvl);
     }
 
@@ -156,25 +161,24 @@ public:
         return float(cv::countNonZero(matnodata)) / (texture[lvl].cols * texture[lvl].rows);
     }
 
-
     void show(std::string window_name, int lvl)
     {
         cv::Mat toShow;
         texture[lvl].copyTo(toShow);
-        
+
         cv::Mat mask, maskInv;
         cv::inRange(toShow, nodata, nodata, mask);
         cv::bitwise_not(mask, maskInv);
 
-        //cv::Mat zeros = cv::Mat(texture[lvl].rows, texture[lvl].cols, CV_32FC1, cv::Scalar(0));
+        // cv::Mat zeros = cv::Mat(texture[lvl].rows, texture[lvl].cols, CV_32FC1, cv::Scalar(0));
 
         cv::normalize(toShow, toShow, 1.0, 0.0, cv::NORM_MINMAX, CV_32F, maskInv);
 
-        cv::Mat nodataImage; 
+        cv::Mat nodataImage;
         toShow.copyTo(nodataImage);
         nodataImage.setTo(1.0, mask);
 
-        if(toShow.channels() == 1)
+        if (toShow.channels() == 1)
         {
             std::vector<cv::Mat> tomerge;
             tomerge.push_back(toShow);
@@ -182,7 +186,7 @@ public:
             tomerge.push_back(nodataImage);
             cv::merge(tomerge, toShow);
         }
-        
+
         cv::resize(toShow, toShow, texture[0].size());
         cv::imshow(window_name, toShow);
         cv::waitKey(30);
