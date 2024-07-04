@@ -74,7 +74,7 @@ public:
 
     bool isPixVisible(Eigen::Vector2f &pix)
     {
-        if (pix(0) < 0.0 || pix(0) >= width || pix(1) < 0.0 || pix(1) >= height)
+        if (pix(0) < 0.0 || pix(0) > width - 1 || pix(1) < 0.0 || pix(1) > height - 1)
             return false;
         return true;
     }

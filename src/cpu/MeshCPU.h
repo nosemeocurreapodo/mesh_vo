@@ -9,6 +9,12 @@
 #include "params.h"
 #include "common/DelaunayTriangulation.h"
 
+enum MeshVerticeRepresentation
+{
+    cartesian,
+    rayIdepth
+};
+
 class MeshCPU
 {
 public:
@@ -29,9 +35,8 @@ public:
     unsigned int addVertice(Eigen::Vector3f &vert, Eigen::Vector2f &tex);
     unsigned int addTriangle(std::array<unsigned int, 3> &tri);
     void setVerticeIdepth(float idepth, unsigned int id);
+    float getVerticeIdepth(unsigned int id);
 
-    void toRayIdepth();
-    void toVertex();
     void transform(Sophus::SE3f pose);
     void computeTexCoords(camera &cam);
     void computeNormalizedTexCoords(camera &cam);
@@ -41,6 +46,23 @@ public:
     std::vector<unsigned int> getSortedTriangles(Eigen::Vector2f &pix);
 
     bool isTrianglePresent(std::array<unsigned int, 3> &tri);
+
+    unsigned int getClosestTriangle(Eigen::Vector2f &pix)
+    {
+        float min_distance = std::numeric_limits<float>::max();
+        unsigned int min_id = 0;
+        for (auto tri : triangles)
+        {
+            Triangle2D tri2D = getTriangle2D(tri.first);
+            float distance = (tri2D.getMean() - pix).norm();
+            if (distance < min_distance)
+            {
+                min_distance = distance;
+                min_id = tri.first;
+            }
+        }
+        return min_id;
+    }
 
     void buildTriangles(camera &cam)
     {
@@ -73,40 +95,46 @@ public:
 
     void removeOcluded(camera &cam)
     {
+        float min_area = 10.0;
+
+        computeTexCoords(cam);
         std::vector<unsigned int> trisIds = getTrianglesIds();
         for (auto it = trisIds.begin(); it != trisIds.end(); it++)
         {
             // remove triangle if:
             // 1-is backface
-            // 2-any vertex lays outside the image
+            // 2-the points are behind the camera
+            // 2-all vertices lays outside the image
             // afterwards, remove any vertex witouh triangles
-            Triangle2D tri = getTriangle2D(*it);
-            if (tri.getArea() < 0.0)
+            Triangle3D tri3D = getTriangle3D(*it);
+            if (tri3D.vertices[0](2) <= 0.0 || tri3D.vertices[1](2) <= 0.0 || tri3D.vertices[2](2) <= 0.0)
             {
                 triangles.erase(*it);
                 continue;
             }
-
-            std::array<unsigned int, 3> vertsIds = getTriangleIndices(*it);
-            for (int i = 0; i < 3; i++)
+            Triangle2D tri2D = getTriangle2D(*it);
+            if (tri2D.getArea() <= min_area)
             {
-                Eigen::Vector3f ray = vertices[vertsIds[i]] / vertices[vertsIds[i]](2);
-                Eigen::Vector2f pix = cam.rayToPix(ray);
-                if (!cam.isPixVisible(pix))
-                {
-                    triangles.erase(*it);
-                    break;
-                }
+                triangles.erase(*it);
+                continue;
+            }
+            if (!cam.isPixVisible(tri2D.vertices[0]) && !cam.isPixVisible(tri2D.vertices[1]) && !cam.isPixVisible(tri2D.vertices[2]))
+            {
+                triangles.erase(*it);
+                continue;
             }
         }
 
         removePointsWithoutTriangles();
     }
 
+    MeshVerticeRepresentation representation;
+
 private:
+    void toRayIdepth();
+    void toCartesian();
+
     std::map<unsigned int, Eigen::Vector3f> vertices;
     std::map<unsigned int, Eigen::Vector2f> texcoords;
     std::map<unsigned int, std::array<unsigned int, 3>> triangles;
-
-    bool isRayIdepth;
 };

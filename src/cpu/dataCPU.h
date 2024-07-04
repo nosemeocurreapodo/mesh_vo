@@ -86,8 +86,8 @@ public:
         // bilinear interpolation (-2 because the read the next pixel)
         // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
         // int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
-        if (y < 1.0 || y > texture[lvl].rows - 2 || x < 1.0 || x > texture[lvl].cols - 2)
-            return nodata;
+        if (y > texture[lvl].rows - 2 || x > texture[lvl].cols - 2)
+            return texture[lvl].at<Type>(int(y), int(x));
 
         int _x = int(x);
         int _y = int(y);

@@ -35,22 +35,24 @@ public:
         // so to transform the pose coordinate system
         // just have to multiply with the pose increment from the keyframe
         keyframeMesh.transform(frame.pose * keyframe.pose.inverse());
-        completeMesh2(keyframeMesh);
+        keyframeMesh.removeOcluded(cam[1]);
+        completeMesh(keyframeMesh);
+        keyframeMesh.buildTriangles(cam[1]);
         frame.copyTo(keyframe);
     }
 
-    void completeMesh(frameCPU &frame);
-
-    void completeMesh2(MeshCPU &mesh)
+    void completeMesh(MeshCPU &mesh)
     {
         int lvl = 1;
 
+        mesh.computeTexCoords(cam[lvl]);
+
         dataCPU<float> image(cam[0].width, cam[0].height, -1);
         Sophus::SE3f pose;
-        mesh.removeOcluded(cam[lvl]);
         renderImage(pose, image, lvl);
 
-        float percentNoData = image.getPercentNoData(lvl);
+        float min_distance = 0.5*float(cam[lvl].width) / MESH_WIDTH;
+        float min_area = min_distance*min_distance/4.0;
 
         for (int y = 0; y < cam[lvl].height; y += float(cam[lvl].height - 1) / (MESH_HEIGHT - 1.0))
         {
@@ -60,32 +62,50 @@ public:
                     continue;
 
                 Eigen::Vector2f pix(x, y);
-                Eigen::Vector3f new_vertice = triangulatePixel(mesh, pix, lvl);
+                
+                /*
+                std::vector<unsigned int> trisIds = mesh.getSortedTriangles(pix);
+
+                int goodTriId = -1;
+                for (auto triId : trisIds)
+                {
+                    Triangle2D tri = mesh.getTriangle2D(triId);
+                    if (tri.getArea() < 0.0)
+                        continue;
+                    goodTriId = (int)triId;
+                    break;
+                }
+                if (goodTriId < 0)
+                    continue;
+                */    
+
+                unsigned int goodTriId = mesh.getClosestTriangle(pix);
+
+                Triangle2D goodTri = mesh.getTriangle2D(goodTriId);
+
+                float distance1 = (goodTri.vertices[0] - pix).norm();
+                float distance2 = (goodTri.vertices[1] - pix).norm();
+                float distance3 = (goodTri.vertices[2] - pix).norm();
+                if (distance1 < min_distance || distance2 < min_distance || distance3 < min_distance)
+                    continue;
+ 
+                float area = goodTri.getArea();
+                if( area < min_area)
+                    continue;
+
+                Eigen::Vector3f ray = cam[lvl].pixToRay(pix);
+
+                Triangle3D tri3D = mesh.getTriangle3D(goodTriId);
+                float depth = tri3D.getDepth(ray);
+                if(depth <= 0.0)
+                    continue;
+
+                Eigen::Vector3f new_vertice = ray * depth;
+                new_vertice = ray * depth;
 
                 mesh.addVertice(new_vertice);
             }
         }
-
-        mesh.buildTriangles(cam[lvl]);
-    }
-
-    Eigen::Vector3f triangulatePixel(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
-    {
-        std::vector<unsigned int> trisIds = frameMesh.getSortedTriangles(pix);
-        Eigen::Vector3f pos;
-        for (auto triId : trisIds)
-        {
-            Triangle3D tri = frameMesh.getTriangle3D(triId);
-            if (tri.getArea() < 0.0)
-                continue;
-            // if (tri.isBackFace())
-            //     continue;
-            Eigen::Vector3f ray = cam[lvl].pixToRay(pix);
-            float depth = tri.getDepth(ray);
-            pos = ray * depth;
-            break;
-        }
-        return pos;
     }
 
     std::vector<std::array<unsigned int, 2>> getPixelEdges(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
@@ -149,7 +169,7 @@ private:
     void errorPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, Error *e, int tid);
     void HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid);
     void HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid);
-    void HGPoseMapPerIndex(frameCPU &frame, int frame_index, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid);
+    void HGPoseMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid);
 
     Error errorRegu();
     HGMapped HGRegu();

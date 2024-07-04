@@ -2,7 +2,7 @@
 
 #include <Eigen/Core>
 
-Eigen::Vector3f fromRayIdepthToVertex(Eigen::Vector3f rayIdepth)
+Eigen::Vector3f rayIdepthToCartesian(Eigen::Vector3f rayIdepth)
 {
     Eigen::Vector3f kf_tri_ray;
     kf_tri_ray(0) = rayIdepth(0);
@@ -13,7 +13,7 @@ Eigen::Vector3f fromRayIdepthToVertex(Eigen::Vector3f rayIdepth)
     return kf_tri_ray / kf_tri_idepth;
 }
 
-Eigen::Vector3f fromVertexToRayIdepth(Eigen::Vector3f vertex)
+Eigen::Vector3f cartesianToRayIdepth(Eigen::Vector3f vertex)
 {
     Eigen::Vector3f kf_tri_ray = vertex / vertex(2);
     kf_tri_ray(2) = 1.0 / vertex(2);

@@ -14,6 +14,7 @@ public:
           dy(width, height, 0.0)
     {
         init = false;
+        id = 0;
     };
 
     void copyTo(frameCPU &frame)
@@ -74,4 +75,5 @@ public:
     Sophus::SE3f pose;
 
     bool init;
+    int id;
 };

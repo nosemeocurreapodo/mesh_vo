@@ -2,7 +2,7 @@
 
 MeshCPU::MeshCPU()
 {
-    isRayIdepth = false;
+    representation = cartesian;
 };
 
 void MeshCPU::init(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl)
@@ -27,12 +27,12 @@ void MeshCPU::init(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl
             Eigen::Vector3f ray = cam.pixToRayNormalized(pix);
             float id = idepth.getNormalized(pix[1], pix[0], lvl);
             if (id <= 0.0)
-                id = 0.5;
+                continue;
 
             Eigen::Vector3f point;
-            if (isRayIdepth)
+            if (representation == rayIdepth)
                 point = Eigen::Vector3f(ray(0), ray(1), id);
-            else
+            if (representation == cartesian)
                 point = ray / id;
 
             vertices[vertices.size()] = point;
@@ -44,18 +44,29 @@ void MeshCPU::init(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl
 
 void MeshCPU::setVerticeIdepth(float idepth, unsigned int id)
 {
-    if (isRayIdepth)
+    if (representation == rayIdepth)
         vertices[id](2) = idepth;
-    else
+    if (representation == cartesian)
     {
-        Eigen::Vector3f pos = fromVertexToRayIdepth(vertices[id]);
+        Eigen::Vector3f pos = cartesianToRayIdepth(vertices[id]);
         pos(2) = idepth;
-        vertices[id] = fromRayIdepthToVertex(pos);
+        vertices[id] = rayIdepthToCartesian(pos);
     }
+}
+
+float MeshCPU::getVerticeIdepth(unsigned int id)
+{
+    if (representation == rayIdepth)
+        return vertices[id](2);
+    if (representation == cartesian)
+        return 1.0 / vertices[id](2);
 }
 
 Eigen::Vector3f MeshCPU::getVertice(unsigned int id)
 {
+    // always return in cartesian
+    if (representation == rayIdepth)
+        return rayIdepthToCartesian(vertices[id]);
     return vertices[id];
 }
 
@@ -78,13 +89,21 @@ Triangle2D MeshCPU::getTriangle2D(unsigned int id)
 
 Triangle3D MeshCPU::getTriangle3D(unsigned int id)
 {
+    // always return triangle in cartesian
     std::array<unsigned int, 3> tri = triangles[id];
     Triangle3D t(vertices[tri[0]], vertices[tri[1]], vertices[tri[2]]);
+    if (representation == rayIdepth)
+    {
+        t.vertices[0] = rayIdepthToCartesian(t.vertices[0]);
+        t.vertices[1] = rayIdepthToCartesian(t.vertices[1]);
+        t.vertices[2] = rayIdepthToCartesian(t.vertices[2]);
+    }
     return t;
 }
 
 unsigned int MeshCPU::addVertice(Eigen::Vector3f &vert)
 {
+    // the input vertice is always in cartesian
     unsigned int v_id = 0;
     for (auto vert : vertices)
     {
@@ -92,7 +111,10 @@ unsigned int MeshCPU::addVertice(Eigen::Vector3f &vert)
             v_id = vert.first;
     }
     v_id++;
-    vertices[v_id] = vert;
+    if (representation == rayIdepth)
+        vertices[v_id] = cartesianToRayIdepth(vert);
+    if (representation == cartesian)
+        vertices[v_id] = vert;
     return v_id;
 }
 
@@ -105,7 +127,10 @@ unsigned int MeshCPU::addVertice(Eigen::Vector3f &vert, Eigen::Vector2f &tex)
             v_id = vert.first;
     }
     v_id++;
-    vertices[v_id] = vert;
+    if (representation == rayIdepth)
+        vertices[v_id] = cartesianToRayIdepth(vert);
+    if (representation == cartesian)
+        vertices[v_id] = vert;
     texcoords[v_id] = tex;
     return v_id;
 }
@@ -128,8 +153,9 @@ MeshCPU MeshCPU::getCopy()
     MeshCPU meshCopy;
 
     meshCopy.vertices = vertices;
+    meshCopy.texcoords = texcoords;
     meshCopy.triangles = triangles;
-    meshCopy.isRayIdepth = isRayIdepth;
+    meshCopy.representation = representation;
 
     return meshCopy;
 }
@@ -160,9 +186,12 @@ void MeshCPU::computeTexCoords(camera &cam)
     for (auto it = vertices.begin(); it != vertices.end(); ++it)
     {
         Eigen::Vector3f ray;
-        if (isRayIdepth)
+        if (representation == rayIdepth)
+        {
             ray = it->second;
-        else
+            ray(2) = 1.0;
+        }
+        if (representation == cartesian)
             ray = it->second / it->second(2);
 
         Eigen::Vector2f pix = cam.rayToPix(ray);
@@ -177,9 +206,13 @@ void MeshCPU::computeNormalizedTexCoords(camera &cam)
     for (auto it = vertices.begin(); it != vertices.end(); ++it)
     {
         Eigen::Vector3f ray;
-        if (isRayIdepth)
+        if (representation == rayIdepth)
+        {
             ray = it->second;
-        else
+            ray(2) = 1.0;
+        }
+
+        if (representation == cartesian)
             ray = it->second / it->second(2);
 
         Eigen::Vector2f pix = cam.rayToPix(ray);
@@ -283,35 +316,35 @@ std::vector<unsigned int> MeshCPU::getSortedTriangles(Eigen::Vector2f &pix)
 
 void MeshCPU::toRayIdepth()
 {
-    if (!isRayIdepth)
+    if (representation == cartesian)
     {
         for (auto it = vertices.begin(); it != vertices.end(); ++it)
         {
-            it->second = fromVertexToRayIdepth(it->second);
+            it->second = cartesianToRayIdepth(it->second);
             // key.push_back(it->first);
             // value.push_back(it->second);
             // std::cout << "Key: " << it->first << std::endl;
             // std::cout << "Value: " << it->second << std::endl;
         }
-
-        isRayIdepth = true;
     }
+
+    representation = rayIdepth;
 }
 
-void MeshCPU::toVertex()
+void MeshCPU::toCartesian()
 {
-    if (isRayIdepth)
+    if (representation == rayIdepth)
     {
         for (auto it = vertices.begin(); it != vertices.end(); ++it)
         {
-            it->second = fromRayIdepthToVertex(it->second);
+            it->second = rayIdepthToCartesian(it->second);
             // key.push_back(it->first);
             // value.push_back(it->second);
             // std::cout << "Key: " << it->first << std::endl;
             // std::cout << "Value: " << it->second << std::endl;
         }
-        isRayIdepth = false;
     }
+    representation = cartesian;
 }
 
 void MeshCPU::transform(Sophus::SE3f pose)
@@ -319,11 +352,11 @@ void MeshCPU::transform(Sophus::SE3f pose)
     for (auto it = vertices.begin(); it != vertices.end(); ++it)
     {
         Eigen::Vector3f pos = it->second;
-        if (isRayIdepth)
-            pos = fromRayIdepthToVertex(pos);
+        if (representation == rayIdepth)
+            pos = rayIdepthToCartesian(pos);
         pos = pose * pos;
-        if (isRayIdepth)
-            pos = fromVertexToRayIdepth(pos);
+        if (representation == rayIdepth)
+            pos = cartesianToRayIdepth(pos);
         it->second = pos;
     }
 }

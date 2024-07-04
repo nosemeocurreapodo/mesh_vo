@@ -69,7 +69,7 @@ void visualOdometry::locAndMap(cv::Mat image)
 
     float scenePercentNoData = sceneImage.getPercentNoData(1);
 
-    if (scenePercentNoData > 0.25)
+    if (scenePercentNoData > 0.10)
     {
         meshOptimizer.changeKeyframe(lastFrame);
     }
@@ -121,7 +121,6 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
     frames.push_back(lastFrame);
 
     t.tic();
-    meshOptimizer.optPose(lastFrame);
     meshOptimizer.optMap(frames);
     std::cout << "update map time " << t.toc() << std::endl;
 
@@ -138,7 +137,7 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
 
     float scenePercentNoData = sceneImage.getPercentNoData(1);
 
-    if (scenePercentNoData > 0.25)
+    if (scenePercentNoData > 0.10)
     {
         meshOptimizer.changeKeyframe(lastFrame);
     }
