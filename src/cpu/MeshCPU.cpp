@@ -3,6 +3,8 @@
 MeshCPU::MeshCPU()
 {
     representation = cartesian;
+    last_v_id = 0;
+    last_t_id = 0;
 };
 
 void MeshCPU::init(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl)
@@ -35,7 +37,7 @@ void MeshCPU::init(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl
             if (representation == cartesian)
                 point = ray / id;
 
-            vertices[vertices.size()] = point;
+            addVertice(point);
         }
     }
 
@@ -104,48 +106,30 @@ Triangle3D MeshCPU::getTriangle3D(unsigned int id)
 unsigned int MeshCPU::addVertice(Eigen::Vector3f &vert)
 {
     // the input vertice is always in cartesian
-    unsigned int v_id = 0;
-    for (auto vert : vertices)
-    {
-        if (vert.first > v_id)
-            v_id = vert.first;
-    }
-    v_id++;
+    last_v_id++;
     if (representation == rayIdepth)
-        vertices[v_id] = cartesianToRayIdepth(vert);
+        vertices[last_v_id] = cartesianToRayIdepth(vert);
     if (representation == cartesian)
-        vertices[v_id] = vert;
-    return v_id;
+        vertices[last_v_id] = vert;
+    return last_v_id;
 }
 
 unsigned int MeshCPU::addVertice(Eigen::Vector3f &vert, Eigen::Vector2f &tex)
 {
-    unsigned int v_id = 0;
-    for (auto vert : vertices)
-    {
-        if (vert.first > v_id)
-            v_id = vert.first;
-    }
-    v_id++;
+    last_v_id++;
     if (representation == rayIdepth)
-        vertices[v_id] = cartesianToRayIdepth(vert);
+        vertices[last_v_id] = cartesianToRayIdepth(vert);
     if (representation == cartesian)
-        vertices[v_id] = vert;
-    texcoords[v_id] = tex;
-    return v_id;
+        vertices[last_v_id] = vert;
+    texcoords[last_v_id] = tex;
+    return last_v_id;
 }
 
 unsigned int MeshCPU::addTriangle(std::array<unsigned int, 3> &tri)
 {
-    unsigned int t_id = 0;
-    for (auto tri : triangles)
-    {
-        if (tri.first > t_id)
-            t_id = tri.first;
-    }
-    t_id++;
-    triangles[t_id] = tri;
-    return t_id;
+    last_t_id++;
+    triangles[last_t_id] = tri;
+    return last_t_id;
 }
 
 MeshCPU MeshCPU::getCopy()
@@ -321,10 +305,6 @@ void MeshCPU::toRayIdepth()
         for (auto it = vertices.begin(); it != vertices.end(); ++it)
         {
             it->second = cartesianToRayIdepth(it->second);
-            // key.push_back(it->first);
-            // value.push_back(it->second);
-            // std::cout << "Key: " << it->first << std::endl;
-            // std::cout << "Value: " << it->second << std::endl;
         }
     }
 
@@ -338,10 +318,6 @@ void MeshCPU::toCartesian()
         for (auto it = vertices.begin(); it != vertices.end(); ++it)
         {
             it->second = rayIdepthToCartesian(it->second);
-            // key.push_back(it->first);
-            // value.push_back(it->second);
-            // std::cout << "Key: " << it->first << std::endl;
-            // std::cout << "Value: " << it->second << std::endl;
         }
     }
     representation = cartesian;

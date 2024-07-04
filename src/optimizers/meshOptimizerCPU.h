@@ -35,7 +35,7 @@ public:
         // so to transform the pose coordinate system
         // just have to multiply with the pose increment from the keyframe
         keyframeMesh.transform(frame.pose * keyframe.pose.inverse());
-        keyframeMesh.removeOcluded(cam[1]);
+        keyframeMesh.removeOcludedTriangles(cam[1]);
         completeMesh(keyframeMesh);
         keyframeMesh.buildTriangles(cam[1]);
         frame.copyTo(keyframe);
@@ -51,8 +51,9 @@ public:
         Sophus::SE3f pose;
         renderImage(pose, image, lvl);
 
-        float min_distance = 0.5*float(cam[lvl].width) / MESH_WIDTH;
-        float min_area = min_distance*min_distance/4.0;
+        float min_distance = 1.0 * float(cam[lvl].width) / MESH_WIDTH;
+        float min_area = (float(cam[lvl].width) / MESH_WIDTH) * (float(cam[lvl].height) / MESH_HEIGHT) / 4;
+        float min_angle = M_PI / 8;
 
         for (int y = 0; y < cam[lvl].height; y += float(cam[lvl].height - 1) / (MESH_HEIGHT - 1.0))
         {
@@ -62,7 +63,7 @@ public:
                     continue;
 
                 Eigen::Vector2f pix(x, y);
-                
+
                 /*
                 std::vector<unsigned int> trisIds = mesh.getSortedTriangles(pix);
 
@@ -77,7 +78,7 @@ public:
                 }
                 if (goodTriId < 0)
                     continue;
-                */    
+                */
 
                 unsigned int goodTriId = mesh.getClosestTriangle(pix);
 
@@ -88,16 +89,20 @@ public:
                 float distance3 = (goodTri.vertices[2] - pix).norm();
                 if (distance1 < min_distance || distance2 < min_distance || distance3 < min_distance)
                     continue;
- 
-                float area = goodTri.getArea();
-                if( area < min_area)
-                    continue;
+
+                //float area = goodTri.getArea();
+                //if (area < min_area)
+                //    continue;
+
+                //std::array<float, 3> angle = goodTri.getAngles();
+                //if (float(angle[0]) < min_angle || float(angle[1]) < min_angle || float(angle[2]) < min_angle)
+                //    continue;
 
                 Eigen::Vector3f ray = cam[lvl].pixToRay(pix);
 
                 Triangle3D tri3D = mesh.getTriangle3D(goodTriId);
                 float depth = tri3D.getDepth(ray);
-                if(depth <= 0.0)
+                if (depth <= 0.0)
                     continue;
 
                 Eigen::Vector3f new_vertice = ray * depth;
