@@ -20,13 +20,13 @@ class MeshCPU
 public:
     MeshCPU();
 
-    void init(frameCPU &frame, dataCPU<float> &idepth, camera &cam, int lvl);
+    void init(camera &cam, dataCPU<float> &idepth, int lvl);
 
     Eigen::Vector3f getVertice(unsigned int id);
     Eigen::Vector2f &getTexCoord(unsigned int id);
     std::array<unsigned int, 3> getTriangleIndices(unsigned int id);
-    Triangle2D getTriangle2D(unsigned int id);
-    Triangle3D getTriangle3D(unsigned int id);
+    Triangle2D getTexCoordTriangle(unsigned int id);
+    Triangle3D getCartesianTriangle(unsigned int id);
     MeshCPU getCopy();
     std::vector<unsigned int> getVerticesIds();
     std::vector<unsigned int> getTrianglesIds();
@@ -42,147 +42,81 @@ public:
     void computeNormalizedTexCoords(camera &cam);
 
     std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> computeEdgeFront();
-    std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> getSortedEdgeFront(Eigen::Vector2f &pix);
-    std::vector<unsigned int> getSortedTriangles(Eigen::Vector2f &pix);
+    std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> getSortedEdgeFront(std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> &edgeFront, Eigen::Vector2f &pix);
+    std::vector<unsigned int> getSortedTexCoordTriangles(Eigen::Vector2f &pix);
 
     bool isTrianglePresent(std::array<unsigned int, 3> &tri);
 
-    unsigned int getClosestTriangle(Eigen::Vector2f &pix)
-    {
-        float min_distance = std::numeric_limits<float>::max();
-        unsigned int min_id = 0;
-        for (auto tri : triangles)
-        {
-            Triangle2D tri2D = getTriangle2D(tri.first);
-            float distance1 = (tri2D.vertices[0] - pix).norm();
-            float distance2 = (tri2D.vertices[1] - pix).norm();
-            float distance3 = (tri2D.vertices[2] - pix).norm();
+    unsigned int getClosestTexCoordTriangle(Eigen::Vector2f &pix);
+    void buildTriangles(camera &cam);
+    void removePointsWithoutTriangles();
+    void removeTrianglesWithoutPoints();
+    void removeOcludedTriangles(camera &cam);
 
-            float distance = std::min(distance1, std::min(distance2, distance3));
-            if (distance < min_distance)
-            {
-                min_distance = distance;
-                min_id = tri.first;
-            }
-        }
-        return min_id;
-    }
-
-    void buildTriangles(camera &cam)
+    void extrapolateMesh(camera &cam, dataCPU<float> &mask, int lvl)
     {
-        triangles.clear();
         computeTexCoords(cam);
-        DelaunayTriangulation triangulation;
-        triangulation.loadPoints(texcoords);
-        triangulation.triangulate();
-        triangles = triangulation.getTriangles();
-    }
 
-    void removePointsWithoutTriangles()
-    {
-        std::vector<unsigned int> vertsIds = getVerticesIds();
-        for (auto it = vertsIds.begin(); it != vertsIds.end(); it++)
+        float step_x = 0.25* float(cam.width) / (MESH_WIDTH - 1);
+        float step_y = 0.25* float(cam.height) / (MESH_HEIGHT - 1);
+
+        std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> edgeFront = computeEdgeFront();
+
+        for (int y = -step_y * 1; y < cam.height + step_y * 1; y += step_y)
         {
-            bool remove = true;
-            for (auto t_it = triangles.begin(); t_it != triangles.end(); t_it++)
+            for (int x = -step_x * 1; x < cam.width + step_x * 1; x += step_x)
             {
-                if (*it == t_it->second[0] || *it == t_it->second[1] || *it == t_it->second[2])
+                Eigen::Vector2f pix(x, y);
+
+                if (cam.isPixVisible(pix) && mask.get(y, x, lvl) != mask.nodata)
+                    continue;
+
+                // unsigned int triId = getClosestTexCoordTriangle(pix);
+
+                float depth = 0.0;
+                int count = 0;
+                Eigen::Vector3f ray = cam.pixToRay(pix);
+
+
+                auto sortedEdgeFront = getSortedEdgeFront(edgeFront, pix);
+                for (auto edge : sortedEdgeFront)
                 {
-                    remove = false;
-                    break;
+                    Triangle3D tri3D = getCartesianTriangle(edge.second);
+                    float ndepth = tri3D.getDepth(ray);
+                    if (ndepth <= 0.0)
+                        continue;
+                    depth += ndepth;
+                    count++;
+                    if(count > 3)
+                        break;
                 }
-            }
-            if (remove)
-                vertices.erase(*it);
-        }
-    }
+                
+                /*
+                std::vector<unsigned int> trisIds = getSortedTexCoordTriangles(pix);
+                for (auto triId : trisIds)
+                {
+                    Triangle3D tri3D = getCartesianTriangle(triId);
+                    float ndepth = tri3D.getDepth(ray);
+                    if (ndepth <= 0.0)
+                        continue;
+                    depth += ndepth;
+                    count++;
+                    if (count > 3)
+                        break;
+                }
+                */
 
-    void removeTrianglesWithoutPoints()
-    {
-        std::vector<unsigned int> trisIds = getTrianglesIds();
-        for (auto it = trisIds.begin(); it != trisIds.end(); it++)
-        {
-            std::array<unsigned int, 3> vertIds = getTriangleIndices(*it);
-            if (!vertices[vertIds[0]].count() || !vertices[vertIds[1]].count() || !vertices[vertIds[2]].count())
-            {
-                triangles.erase(*it);
-            }
-        }
-    }
+                if(count == 0)
+                    continue;
 
-    void removeOcludedTriangles(camera &cam)
-    {
-        float min_area = (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) / 2.0;
-        float max_area = min_area * 4.0;
-        float min_angle = M_PI / 8;
+                depth = depth / count;
+                Eigen::Vector3f new_vertice = ray * depth;
 
-        std::vector<unsigned int> vetsToRemove;
-
-        computeTexCoords(cam);
-        std::vector<unsigned int> trisIds = getTrianglesIds();
-        for (auto it = trisIds.begin(); it != trisIds.end(); it++)
-        {
-            // remove triangle if:
-            // 1-is backface
-            // 2-the points are behind the camera
-            // 2-all vertices lays outside the image
-            // afterwards, 
-            // remove vertices
-            // remove any vertex witouh triangles
-            // remove any triangle without vertices
-            //std::array<unsigned int, 3> vertsIds = getTriangleIndices(*it);
-            Triangle3D tri3D = getTriangle3D(*it);
-            if (tri3D.vertices[0](2) <= 0.0 || tri3D.vertices[1](2) <= 0.0 || tri3D.vertices[2](2) <= 0.0)
-            {
-                //vetsToRemove.push_back(vertsIds[0]);
-                //vetsToRemove.push_back(vertsIds[1]);
-                //vetsToRemove.push_back(vertsIds[2]);
-
-                triangles.erase(*it);
-                continue;
-            }
-            Triangle2D tri2D = getTriangle2D(*it);
-            if (tri2D.getArea() < min_area || tri2D.getArea() > max_area)
-            {
-                //vetsToRemove.push_back(vertsIds[0]);
-                //vetsToRemove.push_back(vertsIds[1]);
-                //vetsToRemove.push_back(vertsIds[2]);
-
-                triangles.erase(*it);
-                continue;
-            }
-            /*
-            std::array<float, 3> angles = tri2D.getAngles();
-            if (float(angles[0]) < min_angle || float(angles[1]) < min_angle || float(angles[2]) < min_angle)
-            {
-                vetsToRemove.push_back(vertsIds[0]);
-                vetsToRemove.push_back(vertsIds[1]);
-                vetsToRemove.push_back(vertsIds[2]);
-
-                //triangles.erase(*it);
-                continue;
-            }
-            */
-            if (!cam.isPixVisible(tri2D.vertices[0]) && !cam.isPixVisible(tri2D.vertices[1]) && !cam.isPixVisible(tri2D.vertices[2]))
-            {
-                //vetsToRemove.push_back(vertsIds[0]);
-                //vetsToRemove.push_back(vertsIds[1]);
-                //vetsToRemove.push_back(vertsIds[2]);
-
-                triangles.erase(*it);
-                continue;
+                addVertice(new_vertice);
             }
         }
-        /*
-        for(auto vert : vetsToRemove)
-        {
-            if(vertices[vert].count())
-                vertices.erase(vert);
-        }
-        */
-        removePointsWithoutTriangles();
+
         buildTriangles(cam);
-        //removeTrianglesWithoutPoints();
     }
 
     MeshVerticeRepresentation representation;

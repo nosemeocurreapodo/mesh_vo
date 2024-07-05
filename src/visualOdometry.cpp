@@ -13,7 +13,7 @@
 
 visualOdometry::visualOdometry(camera &_cam)
     : meshOptimizer(_cam),
-    lastFrame(_cam.width, _cam.height)
+      lastFrame(_cam.width, _cam.height)
 {
     cam = _cam;
 }
@@ -79,10 +79,10 @@ void visualOdometry::localization(cv::Mat image)
 {
     lastFrame.set(image);
     Sophus::SE3f iniPose = lastFrame.pose;
-    lastFrame.pose = lastMovement*lastFrame.pose;
+    lastFrame.pose = lastMovement * lastFrame.pose;
     meshOptimizer.optPose(lastFrame);
-    lastMovement = lastFrame.pose*iniPose.inverse();
-    
+    lastMovement = lastFrame.pose * iniPose.inverse();
+
     std::cout << "estimated pose" << std::endl;
     std::cout << lastFrame.pose.matrix() << std::endl;
 
@@ -114,26 +114,17 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
     dataCPU<float> sceneImage(cam.width, cam.height, -1.0);
     dataCPU<float> debug(cam.width, cam.height, -1.0);
 
-    //lastFrame.set(image);
+    // lastFrame.set(image);
     lastFrame.set(image, pose);
 
     frames.clear();
     frames.push_back(lastFrame);
 
     t.tic();
-    meshOptimizer.optMap(frames);
+    // meshOptimizer.optMap(frames);
     std::cout << "update map time " << t.toc() << std::endl;
 
-    meshOptimizer.renderIdepth(lastFrame.pose, idepth, 1);
-    meshOptimizer.renderError(lastFrame, error, 1);
     meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
-    meshOptimizer.renderDebug(lastFrame.pose, debug, 0);
-
-    debug.show("lastFrame debug", 0);
-    lastFrame.image.show("lastFrame image", 1);
-    error.show("lastFrame error", 1);
-    idepth.show("lastFrame idepth", 1);
-    sceneImage.show("lastFrame scene", 1);
 
     float scenePercentNoData = sceneImage.getPercentNoData(1);
 
@@ -141,4 +132,15 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
     {
         meshOptimizer.changeKeyframe(lastFrame);
     }
+
+    meshOptimizer.renderIdepth(lastFrame.pose, idepth, 1);
+    meshOptimizer.renderError(lastFrame, error, 1);
+    meshOptimizer.renderDebug(lastFrame.pose, debug, 0);
+    meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
+
+    debug.show("lastFrame debug", 0);
+    lastFrame.image.show("lastFrame image", 1);
+    error.show("lastFrame error", 1);
+    idepth.show("lastFrame idepth", 1);
+    sceneImage.show("lastFrame scene", 1);
 }

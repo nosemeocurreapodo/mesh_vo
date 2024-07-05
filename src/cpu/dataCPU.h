@@ -36,6 +36,11 @@ public:
         }
     }
 
+    ~dataCPU()
+    {
+        
+    }
+
     std::array<int, 2> getSize(int lvl)
     {
         return {texture[lvl].cols, texture[lvl].rows};

@@ -74,7 +74,10 @@ public:
 
     bool isPixVisible(Eigen::Vector2f &pix)
     {
-        if (pix(0) < 0.0 || pix(0) > width - 1 || pix(1) < 0.0 || pix(1) > height - 1)
+        //the idea here is that if we have 3 pixels
+        //the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
+        //so here the max is one more than the last pixel
+        if (pix(0) < 0.0 || pix(0) >= width || pix(1) < 0.0 || pix(1) >= height)
             return false;
         return true;
     }

@@ -10,7 +10,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     for (int i = 1; i < MAX_LEVELS; i++)
     {
         cam[i] = _cam;
-        cam[i].resize(1.0 / (i * 2));
+        cam[i].resize(1.0 / std::pow(2.0, i));
     }
 
     multiThreading = false;
@@ -20,7 +20,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
 void meshOptimizerCPU::init(frameCPU &frame, dataCPU<float> &idepth)
 {
     frame.copyTo(keyframe);
-    keyframeMesh.init(keyframe, idepth, cam[0], 0);
+    keyframeMesh.init(cam[0], idepth, 0);
 }
 
 void meshOptimizerCPU::renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
@@ -41,8 +41,8 @@ void meshOptimizerCPU::renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, 
         //     continue;
         // if (kf_tri.isBackFace())
         //     continue;
-        Triangle3D f_tri3d = frameMesh.getTriangle3D(t_id);
-        Triangle2D f_tri2d = frameMesh.getTriangle2D(t_id);
+        Triangle3D f_tri3d = frameMesh.getCartesianTriangle(t_id);
+        Triangle2D f_tri2d = frameMesh.getTexCoordTriangle(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (f_tri2d.getArea() < 1.0)
@@ -51,9 +51,9 @@ void meshOptimizerCPU::renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, 
         f_tri2d.computeTinv();
         std::array<Eigen::Vector2f, 2> minmax = f_tri2d.getMinMax();
 
-        for (int y = minmax[0](1); y <= minmax[1](1); y++)
+        for (int y = int(minmax[0](1)) - 1; y <= int(minmax[1](1)) + 1; y++)
         {
-            for (int x = minmax[0](0); x <= minmax[1](0); x++)
+            for (int x = int(minmax[0](0)) - 1; x <= int(minmax[1](0)) + 1; x++)
             {
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
                 if (!cam[lvl].isPixVisible(f_pix))
@@ -114,7 +114,7 @@ void meshOptimizerCPU::errorPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
     {
         unsigned int t_id = trisIds[index];
 
-        Triangle2D kf_tri = keyframeMesh.getTriangle2D(t_id);
+        Triangle2D kf_tri = keyframeMesh.getTexCoordTriangle(t_id);
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         float kf_tri_area = kf_tri.getArea();
@@ -123,7 +123,7 @@ void meshOptimizerCPU::errorPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
         // std::array<float, 3> kf_tri_angles = kf_tri.getAngles();
         // if (fabs(kf_tri_angles[0]) < MIN_TRIANGLE_ANGLE || fabs(kf_tri_angles[1]) < MIN_TRIANGLE_ANGLE || fabs(kf_tri_angles[2]) < MIN_TRIANGLE_ANGLE)
         //     continue;
-        Triangle2D f_tri = frameMesh.getTriangle2D(t_id);
+        Triangle2D f_tri = frameMesh.getTexCoordTriangle(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         float f_tri_area = f_tri.getArea();
@@ -188,12 +188,12 @@ void meshOptimizerCPU::renderError(frameCPU &frame, dataCPU<float> &buffer, int 
     {
         unsigned int t_id = trisIds[t_index];
 
-        Triangle2D kf_tri = keyframeMesh.getTriangle2D(t_id);
+        Triangle2D kf_tri = keyframeMesh.getTexCoordTriangle(t_id);
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (kf_tri.getArea() < 1.0)
             continue;
-        Triangle2D f_tri = frameMesh.getTriangle2D(t_id);
+        Triangle2D f_tri = frameMesh.getTexCoordTriangle(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (f_tri.getArea() < 1.0)
@@ -251,12 +251,13 @@ void meshOptimizerCPU::renderImage(Sophus::SE3f &pose, dataCPU<float> &buffer, i
     {
         unsigned int t_id = trisIds[index];
 
-        Triangle2D kf_tri = keyframeMesh.getTriangle2D(t_id);
+        Triangle2D kf_tri = keyframeMesh.getTexCoordTriangle(t_id);
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (kf_tri.getArea() < 1.0)
             continue;
-        Triangle2D f_tri = frameMesh.getTriangle2D(t_id);
+
+        Triangle2D f_tri = frameMesh.getTexCoordTriangle(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (f_tri.getArea() < 1.0)
@@ -265,9 +266,9 @@ void meshOptimizerCPU::renderImage(Sophus::SE3f &pose, dataCPU<float> &buffer, i
         f_tri.computeTinv();
         std::array<Eigen::Vector2f, 2> minmax = f_tri.getMinMax();
 
-        for (int y = minmax[0](1); y <= minmax[1](1); y++)
+        for (int y = int(minmax[0](1)) - 1; y <= int(minmax[1](1)) + 1; y++)
         {
-            for (int x = minmax[0](0); x <= minmax[1](0); x++)
+            for (int x = int(minmax[0](0)) - 1; x <= int(minmax[1](0)) + 1; x++)
             {
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
                 if (!cam[lvl].isPixVisible(f_pix))
@@ -317,7 +318,7 @@ void meshOptimizerCPU::renderDebug(Sophus::SE3f &pose, dataCPU<float> &buffer, i
         //      continue;
         // if (kf_tri.isBackFace())
         //     continue;
-        Triangle2D f_tri = frameMesh.getTriangle2D(t_id);
+        Triangle2D f_tri = frameMesh.getTexCoordTriangle(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (f_tri.getArea() < 1.0)
@@ -391,30 +392,30 @@ void meshOptimizerCPU::HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::
 {
     // z_buffer.reset(lvl);
 
-    float min_area = (float(cam[lvl].width)/MESH_WIDTH)*(float(cam[lvl].height)/MESH_HEIGHT)/4;
-    float min_angle = M_PI/16.0;
+    float min_area = (float(cam[lvl].width) / MESH_WIDTH) * (float(cam[lvl].height) / MESH_HEIGHT) / 4;
+    float min_angle = M_PI / 16.0;
 
     // for each triangle
     for (int index = tmin; index < tmax; index++)
     {
         unsigned int t_id = trisIds[index];
 
-        Triangle2D kf_tri = keyframeMesh.getTriangle2D(t_id);
+        Triangle2D kf_tri = keyframeMesh.getTexCoordTriangle(t_id);
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (kf_tri.getArea() < min_area)
             continue;
         std::array<float, 3> kf_angle = kf_tri.getAngles();
-        if(fabs(kf_angle[0]) < min_angle || fabs(kf_angle[1]) < min_angle || fabs(kf_angle[2]) < min_angle)
+        if (fabs(kf_angle[0]) < min_angle || fabs(kf_angle[1]) < min_angle || fabs(kf_angle[2]) < min_angle)
             continue;
-        Triangle3D f_tri_3d = frameMesh.getTriangle3D(t_id);
-        Triangle2D f_tri_2d = frameMesh.getTriangle2D(t_id);
+        Triangle3D f_tri_3d = frameMesh.getCartesianTriangle(t_id);
+        Triangle2D f_tri_2d = frameMesh.getTexCoordTriangle(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (f_tri_2d.getArea() < min_area)
             continue;
         std::array<float, 3> f_angle = f_tri_2d.getAngles();
-        if(fabs(f_angle[0]) < min_angle || fabs(f_angle[1]) < min_angle || fabs(f_angle[2]) < min_angle)
+        if (fabs(f_angle[0]) < min_angle || fabs(f_angle[1]) < min_angle || fabs(f_angle[2]) < min_angle)
             continue;
 
         f_tri_2d.computeTinv();
@@ -516,7 +517,7 @@ void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
 {
     // z_buffer.reset(lvl);
 
-    float min_area = (float(cam[lvl].width)/MESH_WIDTH)*(float(cam[lvl].height)/MESH_HEIGHT)/4;
+    float min_area = (float(cam[lvl].width) / MESH_WIDTH) * (float(cam[lvl].height) / MESH_HEIGHT) / 4;
     float min_angle = M_PI / 16.0;
 
     // for each triangle
@@ -526,8 +527,8 @@ void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
 
         std::array<unsigned int, 3> v_ids = keyframeMesh.getTriangleIndices(t_id);
 
-        Triangle3D kf_tri_3d = keyframeMesh.getTriangle3D(t_id);
-        Triangle2D kf_tri_2d = keyframeMesh.getTriangle2D(t_id);
+        Triangle3D kf_tri_3d = keyframeMesh.getCartesianTriangle(t_id);
+        Triangle2D kf_tri_2d = keyframeMesh.getTexCoordTriangle(t_id);
         if (kf_tri_3d.vertices[0](2) <= 0.0 || kf_tri_3d.vertices[1](2) <= 0.0 || kf_tri_3d.vertices[2](2) <= 0.0)
             continue;
         if (kf_tri_2d.getArea() < min_area)
@@ -536,8 +537,8 @@ void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
         if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
             continue;
 
-        Triangle3D f_tri_3d = frameMesh.getTriangle3D(t_id);
-        Triangle2D f_tri_2d = frameMesh.getTriangle2D(t_id);
+        Triangle3D f_tri_3d = frameMesh.getCartesianTriangle(t_id);
+        Triangle2D f_tri_2d = frameMesh.getTexCoordTriangle(t_id);
         if (f_tri_3d.vertices[0](2) <= 0.0 || f_tri_3d.vertices[1](2) <= 0.0 || f_tri_3d.vertices[2](2) <= 0.0)
             continue;
         if (f_tri_2d.getArea() < min_area)
@@ -691,7 +692,7 @@ void meshOptimizerCPU::HGPoseMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, st
 {
     // z_buffer.reset(lvl);
 
-    float min_area = (float(cam[lvl].width)/MESH_WIDTH)*(float(cam[lvl].height)/MESH_HEIGHT)/4;
+    float min_area = (float(cam[lvl].width) / MESH_WIDTH) * (float(cam[lvl].height) / MESH_HEIGHT) / 4;
     float min_angle = M_PI / 16.0;
 
     for (std::size_t index = tmin; index < tmax; index++)
@@ -700,8 +701,8 @@ void meshOptimizerCPU::HGPoseMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, st
 
         std::array<unsigned int, 3> v_ids = keyframeMesh.getTriangleIndices(t_id);
 
-        Triangle2D kf_tri_2d = keyframeMesh.getTriangle2D(t_id);
-        Triangle3D kf_tri_3d = keyframeMesh.getTriangle3D(t_id);
+        Triangle2D kf_tri_2d = keyframeMesh.getTexCoordTriangle(t_id);
+        Triangle3D kf_tri_3d = keyframeMesh.getCartesianTriangle(t_id);
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (kf_tri_2d.getArea() < min_area)
@@ -710,8 +711,8 @@ void meshOptimizerCPU::HGPoseMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, st
         if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
             continue;
 
-        Triangle3D f_tri_3d = frameMesh.getTriangle3D(t_id);
-        Triangle2D f_tri_2d = frameMesh.getTriangle2D(t_id);
+        Triangle3D f_tri_3d = frameMesh.getCartesianTriangle(t_id);
+        Triangle2D f_tri_2d = frameMesh.getTexCoordTriangle(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (f_tri_2d.getArea() < min_area)

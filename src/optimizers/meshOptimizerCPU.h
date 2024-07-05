@@ -31,87 +31,31 @@ public:
 
     void changeKeyframe(frameCPU &frame)
     {
+        int lvl = 1;
         // the keyframemesh is relative to the keyframe pose
         // so to transform the pose coordinate system
         // just have to multiply with the pose increment from the keyframe
         keyframeMesh.transform(frame.pose * keyframe.pose.inverse());
-        keyframeMesh.removeOcludedTriangles(cam[1]);
-        completeMesh(keyframeMesh);
-        keyframeMesh.buildTriangles(cam[1]);
         frame.copyTo(keyframe);
-    }
-
-    void completeMesh(MeshCPU &mesh)
-    {
-        int lvl = 1;
-
-        mesh.computeTexCoords(cam[lvl]);
 
         dataCPU<float> image(cam[0].width, cam[0].height, -1);
-        Sophus::SE3f pose;
-        renderImage(pose, image, lvl);
+        renderImage(keyframe.pose, image, lvl);
 
-        float min_distance = 1.0 * float(cam[lvl].width) / MESH_WIDTH;
-        float min_area = (float(cam[lvl].width) / MESH_WIDTH) * (float(cam[lvl].height) / MESH_HEIGHT) / 4;
-        float min_angle = M_PI / 8;
+        float imageNoData = image.getPercentNoData(lvl);
 
-        for (int y = 0; y < cam[lvl].height; y += float(cam[lvl].height - 1) / (MESH_HEIGHT - 1.0))
-        {
-            for (int x = 0; x < cam[lvl].width; x += float(cam[lvl].width - 1) / (MESH_WIDTH - 1.0))
-            {
-                if (image.get(y, x, lvl) != image.nodata)
-                    continue;
+        keyframeMesh.extrapolateMesh(cam[lvl], image, lvl);
 
-                Eigen::Vector2f pix(x, y);
+        dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
+        renderIdepth(keyframe.pose, idepth, lvl);
 
-                /*
-                std::vector<unsigned int> trisIds = mesh.getSortedTriangles(pix);
+        float idepthNoData = idepth.getPercentNoData(lvl);
 
-                int goodTriId = -1;
-                for (auto triId : trisIds)
-                {
-                    Triangle2D tri = mesh.getTriangle2D(triId);
-                    if (tri.getArea() < 0.0)
-                        continue;
-                    goodTriId = (int)triId;
-                    break;
-                }
-                if (goodTriId < 0)
-                    continue;
-                */
-
-                unsigned int goodTriId = mesh.getClosestTriangle(pix);
-
-                Triangle2D goodTri = mesh.getTriangle2D(goodTriId);
-
-                float distance1 = (goodTri.vertices[0] - pix).norm();
-                float distance2 = (goodTri.vertices[1] - pix).norm();
-                float distance3 = (goodTri.vertices[2] - pix).norm();
-                if (distance1 < min_distance || distance2 < min_distance || distance3 < min_distance)
-                    continue;
-
-                //float area = goodTri.getArea();
-                //if (area < min_area)
-                //    continue;
-
-                //std::array<float, 3> angle = goodTri.getAngles();
-                //if (float(angle[0]) < min_angle || float(angle[1]) < min_angle || float(angle[2]) < min_angle)
-                //    continue;
-
-                Eigen::Vector3f ray = cam[lvl].pixToRay(pix);
-
-                Triangle3D tri3D = mesh.getTriangle3D(goodTriId);
-                float depth = tri3D.getDepth(ray);
-                if (depth <= 0.0)
-                    continue;
-
-                Eigen::Vector3f new_vertice = ray * depth;
-                new_vertice = ray * depth;
-
-                mesh.addVertice(new_vertice);
-            }
-        }
+        keyframeMesh.init(cam[lvl], idepth, lvl);
+        //keyframeMesh.removeOcludedTriangles(cam[1]);
+        //completeMesh(keyframeMesh);
+        //keyframeMesh.buildTriangles(cam[1]);
     }
+
 
     std::vector<std::array<unsigned int, 2>> getPixelEdges(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
     {
@@ -133,7 +77,7 @@ public:
             std::array<unsigned int, 2> ed = edge.first;
             unsigned int t_id = edge.second;
 
-            Triangle2D tri2D = frameMesh.getTriangle2D(t_id);
+            Triangle2D tri2D = frameMesh.getTexCoordTriangle(t_id);
             /*
             if(tri2D.getArea() < MIN_TRIANGLE_AREA)
                 continue;

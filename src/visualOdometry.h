@@ -31,7 +31,7 @@ public:
         {
             for (int x = 0; x < cam.width; x++)
             {
-                float _idepth = 0.1 + (1.0 - 0.1) * float(y) / (cam.height-1.0);
+                float _idepth = 0.5 + (1.0 - 0.5) * float(y) / (cam.height-1.0);
                 idepth.set(_idepth, y, x, 0);
             }
         }
