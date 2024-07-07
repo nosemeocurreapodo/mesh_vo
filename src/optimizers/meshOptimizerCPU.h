@@ -18,11 +18,12 @@ class meshOptimizerCPU
 public:
     meshOptimizerCPU(camera &cam);
 
-    void init(frameCPU &frame, dataCPU<float> &idepth);
+    void init(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthInvVar);
 
     void renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
     void renderImage(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
     void renderDebug(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
+    void renderInvVar(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
     void renderError(frameCPU &frame, dataCPU<float> &buffer, int lvl);
 
     void optPose(frameCPU &frame);
@@ -36,7 +37,7 @@ public:
         // so to transform the pose coordinate system
         // just have to multiply with the pose increment from the keyframe
         keyframeMesh.transform(frame.pose * keyframe.pose.inverse());
-        frame.copyTo(keyframe);
+        keyframe = frame;
 
         dataCPU<float> image(cam[0].width, cam[0].height, -1);
         renderImage(keyframe.pose, image, lvl);
@@ -47,15 +48,17 @@ public:
 
         dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
         renderIdepth(keyframe.pose, idepth, lvl);
+        
+        dataCPU<float> invVar(cam[0].width, cam[0].height, -1);
+        renderInvVar(keyframe.pose, invVar, lvl);
 
         float idepthNoData = idepth.getPercentNoData(lvl);
 
-        keyframeMesh.init(cam[lvl], idepth, lvl);
-        //keyframeMesh.removeOcludedTriangles(cam[1]);
-        //completeMesh(keyframeMesh);
-        //keyframeMesh.buildTriangles(cam[1]);
+        keyframeMesh.init(cam[lvl], idepth, invVar, lvl);
+        // keyframeMesh.removeOcludedTriangles(cam[1]);
+        // completeMesh(keyframeMesh);
+        // keyframeMesh.buildTriangles(cam[1]);
     }
-
 
     std::vector<std::array<unsigned int, 2>> getPixelEdges(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
     {
@@ -123,10 +126,14 @@ private:
     Error errorRegu();
     HGMapped HGRegu();
 
+    Error errorInitial(MeshCPU &initialMesh);
+    HGMapped HGInitial(MeshCPU &initialMesh);
+
     IndexThreadReduce<Error> errorTreadReduce;
     IndexThreadReduce<HGMapped> hgMappedTreadReduce;
 
     // params
     bool multiThreading;
     float meshRegularization;
+    float meshInitial;
 };

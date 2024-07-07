@@ -1,14 +1,4 @@
 #include "visualOdometry.h"
-
-// #include <opencv2/imgproc.hpp>
-// #include <opencv2/highgui.hpp>
-
-// #include <Eigen/SparseCholesky>
-// #include <Eigen/SparseLU>
-// #include <Eigen/SparseQR>
-// #include <Eigen/OrderingMethods>
-// #include <Eigen/IterativeLinearSolvers>
-
 #include "utils/tictoc.h"
 
 visualOdometry::visualOdometry(camera &_cam)
@@ -18,22 +8,26 @@ visualOdometry::visualOdometry(camera &_cam)
     cam = _cam;
 }
 
-void visualOdometry::initScene(cv::Mat image, Sophus::SE3f pose)
+void visualOdometry::initScene(dataCPU<float> &image, Sophus::SE3f pose)
 {
     lastFrame.set(image, pose);
     dataCPU<float> idepth = getRandomIdepth();
-    meshOptimizer.init(lastFrame, idepth);
+    dataCPU<float> invVar(cam.width, cam.height, -1.0);
+    invVar.set(1.0 / (1.0 * 1.0), 0);
+    invVar.generateMipmaps();
+
+    meshOptimizer.init(lastFrame, idepth, invVar);
 }
 
-void visualOdometry::initScene(cv::Mat image, cv::Mat idepth, Sophus::SE3f pose)
+void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, Sophus::SE3f pose)
 {
     lastFrame.set(image, pose);
-    dataCPU<float> keyframeIdepth(cam.width, cam.height, -1.0);
-    keyframeIdepth.set(idepth);
-    meshOptimizer.init(lastFrame, keyframeIdepth);
+    dataCPU<float> invVar(cam.width, cam.height, -1.0);
+    invVar.set(1.0 / (1.0 * 1.0), 0);
+    meshOptimizer.init(lastFrame, idepth, invVar);
 }
 
-void visualOdometry::locAndMap(cv::Mat image)
+void visualOdometry::locAndMap(dataCPU<float> &image)
 {
     tic_toc t;
 
@@ -61,11 +55,11 @@ void visualOdometry::locAndMap(cv::Mat image)
     meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
     meshOptimizer.renderDebug(lastFrame.pose, debug, 0);
 
-    debug.show("lastFrame debug", 0);
-    lastFrame.image.show("lastFrame image", 1);
-    error.show("lastFrame error", 1);
-    idepth.show("lastFrame idepth", 1);
-    sceneImage.show("lastFrame scene", 1);
+    show(debug, "lastFrame debug", 0);
+    show(lastFrame.image, "lastFrame image", 1);
+    show(error, "lastFrame error", 1);
+    show(idepth, "lastFrame idepth", 1);
+    show(sceneImage, "lastFrame scene", 1);
 
     float scenePercentNoData = sceneImage.getPercentNoData(1);
 
@@ -75,7 +69,7 @@ void visualOdometry::locAndMap(cv::Mat image)
     }
 }
 
-void visualOdometry::localization(cv::Mat image)
+void visualOdometry::localization(dataCPU<float> &image)
 {
     lastFrame.set(image);
     Sophus::SE3f iniPose = lastFrame.pose;
@@ -96,16 +90,16 @@ void visualOdometry::localization(cv::Mat image)
     meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
     meshOptimizer.renderDebug(lastFrame.pose, debug, 1);
 
-    lastFrame.image.show("lastFrame image", 1);
+    show(lastFrame.image, "lastFrame image", 1);
     // lastFrame.dx.show("lastFrame dx", 1);
     // lastFrame.dy.show("lastFrame dy", 1);
-    error.show("lastFrame error", 1);
-    idepth.show("lastFrame idepth", 1);
-    sceneImage.show("lastFrame scene", 1);
-    debug.show("lastFrame debug", 1);
+    show(error, "lastFrame error", 1);
+    show(idepth, "lastFrame idepth", 1);
+    show(sceneImage, "lastFrame scene", 1);
+    show(debug, "lastFrame debug", 1);
 }
 
-void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
+void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
 {
     tic_toc t;
 
@@ -113,22 +107,26 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
     dataCPU<float> error(cam.width, cam.height, -1.0);
     dataCPU<float> sceneImage(cam.width, cam.height, -1.0);
     dataCPU<float> debug(cam.width, cam.height, -1.0);
+    dataCPU<float> idepthVar(cam.width, cam.height, -1.0);
 
     // lastFrame.set(image);
     lastFrame.set(image, pose);
+
+    // if (frames.size() >= 2)
+    //     frames.erase(frames.begin());
 
     frames.clear();
     frames.push_back(lastFrame);
 
     t.tic();
-    // meshOptimizer.optMap(frames);
+    meshOptimizer.optMap(frames);
     std::cout << "update map time " << t.toc() << std::endl;
 
     meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
 
     float scenePercentNoData = sceneImage.getPercentNoData(1);
 
-    if (scenePercentNoData > 0.10)
+    if (scenePercentNoData > 1.0)
     {
         meshOptimizer.changeKeyframe(lastFrame);
     }
@@ -136,11 +134,14 @@ void visualOdometry::mapping(cv::Mat image, Sophus::SE3f pose)
     meshOptimizer.renderIdepth(lastFrame.pose, idepth, 1);
     meshOptimizer.renderError(lastFrame, error, 1);
     meshOptimizer.renderDebug(lastFrame.pose, debug, 0);
+    meshOptimizer.renderInvVar(lastFrame.pose, idepthVar, 1);
     meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
 
-    debug.show("lastFrame debug", 0);
-    lastFrame.image.show("lastFrame image", 1);
-    error.show("lastFrame error", 1);
-    idepth.show("lastFrame idepth", 1);
-    sceneImage.show("lastFrame scene", 1);
+    // show(debug, "lastFrame debug", 0);
+    show(lastFrame.image, "lastFrame image", 1);
+    show(meshOptimizer.keyframe.image, "keyframe image", 1);
+    show(error, "lastFrame error", 1);
+    show(idepth, "lastFrame idepth", 1);
+    show(idepthVar, "lastFrame invVar", 1);
+    show(sceneImage, "lastFrame scene", 1);
 }

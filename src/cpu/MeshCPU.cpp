@@ -7,11 +7,14 @@ MeshCPU::MeshCPU()
     last_t_id = 0;
 };
 
-void MeshCPU::init(camera &cam, dataCPU<float> &idepth, int lvl)
+void MeshCPU::init(camera &cam, dataCPU<float> &idepth, dataCPU<float> &idepthInvVar, int lvl)
 {
     vertices.clear();
     texcoords.clear();
     triangles.clear();
+    invVar.clear();
+    last_v_id = 0;
+    last_t_id = 0;
 
     for (int y = 0; y < MESH_HEIGHT; y++)
     {
@@ -27,20 +30,22 @@ void MeshCPU::init(camera &cam, dataCPU<float> &idepth, int lvl)
             // pix[0] = (float(x)/(MESH_WIDTH-1)) * cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
             // pix[1] = (float(y)/(MESH_HEIGHT-1)) * cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
             Eigen::Vector3f ray = cam.pixToRay(pix);
-            float id = idepth.get(pix[1], pix[0], lvl);
-            if (id == idepth.nodata)
+            float idph = idepth.get(pix[1], pix[0], lvl);
+            float idphInvVar = idepthInvVar.get(pix[1], pix[0], lvl);
+            if (idph == idepth.nodata)
                 continue;
 
-            if (id <= 0.0)
+            if (idph <= 0.0)
                 continue;
 
             Eigen::Vector3f vertice;
             if (representation == rayIdepth)
-                vertice = Eigen::Vector3f(ray(0), ray(1), id);
+                vertice = Eigen::Vector3f(ray(0), ray(1), idph);
             if (representation == cartesian)
-                vertice = ray / id;
+                vertice = ray / idph;
 
-            addVertice(vertice);
+            unsigned int id = addVertice(vertice);
+            setVerticeInvVar(idphInvVar, id);
         }
     }
 
@@ -49,6 +54,8 @@ void MeshCPU::init(camera &cam, dataCPU<float> &idepth, int lvl)
 
 void MeshCPU::setVerticeIdepth(float idepth, unsigned int id)
 {
+    if(!vertices.count(id))
+        return;
     if (representation == rayIdepth)
         vertices[id](2) = idepth;
     if (representation == cartesian)
@@ -61,6 +68,8 @@ void MeshCPU::setVerticeIdepth(float idepth, unsigned int id)
 
 float MeshCPU::getVerticeIdepth(unsigned int id)
 {
+    if(!vertices.count(id))
+        return -1;
     if (representation == rayIdepth)
         return vertices[id](2);
     if (representation == cartesian)
@@ -69,6 +78,8 @@ float MeshCPU::getVerticeIdepth(unsigned int id)
 
 Eigen::Vector3f MeshCPU::getVertice(unsigned int id)
 {
+    if(!vertices.count(id))
+        return Eigen::Vector3f(0.0, 0.0, -1.0);
     // always return in cartesian
     if (representation == rayIdepth)
         return rayIdepthToCartesian(vertices[id]);
@@ -110,21 +121,12 @@ unsigned int MeshCPU::addVertice(Eigen::Vector3f &vert)
 {
     // the input vertice is always in cartesian
     last_v_id++;
+    if(vertices.count(last_v_id) > 0)
+        return -1;
     if (representation == rayIdepth)
         vertices[last_v_id] = cartesianToRayIdepth(vert);
     if (representation == cartesian)
         vertices[last_v_id] = vert;
-    return last_v_id;
-}
-
-unsigned int MeshCPU::addVertice(Eigen::Vector3f &vert, Eigen::Vector2f &tex)
-{
-    last_v_id++;
-    if (representation == rayIdepth)
-        vertices[last_v_id] = cartesianToRayIdepth(vert);
-    if (representation == cartesian)
-        vertices[last_v_id] = vert;
-    texcoords[last_v_id] = tex;
     return last_v_id;
 }
 
@@ -142,6 +144,7 @@ MeshCPU MeshCPU::getCopy()
     meshCopy.vertices = vertices;
     meshCopy.texcoords = texcoords;
     meshCopy.triangles = triangles;
+    meshCopy.invVar = invVar;
     meshCopy.representation = representation;
 
     return meshCopy;
@@ -415,7 +418,7 @@ void MeshCPU::removeTrianglesWithoutPoints()
     for (auto it = trisIds.begin(); it != trisIds.end(); it++)
     {
         std::array<unsigned int, 3> vertIds = getTriangleIndices(*it);
-        if (!vertices[vertIds[0]].count() || !vertices[vertIds[1]].count() || !vertices[vertIds[2]].count())
+        if (!vertices.count(vertIds[0]) || !vertices.count(vertIds[1]) || !vertices.count(vertIds[2]))
         {
             triangles.erase(*it);
         }

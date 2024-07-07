@@ -17,20 +17,32 @@ public:
         id = 0;
     };
 
-    void copyTo(frameCPU &frame)
+    frameCPU(const frameCPU &other) : image(other.image),
+                                      dx(other.dx),
+                                      dy(other.dy)
     {
-        image.copyTo(frame.image);
-        dx.copyTo(frame.dx);
-        dy.copyTo(frame.dy);
-
-        frame.pose = pose;
-        frame.init = init;
+        init = other.init;
+        id = other.id;
     }
 
-    void set(cv::Mat frame)
+    frameCPU &operator=(const frameCPU &other)
     {
-        image.set(frame);
-        image.generateMipmaps();
+        if (this != &other)
+        {
+            init = other.init;
+            id = other.id;
+
+            image = other.image;
+            dx = other.dx;
+            dy = other.dy;
+        }
+        return *this;
+    }
+
+    void set(const dataCPU<float> &im)
+    {
+        image = im;
+        // image.generateMipmaps();
         /*
         computeFrameDerivative(0);
         dx.generateMipmaps();
@@ -45,21 +57,28 @@ public:
         init = true;
     }
 
-    void set(cv::Mat frame, Sophus::SE3f p)
+    void set(dataCPU<float> &im, Sophus::SE3f p)
     {
-        set(frame);
+        set(im);
         pose = p;
     }
 
     void computeFrameDerivative(int lvl)
     {
-        dx.set(dx.nodata, lvl);
-        dy.set(dy.nodata, lvl);
+        //dx.set(dx.nodata, lvl);
+        //dy.set(dy.nodata, lvl);
 
         std::array<int, 2> size = image.getSize(lvl);
-        for (int y = 1; y < size[1] - 1; y++)
-            for (int x = 1; x < size[0] - 1; x++)
+        for (int y = 0; y < size[1]; y++)
+            for (int x = 0; x < size[0]; x++)
             {
+                if (y == 0 || y == size[1] - 1 || x == 0 || x == size[0] - 1)
+                {
+                    dx.set(0.0, y, x, lvl);
+                    dy.set(0.0, y, x, lvl);
+                    continue;
+                }
+
                 float _dx = (float(image.get(y, x + 1, lvl)) - float(image.get(y, x - 1, lvl))) / 2.0;
                 float _dy = (float(image.get(y + 1, x, lvl)) - float(image.get(y - 1, x, lvl))) / 2.0;
 

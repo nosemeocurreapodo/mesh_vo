@@ -10,18 +10,19 @@
 #include "optimizers/meshOptimizerCPU.h"
 // #include "scene/keyframeIdepthSceneCPU.h"
 #include "cpu/frameCPU.h"
+#include "cpu/OpenCVDebug.h"
 
 class visualOdometry
 {
 public:
     visualOdometry(camera &cam);
 
-    void initScene(cv::Mat frame, Sophus::SE3f pose = Sophus::SE3f());
-    void initScene(cv::Mat frame, cv::Mat idepth, Sophus::SE3f pose = Sophus::SE3f());
+    void initScene(dataCPU<float> &image, Sophus::SE3f pose = Sophus::SE3f());
+    void initScene(dataCPU<float> &image, dataCPU<float> &idepth, Sophus::SE3f pose = Sophus::SE3f());
 
-    void locAndMap(cv::Mat frame);
-    void localization(cv::Mat frame);
-    void mapping(cv::Mat _frame, Sophus::SE3f pose);
+    void locAndMap(dataCPU<float> &image);
+    void localization(dataCPU<float> &image);
+    void mapping(dataCPU<float> &image, Sophus::SE3f pose);
 
     dataCPU<float> getRandomIdepth()
     {
@@ -35,6 +36,7 @@ public:
                 idepth.set(_idepth, y, x, 0);
             }
         }
+        idepth.generateMipmaps();
         return idepth;
     }
 

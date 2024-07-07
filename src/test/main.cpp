@@ -8,6 +8,8 @@
 #include "utils/convertAhandaPovRayToStandard.h"
 #include "visualOdometry.h"
 #include "common/camera.h"
+#include "cpu/frameCPU.h"
+#include "cpu/dataCPU.h"
 
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
@@ -33,17 +35,23 @@ int main(void)
     camera cam(fx, fy, cx, cy, width, height);
     cam.resize(512, 512);
 
-    cv::Mat initFrame = cv::imread("../../desktop_dataset/scene_000.png", cv::IMREAD_GRAYSCALE);
+    cv::Mat imageMat = cv::imread("../../desktop_dataset/scene_000.png", cv::IMREAD_GRAYSCALE);
     Sophus::SE3f initPose = readPose("../../desktop_dataset/scene_000.txt");
+    
+    imageMat.convertTo(imageMat, CV_32FC1);
+    cv::resize(imageMat, imageMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
-    cv::Mat initIdepth;
+    dataCPU<float> image(cam.width, cam.height, -1.0);
+    image.set((float*)imageMat.data);
+    
+    cv::Mat initIdepthMat;
     cv::FileStorage fs("../../desktop_dataset/scene_depth_000.yml", cv::FileStorage::READ );
-    fs["idepth"] >> initIdepth;
+    fs["idepth"] >> initIdepthMat;
 
     visualOdometry odometry(cam);
 
     //odometry.initScene(initFrame, initIdepth);
-    odometry.initScene(initFrame);
+    odometry.initScene(image);
 
     while(1){
         framesTracked++;
@@ -60,11 +68,16 @@ int main(void)
         sprintf(image_filename,"../../desktop_dataset/scene_%03d.png", frameNumber);
         sprintf(RT_filename,"../../desktop_dataset/scene_%03d.txt", frameNumber);
 
-        cv::Mat frame = cv::imread(image_filename, cv::IMREAD_GRAYSCALE);
+        cv::Mat imageMat = cv::imread(image_filename, cv::IMREAD_GRAYSCALE);
         Sophus::SE3f realPose = readPose(RT_filename)*initPose.inverse();
 
+        imageMat.convertTo(imageMat, CV_32FC1);
+        cv::resize(imageMat, imageMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
+
+        image.set((float*)imageMat.data);
+
         //odometry.localization(frame);
-        odometry.mapping(frame, realPose);
+        odometry.mapping(image, realPose);
         //odometry.locAndMap(frame);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);

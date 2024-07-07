@@ -64,9 +64,9 @@ public:
 
     bool isBarycentricOk()
     {
-        if (barycentric(0) < -0.0 || barycentric(1) < -0.0 || barycentric(2) < -0.0)
+        if (barycentric(0) < -0.1 || barycentric(1) < -0.1 || barycentric(2) < -0.1)
             return false;
-        if (barycentric(0) >  1.0 || barycentric(1) >  1.0 || barycentric(2) >  1.0)
+        if (barycentric(0) >  1.1 || barycentric(1) >  1.1 || barycentric(2) >  1.1)
             return false;
         return true;
     };
@@ -91,13 +91,13 @@ public:
         return false;
     };
 
-    std::array<Eigen::Vector2f, 2> getMinMax()
+    std::array<int, 4> getMinMax()
     {
-        std::array<Eigen::Vector2f, 2> minmax;
-        minmax[0](0) = std::min(std::min(vertices[0](0), vertices[1](0)), vertices[2](0));
-        minmax[0](1) = std::min(std::min(vertices[0](1), vertices[1](1)), vertices[2](1));
-        minmax[1](0) = std::max(std::max(vertices[0](0), vertices[1](0)), vertices[2](0));
-        minmax[1](1) = std::max(std::max(vertices[0](1), vertices[1](1)), vertices[2](1));
+        std::array<int, 4> minmax;
+        minmax[0] = (int)std::min(std::min(vertices[0](0), vertices[1](0)), vertices[2](0))-1;
+        minmax[1] = (int)std::max(std::max(vertices[0](0), vertices[1](0)), vertices[2](0))+1;
+        minmax[2] = (int)std::min(std::min(vertices[0](1), vertices[1](1)), vertices[2](1))-1;
+        minmax[3] = (int)std::max(std::max(vertices[0](1), vertices[1](1)), vertices[2](1))+1;
 
         return minmax;
     };

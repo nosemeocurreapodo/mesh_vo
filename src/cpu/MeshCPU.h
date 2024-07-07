@@ -20,7 +20,7 @@ class MeshCPU
 public:
     MeshCPU();
 
-    void init(camera &cam, dataCPU<float> &idepth, int lvl);
+    void init(camera &cam, dataCPU<float> &idepth, dataCPU<float> &idepthInvVar, int lvl);
 
     Eigen::Vector3f getVertice(unsigned int id);
     Eigen::Vector2f &getTexCoord(unsigned int id);
@@ -32,10 +32,17 @@ public:
     std::vector<unsigned int> getTrianglesIds();
 
     unsigned int addVertice(Eigen::Vector3f &vert);
-    unsigned int addVertice(Eigen::Vector3f &vert, Eigen::Vector2f &tex);
     unsigned int addTriangle(std::array<unsigned int, 3> &tri);
     void setVerticeIdepth(float idepth, unsigned int id);
     float getVerticeIdepth(unsigned int id);
+    void setVerticeInvVar(float var, unsigned int id)
+    {
+        invVar[id] = var;
+    }
+    float getVerticeInvVar(unsigned int id)
+    {
+        return invVar[id];
+    }
 
     void transform(Sophus::SE3f pose);
     void computeTexCoords(camera &cam);
@@ -112,7 +119,8 @@ public:
                 depth = depth / count;
                 Eigen::Vector3f new_vertice = ray * depth;
 
-                addVertice(new_vertice);
+                unsigned int id = addVertice(new_vertice);
+                setVerticeInvVar(1.0/(10.0*10.0), id);
             }
         }
 
@@ -128,6 +136,8 @@ private:
     std::map<unsigned int, Eigen::Vector3f> vertices;
     std::map<unsigned int, Eigen::Vector2f> texcoords;
     std::map<unsigned int, std::array<unsigned int, 3>> triangles;
+    std::map<unsigned int, float> invVar;
+
     int last_v_id;
     int last_t_id;
 };
