@@ -43,6 +43,10 @@ public:
     unsigned int addVertice(Eigen::Vector3f &vert);
     unsigned int addTriangle(std::array<unsigned int, 3> &tri);
     void setVerticeIdepth(float idepth, unsigned int id);
+    void setVerticeDepth(float depth, unsigned int id)
+    {
+        
+    }
     float getVerticeIdepth(unsigned int id);
 
     void transform(Sophus::SE3f pose);

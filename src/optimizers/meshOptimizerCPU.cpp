@@ -672,8 +672,12 @@ void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
         for (int i = 0; i < 3; i++)
         {
             d_n_d_z[i] = kf_tri_3d.vertices[i].cross(pw2mpw1[i]);
-            // d_z_d_iz[i] = -1.0 / (kf_tri_idepth[i] * kf_tri_idepth[i]);
-            d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
+            //with respect to depth
+            //d_z_d_iz[i] = 1.0;
+            //with respecto to idepth (depth = 1/idepth)
+            //d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
+            //width respect to depth = exp(z)
+            d_z_d_iz[i] = kf_tri_3d.vertices[i](2);
         }
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
@@ -1297,8 +1301,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                     if (new_idepth < 0.001 || new_idepth > 100.0)
                         new_idepth = best_idepth;
                     best_idepths.push_back(best_idepth);
+                    keyframeMesh.setVerticeIdepth(new_idepth, ids[index]);
                 }
-                // keyframeMesh.setVerticesIdepths(new_idepths);
 
                 t.tic();
 
