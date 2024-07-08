@@ -7,33 +7,31 @@ MeshCPU::MeshCPU()
     last_t_id = 0;
 };
 
-void MeshCPU::setVerticeIdepth(float idepth, unsigned int id)
+void MeshCPU::setVerticeDepth(float depth, unsigned int id)
 {
-    if(!vertices.count(id))
+    if (!vertices.count(id))
         return;
     if (representation == rayIdepth)
-        vertices[id](2) = idepth;
+        vertices[id](2) = 1.0/depth;
     if (representation == cartesian)
     {
-        Eigen::Vector3f pos = cartesianToRayIdepth(vertices[id]);
-        pos(2) = idepth;
-        vertices[id] = rayIdepthToCartesian(pos);
+        vertices[id] = depth*vertices[id]/vertices[id](2);
     }
 }
 
-float MeshCPU::getVerticeIdepth(unsigned int id)
+float MeshCPU::getVerticeDepth(unsigned int id)
 {
-    if(!vertices.count(id))
+    if (!vertices.count(id))
         return -1;
     if (representation == rayIdepth)
-        return vertices[id](2);
+        return 1.0/vertices[id](2);
     if (representation == cartesian)
-        return 1.0 / vertices[id](2);
+        return vertices[id](2);
 }
 
 Eigen::Vector3f MeshCPU::getVertice(unsigned int id)
 {
-    if(!vertices.count(id))
+    if (!vertices.count(id))
         return Eigen::Vector3f(0.0, 0.0, -1.0);
     // always return in cartesian
     if (representation == rayIdepth)
@@ -76,7 +74,7 @@ unsigned int MeshCPU::addVertice(Eigen::Vector3f &vert)
 {
     // the input vertice is always in cartesian
     last_v_id++;
-    if(vertices.count(last_v_id) > 0)
+    if (vertices.count(last_v_id) > 0)
         return -1;
     if (representation == rayIdepth)
         vertices[last_v_id] = cartesianToRayIdepth(vert);

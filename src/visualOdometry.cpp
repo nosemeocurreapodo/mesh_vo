@@ -13,18 +13,18 @@ void visualOdometry::initScene(dataCPU<float> &image, Sophus::SE3f pose)
     lastFrame.set(image, pose);
     dataCPU<float> idepth = getRandomIdepth();
     dataCPU<float> invVar(cam.width, cam.height, -1.0);
-    invVar.set(10.0 * 10.0, 0);
+    invVar.set(1.0/INITIAL_VAR, 0);
     invVar.generateMipmaps();
 
-    meshOptimizer.initKeyframe(lastFrame, idepth, invVar);
+    meshOptimizer.initKeyframe(lastFrame, idepth, invVar, 0);
 }
 
 void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, Sophus::SE3f pose)
 {
     lastFrame.set(image, pose);
     dataCPU<float> invVar(cam.width, cam.height, -1.0);
-    invVar.set(10.0 * 10.0, 0);
-    meshOptimizer.initKeyframe(lastFrame, idepth, invVar);
+    invVar.set(1.0/INITIAL_VAR, 0);
+    meshOptimizer.initKeyframe(lastFrame, idepth, invVar, 0);
 }
 
 void visualOdometry::locAndMap(dataCPU<float> &image)

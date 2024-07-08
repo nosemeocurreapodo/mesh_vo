@@ -13,12 +13,20 @@
 #include "cpu/IndexThreadReduce.h"
 #include "params.h"
 
+enum OptimizationMethod
+{
+    depth,
+    idepth,
+    log_depth,
+    log_idepth
+};
+
 class meshOptimizerCPU
 {
 public:
     meshOptimizerCPU(camera &cam);
 
-    void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar);
+    void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar, int lvl);
 
     void renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
     void renderImage(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
@@ -39,22 +47,26 @@ public:
         keyframeMesh.transform(frame.pose * keyframe.pose.inverse());
         keyframe = frame;
 
-        dataCPU<float> image(cam[0].width, cam[0].height, -1);
-        renderImage(keyframe.pose, image, lvl);
+        //dataCPU<float> image(cam[0].width, cam[0].height, -1);
+        //renderImage(keyframe.pose, image, lvl);
 
         //float imageNoData = image.getPercentNoData(lvl);
 
-        keyframeMesh.extrapolateMesh(cam[lvl], image, lvl);
+        //keyframeMesh.extrapolateMesh(cam[lvl], image, lvl);
 
         dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
+        idepth.set(0.5, lvl);
+
         renderIdepth(keyframe.pose, idepth, lvl);
         
         dataCPU<float> invVar(cam[0].width, cam[0].height, -1);
+        invVar.set(1.0/INITIAL_VAR, lvl);
+
         renderInvVar(keyframe.pose, invVar, lvl);
 
-        //float idepthNoData = idepth.getPercentNoData(lvl);
+        float idepthNoData = idepth.getPercentNoData(lvl);
 
-        initKeyframe(frame, idepth, invVar);
+        initKeyframe(frame, idepth, invVar, lvl);
     }
 
     std::vector<std::array<unsigned int, 2>> getPixelEdges(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
@@ -102,7 +114,7 @@ public:
     }
 
     frameCPU keyframe;
-    MatrixMapped invIdepthVar;
+    MatrixMapped invVar;
 
 private:
     MeshCPU keyframeMesh;
@@ -134,4 +146,6 @@ private:
     bool multiThreading;
     float meshRegularization;
     float meshInitial;
+
+    OptimizationMethod optMethod;
 };

@@ -15,18 +15,17 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
 
     multiThreading = false;
     meshRegularization = 0.0;
-    meshInitial = 0.0;
+    meshInitial = 0.1;
+    optMethod = idepth;
 }
 
-void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar)
+void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar, int lvl)
 {
-    int lvl = 0;
-
     keyframe = frame;
     // keyframeMesh.init(cam[lvl], idepth, lvl);
 
     keyframeMesh.clear();
-    invIdepthVar.clear();
+    invVar.clear();
 
     for (int y = 0; y < MESH_HEIGHT; y++)
     {
@@ -54,7 +53,7 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
 
             unsigned int id = keyframeMesh.addVertice(vertice);
 
-            invIdepthVar[id][id] = idVar;
+            invVar[id][id] = idVar;
         }
     }
 
@@ -420,9 +419,9 @@ void meshOptimizerCPU::renderInvVar(Sophus::SE3f &pose, dataCPU<float> &buffer, 
             continue;
 
         std::array<float, 3> idepthVars;
-        idepthVars[0] = invIdepthVar[v_ids[0]][v_ids[0]];
-        idepthVars[1] = invIdepthVar[v_ids[1]][v_ids[1]];
-        idepthVars[2] = invIdepthVar[v_ids[2]][v_ids[2]];
+        idepthVars[0] = invVar[v_ids[0]][v_ids[0]];
+        idepthVars[1] = invVar[v_ids[1]][v_ids[1]];
+        idepthVars[2] = invVar[v_ids[2]][v_ids[2]];
 
         f_tri.computeTinv();
         std::array<int, 4> minmax = f_tri.getMinMax();
@@ -673,11 +672,16 @@ void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
         {
             d_n_d_z[i] = kf_tri_3d.vertices[i].cross(pw2mpw1[i]);
             //with respect to depth
-            //d_z_d_iz[i] = 1.0;
+            if(optMethod == depth)
+                d_z_d_iz[i] = 1.0;
             //with respecto to idepth (depth = 1/idepth)
-            //d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
+            if(optMethod == idepth)
+                d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
             //width respect to depth = exp(z)
-            d_z_d_iz[i] = kf_tri_3d.vertices[i](2);
+            if(optMethod == log_depth)
+                d_z_d_iz[i] = kf_tri_3d.vertices[i](2);
+            if(optMethod == log_idepth)
+                d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
         }
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
@@ -850,8 +854,17 @@ void meshOptimizerCPU::HGPoseMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, st
         for (int i = 0; i < 3; i++)
         {
             d_n_d_z[i] = kf_tri_3d.vertices[i].cross(pw2mpw1[i]);
-            // d_z_d_iz[i] = -1.0 / (kf_tri_idepth[i] * kf_tri_idepth[i]);
-            d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
+            //with respect to depth
+            if(optMethod == depth)
+                d_z_d_iz[i] = 1.0;
+            //with respecto to idepth (depth = 1/idepth)
+            if(optMethod == idepth)
+                d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
+            //width respect to depth = exp(z)
+            if(optMethod == log_depth)
+                d_z_d_iz[i] = kf_tri_3d.vertices[i](2);
+            if(optMethod == log_idepth)
+                d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
         }
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
@@ -967,16 +980,25 @@ Error meshOptimizerCPU::errorRegu()
         unsigned int id = triIds[index];
         std::array<unsigned int, 3> tri = keyframeMesh.getTriangleIndices(id);
 
-        float idepth[3];
+        float theta[3];
         for (int j = 0; j < 3; j++)
-            idepth[j] = keyframeMesh.getVerticeIdepth(tri[j]);
+        {
+            if(optMethod == depth)
+                theta[j] = keyframeMesh.getVerticeDepth(tri[j]);
+            if(optMethod == idepth)
+                theta[j] = 1.0/keyframeMesh.getVerticeDepth(tri[j]);
+            if(optMethod == log_depth)
+                theta[j] = std::log(keyframeMesh.getVerticeDepth(tri[j]));
+            if(optMethod == log_idepth)
+                theta[j] = std::log(1.0/keyframeMesh.getVerticeDepth(tri[j]));
+        }
 
-        if (idepth[0] <= 0.0 || idepth[1] <= 0.0 || idepth[2] <= 0.0)
+        if (theta[0] <= 0.0 || theta[1] <= 0.0 || theta[2] <= 0.0)
             continue;
 
-        float diff1 = idepth[0] - idepth[1];
-        float diff2 = idepth[0] - idepth[2];
-        float diff3 = idepth[1] - idepth[2];
+        float diff1 = theta[0] - theta[1];
+        float diff2 = theta[0] - theta[2];
+        float diff3 = theta[1] - theta[2];
 
         error.error += diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
     }
@@ -998,16 +1020,25 @@ HGMapped meshOptimizerCPU::HGRegu()
 
         std::array<unsigned int, 3> v_ids = keyframeMesh.getTriangleIndices(t_id);
 
-        float idepth[3];
+        float theta[3];
         for (int j = 0; j < 3; j++)
-            idepth[j] = keyframeMesh.getVerticeIdepth(v_ids[j]);
+        {
+            if(optMethod == depth)
+                theta[j] = keyframeMesh.getVerticeDepth(v_ids[j]);
+            if(optMethod == idepth)
+                theta[j] = 1.0/keyframeMesh.getVerticeDepth(v_ids[j]);
+            if(optMethod == log_depth)
+                theta[j] = std::log(keyframeMesh.getVerticeDepth(v_ids[j]));
+            if(optMethod == log_idepth)
+                theta[j] = std::log(1.0/keyframeMesh.getVerticeDepth(v_ids[j]));
+        }
 
-        if (idepth[0] <= 0.0 || idepth[1] <= 0.0 || idepth[2] <= 0.0)
+        if (theta[0] <= 0.0 || theta[1] <= 0.0 || theta[2] <= 0.0)
             continue;
 
-        float diff1 = idepth[0] - idepth[1];
-        float diff2 = idepth[0] - idepth[2];
-        float diff3 = idepth[1] - idepth[2];
+        float diff1 = theta[0] - theta[1];
+        float diff2 = theta[0] - theta[2];
+        float diff3 = theta[1] - theta[2];
 
         float J1[3] = {1.0, -1.0, 0.0};
         float J2[3] = {1.0, 0.0, -1.0};
@@ -1030,7 +1061,7 @@ HGMapped meshOptimizerCPU::HGRegu()
     return hg;
 }
 
-Error meshOptimizerCPU::errorInitial(MeshCPU &initMesh, MatrixMapped &initInvDepthVar)
+Error meshOptimizerCPU::errorInitial(MeshCPU &initMesh, MatrixMapped &initThetaVar)
 {
     Error error;
 
@@ -1040,11 +1071,30 @@ Error meshOptimizerCPU::errorInitial(MeshCPU &initMesh, MatrixMapped &initInvDep
     {
         unsigned int id = vertsIds[index];
 
-        float idepth = keyframeMesh.getVerticeIdepth(id);
-        float initIdepth = initMesh.getVerticeIdepth(id);
-        float initVar = initInvDepthVar[id][id];
+        float initVar = initThetaVar[id][id];
+        float theta, initTheta;
+        if(optMethod == depth)
+        {
+            theta = keyframeMesh.getVerticeDepth(id);
+            initTheta = initMesh.getVerticeDepth(id);
+        }
+        if(optMethod == idepth)
+        {
+            theta = 1.0/keyframeMesh.getVerticeDepth(id);
+            initTheta = 1.0/initMesh.getVerticeDepth(id);
+        }
+        if(optMethod == log_depth)
+        {
+            theta = std::log(keyframeMesh.getVerticeDepth(id));
+            initTheta = std::log(initMesh.getVerticeDepth(id));
+        }
+        if(optMethod == log_idepth)
+        {
+            theta = std::log(1.0/keyframeMesh.getVerticeDepth(id));
+            initTheta = std::log(1.0/initMesh.getVerticeDepth(id));
+        }
 
-        float diff = idepth - initIdepth;
+        float diff = theta - initTheta;
 
         error.error += initVar * diff * diff;
     }
@@ -1054,7 +1104,7 @@ Error meshOptimizerCPU::errorInitial(MeshCPU &initMesh, MatrixMapped &initInvDep
     return error;
 }
 
-HGMapped meshOptimizerCPU::HGInitial(MeshCPU &initMesh, MatrixMapped &initInvDepthVar)
+HGMapped meshOptimizerCPU::HGInitial(MeshCPU &initMesh, MatrixMapped &initThetaVar)
 {
     HGMapped hg;
 
@@ -1064,12 +1114,31 @@ HGMapped meshOptimizerCPU::HGInitial(MeshCPU &initMesh, MatrixMapped &initInvDep
     {
         unsigned int v_id = vertsIds[i];
 
-        float idepth = keyframeMesh.getVerticeIdepth(v_id);
-        float initIdepth = initMesh.getVerticeIdepth(v_id);
-        float invVar = initInvDepthVar[v_id][v_id];
+        float initVar = initThetaVar[v_id][v_id];
+        float theta, initTheta;
+        if(optMethod == depth)
+        {
+            theta = keyframeMesh.getVerticeDepth(v_id);
+            initTheta = initMesh.getVerticeDepth(v_id);
+        }
+        if(optMethod == idepth)
+        {
+            theta = 1.0/keyframeMesh.getVerticeDepth(v_id);
+            initTheta = 1.0/initMesh.getVerticeDepth(v_id);
+        }
+        if(optMethod == log_depth)
+        {
+            theta = std::log(keyframeMesh.getVerticeDepth(v_id));
+            initTheta = std::log(initMesh.getVerticeDepth(v_id));
+        }
+        if(optMethod == log_idepth)
+        {
+            theta = std::log(1.0/keyframeMesh.getVerticeDepth(v_id));
+            initTheta = std::log(1.0/initMesh.getVerticeDepth(v_id));
+        }
 
-        hg.G[v_id] += invVar * (idepth - initIdepth);
-        hg.H[v_id][v_id] += invVar;
+        hg.G[v_id] += initVar * (theta - initTheta);
+        hg.H[v_id][v_id] += initVar;
     }
 
     hg.count = vertsIds.size();
@@ -1203,7 +1272,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
         // std::vector<float> best_idepths = keyframeMesh.getVerticesIdepths();
 
         MeshCPU initialMesh = keyframeMesh.getCopy();
-        MatrixMapped initialInvVar = invIdepthVar;
+        MatrixMapped initialInvVar = invVar;
 
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
@@ -1293,15 +1362,30 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                 std::cout << "solve time " << t.toc() << std::endl;
 
-                std::vector<float> best_idepths;
+                std::vector<float> best_depths;
                 for (int index = 0; index < (int)ids.size(); index++)
                 {
-                    float best_idepth = keyframeMesh.getVerticeIdepth(ids[index]);
-                    float new_idepth = best_idepth + inc(index);
-                    if (new_idepth < 0.001 || new_idepth > 100.0)
-                        new_idepth = best_idepth;
-                    best_idepths.push_back(best_idepth);
-                    keyframeMesh.setVerticeIdepth(new_idepth, ids[index]);
+                    //float best_idepth = keyframeMesh.getVerticeIdepth(ids[index]);
+                    //float new_idepth = best_idepth + inc(index);
+                    //if (new_idepth < 0.001 || new_idepth > 100.0)
+                    //    new_idepth = best_idepth;
+                    //best_idepths.push_back(best_idepth);
+                    //keyframeMesh.setVerticeIdepth(new_idepth, ids[index]);
+
+                    float best_depth = keyframeMesh.getVerticeDepth(ids[index]);
+                    float new_depth;
+                    if(optMethod == depth)
+                        new_depth = best_depth + inc(index);
+                    if(optMethod == idepth)
+                        new_depth = 1.0/(1.0/best_depth + inc(index));
+                    if(optMethod == log_depth)
+                        new_depth = std::exp(std::log(best_depth) + inc(index));
+                    if(optMethod == log_idepth)
+                        new_depth = 1.0/std::exp(std::log(1.0/best_depth) + inc(index));
+                    if (new_depth < 0.001 || new_depth > 100.0)
+                        new_depth = best_depth;
+                    best_depths.push_back(best_depth);
+                    keyframeMesh.setVerticeDepth(new_depth, ids[index]);
                 }
 
                 t.tic();
@@ -1314,7 +1398,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 e_regu = errorRegu();
                 e_regu.error /= e_regu.count;
 
-                e_init = errorInitial(initialMesh, invIdepthVar);
+                e_init = errorInitial(initialMesh, initialInvVar);
                 e_init.error /= e_init.count;
 
                 float error = e.error + meshRegularization * e_regu.error + meshInitial * e_init.error;
@@ -1323,7 +1407,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                 if (error < last_error)
                 {
-                    invIdepthVar = hg.H;
+                    invVar = hg.H;
 
                     // accept update, decrease lambda
                     float p = error / last_error;
@@ -1348,7 +1432,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 else
                 {
                     for (int index = 0; index < ids.size(); index++)
-                        keyframeMesh.setVerticeIdepth(best_idepths[index], ids[index]);
+                        keyframeMesh.setVerticeDepth(best_depths[index], ids[index]);
 
                     n_try++;
 
@@ -1478,19 +1562,27 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 }
 
                 // update map
-                std::map<unsigned int, float> best_idepths;
+                std::map<unsigned int, float> best_depths;
                 for (int index = 0; index < (int)ids.size(); index++)
                 {
                     // negative ids are for the poses
                     if (ids[index] < 0)
                         continue;
 
-                    float best_idepth = keyframeMesh.getVerticeIdepth(ids[index]);
-                    float new_idepth = best_idepth + inc(index);
-                    if (new_idepth < 0.001 || new_idepth > 100.0)
-                        new_idepth = best_idepth;
-                    best_idepths[ids[index]] = best_idepth;
-                    keyframeMesh.setVerticeIdepth(new_idepth, ids[index]);
+                    float best_depth = keyframeMesh.getVerticeDepth(ids[index]);
+                    float new_depth;
+                    if(optMethod == depth)
+                        new_depth = best_depth + inc(index);
+                    if(optMethod == idepth)
+                        new_depth = 1.0/(1.0/best_depth + inc(index));
+                    if(optMethod == log_depth)
+                        new_depth = std::exp(std::log(best_depth) + inc(index));
+                    if(optMethod == log_idepth)
+                        new_depth = 1.0/std::exp(std::log(1.0/best_depth) + inc(index));
+                    if (new_depth < 0.001 || new_depth > 100.0)
+                        new_depth = best_depth;
+                    best_depths[ids[index]] = best_depth;
+                    keyframeMesh.setVerticeDepth(new_depth, ids[index]);
                 }
                 // keyframeMesh.setVerticesIdepths(new_idepths);
 
@@ -1540,7 +1632,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                         // negative ids are for the poses
                         if (ids[index] < 0)
                             continue;
-                        keyframeMesh.setVerticeIdepth(best_idepths[ids[index]], ids[index]);
+                        keyframeMesh.setVerticeDepth(best_depths[ids[index]], ids[index]);
                     }
 
                     n_try++;
