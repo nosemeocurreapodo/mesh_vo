@@ -18,10 +18,47 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     meshInitial = 0.0;
 }
 
-void meshOptimizerCPU::init(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthInvVar)
+void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar)
 {
+    int lvl = 0;
+
     keyframe = frame;
-    keyframeMesh.init(cam[0], idepth, idepthInvVar, 0);
+    // keyframeMesh.init(cam[lvl], idepth, lvl);
+
+    keyframeMesh.clear();
+    invIdepthVar.clear();
+
+    for (int y = 0; y < MESH_HEIGHT; y++)
+    {
+        for (int x = 0; x < MESH_WIDTH; x++)
+        {
+            Eigen::Vector2f pix;
+            pix[0] = (cam[lvl].width - 1) * float(x) / (MESH_WIDTH - 1);
+            pix[1] = (cam[lvl].height - 1) * float(y) / (MESH_HEIGHT - 1);
+            // pix[0] = rand() % cam.width[lvl];
+            // pix[1] = rand() % cam.height[lvl];
+            // pix[0] = rand() % cam.width[lvl] * 0.75 + cam.width[lvl] * 0.125;
+            // pix[1] = rand() % cam.height[lvl] * 0.75 + cam.height[lvl] * 0.125;
+            // pix[0] = (float(x)/(MESH_WIDTH-1)) * cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
+            // pix[1] = (float(y)/(MESH_HEIGHT-1)) * cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
+            Eigen::Vector3f ray = cam[lvl].pixToRay(pix);
+            float idph = idepth.get(pix[1], pix[0], lvl);
+            float idVar = idepthVar.get(pix[1], pix[0], lvl);
+            if (idph == idepth.nodata)
+                continue;
+
+            if (idph <= 0.0)
+                continue;
+
+            Eigen::Vector3f vertice = ray / idph;
+
+            unsigned int id = keyframeMesh.addVertice(vertice);
+
+            invIdepthVar[id][id] = idVar;
+        }
+    }
+
+    keyframeMesh.buildTriangles(cam[lvl]);
 }
 
 void meshOptimizerCPU::renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
@@ -44,8 +81,8 @@ void meshOptimizerCPU::renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, 
         //     continue;
         Triangle3D f_tri3d = frameMesh.getCartesianTriangle(t_id);
         Triangle2D f_tri2d = frameMesh.getTexCoordTriangle(t_id);
-        // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
-        //     continue;
+        // if (f_tri2d.vertices[0](2) <= 0.0 || f_tri2d.vertices[1](2) <= 0.0 || f_tri2d.vertices[2](2) <= 0.0)
+        //      continue;
         if (f_tri2d.getArea() < 1.0)
             continue;
 
@@ -383,9 +420,9 @@ void meshOptimizerCPU::renderInvVar(Sophus::SE3f &pose, dataCPU<float> &buffer, 
             continue;
 
         std::array<float, 3> idepthVars;
-        idepthVars[0] = std::log10(frameMesh.getVerticeInvVar(v_ids[0]));
-        idepthVars[1] = std::log10(frameMesh.getVerticeInvVar(v_ids[1]));
-        idepthVars[2] = std::log10(frameMesh.getVerticeInvVar(v_ids[2]));
+        idepthVars[0] = invIdepthVar[v_ids[0]][v_ids[0]];
+        idepthVars[1] = invIdepthVar[v_ids[1]][v_ids[1]];
+        idepthVars[2] = invIdepthVar[v_ids[2]][v_ids[2]];
 
         f_tri.computeTinv();
         std::array<int, 4> minmax = f_tri.getMinMax();
@@ -577,7 +614,7 @@ void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::v
 {
     // z_buffer.reset(lvl);
 
-    float min_area = (float(cam[lvl].width) / (MESH_WIDTH-1)) * (float(cam[lvl].height) / (MESH_HEIGHT-1)) / 16;
+    float min_area = (float(cam[lvl].width) / (MESH_WIDTH - 1)) * (float(cam[lvl].height) / (MESH_HEIGHT - 1)) / 16;
     float min_angle = M_PI / 64.0;
 
     // for each triangle
@@ -989,7 +1026,7 @@ HGMapped meshOptimizerCPU::HGRegu()
     return hg;
 }
 
-Error meshOptimizerCPU::errorInitial(MeshCPU &initMesh)
+Error meshOptimizerCPU::errorInitial(MeshCPU &initMesh, MatrixMapped &initInvDepthVar)
 {
     Error error;
 
@@ -1001,7 +1038,7 @@ Error meshOptimizerCPU::errorInitial(MeshCPU &initMesh)
 
         float idepth = keyframeMesh.getVerticeIdepth(id);
         float initIdepth = initMesh.getVerticeIdepth(id);
-        float initVar = initMesh.getVerticeInvVar(id);
+        float initVar = initInvDepthVar[id][id];
 
         float diff = idepth - initIdepth;
 
@@ -1013,7 +1050,7 @@ Error meshOptimizerCPU::errorInitial(MeshCPU &initMesh)
     return error;
 }
 
-HGMapped meshOptimizerCPU::HGInitial(MeshCPU &initMesh)
+HGMapped meshOptimizerCPU::HGInitial(MeshCPU &initMesh, MatrixMapped &initInvDepthVar)
 {
     HGMapped hg;
 
@@ -1025,7 +1062,7 @@ HGMapped meshOptimizerCPU::HGInitial(MeshCPU &initMesh)
 
         float idepth = keyframeMesh.getVerticeIdepth(v_id);
         float initIdepth = initMesh.getVerticeIdepth(v_id);
-        float invVar = initMesh.getVerticeInvVar(v_id);
+        float invVar = initInvDepthVar[v_id][v_id];
 
         hg.G[v_id] += invVar * (idepth - initIdepth);
         hg.H[v_id][v_id] += invVar;
@@ -1162,6 +1199,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
         // std::vector<float> best_idepths = keyframeMesh.getVerticesIdepths();
 
         MeshCPU initialMesh = keyframeMesh.getCopy();
+        MatrixMapped initialInvVar = invIdepthVar;
 
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
@@ -1171,7 +1209,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
         e_regu = errorRegu();
         e_regu.error /= e_regu.count;
 
-        e_init = errorInitial(initialMesh);
+        e_init = errorInitial(initialMesh, initialInvVar);
         e_init.error /= e_init.count;
 
         float last_error = e.error + meshRegularization * e_regu.error + meshInitial * e_init.error;
@@ -1204,7 +1242,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
             H_regu /= hg_regu.count;
             G_regu /= hg_regu.count;
 
-            hg_init = HGInitial(initialMesh);
+            hg_init = HGInitial(initialMesh, initialInvVar);
 
             Eigen::VectorXf G_init = hg_init.G.toEigen(ids);
             Eigen::SparseMatrix<float> H_init = hg_init.H.toEigen(ids);
@@ -1259,7 +1297,6 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                     if (new_idepth < 0.001 || new_idepth > 100.0)
                         new_idepth = best_idepth;
                     best_idepths.push_back(best_idepth);
-                    keyframeMesh.setVerticeIdepth(new_idepth, ids[index]);
                 }
                 // keyframeMesh.setVerticesIdepths(new_idepths);
 
@@ -1273,7 +1310,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 e_regu = errorRegu();
                 e_regu.error /= e_regu.count;
 
-                e_init = errorInitial(initialMesh);
+                e_init = errorInitial(initialMesh, invIdepthVar);
                 e_init.error /= e_init.count;
 
                 float error = e.error + meshRegularization * e_regu.error + meshInitial * e_init.error;
@@ -1282,10 +1319,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                 if (error < last_error)
                 {
-                    for (int index = 0; index < (int)ids.size(); index++)
-                    {
-                        keyframeMesh.setVerticeInvVar(H.coeffRef(index, index), ids[index]);
-                    }
+                    invIdepthVar = hg.H;
 
                     // accept update, decrease lambda
                     float p = error / last_error;

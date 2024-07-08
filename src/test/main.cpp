@@ -44,14 +44,21 @@ int main(void)
     dataCPU<float> image(cam.width, cam.height, -1.0);
     image.set((float*)imageMat.data);
     
-    cv::Mat initIdepthMat;
+    cv::Mat idepthMat;
     cv::FileStorage fs("../../desktop_dataset/scene_depth_000.yml", cv::FileStorage::READ );
-    fs["idepth"] >> initIdepthMat;
+    fs["idepth"] >> idepthMat;
+
+    idepthMat.convertTo(idepthMat, CV_32FC1);
+    cv::resize(idepthMat, idepthMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
+    //cv::blur(idepthMat, idepthMat, cv::Size(5, 5));
+
+    dataCPU<float> idepth(cam.width, cam.height, -1.0);
+    idepth.set((float*)idepthMat.data);
 
     visualOdometry odometry(cam);
 
-    //odometry.initScene(initFrame, initIdepth);
-    odometry.initScene(image);
+    odometry.initScene(image, idepth);
+    //odometry.initScene(image);
 
     while(1){
         framesTracked++;

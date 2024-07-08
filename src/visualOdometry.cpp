@@ -13,18 +13,18 @@ void visualOdometry::initScene(dataCPU<float> &image, Sophus::SE3f pose)
     lastFrame.set(image, pose);
     dataCPU<float> idepth = getRandomIdepth();
     dataCPU<float> invVar(cam.width, cam.height, -1.0);
-    invVar.set(1.0 / (1.0 * 1.0), 0);
+    invVar.set(10.0 * 10.0, 0);
     invVar.generateMipmaps();
 
-    meshOptimizer.init(lastFrame, idepth, invVar);
+    meshOptimizer.initKeyframe(lastFrame, idepth, invVar);
 }
 
 void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, Sophus::SE3f pose)
 {
     lastFrame.set(image, pose);
     dataCPU<float> invVar(cam.width, cam.height, -1.0);
-    invVar.set(1.0 / (1.0 * 1.0), 0);
-    meshOptimizer.init(lastFrame, idepth, invVar);
+    invVar.set(10.0 * 10.0, 0);
+    meshOptimizer.initKeyframe(lastFrame, idepth, invVar);
 }
 
 void visualOdometry::locAndMap(dataCPU<float> &image)
@@ -112,10 +112,10 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     // lastFrame.set(image);
     lastFrame.set(image, pose);
 
-    // if (frames.size() >= 2)
-    //     frames.erase(frames.begin());
+    //frames.clear();
+    if (frames.size() >= 1)
+        frames.erase(frames.begin());
 
-    frames.clear();
     frames.push_back(lastFrame);
 
     t.tic();
@@ -126,7 +126,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
 
     float scenePercentNoData = sceneImage.getPercentNoData(1);
 
-    if (scenePercentNoData > 1.0)
+    if (scenePercentNoData > 0.1)
     {
         meshOptimizer.changeKeyframe(lastFrame);
     }

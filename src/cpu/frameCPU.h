@@ -23,6 +23,7 @@ public:
     {
         init = other.init;
         id = other.id;
+        pose = other.pose;
     }
 
     frameCPU &operator=(const frameCPU &other)
@@ -31,6 +32,7 @@ public:
         {
             init = other.init;
             id = other.id;
+            pose = other.pose;
 
             image = other.image;
             dx = other.dx;

@@ -11,6 +11,20 @@ public:
     {
     }
 
+    VectorMapped(const VectorMapped &other)
+    {
+        vector = other.vector;
+    }
+
+    VectorMapped &operator=(const VectorMapped &other)
+    {
+        if (this != &other)
+        {
+            vector = other.vector;
+        }
+        return *this;
+    }
+
     void clear()
     {
         vector.clear();
@@ -87,6 +101,20 @@ class MatrixMapped
 public:
     MatrixMapped()
     {
+    }
+
+    MatrixMapped(const MatrixMapped &other)
+    {
+        matrix = other.matrix;
+    }
+
+    MatrixMapped &operator=(const MatrixMapped &other)
+    {
+        if (this != &other)
+        {
+            matrix = other.matrix;
+        }
+        return *this;
     }
 
     void clear()

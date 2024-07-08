@@ -20,14 +20,23 @@ class MeshCPU
 public:
     MeshCPU();
 
-    void init(camera &cam, dataCPU<float> &idepth, dataCPU<float> &idepthInvVar, int lvl);
+    void clear()
+    {
+        vertices.clear();
+        texcoords.clear();
+        triangles.clear();
+
+        last_v_id = 0;
+        last_t_id = 0;
+    }
+
+    MeshCPU getCopy();
 
     Eigen::Vector3f getVertice(unsigned int id);
-    Eigen::Vector2f &getTexCoord(unsigned int id);
+    Eigen::Vector2f getTexCoord(unsigned int id);
     std::array<unsigned int, 3> getTriangleIndices(unsigned int id);
     Triangle2D getTexCoordTriangle(unsigned int id);
     Triangle3D getCartesianTriangle(unsigned int id);
-    MeshCPU getCopy();
     std::vector<unsigned int> getVerticesIds();
     std::vector<unsigned int> getTrianglesIds();
 
@@ -35,14 +44,6 @@ public:
     unsigned int addTriangle(std::array<unsigned int, 3> &tri);
     void setVerticeIdepth(float idepth, unsigned int id);
     float getVerticeIdepth(unsigned int id);
-    void setVerticeInvVar(float var, unsigned int id)
-    {
-        invVar[id] = var;
-    }
-    float getVerticeInvVar(unsigned int id)
-    {
-        return invVar[id];
-    }
 
     void transform(Sophus::SE3f pose);
     void computeTexCoords(camera &cam);
@@ -64,8 +65,8 @@ public:
     {
         computeTexCoords(cam);
 
-        float step_x = 0.25* float(cam.width) / (MESH_WIDTH - 1);
-        float step_y = 0.25* float(cam.height) / (MESH_HEIGHT - 1);
+        float step_x = 0.25 * float(cam.width) / (MESH_WIDTH - 1);
+        float step_y = 0.25 * float(cam.height) / (MESH_HEIGHT - 1);
 
         std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> edgeFront = computeEdgeFront();
 
@@ -84,7 +85,6 @@ public:
                 int count = 0;
                 Eigen::Vector3f ray = cam.pixToRay(pix);
 
-
                 auto sortedEdgeFront = getSortedEdgeFront(edgeFront, pix);
                 for (auto edge : sortedEdgeFront)
                 {
@@ -94,10 +94,10 @@ public:
                         continue;
                     depth += ndepth;
                     count++;
-                    if(count > 3)
+                    if (count > 3)
                         break;
                 }
-                
+
                 /*
                 std::vector<unsigned int> trisIds = getSortedTexCoordTriangles(pix);
                 for (auto triId : trisIds)
@@ -113,14 +113,13 @@ public:
                 }
                 */
 
-                if(count == 0)
+                if (count == 0)
                     continue;
 
                 depth = depth / count;
                 Eigen::Vector3f new_vertice = ray * depth;
 
                 unsigned int id = addVertice(new_vertice);
-                setVerticeInvVar(1.0/(10.0*10.0), id);
             }
         }
 
@@ -136,7 +135,6 @@ private:
     std::map<unsigned int, Eigen::Vector3f> vertices;
     std::map<unsigned int, Eigen::Vector2f> texcoords;
     std::map<unsigned int, std::array<unsigned int, 3>> triangles;
-    std::map<unsigned int, float> invVar;
 
     int last_v_id;
     int last_t_id;

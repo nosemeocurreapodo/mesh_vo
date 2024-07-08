@@ -64,9 +64,9 @@ public:
 
     bool isBarycentricOk()
     {
-        if (barycentric(0) < -0.1 || barycentric(1) < -0.1 || barycentric(2) < -0.1)
+        if (barycentric(0) < -0.0 || barycentric(1) < -0.0 || barycentric(2) < -0.0)
             return false;
-        if (barycentric(0) >  1.1 || barycentric(1) >  1.1 || barycentric(2) >  1.1)
+        if (barycentric(0) >  1.0 || barycentric(1) >  1.0 || barycentric(2) >  1.0)
             return false;
         return true;
     };

@@ -18,7 +18,7 @@ class meshOptimizerCPU
 public:
     meshOptimizerCPU(camera &cam);
 
-    void init(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthInvVar);
+    void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar);
 
     void renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
     void renderImage(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
@@ -42,7 +42,7 @@ public:
         dataCPU<float> image(cam[0].width, cam[0].height, -1);
         renderImage(keyframe.pose, image, lvl);
 
-        float imageNoData = image.getPercentNoData(lvl);
+        //float imageNoData = image.getPercentNoData(lvl);
 
         keyframeMesh.extrapolateMesh(cam[lvl], image, lvl);
 
@@ -52,12 +52,9 @@ public:
         dataCPU<float> invVar(cam[0].width, cam[0].height, -1);
         renderInvVar(keyframe.pose, invVar, lvl);
 
-        float idepthNoData = idepth.getPercentNoData(lvl);
+        //float idepthNoData = idepth.getPercentNoData(lvl);
 
-        keyframeMesh.init(cam[lvl], idepth, invVar, lvl);
-        // keyframeMesh.removeOcludedTriangles(cam[1]);
-        // completeMesh(keyframeMesh);
-        // keyframeMesh.buildTriangles(cam[1]);
+        initKeyframe(frame, idepth, invVar);
     }
 
     std::vector<std::array<unsigned int, 2>> getPixelEdges(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
@@ -105,6 +102,7 @@ public:
     }
 
     frameCPU keyframe;
+    MatrixMapped invIdepthVar;
 
 private:
     MeshCPU keyframeMesh;
@@ -126,8 +124,8 @@ private:
     Error errorRegu();
     HGMapped HGRegu();
 
-    Error errorInitial(MeshCPU &initialMesh);
-    HGMapped HGInitial(MeshCPU &initialMesh);
+    Error errorInitial(MeshCPU &initialMesh, MatrixMapped &initialInvDepthMap);
+    HGMapped HGInitial(MeshCPU &initialMesh, MatrixMapped &initialInvDepthMap);
 
     IndexThreadReduce<Error> errorTreadReduce;
     IndexThreadReduce<HGMapped> hgMappedTreadReduce;

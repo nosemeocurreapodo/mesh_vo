@@ -22,6 +22,10 @@ inline void show(dataCPU<float> &data, std::string window_name, int lvl)
     cv::inRange(toShow, data.nodata, data.nodata, mask);
     cv::bitwise_not(mask, maskInv);
 
+    //float min, max;
+    //cv::minMaxIdx(toShow, min, max, maskInv);
+    //cv::threshold(toShow, toShow);
+
     // cv::Mat zeros = cv::Mat(texture[lvl].rows, texture[lvl].cols, CV_32FC1, cv::Scalar(0));
 
     cv::normalize(toShow, toShow, 1.0, 0.0, cv::NORM_MINMAX, CV_32F, maskInv);

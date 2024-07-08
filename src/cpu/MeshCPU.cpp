@@ -7,51 +7,6 @@ MeshCPU::MeshCPU()
     last_t_id = 0;
 };
 
-void MeshCPU::init(camera &cam, dataCPU<float> &idepth, dataCPU<float> &idepthInvVar, int lvl)
-{
-    vertices.clear();
-    texcoords.clear();
-    triangles.clear();
-    invVar.clear();
-    last_v_id = 0;
-    last_t_id = 0;
-
-    for (int y = 0; y < MESH_HEIGHT; y++)
-    {
-        for (int x = 0; x < MESH_WIDTH; x++)
-        {
-            Eigen::Vector2f pix;
-            pix[0] = (cam.width - 1) * float(x) / (MESH_WIDTH - 1);
-            pix[1] = (cam.height - 1) * float(y) / (MESH_HEIGHT - 1);
-            // pix[0] = rand() % cam.width[lvl];
-            // pix[1] = rand() % cam.height[lvl];
-            // pix[0] = rand() % cam.width[lvl] * 0.75 + cam.width[lvl] * 0.125;
-            // pix[1] = rand() % cam.height[lvl] * 0.75 + cam.height[lvl] * 0.125;
-            // pix[0] = (float(x)/(MESH_WIDTH-1)) * cam.width[lvl] / 2.0 + cam.width[lvl] / 4.0;
-            // pix[1] = (float(y)/(MESH_HEIGHT-1)) * cam.height[lvl] / 2.0 + cam.height[lvl] / 4.0;
-            Eigen::Vector3f ray = cam.pixToRay(pix);
-            float idph = idepth.get(pix[1], pix[0], lvl);
-            float idphInvVar = idepthInvVar.get(pix[1], pix[0], lvl);
-            if (idph == idepth.nodata)
-                continue;
-
-            if (idph <= 0.0)
-                continue;
-
-            Eigen::Vector3f vertice;
-            if (representation == rayIdepth)
-                vertice = Eigen::Vector3f(ray(0), ray(1), idph);
-            if (representation == cartesian)
-                vertice = ray / idph;
-
-            unsigned int id = addVertice(vertice);
-            setVerticeInvVar(idphInvVar, id);
-        }
-    }
-
-    buildTriangles(cam);
-}
-
 void MeshCPU::setVerticeIdepth(float idepth, unsigned int id)
 {
     if(!vertices.count(id))
@@ -86,7 +41,7 @@ Eigen::Vector3f MeshCPU::getVertice(unsigned int id)
     return vertices[id];
 }
 
-Eigen::Vector2f &MeshCPU::getTexCoord(unsigned int id)
+Eigen::Vector2f MeshCPU::getTexCoord(unsigned int id)
 {
     return texcoords[id];
 }
@@ -144,8 +99,9 @@ MeshCPU MeshCPU::getCopy()
     meshCopy.vertices = vertices;
     meshCopy.texcoords = texcoords;
     meshCopy.triangles = triangles;
-    meshCopy.invVar = invVar;
     meshCopy.representation = representation;
+    meshCopy.last_v_id = last_v_id;
+    meshCopy.last_t_id = last_t_id;
 
     return meshCopy;
 }
