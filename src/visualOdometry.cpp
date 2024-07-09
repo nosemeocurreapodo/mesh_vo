@@ -80,7 +80,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     lastFrame.set(image, pose);
 
     // frames.clear();
-    if (frames.size() >= 2)
+    if (frames.size() >= 5)
         frames.erase(frames.begin());
 
     frames.push_back(lastFrame);

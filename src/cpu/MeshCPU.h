@@ -67,10 +67,13 @@ public:
     bool isTrianglePresent(std::array<unsigned int, 3> &tri);
 
     unsigned int getClosestTexCoordTriangle(Eigen::Vector2f &pix);
-    void buildTriangles(camera &cam);
     void removePointsWithoutTriangles();
     void removeTrianglesWithoutPoints();
+    
+    void buildTriangles(camera &cam);
     void removeOcluded(camera &cam);
+    void devideBigTriangles(camera &cam);
+
 
     void extrapolateMesh(camera &cam, dataCPU<float> &mask, int lvl)
     {

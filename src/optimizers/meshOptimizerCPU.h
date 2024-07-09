@@ -73,33 +73,30 @@ public:
     void changeKeyframe(frameCPU &frame)
     {
         int lvl = 1;
-        /*
-        // the keyframemesh is relative to the keyframe pose
-        // so to transform the pose coordinate system
-        // just have to multiply with the pose increment from the keyframe
-        keyframeMesh.transform(frame.pose * keyframe.pose.inverse());
-        keyframe = frame;
 
-
+        //method 1
+        //compute idepth, complete nodata with random
+        //init mesh with it
         dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
         idepth.setRandom(lvl);
 
-        renderIdepth(keyframe.pose, idepth, lvl);
-
+        renderer.renderIdepth(keyframeMesh, cam[lvl], frame.pose, idepth, lvl);
 
         dataCPU<float> invVar(cam[0].width, cam[0].height, -1);
         invVar.set(1.0/INITIAL_VAR, lvl);
 
-        renderInvVar(keyframe.pose, invVar, lvl);
-
-        float idepthNoData = idepth.getPercentNoData(lvl);
-
         initKeyframe(frame, idepth, invVar, lvl);
-        */
-
+        
+        /*
+        //method 2
+        //build frame mesh
+        //remove ocluded
+        //devide big triangles
+        //complete with random points
         MeshCPU frameMesh = buildFrameMesh(frame, lvl);
         keyframeMesh = frameMesh.getCopy();
         keyframe = frame;
+        */
     }
 
     std::vector<std::array<unsigned int, 2>> getPixelEdges(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)

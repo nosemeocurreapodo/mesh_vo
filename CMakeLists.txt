@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 
 project(mesh_vo)
 
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
 
 #set(CMAKE_CXX_FLAGS " -Wall -Wextra -g")
 #set(CMAKE_CXX_FLAGS_DEBUG "-pg")

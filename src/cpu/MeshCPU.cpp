@@ -144,7 +144,7 @@ std::vector<unsigned int> MeshCPU::getTrianglesIds()
 
 void MeshCPU::transform(Sophus::SE3f newGlobalPose)
 {
-    Sophus::SE3f relativePose = newGlobalPose*globalPose.inverse();
+    Sophus::SE3f relativePose = newGlobalPose * globalPose.inverse();
     for (auto it = vertices.begin(); it != vertices.end(); ++it)
     {
         Eigen::Vector3f pos = it->second;
@@ -357,16 +357,6 @@ unsigned int MeshCPU::getClosestTexCoordTriangle(Eigen::Vector2f &pix)
     return min_id;
 }
 
-void MeshCPU::buildTriangles(camera &cam)
-{
-    triangles.clear();
-    computeTexCoords(cam);
-    DelaunayTriangulation triangulation;
-    triangulation.loadPoints(texcoords);
-    triangulation.triangulate();
-    triangles = triangulation.getTriangles();
-}
-
 void MeshCPU::removePointsWithoutTriangles()
 {
     std::vector<unsigned int> vertsIds = getVerticesIds();
@@ -399,10 +389,18 @@ void MeshCPU::removeTrianglesWithoutPoints()
     }
 }
 
+void MeshCPU::buildTriangles(camera &cam)
+{
+    triangles.clear();
+    computeTexCoords(cam);
+    DelaunayTriangulation triangulation;
+    triangulation.loadPoints(texcoords);
+    triangulation.triangulate();
+    triangles = triangulation.getTriangles();
+}
+
 void MeshCPU::removeOcluded(camera &cam)
 {
-    std::vector<unsigned int> vetsToRemove;
-
     computeTexCoords(cam);
     std::vector<unsigned int> trisIds = getTrianglesIds();
     for (auto it = trisIds.begin(); it != trisIds.end(); it++)
@@ -432,4 +430,32 @@ void MeshCPU::removeOcluded(camera &cam)
         }
     }
     removePointsWithoutTriangles();
+}
+
+void MeshCPU::devideBigTriangles(camera &cam)
+{
+    computeTexCoords(cam);
+
+    float max_area = 2*(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1));
+
+    std::vector<unsigned int> trisIds = getTrianglesIds();
+    for (auto it = trisIds.begin(); it != trisIds.end(); it++)
+    {
+        Triangle2D tri2D = getTexCoordTriangle(*it);
+        if (!cam.isPixVisible(tri2D.vertices[0]) && !cam.isPixVisible(tri2D.vertices[1]) && !cam.isPixVisible(tri2D.vertices[2]))
+        {
+            continue;
+        }
+        if (std::fabs(tri2D.getArea()) > max_area)
+        {
+            Eigen::Vector2f pix = tri2D.getMean();
+            Eigen::Vector3f ray = cam.pixToRay(pix);
+
+            Triangle3D tri3D = getCartesianTriangle(*it);
+            float depth = tri3D.getDepth(ray);
+            Eigen::Vector3f point = ray * depth;
+
+            addVertice(point);
+        }
+    }
 }

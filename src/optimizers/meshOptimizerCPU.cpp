@@ -18,15 +18,13 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 200.0;
+    meshRegularization = 10.0;
     meshInitial = 0.0;
     optMethod = OptimizationMethod::idepth;
 }
 
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar, int lvl)
 {
-    keyframe = frame;
-
     keyframeMesh.clear();
     invVar.clear();
 
@@ -54,6 +52,8 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
         }
     }
 
+    keyframe = frame;
+    keyframeMesh.setPose(frame.pose);
     keyframeMesh.buildTriangles(cam[lvl]);
 }
 
@@ -62,6 +62,7 @@ MeshCPU meshOptimizerCPU::buildFrameMesh(frameCPU &frame, int lvl)
     MeshCPU frameMesh = keyframeMesh.getCopy();
     frameMesh.transform(frame.pose);
     frameMesh.removeOcluded(cam[lvl]);
+    //frameMesh.devideBigTriangles(cam[lvl]);
 
     dataCPU<float> frameIdepth(cam[0].width, cam[0].height, -1);
     renderer.renderIdepth(keyframeMesh, cam[lvl], frame.pose, frameIdepth, lvl);
@@ -1121,7 +1122,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                         new_depth = std::exp(std::log(best_depth) + inc(index));
                     if (optMethod == OptimizationMethod::log_idepth)
                         new_depth = 1.0 / std::exp(std::log(1.0 / best_depth) + inc(index));
-                    if (new_depth < 0.001 || new_depth > 100.0)
+                    if (new_depth < 0.0001 || new_depth > 1000.0)
                         new_depth = best_depth;
                     best_depths.push_back(best_depth);
                     keyframeMesh.setVerticeDepth(new_depth, ids[index]);
