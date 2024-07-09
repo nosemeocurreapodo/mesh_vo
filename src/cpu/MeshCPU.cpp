@@ -7,32 +7,25 @@ MeshCPU::MeshCPU()
     last_t_id = 0;
 };
 
-void MeshCPU::setVerticeDepth(float depth, unsigned int id)
+MeshCPU MeshCPU::getCopy()
 {
-    if (!vertices.count(id))
-        return;
-    if (representation == rayIdepth)
-        vertices[id](2) = 1.0/depth;
-    if (representation == cartesian)
-    {
-        vertices[id] = depth*vertices[id]/vertices[id](2);
-    }
-}
+    MeshCPU meshCopy;
 
-float MeshCPU::getVerticeDepth(unsigned int id)
-{
-    if (!vertices.count(id))
-        return -1;
-    if (representation == rayIdepth)
-        return 1.0/vertices[id](2);
-    if (representation == cartesian)
-        return vertices[id](2);
+    meshCopy.vertices = vertices;
+    meshCopy.texcoords = texcoords;
+    meshCopy.triangles = triangles;
+    meshCopy.globalPose = globalPose;
+    meshCopy.representation = representation;
+    meshCopy.last_v_id = last_v_id;
+    meshCopy.last_t_id = last_t_id;
+
+    return meshCopy;
 }
 
 Eigen::Vector3f MeshCPU::getVertice(unsigned int id)
 {
     if (!vertices.count(id))
-        return Eigen::Vector3f(0.0, 0.0, -1.0);
+        throw std::out_of_range("getVertice invalid id");
     // always return in cartesian
     if (representation == rayIdepth)
         return rayIdepthToCartesian(vertices[id]);
@@ -41,41 +34,24 @@ Eigen::Vector3f MeshCPU::getVertice(unsigned int id)
 
 Eigen::Vector2f MeshCPU::getTexCoord(unsigned int id)
 {
+    if (!texcoords.count(id))
+        throw std::out_of_range("getTexCoord invalid id");
     return texcoords[id];
 }
 
 std::array<unsigned int, 3> MeshCPU::getTriangleIndices(unsigned int id)
 {
+    if (!triangles.count(id))
+        throw std::out_of_range("getTriangleIndices invalid id");
     return triangles[id];
-}
-
-Triangle2D MeshCPU::getTexCoordTriangle(unsigned int id)
-{
-    std::array<unsigned int, 3> tri = triangles[id];
-    Triangle2D t(texcoords[tri[0]], texcoords[tri[1]], texcoords[tri[2]]);
-    return t;
-}
-
-Triangle3D MeshCPU::getCartesianTriangle(unsigned int id)
-{
-    // always return triangle in cartesian
-    std::array<unsigned int, 3> tri = triangles[id];
-    Triangle3D t(vertices[tri[0]], vertices[tri[1]], vertices[tri[2]]);
-    if (representation == rayIdepth)
-    {
-        t.vertices[0] = rayIdepthToCartesian(t.vertices[0]);
-        t.vertices[1] = rayIdepthToCartesian(t.vertices[1]);
-        t.vertices[2] = rayIdepthToCartesian(t.vertices[2]);
-    }
-    return t;
 }
 
 unsigned int MeshCPU::addVertice(Eigen::Vector3f &vert)
 {
     // the input vertice is always in cartesian
     last_v_id++;
-    if (vertices.count(last_v_id) > 0)
-        return -1;
+    if (vertices.count(last_v_id))
+        throw std::out_of_range("addVertice id already exist");
     if (representation == rayIdepth)
         vertices[last_v_id] = cartesianToRayIdepth(vert);
     if (representation == cartesian)
@@ -86,22 +62,64 @@ unsigned int MeshCPU::addVertice(Eigen::Vector3f &vert)
 unsigned int MeshCPU::addTriangle(std::array<unsigned int, 3> &tri)
 {
     last_t_id++;
+    if (triangles.count(last_t_id))
+        throw std::out_of_range("addTriangle id already exist");
     triangles[last_t_id] = tri;
     return last_t_id;
 }
 
-MeshCPU MeshCPU::getCopy()
+void MeshCPU::setVertice(Eigen::Vector3f &vert, unsigned int id)
 {
-    MeshCPU meshCopy;
+    if (!vertices.count(id))
+        throw std::out_of_range("setVertice invalid id");
+    if (representation == rayIdepth)
+        vertices[last_v_id] = cartesianToRayIdepth(vert);
+    if (representation == cartesian)
+        vertices[last_v_id] = vert;
+}
 
-    meshCopy.vertices = vertices;
-    meshCopy.texcoords = texcoords;
-    meshCopy.triangles = triangles;
-    meshCopy.representation = representation;
-    meshCopy.last_v_id = last_v_id;
-    meshCopy.last_t_id = last_t_id;
+void MeshCPU::setTriangleIndices(std::array<unsigned int, 3> &tri, unsigned int id)
+{
+    if (!triangles.count(id))
+        throw std::out_of_range("setTriangleIndices invalid id");
+    triangles[id] = tri;
+}
 
-    return meshCopy;
+void MeshCPU::setVerticeDepth(float depth, unsigned int id)
+{
+    if (!vertices.count(id))
+        throw std::out_of_range("setVerticeDepth invalid id");
+    if (representation == rayIdepth)
+        vertices[id](2) = 1.0 / depth;
+    if (representation == cartesian)
+    {
+        vertices[id] = depth * vertices[id] / vertices[id](2);
+    }
+}
+
+float MeshCPU::getVerticeDepth(unsigned int id)
+{
+    if (!vertices.count(id))
+        throw std::out_of_range("getVerticeDepth invalid id");
+    if (representation == rayIdepth)
+        return 1.0 / vertices[id](2);
+    if (representation == cartesian)
+        return vertices[id](2);
+}
+
+Triangle2D MeshCPU::getTexCoordTriangle(unsigned int id)
+{
+    std::array<unsigned int, 3> tri = getTriangleIndices(id);
+    Triangle2D t(getTexCoord(tri[0]), getTexCoord(tri[1]), getTexCoord(tri[2]));
+    return t;
+}
+
+Triangle3D MeshCPU::getCartesianTriangle(unsigned int id)
+{
+    // always return triangle in cartesian
+    std::array<unsigned int, 3> tri = getTriangleIndices(id);
+    Triangle3D t(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]));
+    return t;
 }
 
 std::vector<unsigned int> MeshCPU::getVerticesIds()
@@ -122,6 +140,22 @@ std::vector<unsigned int> MeshCPU::getTrianglesIds()
         keys.push_back(it->first);
     }
     return keys;
+}
+
+void MeshCPU::transform(Sophus::SE3f newGlobalPose)
+{
+    Sophus::SE3f relativePose = newGlobalPose*globalPose.inverse();
+    for (auto it = vertices.begin(); it != vertices.end(); ++it)
+    {
+        Eigen::Vector3f pos = it->second;
+        if (representation == rayIdepth)
+            pos = rayIdepthToCartesian(pos);
+        pos = relativePose * pos;
+        if (representation == rayIdepth)
+            pos = cartesianToRayIdepth(pos);
+        it->second = pos;
+    }
+    globalPose = newGlobalPose;
 }
 
 void MeshCPU::computeTexCoords(camera &cam)
@@ -288,20 +322,6 @@ void MeshCPU::toCartesian()
     representation = cartesian;
 }
 
-void MeshCPU::transform(Sophus::SE3f pose)
-{
-    for (auto it = vertices.begin(); it != vertices.end(); ++it)
-    {
-        Eigen::Vector3f pos = it->second;
-        if (representation == rayIdepth)
-            pos = rayIdepthToCartesian(pos);
-        pos = pose * pos;
-        if (representation == rayIdepth)
-            pos = cartesianToRayIdepth(pos);
-        it->second = pos;
-    }
-}
-
 bool MeshCPU::isTrianglePresent(std::array<unsigned int, 3> &tri)
 {
     for (auto it = triangles.begin(); it != triangles.end(); ++it)
@@ -379,12 +399,8 @@ void MeshCPU::removeTrianglesWithoutPoints()
     }
 }
 
-void MeshCPU::removeOcludedTriangles(camera &cam)
+void MeshCPU::removeOcluded(camera &cam)
 {
-    float min_area = (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) / 2.0;
-    float max_area = min_area * 4.0;
-    float min_angle = M_PI / 8;
-
     std::vector<unsigned int> vetsToRemove;
 
     computeTexCoords(cam);
@@ -396,60 +412,24 @@ void MeshCPU::removeOcludedTriangles(camera &cam)
         // 2-the points are behind the camera
         // 2-all vertices lays outside the image
         // afterwards,
-        // remove vertices
-        // remove any vertex witouh triangles
-        // remove any triangle without vertices
-        // std::array<unsigned int, 3> vertsIds = getTriangleIndices(*it);
+        // remove vertices without triangles
         Triangle3D tri3D = getCartesianTriangle(*it);
         if (tri3D.vertices[0](2) <= 0.0 || tri3D.vertices[1](2) <= 0.0 || tri3D.vertices[2](2) <= 0.0)
         {
-            // vetsToRemove.push_back(vertsIds[0]);
-            // vetsToRemove.push_back(vertsIds[1]);
-            // vetsToRemove.push_back(vertsIds[2]);
-
             triangles.erase(*it);
             continue;
         }
         Triangle2D tri2D = getTexCoordTriangle(*it);
-        if (tri2D.getArea() < min_area || tri2D.getArea() > max_area)
+        if (tri2D.getArea() < 1.0)
         {
-            // vetsToRemove.push_back(vertsIds[0]);
-            // vetsToRemove.push_back(vertsIds[1]);
-            // vetsToRemove.push_back(vertsIds[2]);
-
             triangles.erase(*it);
             continue;
         }
-        /*
-        std::array<float, 3> angles = tri2D.getAngles();
-        if (float(angles[0]) < min_angle || float(angles[1]) < min_angle || float(angles[2]) < min_angle)
-        {
-            vetsToRemove.push_back(vertsIds[0]);
-            vetsToRemove.push_back(vertsIds[1]);
-            vetsToRemove.push_back(vertsIds[2]);
-
-            //triangles.erase(*it);
-            continue;
-        }
-        */
         if (!cam.isPixVisible(tri2D.vertices[0]) && !cam.isPixVisible(tri2D.vertices[1]) && !cam.isPixVisible(tri2D.vertices[2]))
         {
-            // vetsToRemove.push_back(vertsIds[0]);
-            // vetsToRemove.push_back(vertsIds[1]);
-            // vetsToRemove.push_back(vertsIds[2]);
-
             triangles.erase(*it);
             continue;
         }
     }
-    /*
-    for(auto vert : vetsToRemove)
-    {
-        if(vertices[vert].count())
-            vertices.erase(vert);
-    }
-    */
     removePointsWithoutTriangles();
-    buildTriangles(cam);
-    // removeTrianglesWithoutPoints();
 }

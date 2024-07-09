@@ -7,7 +7,7 @@ class Triangle2D
 {
 public:
 
-    Triangle2D(Eigen::Vector2f &vert1, Eigen::Vector2f &vert2, Eigen::Vector2f &vert3)
+    Triangle2D(Eigen::Vector2f vert1, Eigen::Vector2f vert2, Eigen::Vector2f vert3)
     {
         vertices[0] = vert1;
         vertices[1] = vert2;

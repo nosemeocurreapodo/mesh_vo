@@ -25,6 +25,7 @@ public:
         vertices.clear();
         texcoords.clear();
         triangles.clear();
+        globalPose = Sophus::SE3f();
 
         last_v_id = 0;
         last_t_id = 0;
@@ -35,17 +36,27 @@ public:
     Eigen::Vector3f getVertice(unsigned int id);
     Eigen::Vector2f getTexCoord(unsigned int id);
     std::array<unsigned int, 3> getTriangleIndices(unsigned int id);
+
+    unsigned int addVertice(Eigen::Vector3f &vert);
+    unsigned int addTriangle(std::array<unsigned int, 3> &tri);
+
+    void setVertice(Eigen::Vector3f &vert, unsigned int id);
+    void setTriangleIndices(std::array<unsigned int, 3> &tri, unsigned int id);
+
+    void setPose(Sophus::SE3f &pose)
+    {
+        globalPose = pose;
+    }
+
+    void setVerticeDepth(float depth, unsigned int id);
+    float getVerticeDepth(unsigned int id);
+
     Triangle2D getTexCoordTriangle(unsigned int id);
     Triangle3D getCartesianTriangle(unsigned int id);
     std::vector<unsigned int> getVerticesIds();
     std::vector<unsigned int> getTrianglesIds();
 
-    unsigned int addVertice(Eigen::Vector3f &vert);
-    unsigned int addTriangle(std::array<unsigned int, 3> &tri);
-    void setVerticeDepth(float depth, unsigned int id);
-    float getVerticeDepth(unsigned int id);
-
-    void transform(Sophus::SE3f pose);
+    void transform(Sophus::SE3f newGlobalPose);
     void computeTexCoords(camera &cam);
     void computeNormalizedTexCoords(camera &cam);
 
@@ -59,7 +70,7 @@ public:
     void buildTriangles(camera &cam);
     void removePointsWithoutTriangles();
     void removeTrianglesWithoutPoints();
-    void removeOcludedTriangles(camera &cam);
+    void removeOcluded(camera &cam);
 
     void extrapolateMesh(camera &cam, dataCPU<float> &mask, int lvl)
     {
@@ -135,6 +146,8 @@ private:
     std::map<unsigned int, Eigen::Vector3f> vertices;
     std::map<unsigned int, Eigen::Vector2f> texcoords;
     std::map<unsigned int, std::array<unsigned int, 3>> triangles;
+
+    Sophus::SE3f globalPose;
 
     int last_v_id;
     int last_t_id;

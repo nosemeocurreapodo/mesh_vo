@@ -11,9 +11,11 @@ visualOdometry::visualOdometry(camera &_cam)
 void visualOdometry::initScene(dataCPU<float> &image, Sophus::SE3f pose)
 {
     lastFrame.set(image, pose);
-    dataCPU<float> idepth = getRandomIdepth();
+    dataCPU<float> idepth(cam.width, cam.height, -1.0);
+    idepth.setRandom(0);
+    idepth.generateMipmaps();
     dataCPU<float> invVar(cam.width, cam.height, -1.0);
-    invVar.set(1.0/INITIAL_VAR, 0);
+    invVar.set(1.0 / INITIAL_VAR, 0);
     invVar.generateMipmaps();
 
     meshOptimizer.initKeyframe(lastFrame, idepth, invVar, 0);
@@ -23,7 +25,7 @@ void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, So
 {
     lastFrame.set(image, pose);
     dataCPU<float> invVar(cam.width, cam.height, -1.0);
-    invVar.set(1.0/INITIAL_VAR, 0);
+    invVar.set(1.0 / INITIAL_VAR, 0);
     meshOptimizer.initKeyframe(lastFrame, idepth, invVar, 0);
 }
 
@@ -50,20 +52,9 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     meshOptimizer.optPoseMap(frames);
     std::cout << "update pose map time " << t.toc() << std::endl;
 
-    meshOptimizer.renderIdepth(lastFrame.pose, idepth, 1);
-    meshOptimizer.renderError(lastFrame, error, 1);
-    meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
-    meshOptimizer.renderDebug(lastFrame.pose, debug, 0);
+    float idepthPercentNoData = meshOptimizer.getIdepth(lastFrame.pose).getPercentNoData(1);
 
-    show(debug, "lastFrame debug", 0);
-    show(lastFrame.image, "lastFrame image", 1);
-    show(error, "lastFrame error", 1);
-    show(idepth, "lastFrame idepth", 1);
-    show(sceneImage, "lastFrame scene", 1);
-
-    float scenePercentNoData = sceneImage.getPercentNoData(1);
-
-    if (scenePercentNoData > 0.10)
+    if (idepthPercentNoData > 0.10)
     {
         meshOptimizer.changeKeyframe(lastFrame);
     }
@@ -79,41 +70,17 @@ void visualOdometry::localization(dataCPU<float> &image)
 
     std::cout << "estimated pose" << std::endl;
     std::cout << lastFrame.pose.matrix() << std::endl;
-
-    dataCPU<float> idepth(cam.width, cam.height, -1.0);
-    dataCPU<float> error(cam.width, cam.height, -1.0);
-    dataCPU<float> sceneImage(cam.width, cam.height, -1.0);
-    dataCPU<float> debug(cam.width, cam.height, -1.0);
-
-    meshOptimizer.renderIdepth(lastFrame.pose, idepth, 1);
-    meshOptimizer.renderError(lastFrame, error, 1);
-    meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
-    meshOptimizer.renderDebug(lastFrame.pose, debug, 1);
-
-    show(lastFrame.image, "lastFrame image", 1);
-    // lastFrame.dx.show("lastFrame dx", 1);
-    // lastFrame.dy.show("lastFrame dy", 1);
-    show(error, "lastFrame error", 1);
-    show(idepth, "lastFrame idepth", 1);
-    show(sceneImage, "lastFrame scene", 1);
-    show(debug, "lastFrame debug", 1);
 }
 
 void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
 {
     tic_toc t;
 
-    dataCPU<float> idepth(cam.width, cam.height, -1.0);
-    dataCPU<float> error(cam.width, cam.height, -1.0);
-    dataCPU<float> sceneImage(cam.width, cam.height, -1.0);
-    dataCPU<float> debug(cam.width, cam.height, -1.0);
-    dataCPU<float> idepthVar(cam.width, cam.height, -1.0);
-
     // lastFrame.set(image);
     lastFrame.set(image, pose);
 
-    //frames.clear();
-    if (frames.size() >= 1)
+    // frames.clear();
+    if (frames.size() >= 2)
         frames.erase(frames.begin());
 
     frames.push_back(lastFrame);
@@ -122,26 +89,14 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     meshOptimizer.optMap(frames);
     std::cout << "update map time " << t.toc() << std::endl;
 
-    meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
+    float imagePercentNoData = meshOptimizer.getImage(lastFrame.pose).getPercentNoData(1);
 
-    float scenePercentNoData = sceneImage.getPercentNoData(1);
-
-    if (scenePercentNoData > 0.1)
+    if (imagePercentNoData > 0.1)
     {
+        frames.erase(frames.end());
         meshOptimizer.changeKeyframe(lastFrame);
+        meshOptimizer.optMap(frames);
     }
 
-    meshOptimizer.renderIdepth(lastFrame.pose, idepth, 1);
-    meshOptimizer.renderError(lastFrame, error, 1);
-    meshOptimizer.renderDebug(lastFrame.pose, debug, 0);
-    meshOptimizer.renderInvVar(lastFrame.pose, idepthVar, 1);
-    meshOptimizer.renderImage(lastFrame.pose, sceneImage, 1);
-
-    // show(debug, "lastFrame debug", 0);
-    show(lastFrame.image, "lastFrame image", 1);
-    show(meshOptimizer.keyframe.image, "keyframe image", 1);
-    show(error, "lastFrame error", 1);
-    show(idepth, "lastFrame idepth", 1);
-    show(idepthVar, "lastFrame invVar", 1);
-    show(sceneImage, "lastFrame scene", 1);
+    meshOptimizer.plotDebug(lastFrame);
 }

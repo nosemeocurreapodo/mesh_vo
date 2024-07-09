@@ -6,7 +6,7 @@ class Triangle3D
 {
 public:
 
-    Triangle3D(Eigen::Vector3f &vert1, Eigen::Vector3f &vert2, Eigen::Vector3f &vert3)
+    Triangle3D(Eigen::Vector3f vert1, Eigen::Vector3f vert2, Eigen::Vector3f vert3)
     {
         vertices[0] = vert1;
         vertices[1] = vert2;

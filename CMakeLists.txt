@@ -38,6 +38,7 @@ include_directories(
 
 set(VISUALODOMETRY_SRCS
       "src/cpu/MeshCPU.cpp"
+      "src/cpu/renderCPU.cpp"
       "src/common/common.cpp"
       "src/common/DelaunayTriangulation.cpp"
       "src/optimizers/meshOptimizerCPU.cpp"

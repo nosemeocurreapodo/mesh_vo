@@ -10,7 +10,9 @@
 #include "cpu/dataCPU.h"
 #include "cpu/MeshCPU.h"
 #include "cpu/frameCPU.h"
+#include "cpu/renderCPU.h"
 #include "cpu/IndexThreadReduce.h"
+#include "cpu/OpenCVDebug.h"
 #include "params.h"
 
 enum OptimizationMethod
@@ -27,38 +29,64 @@ public:
     meshOptimizerCPU(camera &cam);
 
     void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar, int lvl);
-
-    void renderIdepth(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
-    void renderImage(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
-    void renderDebug(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
-    void renderInvVar(Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
-    void renderError(frameCPU &frame, dataCPU<float> &buffer, int lvl);
+    MeshCPU buildFrameMesh(frameCPU &frame, int lvl);
 
     void optPose(frameCPU &frame);
     void optMap(std::vector<frameCPU> &frame);
     void optPoseMap(std::vector<frameCPU> &frame);
 
+    dataCPU<float> getIdepth(Sophus::SE3f &pose)
+    {
+        idepth.set(idepth.nodata, 1);
+        renderer.renderIdepth(keyframeMesh, cam[1], pose, idepth, 1);
+        return idepth;
+    }
+
+    dataCPU<float> getImage(Sophus::SE3f &pose)
+    {
+        sceneImage.set(sceneImage.nodata, 1);
+        renderer.renderImage(keyframeMesh, cam[1], keyframe.image, pose, sceneImage, 1);
+        return sceneImage;
+    }
+
+    void plotDebug(frameCPU &frame)
+    {
+        idepth.set(idepth.nodata, 1);
+        error.set(error.nodata, 1);
+        debug.set(debug.nodata, 0);
+        sceneImage.set(sceneImage.nodata, 1);
+        renderer.renderIdepth(keyframeMesh, cam[1], frame.pose, idepth, 1);
+        renderer.renderError(keyframeMesh, cam[1], keyframe, frame, error, 1);
+        renderer.renderDebug(keyframeMesh, cam[0], frame.pose, debug, 0);
+        // renderer.renderInvVar(meshOptimizer.keyframeMesh, lastFrame, idepthVar, 1);
+        renderer.renderImage(keyframeMesh, cam[1], keyframe.image, frame.pose, sceneImage, 1);
+
+        show(debug, "frame debug", 0);
+        show(frame.image, "frame image", 1);
+        show(keyframe.image, "keyframe image", 1);
+        show(error, "lastFrame error", 1);
+        show(idepth, "lastFrame idepth", 1);
+        // show(idepthVar, "lastFrame invVar", 1);
+        show(sceneImage, "lastFrame scene", 1);
+    }
+
     void changeKeyframe(frameCPU &frame)
     {
         int lvl = 1;
+        /*
         // the keyframemesh is relative to the keyframe pose
         // so to transform the pose coordinate system
         // just have to multiply with the pose increment from the keyframe
         keyframeMesh.transform(frame.pose * keyframe.pose.inverse());
         keyframe = frame;
 
-        //dataCPU<float> image(cam[0].width, cam[0].height, -1);
-        //renderImage(keyframe.pose, image, lvl);
-
-        //float imageNoData = image.getPercentNoData(lvl);
-
-        //keyframeMesh.extrapolateMesh(cam[lvl], image, lvl);
 
         dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
-        idepth.set(0.5, lvl);
+        idepth.setRandom(lvl);
 
         renderIdepth(keyframe.pose, idepth, lvl);
-        
+
+
         dataCPU<float> invVar(cam[0].width, cam[0].height, -1);
         invVar.set(1.0/INITIAL_VAR, lvl);
 
@@ -67,6 +95,11 @@ public:
         float idepthNoData = idepth.getPercentNoData(lvl);
 
         initKeyframe(frame, idepth, invVar, lvl);
+        */
+
+        MeshCPU frameMesh = buildFrameMesh(frame, lvl);
+        keyframeMesh = frameMesh.getCopy();
+        keyframe = frame;
     }
 
     std::vector<std::array<unsigned int, 2>> getPixelEdges(MeshCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
@@ -114,15 +147,11 @@ public:
     }
 
     frameCPU keyframe;
-    MatrixMapped invVar;
-
-private:
     MeshCPU keyframeMesh;
-
+    MatrixMapped invVar;
     camera cam[MAX_LEVELS];
 
-    dataCPU<float> z_buffer;
-
+private:
     Error computeError(frameCPU &frame, int lvl);
     HGMapped computeHGPose(frameCPU &frame, int lvl);
     HGMapped computeHGMap(frameCPU &frame, int lvl);
@@ -139,6 +168,8 @@ private:
     Error errorInitial(MeshCPU &initialMesh, MatrixMapped &initialInvDepthMap);
     HGMapped HGInitial(MeshCPU &initialMesh, MatrixMapped &initialInvDepthMap);
 
+    renderCPU renderer;
+
     IndexThreadReduce<Error> errorTreadReduce;
     IndexThreadReduce<HGMapped> hgMappedTreadReduce;
 
@@ -148,4 +179,11 @@ private:
     float meshInitial;
 
     OptimizationMethod optMethod;
+
+    // debug
+    dataCPU<float> idepth;
+    dataCPU<float> error;
+    dataCPU<float> sceneImage;
+    dataCPU<float> debug;
+    dataCPU<float> idepthVar;
 };
