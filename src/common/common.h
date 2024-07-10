@@ -2,6 +2,14 @@
 
 #include <Eigen/Core>
 
+enum MapJacobianMethod
+{
+    depth,
+    idepth,
+    log_depth,
+    log_idepth
+};
+
 Eigen::Vector3f rayIdepthToCartesian(Eigen::Vector3f rayIdepth);
 Eigen::Vector3f cartesianToRayIdepth(Eigen::Vector3f vertex);
 

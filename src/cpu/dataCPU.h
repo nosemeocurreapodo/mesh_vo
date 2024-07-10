@@ -74,7 +74,7 @@ public:
         for (int lvl = 0; lvl < max_lvl; lvl++)
         {
             delete[] texture[lvl];
-            //texture[lvl] = nullptr;
+            // texture[lvl] = nullptr;
         }
     }
 
@@ -123,7 +123,7 @@ public:
         {
             for (int x = 0; x < sizes[lvl][0]; x++)
             {
-                float val = start + (end - start) * float(y) / (sizes[lvl][1]-1.0);
+                float val = start + (end - start) * float(y) / (sizes[lvl][1] - 1.0);
                 set(val, y, x, lvl);
             }
         }
@@ -135,7 +135,7 @@ public:
         {
             for (int x = 0; x < sizes[lvl][0]; x++)
             {
-                float val = (max - min)*float(rand() % 1000)/1000.0 + min;
+                float val = (max - min) * float(rand() % 1000) / 1000.0 + min;
                 set(val, y, x, lvl);
             }
         }
@@ -191,6 +191,38 @@ public:
             }
         }
         return float(nodatacount) / (sizes[lvl][0] * sizes[lvl][1]);
+    }
+
+    dataCPU &add(dataCPU &other, int lvl)
+    {
+        dataCPU<Type> result;
+        for (int y = 0; y < sizes[lvl][1]; y++)
+            for (int x = 0; x < sizes[lvl][0]; x++)
+            {
+                Type p1 = get(y, x, lvl);
+                Type p2 = other.get(y, x, lvl);
+                if(p1 == nodata || p2 == other.nodata)
+                    continue;
+                Type res = p1 + p2;
+                result.set(res, y, x, lvl);
+            }
+        return result;
+    }
+
+    dataCPU sub(dataCPU &other, int lvl)
+    {
+        dataCPU<Type> result(sizes[0][1], sizes[0][0], nodata);
+        for (int y = 0; y < sizes[lvl][1]; y++)
+            for (int x = 0; x < sizes[lvl][0]; x++)
+            {
+                Type p1 = get(y, x, lvl);
+                Type p2 = other.get(y, x, lvl);
+                if(p1 == nodata || p2 == other.nodata)
+                    continue;
+                Type res = p1 - p2;
+                result.set(res, y, x, lvl);
+            }
+        return result;
     }
 
     Type nodata;

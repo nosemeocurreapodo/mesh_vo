@@ -4,11 +4,16 @@
 
 meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     : keyframe(_cam.width, _cam.height),
-      idepth(_cam.width, _cam.height, -1.0),
-      error(_cam.width, _cam.height, -1.0),
-      sceneImage(_cam.width, _cam.height, -1.0),
+      image_buffer(_cam.width, _cam.height, -1.0),
+      idepth_buffer(_cam.width, _cam.height, -1.0),
+      error_buffer(_cam.width, _cam.height, -1.0),
+      j1_buffer(_cam.width, _cam.height, Eigen::Vector3f(0.0, 0.0, 0.0)),
+      j2_buffer(_cam.width, _cam.height, Eigen::Vector3f(0.0, 0.0, 0.0)),
+      j3_buffer(_cam.width, _cam.height, Eigen::Vector3f(0.0, 0.0, 0.0)),
+      id_buffer(_cam.width, _cam.height, Eigen::Vector3i(-1, -1, -1)),
       debug(_cam.width, _cam.height, -1.0),
-      idepthVar(_cam.width, _cam.height, -1.0)
+      idepthVar(_cam.width, _cam.height, -1.0),
+      renderer(_cam.width, _cam.height)
 {
     cam[0] = _cam;
     for (int i = 1; i < MAX_LEVELS; i++)
@@ -18,9 +23,9 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 10.0;
+    meshRegularization = 200.0;
     meshInitial = 0.0;
-    optMethod = OptimizationMethod::idepth;
+    jacMethod = MapJacobianMethod::idepth;
 }
 
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar, int lvl)
@@ -57,12 +62,12 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
     keyframeMesh.buildTriangles(cam[lvl]);
 }
 
-MeshCPU meshOptimizerCPU::buildFrameMesh(frameCPU &frame, int lvl)
+MeshTexCoordsCPU meshOptimizerCPU::buildFrameMesh(frameCPU &frame, int lvl)
 {
-    MeshCPU frameMesh = keyframeMesh.getCopy();
+    MeshTexCoordsCPU frameMesh = keyframeMesh;
     frameMesh.transform(frame.pose);
     frameMesh.removeOcluded(cam[lvl]);
-    //frameMesh.devideBigTriangles(cam[lvl]);
+    // frameMesh.devideBigTriangles(cam[lvl]);
 
     dataCPU<float> frameIdepth(cam[0].width, cam[0].height, -1);
     renderer.renderIdepth(keyframeMesh, cam[lvl], frame.pose, frameIdepth, lvl);
@@ -100,613 +105,233 @@ Error meshOptimizerCPU::computeError(frameCPU &frame, int lvl)
 {
     Error e;
 
-    keyframeMesh.computeTexCoords(cam[lvl]);
-    MeshCPU frameMesh = keyframeMesh.getCopy();
-    frameMesh.transform(frame.pose);
-    frameMesh.computeTexCoords(cam[lvl]);
+    image_buffer.set(image_buffer.nodata, lvl);
+    renderer.renderImage(keyframeMesh, cam[lvl], keyframe.image, frame.pose, image_buffer, lvl);
 
-    std::vector<unsigned int> trianglesIds = frameMesh.getTrianglesIds();
-
-    if (multiThreading)
-    {
-        errorTreadReduce.reduce(boost::bind(&meshOptimizerCPU::errorPerIndex, this, frame, frameMesh, trianglesIds, lvl, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4), 0, trianglesIds.size(), 0);
-        e = errorTreadReduce.stats;
-    }
-    else
-    {
-        errorPerIndex(frame, frameMesh, trianglesIds, lvl, 0, trianglesIds.size(), &e, 0);
-    }
-
-    // if (e.count > 0)
-    //     e.error /= e.count;
-
-    // return e.error;
-    return e;
-}
-
-void meshOptimizerCPU::errorPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, Error *e, int tid)
-{
-    // z_buffer.reset(lvl);
-    // for each triangle
-    for (std::size_t index = tmin; index < tmax; index++)
-    {
-        unsigned int t_id = trisIds[index];
-
-        Triangle2D kf_tri = keyframeMesh.getTexCoordTriangle(t_id);
-        // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
-        //     continue;
-        float kf_tri_area = kf_tri.getArea();
-        if (kf_tri_area < 1.0)
-            continue;
-        // std::array<float, 3> kf_tri_angles = kf_tri.getAngles();
-        // if (fabs(kf_tri_angles[0]) < MIN_TRIANGLE_ANGLE || fabs(kf_tri_angles[1]) < MIN_TRIANGLE_ANGLE || fabs(kf_tri_angles[2]) < MIN_TRIANGLE_ANGLE)
-        //     continue;
-        Triangle2D f_tri = frameMesh.getTexCoordTriangle(t_id);
-        // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
-        //     continue;
-        float f_tri_area = f_tri.getArea();
-        if (f_tri_area < 1.0)
-            continue;
-        // std::array<float, 3> f_tri_angles = f_tri.getAngles();
-        // if (fabs(f_tri_angles[0]) < MIN_TRIANGLE_ANGLE || fabs(f_tri_angles[1]) < MIN_TRIANGLE_ANGLE || fabs(f_tri_angles[2]) < MIN_TRIANGLE_ANGLE)
-        //     continue;
-
-        f_tri.computeTinv();
-        std::array<int, 4> minmax = f_tri.getMinMax();
-
-        for (int y = minmax[2]; y <= minmax[3]; y++)
+    std::array<int, 2> size = frame.image.getSize(lvl);
+    for (int y = 0; y < size[1]; y++)
+        for (int x = 0; x < size[0]; x++)
         {
-            for (int x = minmax[0]; x <= minmax[1]; x++)
-            {
-                Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam[lvl].isPixVisible(f_pix))
-                    continue;
-
-                f_tri.computeBarycentric(f_pix);
-                if (!f_tri.isBarycentricOk())
-                    continue;
-
-                Eigen::Vector2f kf_pix = f_tri.interpolate(kf_tri.vertices[0], kf_tri.vertices[1], kf_tri.vertices[2]);
-                if (!cam[lvl].isPixVisible(kf_pix))
-                    continue;
-
-                float kf_i = float(keyframe.image.get(kf_pix(1), kf_pix(0), lvl));
-                float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
-                if (kf_i == keyframe.image.nodata || f_i == frame.image.nodata)
-                    continue;
-
-                float residual = f_i - kf_i;
-                float residual_2 = residual * residual;
-
-                // z buffer
-                // float f_idepth = 1.0 / f_ver(2);
-                // float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
-                // if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
-                //    continue;
-
-                (*e).error += residual_2;
-                (*e).count++;
-            }
+            float p1 = frame.image.get(y, x, lvl);
+            float p2 = image_buffer.get(y, x, lvl);
+            if (p1 == frame.image.nodata || p2 == image_buffer.nodata)
+                continue;
+            e.error += std::pow(p1 - p2, 2);
+            e.count++;
         }
-    }
+
+    return e;
 }
 
 HGMapped meshOptimizerCPU::computeHGPose(frameCPU &frame, int lvl)
 {
     HGMapped hg;
 
-    keyframeMesh.computeTexCoords(cam[lvl]);
+    // renderer.renderJPose(keyframeMesh, cam[lvl], keyframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    idepth_buffer.set(idepth_buffer.nodata, lvl);
+    renderer.renderIdepth(keyframeMesh, cam[lvl], frame.pose, idepth_buffer, lvl);
+    renderer.renderJPose(idepth_buffer, cam[lvl], keyframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
 
-    MeshCPU frameMesh = keyframeMesh.getCopy();
-    frameMesh.transform(frame.pose);
-    frameMesh.computeTexCoords(cam[lvl]);
-
-    std::vector<unsigned int> trisIds = frameMesh.getTrianglesIds();
-
-    if (multiThreading)
+    for (int y = 0; y < cam[lvl].height; y++)
     {
-        hgMappedTreadReduce.reduce(boost::bind(&meshOptimizerCPU::HGPosePerIndex, this, frame, frameMesh, trisIds, lvl, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4), 0, trisIds.size(), 0);
-        hg = hgMappedTreadReduce.stats;
-    }
-    else
-    {
-        HGPosePerIndex(frame, frameMesh, trisIds, lvl, 0, trisIds.size(), &hg, 0);
-    }
-
-    /*
-    if(hg.count > 0)
-    {
-         hg.H /= hg.count;
-         hg.G /= hg.count;
-    }
-    */
-
-    return hg;
-}
-
-void meshOptimizerCPU::HGPosePerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid)
-{
-    // z_buffer.reset(lvl);
-
-    float min_area = (float(cam[lvl].width) / MESH_WIDTH) * (float(cam[lvl].height) / MESH_HEIGHT) / 4;
-    float min_angle = M_PI / 16.0;
-
-    // for each triangle
-    for (int index = tmin; index < tmax; index++)
-    {
-        unsigned int t_id = trisIds[index];
-
-        Triangle2D kf_tri = keyframeMesh.getTexCoordTriangle(t_id);
-        // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
-        //     continue;
-        if (kf_tri.getArea() < min_area)
-            continue;
-        std::array<float, 3> kf_angle = kf_tri.getAngles();
-        if (fabs(kf_angle[0]) < min_angle || fabs(kf_angle[1]) < min_angle || fabs(kf_angle[2]) < min_angle)
-            continue;
-        Triangle3D f_tri_3d = frameMesh.getCartesianTriangle(t_id);
-        Triangle2D f_tri_2d = frameMesh.getTexCoordTriangle(t_id);
-        // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
-        //     continue;
-        if (f_tri_2d.getArea() < min_area)
-            continue;
-        std::array<float, 3> f_angle = f_tri_2d.getAngles();
-        if (fabs(f_angle[0]) < min_angle || fabs(f_angle[1]) < min_angle || fabs(f_angle[2]) < min_angle)
-            continue;
-
-        f_tri_2d.computeTinv();
-        std::array<int, 4> minmax = f_tri_2d.getMinMax();
-
-        for (int y = minmax[2]; y <= minmax[3]; y++)
+        for (int x = 0; x < cam[lvl].width; x++)
         {
-            for (int x = minmax[0]; x <= minmax[1]; x++)
+            Eigen::Vector3f j_tra = j1_buffer.get(y, x, lvl);
+            Eigen::Vector3f j_rot = j2_buffer.get(y, x, lvl);
+            float err = error_buffer.get(y, x, lvl);
+            if (j_tra == j1_buffer.nodata || j_rot == j2_buffer.nodata || err == error_buffer.nodata)
+                continue;
+            Eigen::Matrix<float, 6, 1> J;
+            J << j_tra(0), j_tra(1), j_tra(2), j_rot(0), j_rot(1), j_rot(2);
+            hg.count++;
+            for (int i = 0; i < 6; i++)
             {
-                Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam[lvl].isPixVisible(f_pix))
-                    continue;
-
-                f_tri_2d.computeBarycentric(f_pix);
-
-                if (!f_tri_2d.isBarycentricOk())
-                    continue;
-
-                Eigen::Vector2f kf_pix = f_tri_2d.interpolate(kf_tri.vertices[0], kf_tri.vertices[1], kf_tri.vertices[2]);
-                if (!cam[lvl].isPixVisible(kf_pix))
-                    continue;
-
-                Eigen::Vector3f f_ver = f_tri_2d.interpolate(f_tri_3d.vertices[0], f_tri_3d.vertices[1], f_tri_3d.vertices[2]);
-
-                if (f_ver(2) <= 0.0)
-                    continue;
-
-                // z-buffer
-                // float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
-                // if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
-                //    continue;
-
-                float kf_i = float(keyframe.image.get(kf_pix(1), kf_pix(0), lvl));
-                float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame.dy.get(f_pix(1), f_pix(0), lvl);
-
-                if (kf_i == keyframe.image.nodata || f_i == frame.image.nodata || dx == frame.dx.nodata || dy == frame.dy.nodata)
-                    continue;
-
-                Eigen::Vector2f d_f_i_d_pix(dx, dy);
-
-                float v0 = d_f_i_d_pix(0) * cam[lvl].fx / f_ver(2);
-                float v1 = d_f_i_d_pix(1) * cam[lvl].fy / f_ver(2);
-                float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
-
-                Eigen::Vector3f d_f_i_d_tra = Eigen::Vector3f(v0, v1, v2);
-                Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
-
-                float residual = (f_i - kf_i);
-                // float residual_2 = residual * residual;
-
-                Eigen::Matrix<float, 6, 1> J;
-                J << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
-
-                hg->count++;
-                for (int i = 0; i < 6; i++)
+                hg.G.add(J[i] * err, i - 6);
+                // hg->G[i - 6] = J[i] * residual;
+                for (int j = i; j < 6; j++)
                 {
-                    hg->G.add(J[i] * residual, i - 6);
-                    // hg->G[i - 6] = J[i] * residual;
-                    for (int j = i; j < 6; j++)
-                    {
-                        float jj = J[i] * J[j];
-                        hg->H.add(jj, i - 6, j - 6);
-                        hg->H.add(jj, j - 6, i - 6);
-                    }
+                    float jj = J[i] * J[j];
+                    hg.H.add(jj, i - 6, j - 6);
+                    hg.H.add(jj, j - 6, i - 6);
                 }
             }
         }
     }
+
+    return hg;
 }
 
-HGMapped meshOptimizerCPU::computeHGMap(frameCPU &frame, int lvl)
+HGMapped meshOptimizerCPU::computeHGMapDepth(frameCPU &frame, int lvl)
 {
     HGMapped hg;
 
-    keyframeMesh.computeTexCoords(cam[lvl]);
+    error_buffer.set(error_buffer.nodata, lvl);
+    j1_buffer.set(j1_buffer.nodata, lvl);
+    id_buffer.set(id_buffer.nodata, lvl);
 
-    MeshCPU frameMesh = keyframeMesh.getCopy();
-    frameMesh.transform(frame.pose);
-    frameMesh.computeTexCoords(cam[lvl]);
+    renderer.renderJMapDepth(keyframeMesh, cam[lvl], keyframe, frame, j1_buffer, error_buffer, id_buffer, jacMethod, lvl);
 
-    std::vector<unsigned int> trisIds = frameMesh.getTrianglesIds();
-
-    if (multiThreading)
+    for (int y = 0; y < cam[lvl].height; y++)
     {
-        hgMappedTreadReduce.reduce(boost::bind(&meshOptimizerCPU::HGMapPerIndex, this, frame, frameMesh, trisIds, lvl, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4), 0, trisIds.size(), 0);
-        hg = hgMappedTreadReduce.stats;
-    }
-    else
-    {
-        HGMapPerIndex(frame, frameMesh, trisIds, lvl, 0, trisIds.size(), &hg, 0);
+        for (int x = 0; x < cam[lvl].width; x++)
+        {
+            Eigen::Vector3f jac = j1_buffer.get(y, x, lvl);
+            float err = error_buffer.get(y, x, lvl);
+            Eigen::Vector3i ids = id_buffer.get(y, x, lvl);
+
+            if (jac == j1_buffer.nodata || err == error_buffer.nodata || ids == id_buffer.nodata)
+                continue;
+
+            hg.count += 1;
+            for (int i = 0; i < 3; i++)
+            {
+                // if the jacobian is 0
+                // we really cannot say anything about the depth
+                // can make the hessian non-singular
+                if (jac(i) == 0)
+                    continue;
+
+                hg.G.add(jac(i) * err, ids(i));
+                //(*hg).G[v_ids[i]] += J[i] * error;
+
+                for (int j = i; j < 3; j++)
+                {
+                    float jj = jac(i) * jac(j);
+                    hg.H.add(jj, ids(i), ids(j));
+                    hg.H.add(jj, ids(j), ids(i));
+                    //(*hg).H[v_ids[i]][v_ids[j]] += jj;
+                    //(*hg).H[v_ids[j]][v_ids[i]] += jj;
+                }
+            }
+        }
     }
 
     return hg;
 }
 
-void meshOptimizerCPU::HGMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid)
+HGMapped meshOptimizerCPU::computeHGMapNormalDepth(frameCPU &frame, int lvl)
 {
-    // z_buffer.reset(lvl);
+    HGMapped hg;
 
-    float min_area = (float(cam[lvl].width) / (MESH_WIDTH - 1)) * (float(cam[lvl].height) / (MESH_HEIGHT - 1)) / 16;
-    float min_angle = M_PI / 64.0;
+    error_buffer.set(error_buffer.nodata, lvl);
+    j1_buffer.set(j1_buffer.nodata, lvl);
+    j2_buffer.set(j2_buffer.nodata, lvl);
+    j3_buffer.set(j3_buffer.nodata, lvl);
+    id_buffer.set(id_buffer.nodata, lvl);
 
-    // for each triangle
-    for (std::size_t index = tmin; index < tmax; index++)
+    renderer.renderJMapNormalDepth(keyframeMesh, cam[lvl], keyframe, frame, j1_buffer, j2_buffer, j3_buffer, error_buffer, id_buffer, jacMethod, lvl);
+
+    for (int y = 0; y < cam[lvl].height; y++)
     {
-        unsigned int t_id = trisIds[index];
-
-        std::array<unsigned int, 3> v_ids = keyframeMesh.getTriangleIndices(t_id);
-
-        Triangle3D kf_tri_3d = keyframeMesh.getCartesianTriangle(t_id);
-        Triangle2D kf_tri_2d = keyframeMesh.getTexCoordTriangle(t_id);
-        if (kf_tri_3d.vertices[0](2) <= 0.0 || kf_tri_3d.vertices[1](2) <= 0.0 || kf_tri_3d.vertices[2](2) <= 0.0)
-            continue;
-        if (kf_tri_2d.getArea() < min_area)
-            continue;
-        std::array<float, 3> kf_tri_angles = kf_tri_2d.getAngles();
-        if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
-            continue;
-
-        Triangle3D f_tri_3d = frameMesh.getCartesianTriangle(t_id);
-        Triangle2D f_tri_2d = frameMesh.getTexCoordTriangle(t_id);
-        if (f_tri_3d.vertices[0](2) <= 0.0 || f_tri_3d.vertices[1](2) <= 0.0 || f_tri_3d.vertices[2](2) <= 0.0)
-            continue;
-        if (f_tri_2d.getArea() < min_area)
-            continue;
-        std::array<float, 3> f_tri_angles = f_tri_2d.getAngles();
-        if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
-            continue;
-
-        f_tri_2d.computeTinv();
-        std::array<int, 4> minmax = f_tri_2d.getMinMax();
-
-        Eigen::Vector3f n_p[3];
-        n_p[0] = (kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]).cross(kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]);
-        n_p[1] = (kf_tri_3d.vertices[1] - kf_tri_3d.vertices[0]).cross(kf_tri_3d.vertices[2] - kf_tri_3d.vertices[0]);
-        n_p[2] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]).cross(kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]);
-
-        Eigen::Vector3f pw2mpw1[3];
-        pw2mpw1[0] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]);
-        pw2mpw1[1] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[0]);
-        pw2mpw1[2] = (kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]);
-
-        float n_p_dot_point[3];
-        n_p_dot_point[0] = n_p[0].dot(kf_tri_3d.vertices[1]);
-        n_p_dot_point[1] = n_p[1].dot(kf_tri_3d.vertices[0]);
-        n_p_dot_point[2] = n_p[2].dot(kf_tri_3d.vertices[1]);
-
-        Eigen::Vector3f pr_p[3];
-        pr_p[0] = kf_tri_3d.vertices[1];
-        pr_p[1] = kf_tri_3d.vertices[0];
-        pr_p[2] = kf_tri_3d.vertices[1];
-
-        Eigen::Vector3f d_n_d_z[3];
-        float d_z_d_iz[3];
-        for (int i = 0; i < 3; i++)
+        for (int x = 0; x < cam[lvl].width; x++)
         {
-            d_n_d_z[i] = kf_tri_3d.vertices[i].cross(pw2mpw1[i]);
-            // with respect to depth
-            if (optMethod == OptimizationMethod::depth)
-                d_z_d_iz[i] = 1.0;
-            // with respecto to idepth (depth = 1/idepth)
-            if (optMethod == OptimizationMethod::idepth)
-                d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
-            // width respect to depth = exp(z)
-            if (optMethod == OptimizationMethod::log_depth)
-                d_z_d_iz[i] = kf_tri_3d.vertices[i](2);
-            if (optMethod == OptimizationMethod::log_idepth)
-                d_z_d_iz[i] = -kf_tri_3d.vertices[i](2);
-        }
+            Eigen::Vector3f jacDepth = j1_buffer.get(y, x, lvl);
+            Eigen::Vector2f jacNormal[3];
+            jacNormal[0](0) = j2_buffer.get(y, x, lvl)(0);
+            jacNormal[0](1) = j2_buffer.get(y, x, lvl)(1);
+            jacNormal[1](0) = j2_buffer.get(y, x, lvl)(2);
+            jacNormal[1](1) = j3_buffer.get(y, x, lvl)(0);
+            jacNormal[2](0) = j3_buffer.get(y, x, lvl)(1);
+            jacNormal[2](1) = j3_buffer.get(y, x, lvl)(2);
 
-        for (int y = minmax[2]; y <= minmax[3]; y++)
-        {
-            for (int x = minmax[0]; x <= minmax[1]; x++)
+            float err = error_buffer.get(y, x, lvl);
+            Eigen::Vector3i ids = id_buffer.get(y, x, lvl);
+
+            if (jacDepth == j1_buffer.nodata || err == error_buffer.nodata || ids == id_buffer.nodata)
+                continue;
+
+            hg.count += 1;
+            for (int i = 0; i < 3; i++)
             {
-                Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam[lvl].isPixVisible(f_pix))
+                // if the jacobian is 0
+                // we really cannot say anything about the depth
+                // can make the hessian non-singular
+                if (jacDepth(i) == 0)
                     continue;
 
-                f_tri_2d.computeBarycentric(f_pix);
-                if (!f_tri_2d.isBarycentricOk())
-                    continue;
+                hg.G.add(jacDepth(i) * err, ids(i));
+                //(*hg).G[v_ids[i]] += J[i] * error;
 
-                Eigen::Vector2f kf_pix = f_tri_2d.interpolate(kf_tri_2d.vertices[0], kf_tri_2d.vertices[1], kf_tri_2d.vertices[2]);
-                if (!cam[lvl].isPixVisible(kf_pix))
-                    continue;
-
-                Eigen::Vector3f kf_ver = f_tri_2d.interpolate(kf_tri_3d.vertices[0], kf_tri_3d.vertices[1], kf_tri_3d.vertices[2]);
-                Eigen::Vector3f f_ver = f_tri_2d.interpolate(f_tri_3d.vertices[0], f_tri_3d.vertices[1], f_tri_3d.vertices[2]);
-
-                if (kf_ver(2) <= 0.0 || f_ver(2) <= 0.0)
-                    continue;
-
-                // z-buffer
-                // float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
-                // if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
-                //    continue;
-
-                float kf_i = float(keyframe.image.get(kf_pix(1), kf_pix(0), lvl));
-                float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame.dy.get(f_pix(1), f_pix(0), lvl);
-
-                if (kf_i == keyframe.image.nodata || f_i == frame.image.nodata || dx == frame.dx.nodata || dy == frame.dy.nodata)
-                    continue;
-
-                Eigen::Vector2f d_f_i_d_pix(dx, dy);
-
-                Eigen::Vector3f d_f_i_d_f_ver;
-                d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam[lvl].fx / f_ver(2);
-                d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam[lvl].fy / f_ver(2);
-                // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) / f_ver(2) + d_f_i_d_f_ver(1) * f_ver(1) / f_ver(2));
-                d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
-
-                Eigen::Vector3f d_f_ver_d_kf_depth = frame.pose.rotationMatrix() * kf_ver / kf_ver(2);
-
-                float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
-
-                float error = f_i - kf_i;
-
-                float J[3];
-                for (int i = 0; i < 3; i++)
+                for (int j = i; j < 3; j++)
                 {
-                    float n_p_dot_ray = n_p[i].dot(kf_ver / kf_ver(2));
-                    float d_kf_depth_d_z = d_n_d_z[i].dot(pr_p[i]) / n_p_dot_ray - n_p_dot_point[i] * d_n_d_z[i].dot(kf_ver / kf_ver(2)) / (n_p_dot_ray * n_p_dot_ray);
-                    float d_f_i_d_z = d_f_i_d_kf_depth * d_kf_depth_d_z * d_z_d_iz[i];
-                    J[i] = d_f_i_d_z;
-                }
-
-                (*hg).count += 1;
-                for (int i = 0; i < 3; i++)
-                {
-                    // if the jacobian is 0
-                    // we really cannot say anything about the depth
-                    // can make the hessian non-singular
-                    if (J[i] == 0)
-                        continue;
-
-                    (*hg).G.add(J[i] * error, v_ids[i]);
-                    //(*hg).G[v_ids[i]] += J[i] * error;
-
-                    for (int j = i; j < 3; j++)
-                    {
-                        float jj = J[i] * J[j];
-                        (*hg).H.add(jj, v_ids[i], v_ids[j]);
-                        (*hg).H.add(jj, v_ids[j], v_ids[i]);
-                        //(*hg).H[v_ids[i]][v_ids[j]] += jj;
-                        //(*hg).H[v_ids[j]][v_ids[i]] += jj;
-                    }
+                    float jj = jacDepth(i) * jacDepth(j);
+                    hg.H.add(jj, ids(i), ids(j));
+                    hg.H.add(jj, ids(j), ids(i));
+                    //(*hg).H[v_ids[i]][v_ids[j]] += jj;
+                    //(*hg).H[v_ids[j]][v_ids[i]] += jj;
                 }
             }
         }
     }
+
+    return hg;
 }
 
 HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, int frame_index, int lvl)
 {
     HGMapped hg;
 
-    keyframeMesh.computeTexCoords(cam[lvl]);
+    j1_buffer.set(j1_buffer.nodata, lvl);
+    j2_buffer.set(j2_buffer.nodata, lvl);
+    j3_buffer.set(j3_buffer.nodata, lvl);
+    error_buffer.set(error_buffer.nodata, lvl);
+    id_buffer.set(id_buffer.nodata, lvl);
 
-    MeshCPU frameMesh = keyframeMesh.getCopy();
-    frameMesh.transform(frame.pose);
-    frameMesh.computeTexCoords(cam[lvl]);
+    renderer.renderJPoseMap(keyframeMesh, cam[lvl], keyframe, frame, j1_buffer, j2_buffer, j3_buffer, error_buffer, id_buffer, jacMethod, lvl);
 
-    std::vector<unsigned int> trisIds = frameMesh.getTrianglesIds();
-
-    if (multiThreading)
+    for (int y = 0; y < cam[lvl].height; y++)
     {
-        hgMappedTreadReduce.reduce(boost::bind(&meshOptimizerCPU::HGPoseMapPerIndex, this, frame, frameMesh, trisIds, lvl, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4), 0, trisIds.size(), 0);
-        hg = hgMappedTreadReduce.stats;
-    }
-    else
-    {
-        HGPoseMapPerIndex(frame, frameMesh, trisIds, lvl, 0, trisIds.size(), &hg, 0);
-    }
-
-    return hg;
-}
-
-void meshOptimizerCPU::HGPoseMapPerIndex(frameCPU &frame, MeshCPU &frameMesh, std::vector<unsigned int> trisIds, int lvl, int tmin, int tmax, HGMapped *hg, int tid)
-{
-    // z_buffer.reset(lvl);
-
-    float min_area = (float(cam[lvl].width) / MESH_WIDTH) * (float(cam[lvl].height) / MESH_HEIGHT) / 4;
-    float min_angle = M_PI / 16.0;
-
-    for (std::size_t index = tmin; index < tmax; index++)
-    {
-        unsigned int t_id = trisIds[index];
-
-        std::array<unsigned int, 3> v_ids = keyframeMesh.getTriangleIndices(t_id);
-
-        Triangle2D kf_tri_2d = keyframeMesh.getTexCoordTriangle(t_id);
-        Triangle3D kf_tri_3d = keyframeMesh.getCartesianTriangle(t_id);
-        // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
-        //     continue;
-        if (kf_tri_2d.getArea() < min_area)
-            continue;
-        std::array<float, 3> kf_tri_angles = kf_tri_2d.getAngles();
-        if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
-            continue;
-
-        Triangle3D f_tri_3d = frameMesh.getCartesianTriangle(t_id);
-        Triangle2D f_tri_2d = frameMesh.getTexCoordTriangle(t_id);
-        // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
-        //     continue;
-        if (f_tri_2d.getArea() < min_area)
-            continue;
-        std::array<float, 3> f_tri_angles = f_tri_2d.getAngles();
-        if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
-            continue;
-
-        f_tri_2d.computeTinv();
-        std::array<int, 4> minmax = f_tri_2d.getMinMax();
-
-        Eigen::Vector3f n_p[3];
-        n_p[0] = (kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]).cross(kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]);
-        n_p[1] = (kf_tri_3d.vertices[1] - kf_tri_3d.vertices[0]).cross(kf_tri_3d.vertices[2] - kf_tri_3d.vertices[0]);
-        n_p[2] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]).cross(kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]);
-
-        Eigen::Vector3f pw2mpw1[3];
-        pw2mpw1[0] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]);
-        pw2mpw1[1] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[0]);
-        pw2mpw1[2] = (kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]);
-
-        float n_p_dot_point[3];
-        n_p_dot_point[0] = n_p[0].dot(kf_tri_3d.vertices[1]);
-        n_p_dot_point[1] = n_p[1].dot(kf_tri_3d.vertices[0]);
-        n_p_dot_point[2] = n_p[2].dot(kf_tri_3d.vertices[1]);
-
-        Eigen::Vector3f pr_p[3];
-        pr_p[0] = kf_tri_3d.vertices[1];
-        pr_p[1] = kf_tri_3d.vertices[0];
-        pr_p[2] = kf_tri_3d.vertices[1];
-
-        Eigen::Vector3f d_n_d_z[3];
-        float d_z_d_iz[3];
-        for (int i = 0; i < 3; i++)
+        for (int x = 0; x < cam[lvl].width; x++)
         {
-            d_n_d_z[i] = kf_tri_3d.vertices[i].cross(pw2mpw1[i]);
-            // with respect to depth
-            if (optMethod == OptimizationMethod::depth)
-                d_z_d_iz[i] = 1.0;
-            // with respecto to idepth (depth = 1/idepth)
-            if (optMethod == OptimizationMethod::idepth)
-                d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
-            // width respect to depth = exp(z)
-            if (optMethod == OptimizationMethod::log_depth)
-                d_z_d_iz[i] = kf_tri_3d.vertices[i](2);
-            if (optMethod == OptimizationMethod::log_idepth)
-                d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
-        }
+            Eigen::Vector3f j_tra = j1_buffer.get(y, x, lvl);
+            Eigen::Vector3f j_rot = j2_buffer.get(y, x, lvl);
+            Eigen::Vector3f j_map = j3_buffer.get(y, x, lvl);
+            float error = error_buffer.get(y, x, lvl);
+            Eigen::Vector3i ids = id_buffer.get(y, x, lvl);
 
-        for (int y = minmax[2]; y <= minmax[3]; y++)
-        {
-            for (int x = minmax[0]; x <= minmax[1]; x++)
+            if (j_tra == j1_buffer.nodata || j_rot == j2_buffer.nodata || j_map == j3_buffer.nodata || error == error_buffer.nodata || ids == id_buffer.nodata)
+                continue;
+
+            hg.count += 1;
+
+            Eigen::Matrix<float, 6, 1> J_pose;
+            J_pose << j_tra(0), j_tra(1), j_tra(2), j_rot(0), j_rot(1), j_rot(2);
+
+            for (int i = 0; i < 6; i++)
             {
-                Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam[lvl].isPixVisible(f_pix))
-                    continue;
+                hg.G.add(J_pose[i] * error, i - (frame.id + 1) * 6);
 
-                f_tri_2d.computeBarycentric(f_pix);
-                if (!f_tri_2d.isBarycentricOk())
-                    continue;
-
-                Eigen::Vector2f kf_pix = f_tri_2d.interpolate(kf_tri_2d.vertices[0], kf_tri_2d.vertices[1], kf_tri_2d.vertices[2]);
-                if (!cam[lvl].isPixVisible(kf_pix))
-                    continue;
-
-                Eigen::Vector3f kf_ver = f_tri_2d.interpolate(kf_tri_3d.vertices[0], kf_tri_3d.vertices[1], kf_tri_3d.vertices[2]);
-                Eigen::Vector3f f_ver = f_tri_2d.interpolate(f_tri_3d.vertices[0], f_tri_3d.vertices[1], f_tri_3d.vertices[2]);
-
-                if (kf_ver(2) <= 0.0 || f_ver(2) <= 0.0)
-                    continue;
-
-                // z-buffer
-                // float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
-                // if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
-                //    continue;
-
-                float kf_i = float(keyframe.image.get(kf_pix(1), kf_pix(0), lvl));
-                float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame.dy.get(f_pix(1), f_pix(0), lvl);
-
-                if (kf_i == keyframe.image.nodata || f_i == frame.image.nodata || dx == frame.dx.nodata || dy == frame.dy.nodata)
-                    continue;
-
-                Eigen::Vector2f d_f_i_d_pix(dx, dy);
-
-                Eigen::Vector3f d_f_i_d_f_ver;
-                d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam[lvl].fx / f_ver(2);
-                d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam[lvl].fy / f_ver(2);
-                // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) / f_ver(2) + d_f_i_d_f_ver(1) * f_ver(1) / f_ver(2));
-                d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
-
-                Eigen::Vector3f d_f_i_d_tra = d_f_i_d_f_ver;
-                Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
-
-                Eigen::Matrix<float, 6, 1> J_pose;
-                J_pose << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
-
-                Eigen::Vector3f d_f_ver_d_kf_depth = frame.pose.rotationMatrix() * kf_ver / kf_ver(2);
-
-                float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
-
-                float error = f_i - kf_i;
-
-                float J[3];
-                for (int i = 0; i < 3; i++)
+                for (int j = i; j < 6; j++)
                 {
-                    float n_p_dot_ray = n_p[i].dot(kf_ver / kf_ver(2));
-                    float d_kf_depth_d_z = d_n_d_z[i].dot(pr_p[i]) / n_p_dot_ray - n_p_dot_point[i] * d_n_d_z[i].dot(kf_ver / kf_ver(2)) / (n_p_dot_ray * n_p_dot_ray);
-                    float d_f_i_d_z = d_f_i_d_kf_depth * d_kf_depth_d_z * d_z_d_iz[i];
-                    J[i] = d_f_i_d_z;
+                    float jj = J_pose[i] * J_pose[j];
+                    hg.H.add(jj, i - (frame.id + 1) * 6, j - (frame.id + 1) * 6);
+                    hg.H.add(jj, j - (frame.id + 1) * 6, i - (frame.id + 1) * 6);
                 }
+            }
 
-                (*hg).count += 1;
+            for (int i = 0; i < 3; i++)
+            {
+                // if the jacobian is 0
+                // we really cannot say anything about the depth
+                // can make the hessian non-singular
+                if (j_map(i) == 0)
+                    continue;
+                hg.G.add(j_map(i) * error, ids(i));
+                //(*hg).G[v_ids[i]] += J[i] * error;
 
-                for (int i = 0; i < 6; i++)
+                for (int j = i; j < 3; j++)
                 {
-                    (*hg).G.add(J_pose[i] * error, i - (frame.id + 1) * 6);
-
-                    for (int j = i; j < 6; j++)
-                    {
-                        float jj = J_pose[i] * J_pose[j];
-                        (*hg).H.add(jj, i - (frame.id + 1) * 6, j - (frame.id + 1) * 6);
-                        (*hg).H.add(jj, j - (frame.id + 1) * 6, i - (frame.id + 1) * 6);
-                    }
-                }
-
-                for (int i = 0; i < 3; i++)
-                {
-                    // if the jacobian is 0
-                    // we really cannot say anything about the depth
-                    // can make the hessian non-singular
-                    if (J[i] == 0)
-                        continue;
-                    (*hg).G.add(J[i] * error, v_ids[i]);
-                    //(*hg).G[v_ids[i]] += J[i] * error;
-
-                    for (int j = i; j < 3; j++)
-                    {
-                        float jj = J[i] * J[j];
-                        (*hg).H.add(jj, v_ids[i], v_ids[j]);
-                        (*hg).H.add(jj, v_ids[j], v_ids[i]);
-                        //(*hg).H[v_ids[i]][v_ids[j]] += jj;
-                        //(*hg).H[v_ids[j]][v_ids[i]] += jj;
-                    }
+                    float jj = j_map(i) * j_map(j);
+                    hg.H.add(jj, ids(i), ids(j));
+                    hg.H.add(jj, ids(j), ids(i));
+                    //(*hg).H[v_ids[i]][v_ids[j]] += jj;
+                    //(*hg).H[v_ids[j]][v_ids[i]] += jj;
                 }
             }
         }
     }
+
+    return hg;
 }
 
 Error meshOptimizerCPU::errorRegu()
@@ -723,13 +348,13 @@ Error meshOptimizerCPU::errorRegu()
         float theta[3];
         for (int j = 0; j < 3; j++)
         {
-            if (optMethod == OptimizationMethod::depth)
+            if (jacMethod == MapJacobianMethod::depth)
                 theta[j] = keyframeMesh.getVerticeDepth(tri[j]);
-            if (optMethod == OptimizationMethod::idepth)
+            if (jacMethod == MapJacobianMethod::idepth)
                 theta[j] = 1.0 / keyframeMesh.getVerticeDepth(tri[j]);
-            if (optMethod == OptimizationMethod::log_depth)
+            if (jacMethod == MapJacobianMethod::log_depth)
                 theta[j] = std::log(keyframeMesh.getVerticeDepth(tri[j]));
-            if (optMethod == OptimizationMethod::log_idepth)
+            if (jacMethod == MapJacobianMethod::log_idepth)
                 theta[j] = std::log(1.0 / keyframeMesh.getVerticeDepth(tri[j]));
         }
 
@@ -763,13 +388,13 @@ HGMapped meshOptimizerCPU::HGRegu()
         float theta[3];
         for (int j = 0; j < 3; j++)
         {
-            if (optMethod == OptimizationMethod::depth)
+            if (jacMethod == MapJacobianMethod::depth)
                 theta[j] = keyframeMesh.getVerticeDepth(v_ids[j]);
-            if (optMethod == OptimizationMethod::idepth)
+            if (jacMethod == MapJacobianMethod::idepth)
                 theta[j] = 1.0 / keyframeMesh.getVerticeDepth(v_ids[j]);
-            if (optMethod == OptimizationMethod::log_depth)
+            if (jacMethod == MapJacobianMethod::log_depth)
                 theta[j] = std::log(keyframeMesh.getVerticeDepth(v_ids[j]));
-            if (optMethod == OptimizationMethod::log_idepth)
+            if (jacMethod == MapJacobianMethod::log_idepth)
                 theta[j] = std::log(1.0 / keyframeMesh.getVerticeDepth(v_ids[j]));
         }
 
@@ -801,7 +426,7 @@ HGMapped meshOptimizerCPU::HGRegu()
     return hg;
 }
 
-Error meshOptimizerCPU::errorInitial(MeshCPU &initMesh, MatrixMapped &initThetaVar)
+Error meshOptimizerCPU::errorInitial(MeshTexCoordsCPU &initMesh, MatrixMapped &initThetaVar)
 {
     Error error;
 
@@ -813,22 +438,22 @@ Error meshOptimizerCPU::errorInitial(MeshCPU &initMesh, MatrixMapped &initThetaV
 
         float initVar = initThetaVar[id][id];
         float theta, initTheta;
-        if (optMethod == OptimizationMethod::depth)
+        if (jacMethod == MapJacobianMethod::depth)
         {
             theta = keyframeMesh.getVerticeDepth(id);
             initTheta = initMesh.getVerticeDepth(id);
         }
-        if (optMethod == OptimizationMethod::idepth)
+        if (jacMethod == MapJacobianMethod::idepth)
         {
             theta = 1.0 / keyframeMesh.getVerticeDepth(id);
             initTheta = 1.0 / initMesh.getVerticeDepth(id);
         }
-        if (optMethod == OptimizationMethod::log_depth)
+        if (jacMethod == MapJacobianMethod::log_depth)
         {
             theta = std::log(keyframeMesh.getVerticeDepth(id));
             initTheta = std::log(initMesh.getVerticeDepth(id));
         }
-        if (optMethod == OptimizationMethod::log_idepth)
+        if (jacMethod == MapJacobianMethod::log_idepth)
         {
             theta = std::log(1.0 / keyframeMesh.getVerticeDepth(id));
             initTheta = std::log(1.0 / initMesh.getVerticeDepth(id));
@@ -844,7 +469,7 @@ Error meshOptimizerCPU::errorInitial(MeshCPU &initMesh, MatrixMapped &initThetaV
     return error;
 }
 
-HGMapped meshOptimizerCPU::HGInitial(MeshCPU &initMesh, MatrixMapped &initThetaVar)
+HGMapped meshOptimizerCPU::HGInitial(MeshTexCoordsCPU &initMesh, MatrixMapped &initThetaVar)
 {
     HGMapped hg;
 
@@ -856,22 +481,22 @@ HGMapped meshOptimizerCPU::HGInitial(MeshCPU &initMesh, MatrixMapped &initThetaV
 
         float initVar = initThetaVar[v_id][v_id];
         float theta, initTheta;
-        if (optMethod == OptimizationMethod::depth)
+        if (jacMethod == MapJacobianMethod::depth)
         {
             theta = keyframeMesh.getVerticeDepth(v_id);
             initTheta = initMesh.getVerticeDepth(v_id);
         }
-        if (optMethod == OptimizationMethod::idepth)
+        if (jacMethod == MapJacobianMethod::idepth)
         {
             theta = 1.0 / keyframeMesh.getVerticeDepth(v_id);
             initTheta = 1.0 / initMesh.getVerticeDepth(v_id);
         }
-        if (optMethod == OptimizationMethod::log_depth)
+        if (jacMethod == MapJacobianMethod::log_depth)
         {
             theta = std::log(keyframeMesh.getVerticeDepth(v_id));
             initTheta = std::log(initMesh.getVerticeDepth(v_id));
         }
-        if (optMethod == OptimizationMethod::log_idepth)
+        if (jacMethod == MapJacobianMethod::log_idepth)
         {
             theta = std::log(1.0 / keyframeMesh.getVerticeDepth(v_id));
             initTheta = std::log(1.0 / initMesh.getVerticeDepth(v_id));
@@ -993,7 +618,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
     }
 }
 
-void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
+void meshOptimizerCPU::optMapDepth(std::vector<frameCPU> &frames)
 {
     tic_toc t;
 
@@ -1011,7 +636,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
         // keyframeMesh.toRayIdepth();
         // std::vector<float> best_idepths = keyframeMesh.getVerticesIdepths();
 
-        MeshCPU initialMesh = keyframeMesh.getCopy();
+        MeshTexCoordsCPU initialMesh = keyframeMesh;
         MatrixMapped initialInvVar = invVar;
 
         e.setZero();
@@ -1037,7 +662,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
             hg.setZero();
             for (std::size_t i = 0; i < frames.size(); i++)
-                hg += computeHGMap(frames[i], lvl);
+                hg += computeHGMapDepth(frames[i], lvl);
 
             std::vector<int> ids = hg.G.getIds();
 
@@ -1114,13 +739,13 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                     float best_depth = keyframeMesh.getVerticeDepth(ids[index]);
                     float new_depth;
-                    if (optMethod == OptimizationMethod::depth)
+                    if (jacMethod == MapJacobianMethod::depth)
                         new_depth = best_depth + inc(index);
-                    if (optMethod == OptimizationMethod::idepth)
+                    if (jacMethod == MapJacobianMethod::idepth)
                         new_depth = 1.0 / (1.0 / best_depth + inc(index));
-                    if (optMethod == OptimizationMethod::log_depth)
+                    if (jacMethod == MapJacobianMethod::log_depth)
                         new_depth = std::exp(std::log(best_depth) + inc(index));
-                    if (optMethod == OptimizationMethod::log_idepth)
+                    if (jacMethod == MapJacobianMethod::log_idepth)
                         new_depth = 1.0 / std::exp(std::log(1.0 / best_depth) + inc(index));
                     if (new_depth < 0.0001 || new_depth > 1000.0)
                         new_depth = best_depth;
@@ -1311,13 +936,13 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                     float best_depth = keyframeMesh.getVerticeDepth(ids[index]);
                     float new_depth;
-                    if (optMethod == OptimizationMethod::depth)
+                    if (jacMethod == MapJacobianMethod::depth)
                         new_depth = best_depth + inc(index);
-                    if (optMethod == OptimizationMethod::idepth)
+                    if (jacMethod == MapJacobianMethod::idepth)
                         new_depth = 1.0 / (1.0 / best_depth + inc(index));
-                    if (optMethod == OptimizationMethod::log_depth)
+                    if (jacMethod == MapJacobianMethod::log_depth)
                         new_depth = std::exp(std::log(best_depth) + inc(index));
-                    if (optMethod == OptimizationMethod::log_idepth)
+                    if (jacMethod == MapJacobianMethod::log_idepth)
                         new_depth = 1.0 / std::exp(std::log(1.0 / best_depth) + inc(index));
                     if (new_depth < 0.001 || new_depth > 100.0)
                         new_depth = best_depth;

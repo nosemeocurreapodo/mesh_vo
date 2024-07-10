@@ -83,7 +83,7 @@ int main(void)
 
         image.set((float*)imageMat.data);
 
-        //odometry.localization(frame);
+        //odometry.localization(image);
         odometry.mapping(image, realPose);
         //odometry.locAndMap(frame);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
