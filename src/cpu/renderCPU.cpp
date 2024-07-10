@@ -2,13 +2,13 @@
 #include <math.h>
 #include "utils/tictoc.h"
 
-void renderCPU::renderIdepth(MeshTexCoordsCPU &mesh, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
+void renderCPU::renderIdepth(Mesh &mesh, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
-    MeshTexCoordsCPU frameMesh = mesh;
+    Mesh frameMesh = mesh;
     frameMesh.transform(pose);
-    frameMesh.computeTexCoords(cam);
+    frameMesh.projectToCamera(cam);
 
     std::vector<unsigned int> trianglesIds = frameMesh.getTrianglesIds();
 
@@ -60,11 +60,11 @@ void renderCPU::renderIdepth(MeshTexCoordsCPU &mesh, camera &cam, Sophus::SE3f &
     }
 }
 
-void renderCPU::renderIdepth(MeshNormalsCPU &mesh, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
+void renderCPU::renderIdepth(Mesh &mesh, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
-    MeshNormalsCPU frameMesh = mesh;
+    Mesh frameMesh = mesh;
     frameMesh.transform(pose);
     frameMesh.computeTexCoords(cam);
 
@@ -120,12 +120,12 @@ void renderCPU::renderIdepth(MeshNormalsCPU &mesh, camera &cam, Sophus::SE3f &po
     }
 }
 
-void renderCPU::renderImage(MeshTexCoordsCPU &mesh, camera &cam, dataCPU<float> &image, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
+void renderCPU::renderImage(Mesh &mesh, camera &cam, dataCPU<float> &image, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
     mesh.computeTexCoords(cam);
-    MeshTexCoordsCPU frameMesh = mesh;
+    Mesh frameMesh = mesh;
     frameMesh.transform(pose);
     frameMesh.computeTexCoords(cam);
 
@@ -189,9 +189,9 @@ void renderCPU::renderImage(MeshTexCoordsCPU &mesh, camera &cam, dataCPU<float> 
     }
 }
 
-void renderCPU::renderDebug(MeshTexCoordsCPU &mesh, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
+void renderCPU::renderDebug(Mesh &mesh, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
-    MeshTexCoordsCPU frameMesh = mesh;
+    Mesh frameMesh = mesh;
     frameMesh.transform(pose);
     frameMesh.computeTexCoords(cam);
 
@@ -243,15 +243,15 @@ void renderCPU::renderDebug(MeshTexCoordsCPU &mesh, camera &cam, Sophus::SE3f &p
     }
 }
 
-void renderCPU::renderJMapDepth(MeshTexCoordsCPU &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &id_buffer, MapJacobianMethod jacMethod, int lvl)
+void renderCPU::renderJMapDepth(Mesh &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &id_buffer, MapJacobianMethod jacMethod, int lvl)
 {
     // z_buffer.reset(lvl);
 
     float min_area = (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16;
     float min_angle = M_PI / 64.0;
 
-    MeshTexCoordsCPU frame1Mesh = mesh;
-    MeshTexCoordsCPU frame2Mesh = mesh;
+    Mesh frame1Mesh = mesh;
+    Mesh frame2Mesh = mesh;
 
     frame1Mesh.transform(frame1.pose);
     frame1Mesh.computeTexCoords(cam);
@@ -392,15 +392,15 @@ void renderCPU::renderJMapDepth(MeshTexCoordsCPU &mesh, camera &cam, frameCPU &f
     }
 }
 
-void renderCPU::renderJMapNormalDepth(MeshTexCoordsCPU &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &id_buffer, MapJacobianMethod jacMethod, int lvl)
+void renderCPU::renderJMapNormalDepth(Mesh &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &id_buffer, MapJacobianMethod jacMethod, int lvl)
 {
     // z_buffer.reset(lvl);
 
     float min_area = (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16;
     float min_angle = M_PI / 64.0;
 
-    MeshTexCoordsCPU frame1Mesh = mesh;
-    MeshTexCoordsCPU frame2Mesh = mesh;
+    Mesh frame1Mesh = mesh;
+    Mesh frame2Mesh = mesh;
 
     frame1Mesh.transform(frame1.pose);
     frame1Mesh.computeTexCoords(cam);
@@ -543,15 +543,15 @@ void renderCPU::renderJMapNormalDepth(MeshTexCoordsCPU &mesh, camera &cam, frame
     }
 }
 
-void renderCPU::renderJPose(MeshTexCoordsCPU &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
+void renderCPU::renderJPose(Mesh &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
     float min_area = (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) / 16;
     float min_angle = M_PI / 64.0;
 
-    MeshTexCoordsCPU frame1Mesh = mesh;
-    MeshTexCoordsCPU frame2Mesh = mesh;
+    Mesh frame1Mesh = mesh;
+    Mesh frame2Mesh = mesh;
 
     frame1Mesh.transform(frame1.pose);
     frame1Mesh.computeTexCoords(cam);
@@ -695,15 +695,15 @@ void renderCPU::renderJPose(dataCPU<float> &frame1Idepth, camera &cam, frameCPU 
     }
 }
 
-void renderCPU::renderJPoseMap(MeshTexCoordsCPU &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &id_buffer, MapJacobianMethod jacMethod, int lvl)
+void renderCPU::renderJPoseMap(Mesh &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &id_buffer, MapJacobianMethod jacMethod, int lvl)
 {
     // z_buffer.reset(lvl);
 
     float min_area = (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16.0;
     float min_angle = M_PI / 64.0;
 
-    MeshTexCoordsCPU frame1Mesh = mesh;
-    MeshTexCoordsCPU frame2Mesh = mesh;
+    Mesh frame1Mesh = mesh;
+    Mesh frame2Mesh = mesh;
 
     frame1Mesh.transform(frame1.pose);
     frame1Mesh.computeTexCoords(cam);

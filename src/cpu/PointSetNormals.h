@@ -3,28 +3,22 @@
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
 #include "common/common.h"
-#include "cpu/PointSetCPU.h"
+#include "cpu/PointSet.h"
 
-class SurfelSetCPU : public PointSetCPU
+class PointSetNormals : public PointSet
 {
 public:
-    SurfelSetCPU() : PointSetCPU()
-    {
-        representation = cartesian;
-        last_v_id = 0;
-        last_t_id = 0;
-    };
 
-    SurfelSetCPU(const SurfelSetCPU &other) : PointSetCPU(other)
+    PointSetNormals(const PointSetNormals &other) : PointSet(other)
     {
         normals = other.normals;
     }
 
-    SurfelSetCPU &operator=(const SurfelSetCPU &other)
+    PointSetNormals &operator=(const PointSetNormals &other)
     {
         if (this != &other)
         {
-            PointSetCPU::operator=(other);
+            PointSet::operator=(other);
             normals = other.normals;
         }
         return *this;
@@ -32,7 +26,7 @@ public:
 
     void clear()
     {
-        PointSetCPU::clear();
+        PointSet::clear();
         normals.clear();
     }
 
@@ -45,21 +39,21 @@ public:
 
     unsigned int addVertice(Eigen::Vector3f &vert)
     {
-        unsigned int id = PointSetCPU::addVertice(vert);
+        unsigned int id = PointSet::addVertice(vert);
         normals[id] = Eigen::Vector3f(0.0, 0.0, 1.0);
         return id;
     }
 
     unsigned int addVertice(Eigen::Vector3f &vert, Eigen::Vector3f &normal)
     {
-        unsigned int id = PointSetCPU::addVertice(vert);
+        unsigned int id = PointSet::addVertice(vert);
         normals[id] = normal;
         return id;
     }
 
     void removeVertice(unsigned int id)
     {
-        PointSetCPU::removeVertice(id);
+        PointSet::removeVertice(id);
         normals.erase(id);
     }
 
@@ -72,18 +66,16 @@ public:
 
     void transform(Sophus::SE3f newGlobalPose)
     {
-        Sophus::SE3f relativePose = newGlobalPose * globalPose.inverse();
+        Sophus::SE3f relativePose = newGlobalPose * getPose().inverse();
         for (auto it = normals.begin(); it != normals.end(); ++it)
         {
             Eigen::Vector3f normal = it->second;
             normal = relativePose * normal;
             it->second = normal;
         }
-
-        PointSetCPU::transform(newGlobalPose);
+        PointSet::transform(newGlobalPose);
     }
 
 private:
-
     std::map<unsigned int, Eigen::Vector3f> normals;
 };

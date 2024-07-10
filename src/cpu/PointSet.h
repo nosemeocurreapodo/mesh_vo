@@ -3,37 +3,31 @@
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
 #include "common/common.h"
+#include "common/camera.h"
 
-enum VerticeRepresentation
-{
-    cartesian,
-    rayIdepth
-};
-
-class PointSetCPU
+class PointSet
 {
 public:
-    PointSetCPU()
+    PointSet()
     {
-        representation = cartesian;
         last_vertice_id = 0;
     };
 
-    PointSetCPU(const PointSetCPU &other)
+    PointSet(const PointSet &other)
     {
         vertices = other.vertices;
+        texcoords = other.texcoords;
         globalPose = other.globalPose;
-        representation = other.representation;
         last_vertice_id = other.last_vertice_id;
     }
 
-    PointSetCPU &operator=(const PointSetCPU &other)
+    PointSet &operator=(const PointSet &other)
     {
         if (this != &other)
         {
             vertices = other.vertices;
+            texcoords = other.texcoords;
             globalPose = other.globalPose;
-            representation = other.representation;
             last_vertice_id = other.last_vertice_id;
         }
         return *this;
@@ -42,6 +36,7 @@ public:
     void clear()
     {
         vertices.clear();
+        texcoords.clear();
         globalPose = Sophus::SE3f();
         last_vertice_id = 0;
     }
@@ -50,9 +45,6 @@ public:
     {
         if (!vertices.count(id))
             throw std::out_of_range("getVertice invalid id");
-        // always return in cartesian
-        if (representation == rayIdepth)
-            return rayIdepthToCartesian(vertices[id]);
         return vertices[id];
     }
 
@@ -62,10 +54,7 @@ public:
         last_vertice_id++;
         if (vertices.count(last_vertice_id))
             throw std::out_of_range("addVertice id already exist");
-        if (representation == rayIdepth)
-            vertices[last_vertice_id] = cartesianToRayIdepth(vert);
-        if (representation == cartesian)
-            vertices[last_vertice_id] = vert;
+        vertices[last_vertice_id] = vert;
         return last_vertice_id;
     }
 
@@ -74,16 +63,21 @@ public:
         if (!vertices.count(id))
             throw std::out_of_range("removeVertice id invalid");
         vertices.erase(id);
+        texcoords.erase(id);
     }
 
     void setVertice(Eigen::Vector3f &vert, unsigned int id)
     {
         if (!vertices.count(id))
             throw std::out_of_range("setVertice invalid id");
-        if (representation == rayIdepth)
-            vertices[id] = cartesianToRayIdepth(vert);
-        if (representation == cartesian)
-            vertices[id] = vert;
+        vertices[id] = vert;
+    }
+
+    Eigen::Vector2f getTexCoord(unsigned int id)
+    {
+        if (!texcoords.count(id))
+            throw std::out_of_range("getTexCoord id invalid");
+        return texcoords[id];
     }
 
     void setPose(Sophus::SE3f &pose)
@@ -91,26 +85,23 @@ public:
         globalPose = pose;
     }
 
+    Sophus::SE3f getPose()
+    {
+        return globalPose;
+    }
+
     void setVerticeDepth(float depth, unsigned int id)
     {
         if (!vertices.count(id))
             throw std::out_of_range("setVerticeDepth invalid id");
-        if (representation == rayIdepth)
-            vertices[id](2) = 1.0 / depth;
-        if (representation == cartesian)
-        {
-            vertices[id] = depth * vertices[id] / vertices[id](2);
-        }
+        vertices[id] = depth * vertices[id] / vertices[id](2);
     }
 
     float getVerticeDepth(unsigned int id)
     {
         if (!vertices.count(id))
             throw std::out_of_range("getVerticeDepth invalid id");
-        if (representation == rayIdepth)
-            return 1.0 / vertices[id](2);
-        if (representation == cartesian)
-            return vertices[id](2);
+        return vertices[id](2);
     }
 
     std::vector<unsigned int> getVerticesIds()
@@ -123,51 +114,25 @@ public:
         return keys;
     }
 
-    void transform(Sophus::SE3f newGlobalPose)
+    void transform(Sophus::SE3f newGlobalPose, camera cam)
     {
         Sophus::SE3f relativePose = newGlobalPose * globalPose.inverse();
         for (auto it = vertices.begin(); it != vertices.end(); ++it)
         {
             Eigen::Vector3f pos = it->second;
-            if (representation == rayIdepth)
-                pos = rayIdepthToCartesian(pos);
             pos = relativePose * pos;
-            if (representation == rayIdepth)
-                pos = cartesianToRayIdepth(pos);
+            Eigen::Vector3f ray = pos / pos(2);
+            Eigen::Vector2f pix = cam.rayToPix(ray);
+            texcoords[it->first] = pix;
             it->second = pos;
         }
         globalPose = newGlobalPose;
     }
 
-    VerticeRepresentation representation;
-
 private:
-    void toRayIdepth()
-    {
-        if (representation == cartesian)
-        {
-            for (auto it = vertices.begin(); it != vertices.end(); ++it)
-            {
-                it->second = cartesianToRayIdepth(it->second);
-            }
-        }
-
-        representation = rayIdepth;
-    }
-
-    void toCartesian()
-    {
-        if (representation == rayIdepth)
-        {
-            for (auto it = vertices.begin(); it != vertices.end(); ++it)
-            {
-                it->second = rayIdepthToCartesian(it->second);
-            }
-        }
-        representation = cartesian;
-    }
-
     std::map<unsigned int, Eigen::Vector3f> vertices;
+    std::map<unsigned int, Eigen::Vector2f> texcoords;
+
     Sophus::SE3f globalPose;
     int last_vertice_id;
 };
