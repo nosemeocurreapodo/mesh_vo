@@ -161,7 +161,7 @@ HGMapped meshOptimizerCPU::computeHGPose(frameCPU &frame, int lvl)
     return hg;
 }
 
-HGMapped meshOptimizerCPU::computeHGMapDepth(frameCPU &frame, int lvl)
+HGMapped meshOptimizerCPU::computeHGMap(frameCPU &frame, int lvl)
 {
     HGMapped hg;
 
@@ -169,7 +169,7 @@ HGMapped meshOptimizerCPU::computeHGMapDepth(frameCPU &frame, int lvl)
     j1_buffer.set(j1_buffer.nodata, lvl);
     id_buffer.set(id_buffer.nodata, lvl);
 
-    renderer.renderJMapDepth(keyframeMesh, cam[lvl], keyframe, frame, j1_buffer, error_buffer, id_buffer, jacMethod, lvl);
+    renderer.renderJMap(keyframeMesh, cam[lvl], keyframe, frame, j1_buffer, error_buffer, id_buffer, jacMethod, lvl);
 
     for (int y = 0; y < cam[lvl].height; y++)
     {
@@ -560,7 +560,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
     }
 }
 
-void meshOptimizerCPU::optMapDepth(std::vector<frameCPU> &frames)
+void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 {
     tic_toc t;
 
@@ -604,7 +604,7 @@ void meshOptimizerCPU::optMapDepth(std::vector<frameCPU> &frames)
 
             hg.setZero();
             for (std::size_t i = 0; i < frames.size(); i++)
-                hg += computeHGMapDepth(frames[i], lvl);
+                hg += computeHGMap(frames[i], lvl);
 
             std::vector<int> ids = hg.G.getIds();
 

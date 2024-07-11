@@ -23,8 +23,8 @@ public:
     Mesh buildFrameMesh(frameCPU &frame, int lvl);
 
     void optPose(frameCPU &frame);
-    void optMapDepth(std::vector<frameCPU> &frame);
-    void optMapNormalDepth(std::vector<frameCPU> &frame);
+    void optMap(std::vector<frameCPU> &frame);
+    //void optMapNormalDepth(std::vector<frameCPU> &frame);
     void optPoseMap(std::vector<frameCPU> &frame);
 
     dataCPU<float> getIdepth(Sophus::SE3f &pose, int lvl)
@@ -100,7 +100,7 @@ public:
 private:
     Error computeError(frameCPU &frame, int lvl);
     HGMapped computeHGPose(frameCPU &frame, int lvl);
-    HGMapped computeHGMapDepth(frameCPU &frame, int lvl);
+    HGMapped computeHGMap(frameCPU &frame, int lvl);
     HGMapped computeHGPoseMap(frameCPU &frame, int frame_index, int lvl);
 
     Error errorRegu();

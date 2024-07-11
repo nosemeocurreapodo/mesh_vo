@@ -86,7 +86,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     frames.push_back(lastFrame);
 
     t.tic();
-    meshOptimizer.optMapDepth(frames);
+    meshOptimizer.optMap(frames);
     std::cout << "update map time " << t.toc() << std::endl;
 
     float imagePercentNoData = meshOptimizer.getImage(lastFrame.pose, 1).getPercentNoData(1);

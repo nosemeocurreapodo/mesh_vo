@@ -47,7 +47,7 @@ public:
 
     void operator+=(VectorMapped &a)
     {
-        for (std::map<int, float>::iterator it = a.vector.begin(); it != a.vector.end(); ++it)
+        for (auto it = a.vector.begin(); it != a.vector.end(); ++it)
         {
             if (!vector.count(it->first))
             {
@@ -71,7 +71,7 @@ public:
     std::vector<int> getIds()
     {
         std::vector<int> ids;
-        for (std::map<int, float>::iterator it = vector.begin(); it != vector.end(); ++it)
+        for (auto it = vector.begin(); it != vector.end(); ++it)
         {
             ids.push_back(it->first);
         }

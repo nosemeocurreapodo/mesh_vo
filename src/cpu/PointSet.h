@@ -4,6 +4,7 @@
 #include "sophus/se3.hpp"
 #include "common/common.h"
 #include "common/camera.h"
+#include "cpu/Polygon.h"
 
 class PointSet
 {
@@ -113,6 +114,16 @@ public:
             it->second = pos;
         }
         globalPose = newGlobalPose;
+    }
+
+    virtual std::vector<unsigned int> getPolygonsIds()
+    {
+
+    }
+
+    virtual Polygon getPolygon(unsigned int)
+    {
+        
     }
 
 private:

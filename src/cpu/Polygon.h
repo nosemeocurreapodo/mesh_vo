@@ -26,12 +26,18 @@ public:
     {
     }
 
-    bool isRayInPolygon(Eigen::Vector3f &ray)
+    virtual bool isRayInPolygon(Eigen::Vector3f &ray)
     {
     }
 
-    virtual Eigen::Vector3f getVertice(unsigned int id)
+    virtual void prepareForMapJacobian(MapJacobianMethod jacMethod)
     {
+
+    }
+
+    virtual std::array<float, 3> getMapJacobian(Eigen::Vector3f &d_f_i_d_f_ver, Eigen::Vector3f &kf_ray, Sophus::SE3f &relPose)
+    {
+
     }
 };
 
@@ -140,24 +146,59 @@ public:
         return minmax;
     };
 
-    Eigen::Vector3f getVertice(unsigned int id)
+    void prepareForMapJacobian(MapJacobianMethod jacMethod)
     {
-        return vertices[id];
+        n_p[0] = (vertices[0] - vertices[1]).cross(vertices[2] - vertices[1]);
+        n_p[1] = (vertices[1] - vertices[0]).cross(vertices[2] - vertices[0]);
+        n_p[2] = (vertices[2] - vertices[1]).cross(vertices[0] - vertices[1]);
+
+        Eigen::Vector3f pw2mpw1[3];
+        pw2mpw1[0] = (vertices[2] - vertices[1]);
+        pw2mpw1[1] = (vertices[2] - vertices[0]);
+        pw2mpw1[2] = (vertices[0] - vertices[1]);
+
+        n_p_dot_point[0] = n_p[0].dot(vertices[1]);
+        n_p_dot_point[1] = n_p[1].dot(vertices[0]);
+        n_p_dot_point[2] = n_p[2].dot(vertices[1]);
+
+        pr_p[0] = vertices[1];
+        pr_p[1] = vertices[0];
+        pr_p[2] = vertices[1];
+
+        for (int i = 0; i < 3; i++)
+        {
+            d_n_d_z[i] = vertices[i].cross(pw2mpw1[i]);
+            // with respect to depth
+            if (jacMethod == MapJacobianMethod::depthJacobian)
+                d_z_d_iz[i] = 1.0;
+            // with respecto to idepth (depth = 1/idepth)
+            if (jacMethod == MapJacobianMethod::idepthJacobian)
+                d_z_d_iz[i] = -(vertices[i](2) * vertices[i](2));
+            // width respect to depth = exp(z)
+            if (jacMethod == MapJacobianMethod::logDepthJacobian)
+                d_z_d_iz[i] = vertices[i](2);
+            if (jacMethod == MapJacobianMethod::logIdepthJacobian)
+                d_z_d_iz[i] = -vertices[i](2);
+        }
     }
 
-    bool isEdge()
+    std::array<float, 3> getMapJacobian(Eigen::Vector3f &d_f_i_d_f_ver, Eigen::Vector3f &kf_ray, Sophus::SE3f &relPose)
     {
-        if (barycentric(0) < 0.04 || barycentric(1) < 0.04 || barycentric(2) < 0.04)
-            return true;
-        return false;
-    };
+        Eigen::Vector3f d_f_ver_d_kf_depth = relPose.rotationMatrix() * kf_ray;
 
-    bool isVertice()
-    {
-        if (barycentric(0) > 0.98 || barycentric(1) > 0.98 || barycentric(2) > 0.98)
-            return true;
-        return false;
-    };
+        float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
+
+        std::array<float, 3> J;
+        for (int i = 0; i < 3; i++)
+        {
+            float n_p_dot_ray = n_p[i].dot(kf_ray);
+            float d_kf_depth_d_z = d_n_d_z[i].dot(pr_p[i]) / n_p_dot_ray - n_p_dot_point[i] * d_n_d_z[i].dot(kf_ray) / (n_p_dot_ray * n_p_dot_ray);
+            float d_f_i_d_z = d_f_i_d_kf_depth * d_kf_depth_d_z * d_z_d_iz[i];
+            J[i] = d_f_i_d_z;
+        }
+
+        return J;
+    }
 
 private:
     void computeNormal()
@@ -182,6 +223,13 @@ private:
 
     Eigen::Matrix2f T_inv;
     Eigen::Vector3f barycentric;
+
+    // for der
+    Eigen::Vector3f n_p[3];
+    Eigen::Vector3f d_n_d_z[3];
+    Eigen::Vector3f pr_p[3];
+    float n_p_dot_point[3];
+    float d_z_d_iz[3];
 };
 
 class PolygonCircle : public Polygon
@@ -195,6 +243,7 @@ public:
 
         vert_dot_normal = vertice.dot(normal);
         area = M_PI * radius * radius;
+        vert_ray = vertice / vertice(2);
     };
 
     float getRayDepth(Eigen::Vector3f &ray)
@@ -202,13 +251,6 @@ public:
         float ray_depth = vert_dot_normal / ray.dot(normal);
         return ray_depth;
     }
-
-    /*
-    Eigen::Vector3f dDepthdVert(Eigen::Vector3f &ray)
-    {
-        Eigen::Vector3f dDepthdVert0 =
-    }
-    */
 
     Eigen::Vector3f getNormal(Eigen::Vector3f &ray)
     {
@@ -251,30 +293,46 @@ public:
         return minmax;
     };
 
-    Eigen::Vector3f getVertice(unsigned int id)
+    void prepareForMapJacobian(MapJacobianMethod jacMethod)
     {
-        return vertice;
+        // with respect to depth
+        if (jacMethod == MapJacobianMethod::depthJacobian)
+            d_depth_d_theta = 1.0;
+        // with respecto to idepth (depth = 1/idepth)
+        if (jacMethod == MapJacobianMethod::idepthJacobian)
+            d_depth_d_theta = -(vertice(2) * vertice(2));
+        // width respect to depth = exp(z)
+        if (jacMethod == MapJacobianMethod::logDepthJacobian)
+            d_depth_d_theta = vertice(2);
+        if (jacMethod == MapJacobianMethod::logIdepthJacobian)
+            d_depth_d_theta = -vertice(2);
     }
 
-    bool isEdge(Eigen::Vector3f &ray)
+    std::array<float, 3> getMapJacobian(Eigen::Vector3f &d_f_i_d_f_ver, Eigen::Vector3f &kf_ray, Sophus::SE3f &relPose)
     {
+        Eigen::Vector3f d_f_ver_d_kf_depth = relPose.rotationMatrix() * kf_ray;
 
-        return false;
-    };
+        float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
-    bool isVertice(Eigen::Vector3f &ray)
-    {
+        std::array<float, 3> J;
 
-        return false;
-    };
+        // with respect to d
+        J[0] = vert_ray.dot(normal) / kf_ray.dot(normal);
+        J[1] = vertice(0) / normal(0);
+        J[2] = vertice(1) / normal(1);
+
+        return J;
+    }
 
 private:
     Eigen::Vector3f vertice;
     Eigen::Vector3f normal;
     float radius;
 
+    Eigen::Vector3f vert_ray;
     float vert_dot_normal;
     float area;
+    float d_depth_d_theta;
 };
 
 class PolygonSmooth : public Polygon
@@ -309,12 +367,12 @@ public:
 
     Eigen::Vector3f getNormal(Eigen::Vector3f &ray)
     {
-        return normal;
+        return normals[0];
     }
 
     float getArea()
     {
-        return normal.norm() / 2.0;
+        return normals[0].norm() / 2.0;
     }
     /*
     float getScreenArea()

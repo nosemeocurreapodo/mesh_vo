@@ -40,6 +40,25 @@ public:
         last_triangle_id = 0;
     }
 
+    Polygon getPolygon(unsigned int id)
+    {
+        // always return triangle in cartesian
+        std::array<unsigned int, 3> tri = getTriangleIndices(id);
+        PolygonFlat t(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]));
+        return t;
+    }
+
+    std::vector<unsigned int> getPolygonsIds()
+    {
+        std::vector<unsigned int> keys;
+        for (auto it = triangles.begin(); it != triangles.end(); ++it)
+        {
+            keys.push_back(it->first);
+        }
+        return keys;
+    }
+
+private:
     void clearTriangles()
     {
         triangles.clear();
@@ -76,24 +95,6 @@ public:
         if (!triangles.count(id))
             throw std::out_of_range("setTriangleIndices invalid id");
         triangles[id] = tri;
-    }
-
-    PolygonFlat getPolygon(unsigned int id)
-    {
-        // always return triangle in cartesian
-        std::array<unsigned int, 3> tri = getTriangleIndices(id);
-        PolygonFlat t(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]));
-        return t;
-    }
-
-    std::vector<unsigned int> getTrianglesIds()
-    {
-        std::vector<unsigned int> keys;
-        for (auto it = triangles.begin(); it != triangles.end(); ++it)
-        {
-            keys.push_back(it->first);
-        }
-        return keys;
     }
 
     std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> computeEdgeFront()
@@ -167,7 +168,7 @@ public:
 
     void removeTrianglesWithoutPoints()
     {
-        std::vector<unsigned int> trisIds = getTrianglesIds();
+        std::vector<unsigned int> trisIds = getPolygonsIds();
         for (auto it = trisIds.begin(); it != trisIds.end(); it++)
         {
             std::array<unsigned int, 3> vertIds = getTriangleIndices(*it);
@@ -175,7 +176,7 @@ public:
             {
                 Polygon pol = getPolygon(*it);
             }
-            catch(std::string error)
+            catch (std::string error)
             {
                 triangles.erase(*it);
             }
@@ -187,9 +188,9 @@ public:
         DelaunayTriangulation triangulation;
         std::map<unsigned int, Eigen::Vector2f> rays;
         std::vector<unsigned int> ids = getVerticesIds();
-        for(auto id : ids)
+        for (auto id : ids)
         {
-            Eigen::Vector3f ray = getVertice(id)/getVertice(id)(2);
+            Eigen::Vector3f ray = getVertice(id) / getVertice(id)(2);
             rays[id](0) = ray(0);
             rays[id](1) = ray(1);
         }
@@ -233,7 +234,6 @@ public:
     }
     */
 
-private:
     std::map<unsigned int, std::array<unsigned int, 3>> triangles;
     int last_triangle_id;
 };
