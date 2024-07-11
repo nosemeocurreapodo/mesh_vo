@@ -19,10 +19,10 @@ public:
         cx = _cx;
         cy = _cy;
 
-        fx_norm = fx/width;
-        fy_norm = fy/height;
-        cx_norm = cx/width;
-        cy_norm = cy/height;
+        fx_norm = fx / width;
+        fy_norm = fy / height;
+        cx_norm = cx / width;
+        cy_norm = cy / height;
 
         computeKinv();
     }
@@ -43,16 +43,16 @@ public:
         cxinv = KInv(0, 2);
         cyinv = KInv(1, 2);
 
-        fxinv_norm = fxinv*width;
-        fyinv_norm = fyinv*height;
-        cxinv_norm = cxinv*width;
-        cyinv_norm = cyinv*height;
+        fxinv_norm = fxinv * width;
+        fyinv_norm = fyinv * height;
+        cxinv_norm = cxinv * width;
+        cyinv_norm = cyinv * height;
     }
 
     void resize(int _width, int _height)
     {
-        float scale_x = float(_width)/width;
-        float scale_y = float(_height)/height;
+        float scale_x = float(_width) / width;
+        float scale_y = float(_height) / height;
 
         width = _width;
         height = _height;
@@ -74,9 +74,9 @@ public:
 
     bool isPixVisible(Eigen::Vector2f &pix)
     {
-        //the idea here is that if we have 3 pixels
-        //the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
-        //so here the max is one more than the last pixel
+        // the idea here is that if we have 3 pixels
+        // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
+        // so here the max is one more than the last pixel
         if (pix(0) < 0.0 || pix(0) >= width || pix(1) < 0.0 || pix(1) >= height)
             return false;
         return true;
@@ -89,19 +89,19 @@ public:
         return true;
     }
 
+    Eigen::Vector2f pointToPix(Eigen::Vector3f &point)
+    {
+        Eigen::Vector2f pix;
+        pix(0) = fx * point(0)/point(1) + cx;
+        pix(1) = fy * point(1)/point(2) + cy;
+        return pix;
+    }
+
     Eigen::Vector2f rayToPix(Eigen::Vector3f &ray)
     {
         Eigen::Vector2f pix;
         pix(0) = fx * ray(0) + cx;
         pix(1) = fy * ray(1) + cy;
-        return pix;
-    }
-
-    Eigen::Vector2f rayToPixNormalized(Eigen::Vector3f &ray)
-    {
-        Eigen::Vector2f pix;
-        pix(0) = (fx_norm * ray(0) + cx_norm);
-        pix(1) = (fy_norm * ray(1) + cy_norm);
         return pix;
     }
 
@@ -114,9 +114,19 @@ public:
         return ray;
     }
 
+    Eigen::Matrix3f dPixdPoint(Eigen::Vector3f &point)
+    {
+        Eigen::Vector3f d_pix_d_point_0(fx / point(2), 0.0, 0.0);
+        Eigen::Vector3f d_pix_d_point_1(0.0, fy / point(2), 0.0);
+        Eigen::Vector3f d_pix_d_point_2(-fx*point(0)/(point(2)*point(2)), -fy * point(1)/(point(2)*point(2)), 0.0);
+
+        Eigen::Matrix3f der;
+        der()
+    }
+
     Eigen::Vector3f pixToRayNormalized(Eigen::Vector2f &normPix)
     {
-        //fxinv_norm is already multiplyed by width
+        // fxinv_norm is already multiplyed by width
         Eigen::Vector3f ray;
         ray(0) = fxinv_norm * normPix[0] + cxinv;
         ray(1) = fyinv_norm * normPix[1] + cyinv;

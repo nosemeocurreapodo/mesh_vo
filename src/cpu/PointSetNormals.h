@@ -9,6 +9,10 @@ class PointSetNormals : public PointSet
 {
 public:
 
+    PointSetNormals() : PointSet()
+    {
+    }
+
     PointSetNormals(const PointSetNormals &other) : PointSet(other)
     {
         normals = other.normals;
