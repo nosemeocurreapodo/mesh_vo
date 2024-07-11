@@ -34,12 +34,11 @@ public:
         PointSet::clear();
     }
 
-    PolygonFlat getPolygon(unsigned int id)
+    PolygonCircle getPolygon(unsigned int id)
     {
         Eigen::Vector3f center = getVertice(id);
         Eigen::Vector3f normal = getNormal(id);
-        PolygonFlat t(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]),
-                      getTexCoord(tri[0]), getTexCoord(tri[1]), getTexCoord(tri[2]));
+        PolygonCircle t(center, normal, radius);
         return t;
     }
 

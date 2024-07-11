@@ -58,10 +58,12 @@ public:
         return ray_depth;
     }
 
+    /*
     Eigen::Vector3f dDepthdVert(Eigen::Vector3f &ray)
     {
-        Eigen::Vector3f dDepthdVert0 = 
+        Eigen::Vector3f dDepthdVert0 =
     }
+    */
 
     Eigen::Vector3f getNormal(Eigen::Vector3f &ray)
     {
@@ -180,6 +182,99 @@ private:
 
     Eigen::Matrix2f T_inv;
     Eigen::Vector3f barycentric;
+};
+
+class PolygonCircle : public Polygon
+{
+public:
+    PolygonCircle(Eigen::Vector3f vert, Eigen::Vector3f norm, float rad)
+    {
+        vertice = vert;
+        normal = norm;
+        radius = rad;
+
+        vert_dot_normal = vertice.dot(normal);
+        area = M_PI * radius * radius;
+    };
+
+    float getRayDepth(Eigen::Vector3f &ray)
+    {
+        float ray_depth = vert_dot_normal / ray.dot(normal);
+        return ray_depth;
+    }
+
+    /*
+    Eigen::Vector3f dDepthdVert(Eigen::Vector3f &ray)
+    {
+        Eigen::Vector3f dDepthdVert0 =
+    }
+    */
+
+    Eigen::Vector3f getNormal(Eigen::Vector3f &ray)
+    {
+        return normal;
+    }
+
+    float getArea()
+    {
+        return area;
+    }
+    /*
+    float getScreenArea()
+    {
+        float area = rays[0](0) * (rays[1](1) - rays[2](1));
+        area += rays[1](0) * (rays[2](1) - rays[0](1));
+        area += rays[2](0) * (rays[0](1) - rays[1](1));
+        return area;
+    }
+    */
+    bool isRayInPolygon(Eigen::Vector3f &ray)
+    {
+        float depth = getRayDepth(ray);
+        Eigen::Vector3f point = ray * depth;
+        if ((point - vertice).norm() > radius)
+            return false;
+        return true;
+    };
+
+    std::array<int, 4> getScreenBounds(camera &cam)
+    {
+        Eigen::Vector3f ray = vertice / vertice(2);
+        Eigen::Vector2f pix = cam.rayToPix(ray);
+
+        std::array<int, 4> minmax;
+        minmax[0] = pix(0) - radius;
+        minmax[1] = pix(0) + radius;
+        minmax[2] = pix(1) - radius;
+        minmax[3] = pix(1) + radius;
+
+        return minmax;
+    };
+
+    Eigen::Vector3f getVertice(unsigned int id)
+    {
+        return vertice;
+    }
+
+    bool isEdge(Eigen::Vector3f &ray)
+    {
+
+        return false;
+    };
+
+    bool isVertice(Eigen::Vector3f &ray)
+    {
+
+        return false;
+    };
+
+private:
+    Eigen::Vector3f vertice;
+    Eigen::Vector3f normal;
+    float radius;
+
+    float vert_dot_normal;
+    float area;
 };
 
 class PolygonSmooth : public Polygon
