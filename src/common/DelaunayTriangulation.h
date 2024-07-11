@@ -20,11 +20,7 @@ public:
 
     void loadPoints(std::map<unsigned int, Eigen::Vector2f> &texcoords)
     {
-        vertices.clear();
-        for (auto it = texcoords.begin(); it != texcoords.end(); ++it)
-        {
-            vertices[it->first] = it->second;
-        }
+        vertices = texcoords;
     }
 
     void loadTriangles(std::map<unsigned int, std::array<unsigned int, 3>> &tris)

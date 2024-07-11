@@ -82,8 +82,7 @@ public:
     {
         // always return triangle in cartesian
         std::array<unsigned int, 3> tri = getTriangleIndices(id);
-        PolygonFlat t(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]),
-                      getTexCoord(tri[0]), getTexCoord(tri[1]), getTexCoord(tri[2]));
+        PolygonFlat t(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]));
         return t;
     }
 
@@ -172,18 +171,29 @@ public:
         for (auto it = trisIds.begin(); it != trisIds.end(); it++)
         {
             std::array<unsigned int, 3> vertIds = getTriangleIndices(*it);
-            if (!vertices.count(vertIds[0]) || !vertices.count(vertIds[1]) || !vertices.count(vertIds[2]))
+            try
+            {
+                Polygon pol = getPolygon(*it);
+            }
+            catch(std::string error)
             {
                 triangles.erase(*it);
             }
         }
     }
 
-    void buildTriangles(camera &cam)
+    void buildTriangles()
     {
-        projectToCamera(cam);
         DelaunayTriangulation triangulation;
-        triangulation.loadPoints(texcoords);
+        std::map<unsigned int, Eigen::Vector2f> rays;
+        std::vector<unsigned int> ids = getVerticesIds();
+        for(auto id : ids)
+        {
+            Eigen::Vector3f ray = getVertice(id)/getVertice(id)(2);
+            rays[id](0) = ray(0);
+            rays[id](1) = ray(1);
+        }
+        triangulation.loadPoints(rays);
         triangulation.triangulate();
         std::map<unsigned int, std::array<unsigned int, 3>> tris = triangulation.getTriangles();
         clearTriangles();

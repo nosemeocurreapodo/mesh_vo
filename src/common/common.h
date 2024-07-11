@@ -4,10 +4,10 @@
 
 enum MapJacobianMethod
 {
-    depth,
-    idepth,
-    log_depth,
-    log_idepth
+    depthJacobian,
+    idepthJacobian,
+    logDepthJacobian,
+    logIdepthJacobian
 };
 
 Eigen::Vector3f rayIdepthToCartesian(Eigen::Vector3f rayIdepth);

@@ -8,79 +8,24 @@ void renderCPU::renderIdepth(Mesh &mesh, camera &cam, Sophus::SE3f &pose, dataCP
 
     Mesh frameMesh = mesh;
     frameMesh.transform(pose);
-    frameMesh.projectToCamera(cam);
-
-    std::vector<unsigned int> trianglesIds = frameMesh.getTrianglesIds();
-
-    // for each triangle
-    for (int t_index = 0; t_index < (int)trianglesIds.size(); t_index++)
-    {
-        unsigned int t_id = trianglesIds[t_index];
-        // Triangle kf_tri = keyframeMesh.triangles[t_id];
-        // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
-        //     continue;
-        // if (kf_tri.isBackFace())
-        //     continue;
-        Polygon f_tri3d = frameMesh.getCartesianTriangle(t_id);
-        Triangle2D f_tri2d = frameMesh.getTexCoordTriangle(t_id);
-        // if (f_tri2d.vertices[0](2) <= 0.0 || f_tri2d.vertices[1](2) <= 0.0 || f_tri2d.vertices[2](2) <= 0.0)
-        //      continue;
-        if (f_tri2d.getArea() < 1.0)
-            continue;
-
-        f_tri2d.computeTinv();
-        std::array<int, 4> minmax = f_tri2d.getMinMax();
-
-        for (int y = minmax[2]; y <= minmax[3]; y++)
-        {
-            for (int x = minmax[0]; x <= minmax[1]; x++)
-            {
-                Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam.isPixVisible(f_pix))
-                    continue;
-
-                f_tri2d.computeBarycentric(f_pix);
-                if (!f_tri2d.isBarycentricOk())
-                    continue;
-
-                float depth = f_tri2d.interpolate(f_tri3d.vertices[0](2), f_tri3d.vertices[1](2), f_tri3d.vertices[2](2));
-
-                if (depth <= 0.0)
-                    continue;
-
-                float z_depth = z_buffer.get(f_pix(1), f_pix(0), lvl);
-                if (z_depth > depth && z_depth != z_buffer.nodata)
-                    continue;
-
-                buffer.set(1.0 / depth, f_pix(1), f_pix(0), lvl);
-
-                z_buffer.set(depth, f_pix(1), f_pix(0), lvl);
-            }
-        }
-    }
-}
-
-void renderCPU::renderIdepth(Mesh &mesh, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
-{
-    z_buffer.set(z_buffer.nodata, lvl);
-
-    Mesh frameMesh = mesh;
-    frameMesh.transform(pose);
-    frameMesh.computeTexCoords(cam);
 
     std::vector<unsigned int> trianglesIds = frameMesh.getTrianglesIds();
 
     // for each triangle
     for (auto t_id : trianglesIds)
     {
-        Polygon f_tri3d = frameMesh.getCartesianTriangle(t_id);
-        Triangle2D f_tri2d = frameMesh.getTexCoordTriangle(t_id);
+        // Triangle kf_tri = keyframeMesh.triangles[t_id];
+        // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
+        //     continue;
+        // if (kf_tri.isBackFace())
+        //     continue;
+        auto f_pol = frameMesh.getPolygon(t_id);
+        // if (f_tri2d.vertices[0](2) <= 0.0 || f_tri2d.vertices[1](2) <= 0.0 || f_tri2d.vertices[2](2) <= 0.0)
+        //      continue;
+        // if (f_tri2d.getArea() < 1.0)
+        //    continue;
 
-        if (f_tri2d.getArea() < 1.0)
-            continue;
-
-        f_tri2d.computeTinv();
-        std::array<int, 4> minmax = f_tri2d.getMinMax();
+        std::array<int, 4> minmax = f_pol.getScreenBounds(cam);
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
         {
@@ -89,32 +34,23 @@ void renderCPU::renderIdepth(Mesh &mesh, camera &cam, Sophus::SE3f &pose, dataCP
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
                 if (!cam.isPixVisible(f_pix))
                     continue;
-
-                f_tri2d.computeBarycentric(f_pix);
-                if (!f_tri2d.isBarycentricOk())
+                Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
+                if (!f_pol.isRayInPolygon(f_ray))
                     continue;
 
                 // float depth = f_tri2d.interpolate(f_tri3d.vertices[0](2), f_tri3d.vertices[1](2), f_tri3d.vertices[2](2));
+                float f_depth = f_pol.getRayDepth(f_ray);
 
-                Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
-
-                float depth = 0;
-                for (int i = 0; i < 3; i++)
-                {
-                    depth += f_tri3d.getDepth(f_ray);
-                }
-                depth /= 3;
-
-                if (depth <= 0.0)
+                if (f_depth <= 0.0)
                     continue;
 
                 float z_depth = z_buffer.get(f_pix(1), f_pix(0), lvl);
-                if (z_depth > depth && z_depth != z_buffer.nodata)
+                if (z_depth > f_depth && z_depth != z_buffer.nodata)
                     continue;
 
-                buffer.set(1.0 / depth, f_pix(1), f_pix(0), lvl);
+                buffer.set(1.0 / f_depth, f_pix(1), f_pix(0), lvl);
 
-                z_buffer.set(depth, f_pix(1), f_pix(0), lvl);
+                z_buffer.set(f_depth, f_pix(1), f_pix(0), lvl);
             }
         }
     }
@@ -124,10 +60,10 @@ void renderCPU::renderImage(Mesh &mesh, camera &cam, dataCPU<float> &image, Soph
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
-    mesh.computeTexCoords(cam);
     Mesh frameMesh = mesh;
     frameMesh.transform(pose);
-    frameMesh.computeTexCoords(cam);
+    Sophus::SE3f relPose = pose*mesh.getPose().inverse();
+    Sophus::SE3f relPoseInv = relPose.inverse();
 
     std::vector<unsigned int> trisIds = frameMesh.getTrianglesIds();
 
@@ -136,21 +72,19 @@ void renderCPU::renderImage(Mesh &mesh, camera &cam, dataCPU<float> &image, Soph
     {
         unsigned int t_id = trisIds[index];
 
-        Triangle2D kf_tri = mesh.getTexCoordTriangle(t_id);
-        // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
+        // Polygon kf_pol = mesh.getPolygon(t_id);
+        //  if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
+        //      continue;
+        // if (kf_tri.getArea() < 1.0)
         //     continue;
-        if (kf_tri.getArea() < 1.0)
-            continue;
 
-        Polygon f_tri3d = frameMesh.getCartesianTriangle(t_id);
-        Triangle2D f_tri = frameMesh.getTexCoordTriangle(t_id);
+        auto f_pol = frameMesh.getPolygon(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
-        if (f_tri.getArea() < 1.0)
-            continue;
+        // if (f_tri.getArea() < 1.0)
+        //    continue;
 
-        f_tri.computeTinv();
-        std::array<int, 4> minmax = f_tri.getMinMax();
+        std::array<int, 4> minmax = f_pol.getScreenBounds(cam);
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
         {
@@ -159,18 +93,24 @@ void renderCPU::renderImage(Mesh &mesh, camera &cam, dataCPU<float> &image, Soph
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
                 if (!cam.isPixVisible(f_pix))
                     continue;
+                Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
 
-                f_tri.computeBarycentric(f_pix);
-                if (!f_tri.isBarycentricOk())
+                if (!f_pol.isRayInPolygon(f_ray))
                     continue;
 
-                Eigen::Vector2f kf_pix = f_tri.interpolate(kf_tri.vertices[0], kf_tri.vertices[1], kf_tri.vertices[2]);
+                float f_depth = f_pol.getRayDepth(f_ray);
+                if (f_depth <= 0.0)
+                    continue;
+
+                Eigen::Vector3f f_ver = f_ray * f_depth;
+
+                Eigen::Vector3f kf_ver = relPoseInv * f_ver;
+                if (kf_ver(2) <= 0.0)
+                    continue;
+                Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
+                Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
+
                 if (!cam.isPixVisible(kf_pix))
-                    continue;
-
-                float depth = f_tri.interpolate(f_tri3d.vertices[0](2), f_tri3d.vertices[1](2), f_tri3d.vertices[2](2));
-
-                if (depth <= 0.0)
                     continue;
 
                 float kf_i = float(image.get(kf_pix(1), kf_pix(0), lvl));
@@ -178,12 +118,12 @@ void renderCPU::renderImage(Mesh &mesh, camera &cam, dataCPU<float> &image, Soph
                     continue;
 
                 float z_depth = z_buffer.get(f_pix(1), f_pix(0), lvl);
-                if (z_depth > depth && z_depth != z_buffer.nodata)
+                if (z_depth > f_depth && z_depth != z_buffer.nodata)
                     continue;
 
                 buffer.set(kf_i, y, x, lvl);
 
-                z_buffer.set(depth, f_pix(1), f_pix(0), lvl);
+                z_buffer.set(f_depth, f_pix(1), f_pix(0), lvl);
             }
         }
     }
@@ -193,7 +133,6 @@ void renderCPU::renderDebug(Mesh &mesh, camera &cam, Sophus::SE3f &pose, dataCPU
 {
     Mesh frameMesh = mesh;
     frameMesh.transform(pose);
-    frameMesh.computeTexCoords(cam);
 
     std::vector<unsigned int> trisIds = frameMesh.getTrianglesIds();
 
@@ -206,14 +145,13 @@ void renderCPU::renderDebug(Mesh &mesh, camera &cam, Sophus::SE3f &pose, dataCPU
         //      continue;
         // if (kf_tri.isBackFace())
         //     continue;
-        Triangle2D f_tri = frameMesh.getTexCoordTriangle(t_id);
+        auto f_pol = frameMesh.getPolygon(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
-        if (f_tri.getArea() < 1.0)
-            continue;
+        // if (f_tri.getArea() < 1.0)
+        //    continue;
 
-        f_tri.computeTinv();
-        std::array<int, 4> minmax = f_tri.getMinMax();
+        std::array<int, 4> minmax = f_pol.getScreenBounds(cam);
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
         {
@@ -223,11 +161,12 @@ void renderCPU::renderDebug(Mesh &mesh, camera &cam, Sophus::SE3f &pose, dataCPU
                 if (!cam.isPixVisible(f_pix))
                     continue;
 
-                f_tri.computeBarycentric(f_pix);
-                if (!f_tri.isBarycentricOk())
+                Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
+
+                if (!f_pol.isRayInPolygon(f_ray))
                     continue;
 
-                bool isLine = f_tri.isLine();
+                bool isLine = false; // f_pol.isLine();
 
                 // z buffer
                 // float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
@@ -254,10 +193,10 @@ void renderCPU::renderJMapDepth(Mesh &mesh, camera &cam, frameCPU &frame1, frame
     Mesh frame2Mesh = mesh;
 
     frame1Mesh.transform(frame1.pose);
-    frame1Mesh.computeTexCoords(cam);
-
     frame2Mesh.transform(frame2.pose);
-    frame2Mesh.computeTexCoords(cam);
+
+    Sophus::SE3f relPose = frame2.pose * frame1.pose.inverse();
+    Sophus::SE3f relPoseInv = relPose.inverse();
 
     // for each triangle
     std::vector<unsigned int> t_ids = frame1Mesh.getTrianglesIds();
@@ -265,66 +204,65 @@ void renderCPU::renderJMapDepth(Mesh &mesh, camera &cam, frameCPU &frame1, frame
     {
         std::array<unsigned int, 3> v_ids = frame1Mesh.getTriangleIndices(t_id);
 
-        Polygon kf_tri_3d = frame1Mesh.getCartesianTriangle(t_id);
-        Triangle2D kf_tri_2d = frame1Mesh.getTexCoordTriangle(t_id);
-        if (kf_tri_3d.vertices[0](2) <= 0.0 || kf_tri_3d.vertices[1](2) <= 0.0 || kf_tri_3d.vertices[2](2) <= 0.0)
-            continue;
-        if (kf_tri_2d.getArea() < min_area)
-            continue;
-        std::array<float, 3> kf_tri_angles = kf_tri_2d.getAngles();
-        if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
-            continue;
+        auto kf_pol = frame1Mesh.getPolygon(t_id);
 
-        Polygon f_tri_3d = frame2Mesh.getCartesianTriangle(t_id);
-        Triangle2D f_tri_2d = frame2Mesh.getTexCoordTriangle(t_id);
-        if (f_tri_3d.vertices[0](2) <= 0.0 || f_tri_3d.vertices[1](2) <= 0.0 || f_tri_3d.vertices[2](2) <= 0.0)
-            continue;
-        if (f_tri_2d.getArea() < min_area)
-            continue;
-        std::array<float, 3> f_tri_angles = f_tri_2d.getAngles();
-        if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
-            continue;
+        // if (kf_tri_3d.vertices[0](2) <= 0.0 || kf_tri_3d.vertices[1](2) <= 0.0 || kf_tri_3d.vertices[2](2) <= 0.0)
+        //     continue;
+        // if (kf_tri_2d.getArea() < min_area)
+        //     continue;
+        // std::array<float, 3> kf_tri_angles = kf_tri_2d.getAngles();
+        // if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
+        //     continue;
 
-        f_tri_2d.computeTinv();
-        std::array<int, 4> minmax = f_tri_2d.getMinMax();
+        auto f_pol = frame2Mesh.getPolygon(t_id);
+
+        // if (f_tri_3d.vertices[0](2) <= 0.0 || f_tri_3d.vertices[1](2) <= 0.0 || f_tri_3d.vertices[2](2) <= 0.0)
+        //     continue;
+        // if (f_tri_2d.getArea() < min_area)
+        //     continue;
+        // std::array<float, 3> f_tri_angles = f_tri_2d.getAngles();
+        // if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
+        //     continue;
 
         Eigen::Vector3f n_p[3];
-        n_p[0] = (kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]).cross(kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]);
-        n_p[1] = (kf_tri_3d.vertices[1] - kf_tri_3d.vertices[0]).cross(kf_tri_3d.vertices[2] - kf_tri_3d.vertices[0]);
-        n_p[2] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]).cross(kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]);
+        n_p[0] = (kf_pol.getVertice(0) - kf_pol.getVertice(1)).cross(kf_pol.getVertice(2) - kf_pol.getVertice(1));
+        n_p[1] = (kf_pol.getVertice(1) - kf_pol.getVertice(0)).cross(kf_pol.getVertice(2) - kf_pol.getVertice(0));
+        n_p[2] = (kf_pol.getVertice(2) - kf_pol.getVertice(1)).cross(kf_pol.getVertice(0) - kf_pol.getVertice(1));
 
         Eigen::Vector3f pw2mpw1[3];
-        pw2mpw1[0] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]);
-        pw2mpw1[1] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[0]);
-        pw2mpw1[2] = (kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]);
+        pw2mpw1[0] = (kf_pol.getVertice(2) - kf_pol.getVertice(1));
+        pw2mpw1[1] = (kf_pol.getVertice(2) - kf_pol.getVertice(0));
+        pw2mpw1[2] = (kf_pol.getVertice(0) - kf_pol.getVertice(1));
 
         float n_p_dot_point[3];
-        n_p_dot_point[0] = n_p[0].dot(kf_tri_3d.vertices[1]);
-        n_p_dot_point[1] = n_p[1].dot(kf_tri_3d.vertices[0]);
-        n_p_dot_point[2] = n_p[2].dot(kf_tri_3d.vertices[1]);
+        n_p_dot_point[0] = n_p[0].dot(kf_pol.getVertice(1));
+        n_p_dot_point[1] = n_p[1].dot(kf_pol.getVertice(0));
+        n_p_dot_point[2] = n_p[2].dot(kf_pol.getVertice(1));
 
         Eigen::Vector3f pr_p[3];
-        pr_p[0] = kf_tri_3d.vertices[1];
-        pr_p[1] = kf_tri_3d.vertices[0];
-        pr_p[2] = kf_tri_3d.vertices[1];
+        pr_p[0] = kf_pol.getVertice(1);
+        pr_p[1] = kf_pol.getVertice(0);
+        pr_p[2] = kf_pol.getVertice(1);
 
         Eigen::Vector3f d_n_d_z[3];
         float d_z_d_iz[3];
         for (int i = 0; i < 3; i++)
         {
-            d_n_d_z[i] = kf_tri_3d.vertices[i].cross(pw2mpw1[i]);
+            d_n_d_z[i] = kf_pol.getVertice(i).cross(pw2mpw1[i]);
             // with respect to depth
-            if (jacMethod == MapJacobianMethod::depth)
+            if (jacMethod == MapJacobianMethod::depthJacobian)
                 d_z_d_iz[i] = 1.0;
             // with respecto to idepth (depth = 1/idepth)
-            if (jacMethod == MapJacobianMethod::idepth)
-                d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
+            if (jacMethod == MapJacobianMethod::idepthJacobian)
+                d_z_d_iz[i] = -(kf_pol.getVertice(i)(2) * kf_pol.getVertice(i)(2));
             // width respect to depth = exp(z)
-            if (jacMethod == MapJacobianMethod::log_depth)
-                d_z_d_iz[i] = kf_tri_3d.vertices[i](2);
-            if (jacMethod == MapJacobianMethod::log_idepth)
-                d_z_d_iz[i] = -kf_tri_3d.vertices[i](2);
+            if (jacMethod == MapJacobianMethod::logDepthJacobian)
+                d_z_d_iz[i] = kf_pol.getVertice(i)(2);
+            if (jacMethod == MapJacobianMethod::logIdepthJacobian)
+                d_z_d_iz[i] = -kf_pol.getVertice(i)(2);
         }
+
+        std::array<int, 4> minmax = f_pol.getScreenBounds(cam);
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
         {
@@ -333,19 +271,21 @@ void renderCPU::renderJMapDepth(Mesh &mesh, camera &cam, frameCPU &frame1, frame
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
                 if (!cam.isPixVisible(f_pix))
                     continue;
-
-                f_tri_2d.computeBarycentric(f_pix);
-                if (!f_tri_2d.isBarycentricOk())
+                Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
+                if (!f_pol.isRayInPolygon(f_ray))
                     continue;
 
-                Eigen::Vector2f kf_pix = f_tri_2d.interpolate(kf_tri_2d.vertices[0], kf_tri_2d.vertices[1], kf_tri_2d.vertices[2]);
+                float f_depth = f_pol.getRayDepth(f_ray);
+                if (f_depth <= 0.0)
+                    continue;
+                Eigen::Vector3f f_ver = f_ray * f_depth;
+                Eigen::Vector3f kf_ver = relPoseInv * f_ver;
+                if (kf_ver(2) <= 0.0)
+                    continue;
+                Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
+                Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
+
                 if (!cam.isPixVisible(kf_pix))
-                    continue;
-
-                Eigen::Vector3f kf_ver = f_tri_2d.interpolate(kf_tri_3d.vertices[0], kf_tri_3d.vertices[1], kf_tri_3d.vertices[2]);
-                Eigen::Vector3f f_ver = f_tri_2d.interpolate(f_tri_3d.vertices[0], f_tri_3d.vertices[1], f_tri_3d.vertices[2]);
-
-                if (kf_ver(2) <= 0.0 || f_ver(2) <= 0.0)
                     continue;
 
                 // z-buffer
@@ -355,18 +295,17 @@ void renderCPU::renderJMapDepth(Mesh &mesh, camera &cam, frameCPU &frame1, frame
 
                 float kf_i = float(frame1.image.get(kf_pix(1), kf_pix(0), lvl));
                 float f_i = float(frame2.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame2.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame2.dy.get(f_pix(1), f_pix(0), lvl);
+                Eigen::Vector2f d_f_i_d_pix = frame2.dIdPix(f_pix(1), f_pix(0), lvl);
 
-                if (kf_i == frame1.image.nodata || f_i == frame2.image.nodata || dx == frame2.dx.nodata || dy == frame2.dy.nodata)
+                if (kf_i == frame1.image.nodata || f_i == frame2.image.nodata)
                     continue;
 
-                Eigen::Vector2f d_f_i_d_pix(dx, dy);
+                // Eigen::MatrixXf d_f_pix_d_f_ver = cam.dPixdPoint(f_ver);
+                // Eigen::Vector3f d_f_i_d_f_ver = d_f_i_d_pix * d_f_pix_d_f_ver;
 
                 Eigen::Vector3f d_f_i_d_f_ver;
                 d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                 d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
-                // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) / f_ver(2) + d_f_i_d_f_ver(1) * f_ver(1) / f_ver(2));
                 d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
                 Eigen::Vector3f d_f_ver_d_kf_depth = frame2.pose.rotationMatrix() * kf_ver / kf_ver(2);
@@ -392,157 +331,6 @@ void renderCPU::renderJMapDepth(Mesh &mesh, camera &cam, frameCPU &frame1, frame
     }
 }
 
-void renderCPU::renderJMapNormalDepth(Mesh &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &id_buffer, MapJacobianMethod jacMethod, int lvl)
-{
-    // z_buffer.reset(lvl);
-
-    float min_area = (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16;
-    float min_angle = M_PI / 64.0;
-
-    Mesh frame1Mesh = mesh;
-    Mesh frame2Mesh = mesh;
-
-    frame1Mesh.transform(frame1.pose);
-    frame1Mesh.computeTexCoords(cam);
-
-    frame2Mesh.transform(frame2.pose);
-    frame2Mesh.computeTexCoords(cam);
-
-    // for each triangle
-    std::vector<unsigned int> t_ids = frame1Mesh.getTrianglesIds();
-    for (auto t_id : t_ids)
-    {
-        std::array<unsigned int, 3> v_ids = frame1Mesh.getTriangleIndices(t_id);
-
-        Polygon kf_tri_3d = frame1Mesh.getCartesianTriangle(t_id);
-        Triangle2D kf_tri_2d = frame1Mesh.getTexCoordTriangle(t_id);
-        if (kf_tri_3d.vertices[0](2) <= 0.0 || kf_tri_3d.vertices[1](2) <= 0.0 || kf_tri_3d.vertices[2](2) <= 0.0)
-            continue;
-        if (kf_tri_2d.getArea() < min_area)
-            continue;
-        std::array<float, 3> kf_tri_angles = kf_tri_2d.getAngles();
-        if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
-            continue;
-
-        Polygon f_tri_3d = frame2Mesh.getCartesianTriangle(t_id);
-        Triangle2D f_tri_2d = frame2Mesh.getTexCoordTriangle(t_id);
-        if (f_tri_3d.vertices[0](2) <= 0.0 || f_tri_3d.vertices[1](2) <= 0.0 || f_tri_3d.vertices[2](2) <= 0.0)
-            continue;
-        if (f_tri_2d.getArea() < min_area)
-            continue;
-        std::array<float, 3> f_tri_angles = f_tri_2d.getAngles();
-        if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
-            continue;
-
-        f_tri_2d.computeTinv();
-        std::array<int, 4> minmax = f_tri_2d.getMinMax();
-
-        Eigen::Vector3f n_p[3];
-        n_p[0] = (kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]).cross(kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]);
-        n_p[1] = (kf_tri_3d.vertices[1] - kf_tri_3d.vertices[0]).cross(kf_tri_3d.vertices[2] - kf_tri_3d.vertices[0]);
-        n_p[2] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]).cross(kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]);
-
-        Eigen::Vector3f pw2mpw1[3];
-        pw2mpw1[0] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]);
-        pw2mpw1[1] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[0]);
-        pw2mpw1[2] = (kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]);
-
-        float n_p_dot_point[3];
-        n_p_dot_point[0] = n_p[0].dot(kf_tri_3d.vertices[1]);
-        n_p_dot_point[1] = n_p[1].dot(kf_tri_3d.vertices[0]);
-        n_p_dot_point[2] = n_p[2].dot(kf_tri_3d.vertices[1]);
-
-        Eigen::Vector3f pr_p[3];
-        pr_p[0] = kf_tri_3d.vertices[1];
-        pr_p[1] = kf_tri_3d.vertices[0];
-        pr_p[2] = kf_tri_3d.vertices[1];
-
-        Eigen::Vector3f d_n_d_z[3];
-        float d_z_d_iz[3];
-        for (int i = 0; i < 3; i++)
-        {
-            d_n_d_z[i] = kf_tri_3d.vertices[i].cross(pw2mpw1[i]);
-            // with respect to depth
-            if (jacMethod == MapJacobianMethod::depth)
-                d_z_d_iz[i] = 1.0;
-            // with respecto to idepth (depth = 1/idepth)
-            if (jacMethod == MapJacobianMethod::idepth)
-                d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
-            // width respect to depth = exp(z)
-            if (jacMethod == MapJacobianMethod::log_depth)
-                d_z_d_iz[i] = kf_tri_3d.vertices[i](2);
-            if (jacMethod == MapJacobianMethod::log_idepth)
-                d_z_d_iz[i] = -kf_tri_3d.vertices[i](2);
-        }
-
-        for (int y = minmax[2]; y <= minmax[3]; y++)
-        {
-            for (int x = minmax[0]; x <= minmax[1]; x++)
-            {
-                Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam.isPixVisible(f_pix))
-                    continue;
-
-                f_tri_2d.computeBarycentric(f_pix);
-                if (!f_tri_2d.isBarycentricOk())
-                    continue;
-
-                Eigen::Vector2f kf_pix = f_tri_2d.interpolate(kf_tri_2d.vertices[0], kf_tri_2d.vertices[1], kf_tri_2d.vertices[2]);
-                if (!cam.isPixVisible(kf_pix))
-                    continue;
-
-                Eigen::Vector3f kf_ver = f_tri_2d.interpolate(kf_tri_3d.vertices[0], kf_tri_3d.vertices[1], kf_tri_3d.vertices[2]);
-                Eigen::Vector3f f_ver = f_tri_2d.interpolate(f_tri_3d.vertices[0], f_tri_3d.vertices[1], f_tri_3d.vertices[2]);
-
-                if (kf_ver(2) <= 0.0 || f_ver(2) <= 0.0)
-                    continue;
-
-                // z-buffer
-                // float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
-                // if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
-                //    continue;
-
-                float kf_i = float(frame1.image.get(kf_pix(1), kf_pix(0), lvl));
-                float f_i = float(frame2.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame2.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame2.dy.get(f_pix(1), f_pix(0), lvl);
-
-                if (kf_i == frame1.image.nodata || f_i == frame2.image.nodata || dx == frame2.dx.nodata || dy == frame2.dy.nodata)
-                    continue;
-
-                Eigen::Vector2f d_f_i_d_pix(dx, dy);
-
-                Eigen::Vector3f d_f_i_d_f_ver;
-                d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
-                d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
-                // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) / f_ver(2) + d_f_i_d_f_ver(1) * f_ver(1) / f_ver(2));
-                d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
-
-                Eigen::Vector3f d_f_ver_d_kf_depth = frame2.pose.rotationMatrix() * kf_ver / kf_ver(2);
-
-                float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
-
-                float error = f_i - kf_i;
-
-                Eigen::Vector3f J_depth;
-                Eigen::Vector3f J_normal[3];
-                for (int i = 0; i < 3; i++)
-                {
-                    float n_p_dot_ray = n_p[i].dot(kf_ver / kf_ver(2));
-                    float d_kf_depth_d_z = d_n_d_z[i].dot(pr_p[i]) / n_p_dot_ray - n_p_dot_point[i] * d_n_d_z[i].dot(kf_ver / kf_ver(2)) / (n_p_dot_ray * n_p_dot_ray);
-                    float d_f_i_d_z = d_f_i_d_kf_depth * d_kf_depth_d_z * d_z_d_iz[i];
-                    J_depth(i) = d_f_i_d_z;
-                    J_normal[i] = kf_tri_3d.vertices[i] / n_p_dot_ray - (kf_ver / kf_ver(2)) * n_p_dot_point[i] / (n_p_dot_ray * n_p_dot_ray);
-                }
-
-                j_buffer.set(J_depth, y, x, lvl);
-                e_buffer.set(error, y, x, lvl);
-                id_buffer.set(Eigen::Vector3i(v_ids[0], v_ids[1], v_ids[2]), y, x, lvl);
-            }
-        }
-    }
-}
-
 void renderCPU::renderJPose(Mesh &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
@@ -554,35 +342,33 @@ void renderCPU::renderJPose(Mesh &mesh, camera &cam, frameCPU &frame1, frameCPU 
     Mesh frame2Mesh = mesh;
 
     frame1Mesh.transform(frame1.pose);
-    frame1Mesh.computeTexCoords(cam);
-
     frame2Mesh.transform(frame2.pose);
-    frame2Mesh.computeTexCoords(cam);
+
+    Sophus::SE3f relPose = frame2.pose * frame1.pose.inverse();
+    Sophus::SE3f relPoseInv = relPose.inverse();
 
     // for each triangle
     std::vector<unsigned int> t_ids = frame1Mesh.getTrianglesIds();
     for (auto t_id : t_ids)
     {
-        Triangle2D kf_tri = frame1Mesh.getTexCoordTriangle(t_id);
+        auto kf_pol = frame1Mesh.getPolygon(t_id);
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
-        if (kf_tri.getArea() < min_area)
-            continue;
-        std::array<float, 3> kf_angle = kf_tri.getAngles();
-        if (fabs(kf_angle[0]) < min_angle || fabs(kf_angle[1]) < min_angle || fabs(kf_angle[2]) < min_angle)
-            continue;
-        Polygon f_tri_3d = frame2Mesh.getCartesianTriangle(t_id);
-        Triangle2D f_tri_2d = frame2Mesh.getTexCoordTriangle(t_id);
+        // if (kf_tri.getArea() < min_area)
+        //    continue;
+        // std::array<float, 3> kf_angle = kf_tri.getAngles();
+        // if (fabs(kf_angle[0]) < min_angle || fabs(kf_angle[1]) < min_angle || fabs(kf_angle[2]) < min_angle)
+        //    continue;
+        auto f_pol = frame2Mesh.getPolygon(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
-        if (f_tri_2d.getArea() < min_area)
-            continue;
-        std::array<float, 3> f_angle = f_tri_2d.getAngles();
-        if (fabs(f_angle[0]) < min_angle || fabs(f_angle[1]) < min_angle || fabs(f_angle[2]) < min_angle)
-            continue;
+        // if (f_tri_2d.getArea() < min_area)
+        //    continue;
+        // std::array<float, 3> f_angle = f_tri_2d.getAngles();
+        // if (fabs(f_angle[0]) < min_angle || fabs(f_angle[1]) < min_angle || fabs(f_angle[2]) < min_angle)
+        //    continue;
 
-        f_tri_2d.computeTinv();
-        std::array<int, 4> minmax = f_tri_2d.getMinMax();
+        std::array<int, 4> minmax = f_pol.getScreenBounds(cam);
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
         {
@@ -591,19 +377,22 @@ void renderCPU::renderJPose(Mesh &mesh, camera &cam, frameCPU &frame1, frameCPU 
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
                 if (!cam.isPixVisible(f_pix))
                     continue;
+                Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
 
-                f_tri_2d.computeBarycentric(f_pix);
-
-                if (!f_tri_2d.isBarycentricOk())
+                if (!f_pol.isRayInPolygon(f_ray))
                     continue;
 
-                Eigen::Vector2f kf_pix = f_tri_2d.interpolate(kf_tri.vertices[0], kf_tri.vertices[1], kf_tri.vertices[2]);
+                float f_depth = f_pol.getRayDepth(f_ray);
+                if (f_depth <= 0.0)
+                    continue;
+                Eigen::Vector3f f_ver = f_ray * f_depth;
+                Eigen::Vector3f kf_ver = relPoseInv * f_ver;
+                if (kf_ver(2) <= 0.0)
+                    continue;
+                Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
+                Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
+
                 if (!cam.isPixVisible(kf_pix))
-                    continue;
-
-                Eigen::Vector3f f_ver = f_tri_2d.interpolate(f_tri_3d.vertices[0], f_tri_3d.vertices[1], f_tri_3d.vertices[2]);
-
-                if (f_ver(2) <= 0.0)
                     continue;
 
                 // z-buffer
@@ -613,18 +402,20 @@ void renderCPU::renderJPose(Mesh &mesh, camera &cam, frameCPU &frame1, frameCPU 
 
                 float kf_i = float(frame1.image.get(kf_pix(1), kf_pix(0), lvl));
                 float f_i = float(frame2.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame2.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame2.dy.get(f_pix(1), f_pix(0), lvl);
+                Eigen::Vector2f d_f_i_d_pix = frame2.dIdPix(f_pix(1), f_pix(0), lvl);
 
-                if (kf_i == frame1.image.nodata || f_i == frame2.image.nodata || dx == frame2.dx.nodata || dy == frame2.dy.nodata)
+                if (kf_i == frame1.image.nodata || f_i == frame2.image.nodata)
                     continue;
 
-                Eigen::Vector2f d_f_i_d_pix(dx, dy);
+                // Eigen::MatrixXf d_pix_d_f_ver = cam.dPixdPoint(f_ver);
+
+                // Eigen::Vector3f d_f_i_d_f_ver = d_f_i_d_pix * d_pix_d_f_ver;
+                // Eigen::Vector3f d_f_i_d_tra = d_f_i_d_f_ver;
+                // Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
                 float v0 = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                 float v1 = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                 float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
-
                 Eigen::Vector3f d_f_i_d_tra = Eigen::Vector3f(v0, v1, v2);
                 Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
@@ -671,13 +462,13 @@ void renderCPU::renderJPose(dataCPU<float> &frame1Idepth, camera &cam, frameCPU 
 
             float f1_i = float(frame1.image.get(f1_pix(1), f1_pix(0), lvl));
             float f2_i = float(frame2.image.get(f2_pix(1), f2_pix(0), lvl));
-            float dx = frame2.dx.get(f2_pix(1), f2_pix(0), lvl);
-            float dy = frame2.dy.get(f2_pix(1), f2_pix(0), lvl);
+            Eigen::Vector2f d_f_i_d_pix = frame2.dIdPix(f2_pix(1), f2_pix(0), lvl);
+            // float dx = frame2.dx.get(f2_pix(1), f2_pix(0), lvl);
+            // float dy = frame2.dy.get(f2_pix(1), f2_pix(0), lvl);
+            // Eigen::Vector2f d_f_i_d_pix(dx, dy);
 
-            if (f1_i == frame1.image.nodata || f2_i == frame2.image.nodata || dx == frame2.dx.nodata || dy == frame2.dy.nodata)
+            if (f1_i == frame1.image.nodata || f2_i == frame2.image.nodata)
                 continue;
-
-            Eigen::Vector2f d_f_i_d_pix(dx, dy);
 
             float v0 = d_f_i_d_pix(0) * cam.fx / f2_ver(2);
             float v1 = d_f_i_d_pix(1) * cam.fy / f2_ver(2);
@@ -706,10 +497,10 @@ void renderCPU::renderJPoseMap(Mesh &mesh, camera &cam, frameCPU &frame1, frameC
     Mesh frame2Mesh = mesh;
 
     frame1Mesh.transform(frame1.pose);
-    frame1Mesh.computeTexCoords(cam);
-
     frame2Mesh.transform(frame2.pose);
-    frame2Mesh.computeTexCoords(cam);
+
+    Sophus::SE3f relPose = frame2.pose * frame1.pose.inverse();
+    Sophus::SE3f relPoseInv = relPose.inverse();
 
     // for each triangle
     std::vector<unsigned int> t_ids = frame1Mesh.getTrianglesIds();
@@ -717,66 +508,63 @@ void renderCPU::renderJPoseMap(Mesh &mesh, camera &cam, frameCPU &frame1, frameC
     {
         std::array<unsigned int, 3> v_ids = frame1Mesh.getTriangleIndices(t_id);
 
-        Triangle2D kf_tri_2d = frame1Mesh.getTexCoordTriangle(t_id);
-        Polygon kf_tri_3d = frame1Mesh.getCartesianTriangle(t_id);
+        auto kf_pol = frame1Mesh.getPolygon(t_id);
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
-        if (kf_tri_2d.getArea() < min_area)
-            continue;
-        std::array<float, 3> kf_tri_angles = kf_tri_2d.getAngles();
-        if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
-            continue;
+        // if (kf_tri_2d.getArea() < min_area)
+        //    continue;
+        // std::array<float, 3> kf_tri_angles = kf_tri_2d.getAngles();
+        // if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
+        //    continue;
 
-        Polygon f_tri_3d = frame2Mesh.getCartesianTriangle(t_id);
-        Triangle2D f_tri_2d = frame2Mesh.getTexCoordTriangle(t_id);
+        auto f_pol = frame2Mesh.getPolygon(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
-        if (f_tri_2d.getArea() < min_area)
-            continue;
-        std::array<float, 3> f_tri_angles = f_tri_2d.getAngles();
-        if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
-            continue;
-
-        f_tri_2d.computeTinv();
-        std::array<int, 4> minmax = f_tri_2d.getMinMax();
+        // if (f_tri_2d.getArea() < min_area)
+        //    continue;
+        // std::array<float, 3> f_tri_angles = f_tri_2d.getAngles();
+        // if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
+        //    continue;
 
         Eigen::Vector3f n_p[3];
-        n_p[0] = (kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]).cross(kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]);
-        n_p[1] = (kf_tri_3d.vertices[1] - kf_tri_3d.vertices[0]).cross(kf_tri_3d.vertices[2] - kf_tri_3d.vertices[0]);
-        n_p[2] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]).cross(kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]);
+        n_p[0] = (kf_pol.getVertice(0) - kf_pol.getVertice(1)).cross(kf_pol.getVertice(2) - kf_pol.getVertice(1));
+        n_p[1] = (kf_pol.getVertice(1) - kf_pol.getVertice(0)).cross(kf_pol.getVertice(2) - kf_pol.getVertice(0));
+        n_p[2] = (kf_pol.getVertice(2) - kf_pol.getVertice(1)).cross(kf_pol.getVertice(0) - kf_pol.getVertice(1));
 
         Eigen::Vector3f pw2mpw1[3];
-        pw2mpw1[0] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[1]);
-        pw2mpw1[1] = (kf_tri_3d.vertices[2] - kf_tri_3d.vertices[0]);
-        pw2mpw1[2] = (kf_tri_3d.vertices[0] - kf_tri_3d.vertices[1]);
+        pw2mpw1[0] = (kf_pol.getVertice(2) - kf_pol.getVertice(1));
+        pw2mpw1[1] = (kf_pol.getVertice(2) - kf_pol.getVertice(0));
+        pw2mpw1[2] = (kf_pol.getVertice(0) - kf_pol.getVertice(1));
 
         float n_p_dot_point[3];
-        n_p_dot_point[0] = n_p[0].dot(kf_tri_3d.vertices[1]);
-        n_p_dot_point[1] = n_p[1].dot(kf_tri_3d.vertices[0]);
-        n_p_dot_point[2] = n_p[2].dot(kf_tri_3d.vertices[1]);
+        n_p_dot_point[0] = n_p[0].dot(kf_pol.getVertice(1));
+        n_p_dot_point[1] = n_p[1].dot(kf_pol.getVertice(0));
+        n_p_dot_point[2] = n_p[2].dot(kf_pol.getVertice(1));
 
         Eigen::Vector3f pr_p[3];
-        pr_p[0] = kf_tri_3d.vertices[1];
-        pr_p[1] = kf_tri_3d.vertices[0];
-        pr_p[2] = kf_tri_3d.vertices[1];
+        pr_p[0] = kf_pol.getVertice(1);
+        pr_p[1] = kf_pol.getVertice(0);
+        pr_p[2] = kf_pol.getVertice(1);
 
         Eigen::Vector3f d_n_d_z[3];
         float d_z_d_iz[3];
         for (int i = 0; i < 3; i++)
         {
-            d_n_d_z[i] = kf_tri_3d.vertices[i].cross(pw2mpw1[i]);
+            d_n_d_z[i] = kf_pol.getVertice(i).cross(pw2mpw1[i]);
             // with respect to depth
-            if (jacMethod == MapJacobianMethod::depth)
+            if (jacMethod == MapJacobianMethod::depthJacobian)
                 d_z_d_iz[i] = 1.0;
             // with respecto to idepth (depth = 1/idepth)
-            if (jacMethod == MapJacobianMethod::idepth)
-                d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
+            if (jacMethod == MapJacobianMethod::idepthJacobian)
+                d_z_d_iz[i] = -(kf_pol.getVertice(i)(2) * kf_pol.getVertice(i)(2));
             // width respect to depth = exp(z)
-            if (jacMethod == MapJacobianMethod::log_depth)
-                d_z_d_iz[i] = kf_tri_3d.vertices[i](2);
-            if (jacMethod == MapJacobianMethod::log_idepth)
-                d_z_d_iz[i] = -(kf_tri_3d.vertices[i](2) * kf_tri_3d.vertices[i](2));
+            if (jacMethod == MapJacobianMethod::logDepthJacobian)
+                d_z_d_iz[i] = kf_pol.getVertice(i)(2);
+            if (jacMethod == MapJacobianMethod::logIdepthJacobian)
+                d_z_d_iz[i] = -(kf_pol.getVertice(i)(2) * kf_pol.getVertice(i)(2));
         }
+
+        std::array<int, 4> minmax = f_pol.getScreenBounds(cam);
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
         {
@@ -785,19 +573,22 @@ void renderCPU::renderJPoseMap(Mesh &mesh, camera &cam, frameCPU &frame1, frameC
                 Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
                 if (!cam.isPixVisible(f_pix))
                     continue;
+                Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
 
-                f_tri_2d.computeBarycentric(f_pix);
-                if (!f_tri_2d.isBarycentricOk())
+                if (!f_pol.isRayInPolygon(f_ray))
                     continue;
 
-                Eigen::Vector2f kf_pix = f_tri_2d.interpolate(kf_tri_2d.vertices[0], kf_tri_2d.vertices[1], kf_tri_2d.vertices[2]);
+                float f_depth = f_pol.getRayDepth(f_ray);
+                if (f_depth <= 0.0)
+                    continue;
+                Eigen::Vector3f f_ver = f_ray * f_depth;
+                Eigen::Vector3f kf_ver = relPoseInv * f_ver;
+                if (kf_ver(2) <= 0.0)
+                    continue;
+                Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
+                Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
+
                 if (!cam.isPixVisible(kf_pix))
-                    continue;
-
-                Eigen::Vector3f kf_ver = f_tri_2d.interpolate(kf_tri_3d.vertices[0], kf_tri_3d.vertices[1], kf_tri_3d.vertices[2]);
-                Eigen::Vector3f f_ver = f_tri_2d.interpolate(f_tri_3d.vertices[0], f_tri_3d.vertices[1], f_tri_3d.vertices[2]);
-
-                if (kf_ver(2) <= 0.0 || f_ver(2) <= 0.0)
                     continue;
 
                 // z-buffer
@@ -807,18 +598,18 @@ void renderCPU::renderJPoseMap(Mesh &mesh, camera &cam, frameCPU &frame1, frameC
 
                 float kf_i = float(frame1.image.get(kf_pix(1), kf_pix(0), lvl));
                 float f_i = float(frame2.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame2.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame2.dy.get(f_pix(1), f_pix(0), lvl);
+                Eigen::Vector2f d_f_i_d_pix = frame2.dIdPix(f_pix(1), f_pix(0), lvl);
 
-                if (kf_i == frame1.image.nodata || f_i == frame2.image.nodata || dx == frame2.dx.nodata || dy == frame2.dy.nodata)
+                // float dx = frame2.dx.get(f_pix(1), f_pix(0), lvl);
+                // float dy = frame2.dy.get(f_pix(1), f_pix(0), lvl);
+                // Eigen::Vector2f d_f_i_d_pix(dx, dy);
+
+                if (kf_i == frame1.image.nodata || f_i == frame2.image.nodata)
                     continue;
-
-                Eigen::Vector2f d_f_i_d_pix(dx, dy);
 
                 Eigen::Vector3f d_f_i_d_f_ver;
                 d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                 d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
-                // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) / f_ver(2) + d_f_i_d_f_ver(1) * f_ver(1) / f_ver(2));
                 d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
                 Eigen::Vector3f d_f_i_d_tra = d_f_i_d_f_ver;

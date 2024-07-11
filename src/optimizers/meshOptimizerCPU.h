@@ -8,9 +8,9 @@
 #include "common/Error.h"
 #include "common/common.h"
 #include "cpu/dataCPU.h"
-#include "cpu/MeshTexCoordsCPU.h"
 #include "cpu/frameCPU.h"
 #include "cpu/renderCPU.h"
+#include "cpu/Mesh.h"
 #include "cpu/OpenCVDebug.h"
 #include "params.h"
 
@@ -20,7 +20,7 @@ public:
     meshOptimizerCPU(camera &cam);
 
     void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar, int lvl);
-    MeshTexCoordsCPU buildFrameMesh(frameCPU &frame, int lvl);
+    Mesh buildFrameMesh(frameCPU &frame, int lvl);
 
     void optPose(frameCPU &frame);
     void optMapDepth(std::vector<frameCPU> &frame);
@@ -92,52 +92,8 @@ public:
         */
     }
 
-    std::vector<std::array<unsigned int, 2>> getPixelEdges(MeshTexCoordsCPU &frameMesh, Eigen::Vector2f &pix, int lvl)
-    {
-        // adding a new vertice should be done with respect to a particular image
-        // meaning, a particular projection
-        // so we use the texcoor of the vert
-        // if the vertice is inside the current mesh
-        // use the delaunay triangulation
-        // if it is not inside the current mesh
-        // connect to edge, and update the edge
-
-        std::vector<std::array<unsigned int, 2>> edge_vector;
-
-        std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> edgeFront = frameMesh.computeEdgeFront();
-        // std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> edgeFront = frameMesh.getSortedEdgeFront(pix);
-
-        for (auto edge : edgeFront)
-        {
-            std::array<unsigned int, 2> ed = edge.first;
-            unsigned int t_id = edge.second;
-
-            Triangle2D tri2D = frameMesh.getTexCoordTriangle(t_id);
-            /*
-            if(tri2D.getArea() < MIN_TRIANGLE_AREA)
-                continue;
-            if(!cam.isPixVisible(frameMesh.getTexCoord(ed[0]), lvl))
-                continue;
-            if(!cam.isPixVisible(frameMesh.getTexCoord(ed[1]), lvl))
-                continue;
-            */
-
-            Eigen::Vector2f edgeMean = (frameMesh.getTexCoord(ed[0]) + frameMesh.getTexCoord(ed[1])) / 2.0;
-            Eigen::Vector2f dir = (pix - edgeMean).normalized();
-            Eigen::Vector2f testpix = edgeMean + 2.0 * dir;
-            tri2D.computeTinv();
-            tri2D.computeBarycentric(testpix);
-            if (tri2D.isBarycentricOk())
-                continue;
-
-            edge_vector.push_back(ed);
-        }
-
-        return edge_vector;
-    }
-
     frameCPU keyframe;
-    MeshTexCoordsCPU keyframeMesh;
+    Mesh keyframeMesh;
     MatrixMapped invVar;
     camera cam[MAX_LEVELS];
 
@@ -145,14 +101,13 @@ private:
     Error computeError(frameCPU &frame, int lvl);
     HGMapped computeHGPose(frameCPU &frame, int lvl);
     HGMapped computeHGMapDepth(frameCPU &frame, int lvl);
-    HGMapped computeHGMapNormalDepth(frameCPU &frame, int lvl);
     HGMapped computeHGPoseMap(frameCPU &frame, int frame_index, int lvl);
 
     Error errorRegu();
     HGMapped HGRegu();
 
-    Error errorInitial(MeshTexCoordsCPU &initialMesh, MatrixMapped &initialInvDepthMap);
-    HGMapped HGInitial(MeshTexCoordsCPU &initialMesh, MatrixMapped &initialInvDepthMap);
+    Error errorInitial(Mesh &initialMesh, MatrixMapped &initialInvDepthMap);
+    HGMapped HGInitial(Mesh &initialMesh, MatrixMapped &initialInvDepthMap);
 
     renderCPU renderer;
 

@@ -92,8 +92,8 @@ public:
     Eigen::Vector2f pointToPix(Eigen::Vector3f &point)
     {
         Eigen::Vector2f pix;
-        pix(0) = fx * point(0)/point(1) + cx;
-        pix(1) = fy * point(1)/point(2) + cy;
+        pix(0) = fx * point(0) / point(1) + cx;
+        pix(1) = fy * point(1) / point(2) + cy;
         return pix;
     }
 
@@ -114,14 +114,18 @@ public:
         return ray;
     }
 
-    Eigen::Matrix3f dPixdPoint(Eigen::Vector3f &point)
+    Eigen::MatrixXf dPixdPoint(Eigen::Vector3f &point)
     {
-        Eigen::Vector3f d_pix_d_point_0(fx / point(2), 0.0, 0.0);
-        Eigen::Vector3f d_pix_d_point_1(0.0, fy / point(2), 0.0);
-        Eigen::Vector3f d_pix_d_point_2(-fx*point(0)/(point(2)*point(2)), -fy * point(1)/(point(2)*point(2)), 0.0);
+        Eigen::MatrixXf der(3, 2);
 
-        Eigen::Matrix3f der;
-        der()
+        der(0, 0) = fx / point(2);
+        der(0, 1) = 0.0;
+        der(1, 0) = 0.0;
+        der(1, 1) = fy / point(2);
+        der(2, 0) = -fx * point(0) / (point(2) * point(2));
+        der(2, 1) = -fy * point(1) / (point(2) * point(2));
+
+        return der;
     }
 
     Eigen::Vector3f pixToRayNormalized(Eigen::Vector2f &normPix)

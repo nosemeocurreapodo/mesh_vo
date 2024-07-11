@@ -23,9 +23,9 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 200.0;
+    meshRegularization = 0.0;
     meshInitial = 0.0;
-    jacMethod = MapJacobianMethod::idepth;
+    jacMethod = MapJacobianMethod::idepthJacobian;
 }
 
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar, int lvl)
@@ -59,14 +59,14 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
 
     keyframe = frame;
     keyframeMesh.setPose(frame.pose);
-    keyframeMesh.buildTriangles(cam[lvl]);
+    keyframeMesh.buildTriangles();
 }
 
-MeshTexCoordsCPU meshOptimizerCPU::buildFrameMesh(frameCPU &frame, int lvl)
+Mesh meshOptimizerCPU::buildFrameMesh(frameCPU &frame, int lvl)
 {
-    MeshTexCoordsCPU frameMesh = keyframeMesh;
+    Mesh frameMesh = keyframeMesh;
     frameMesh.transform(frame.pose);
-    frameMesh.removeOcluded(cam[lvl]);
+    //frameMesh.removeOcluded(cam[lvl]);
     // frameMesh.devideBigTriangles(cam[lvl]);
 
     dataCPU<float> frameIdepth(cam[0].width, cam[0].height, -1);
@@ -96,7 +96,7 @@ MeshTexCoordsCPU meshOptimizerCPU::buildFrameMesh(frameCPU &frame, int lvl)
         }
     }
 
-    frameMesh.buildTriangles(cam[lvl]);
+    frameMesh.buildTriangles();
 
     return frameMesh;
 }
@@ -209,64 +209,6 @@ HGMapped meshOptimizerCPU::computeHGMapDepth(frameCPU &frame, int lvl)
     return hg;
 }
 
-HGMapped meshOptimizerCPU::computeHGMapNormalDepth(frameCPU &frame, int lvl)
-{
-    HGMapped hg;
-
-    error_buffer.set(error_buffer.nodata, lvl);
-    j1_buffer.set(j1_buffer.nodata, lvl);
-    j2_buffer.set(j2_buffer.nodata, lvl);
-    j3_buffer.set(j3_buffer.nodata, lvl);
-    id_buffer.set(id_buffer.nodata, lvl);
-
-    renderer.renderJMapNormalDepth(keyframeMesh, cam[lvl], keyframe, frame, j1_buffer, j2_buffer, j3_buffer, error_buffer, id_buffer, jacMethod, lvl);
-
-    for (int y = 0; y < cam[lvl].height; y++)
-    {
-        for (int x = 0; x < cam[lvl].width; x++)
-        {
-            Eigen::Vector3f jacDepth = j1_buffer.get(y, x, lvl);
-            Eigen::Vector2f jacNormal[3];
-            jacNormal[0](0) = j2_buffer.get(y, x, lvl)(0);
-            jacNormal[0](1) = j2_buffer.get(y, x, lvl)(1);
-            jacNormal[1](0) = j2_buffer.get(y, x, lvl)(2);
-            jacNormal[1](1) = j3_buffer.get(y, x, lvl)(0);
-            jacNormal[2](0) = j3_buffer.get(y, x, lvl)(1);
-            jacNormal[2](1) = j3_buffer.get(y, x, lvl)(2);
-
-            float err = error_buffer.get(y, x, lvl);
-            Eigen::Vector3i ids = id_buffer.get(y, x, lvl);
-
-            if (jacDepth == j1_buffer.nodata || err == error_buffer.nodata || ids == id_buffer.nodata)
-                continue;
-
-            hg.count += 1;
-            for (int i = 0; i < 3; i++)
-            {
-                // if the jacobian is 0
-                // we really cannot say anything about the depth
-                // can make the hessian non-singular
-                if (jacDepth(i) == 0)
-                    continue;
-
-                hg.G.add(jacDepth(i) * err, ids(i));
-                //(*hg).G[v_ids[i]] += J[i] * error;
-
-                for (int j = i; j < 3; j++)
-                {
-                    float jj = jacDepth(i) * jacDepth(j);
-                    hg.H.add(jj, ids(i), ids(j));
-                    hg.H.add(jj, ids(j), ids(i));
-                    //(*hg).H[v_ids[i]][v_ids[j]] += jj;
-                    //(*hg).H[v_ids[j]][v_ids[i]] += jj;
-                }
-            }
-        }
-    }
-
-    return hg;
-}
-
 HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, int frame_index, int lvl)
 {
     HGMapped hg;
@@ -348,13 +290,13 @@ Error meshOptimizerCPU::errorRegu()
         float theta[3];
         for (int j = 0; j < 3; j++)
         {
-            if (jacMethod == MapJacobianMethod::depth)
+            if (jacMethod == MapJacobianMethod::depthJacobian)
                 theta[j] = keyframeMesh.getVerticeDepth(tri[j]);
-            if (jacMethod == MapJacobianMethod::idepth)
+            if (jacMethod == MapJacobianMethod::idepthJacobian)
                 theta[j] = 1.0 / keyframeMesh.getVerticeDepth(tri[j]);
-            if (jacMethod == MapJacobianMethod::log_depth)
+            if (jacMethod == MapJacobianMethod::logDepthJacobian)
                 theta[j] = std::log(keyframeMesh.getVerticeDepth(tri[j]));
-            if (jacMethod == MapJacobianMethod::log_idepth)
+            if (jacMethod == MapJacobianMethod::logIdepthJacobian)
                 theta[j] = std::log(1.0 / keyframeMesh.getVerticeDepth(tri[j]));
         }
 
@@ -388,13 +330,13 @@ HGMapped meshOptimizerCPU::HGRegu()
         float theta[3];
         for (int j = 0; j < 3; j++)
         {
-            if (jacMethod == MapJacobianMethod::depth)
+            if (jacMethod == MapJacobianMethod::depthJacobian)
                 theta[j] = keyframeMesh.getVerticeDepth(v_ids[j]);
-            if (jacMethod == MapJacobianMethod::idepth)
+            if (jacMethod == MapJacobianMethod::idepthJacobian)
                 theta[j] = 1.0 / keyframeMesh.getVerticeDepth(v_ids[j]);
-            if (jacMethod == MapJacobianMethod::log_depth)
+            if (jacMethod == MapJacobianMethod::logDepthJacobian)
                 theta[j] = std::log(keyframeMesh.getVerticeDepth(v_ids[j]));
-            if (jacMethod == MapJacobianMethod::log_idepth)
+            if (jacMethod == MapJacobianMethod::logIdepthJacobian)
                 theta[j] = std::log(1.0 / keyframeMesh.getVerticeDepth(v_ids[j]));
         }
 
@@ -426,7 +368,7 @@ HGMapped meshOptimizerCPU::HGRegu()
     return hg;
 }
 
-Error meshOptimizerCPU::errorInitial(MeshTexCoordsCPU &initMesh, MatrixMapped &initThetaVar)
+Error meshOptimizerCPU::errorInitial(Mesh &initMesh, MatrixMapped &initThetaVar)
 {
     Error error;
 
@@ -438,22 +380,22 @@ Error meshOptimizerCPU::errorInitial(MeshTexCoordsCPU &initMesh, MatrixMapped &i
 
         float initVar = initThetaVar[id][id];
         float theta, initTheta;
-        if (jacMethod == MapJacobianMethod::depth)
+        if (jacMethod == MapJacobianMethod::depthJacobian)
         {
             theta = keyframeMesh.getVerticeDepth(id);
             initTheta = initMesh.getVerticeDepth(id);
         }
-        if (jacMethod == MapJacobianMethod::idepth)
+        if (jacMethod == MapJacobianMethod::idepthJacobian)
         {
             theta = 1.0 / keyframeMesh.getVerticeDepth(id);
             initTheta = 1.0 / initMesh.getVerticeDepth(id);
         }
-        if (jacMethod == MapJacobianMethod::log_depth)
+        if (jacMethod == MapJacobianMethod::logDepthJacobian)
         {
             theta = std::log(keyframeMesh.getVerticeDepth(id));
             initTheta = std::log(initMesh.getVerticeDepth(id));
         }
-        if (jacMethod == MapJacobianMethod::log_idepth)
+        if (jacMethod == MapJacobianMethod::logIdepthJacobian)
         {
             theta = std::log(1.0 / keyframeMesh.getVerticeDepth(id));
             initTheta = std::log(1.0 / initMesh.getVerticeDepth(id));
@@ -469,7 +411,7 @@ Error meshOptimizerCPU::errorInitial(MeshTexCoordsCPU &initMesh, MatrixMapped &i
     return error;
 }
 
-HGMapped meshOptimizerCPU::HGInitial(MeshTexCoordsCPU &initMesh, MatrixMapped &initThetaVar)
+HGMapped meshOptimizerCPU::HGInitial(Mesh &initMesh, MatrixMapped &initThetaVar)
 {
     HGMapped hg;
 
@@ -481,22 +423,22 @@ HGMapped meshOptimizerCPU::HGInitial(MeshTexCoordsCPU &initMesh, MatrixMapped &i
 
         float initVar = initThetaVar[v_id][v_id];
         float theta, initTheta;
-        if (jacMethod == MapJacobianMethod::depth)
+        if (jacMethod == MapJacobianMethod::depthJacobian)
         {
             theta = keyframeMesh.getVerticeDepth(v_id);
             initTheta = initMesh.getVerticeDepth(v_id);
         }
-        if (jacMethod == MapJacobianMethod::idepth)
+        if (jacMethod == MapJacobianMethod::idepthJacobian)
         {
             theta = 1.0 / keyframeMesh.getVerticeDepth(v_id);
             initTheta = 1.0 / initMesh.getVerticeDepth(v_id);
         }
-        if (jacMethod == MapJacobianMethod::log_depth)
+        if (jacMethod == MapJacobianMethod::logDepthJacobian)
         {
             theta = std::log(keyframeMesh.getVerticeDepth(v_id));
             initTheta = std::log(initMesh.getVerticeDepth(v_id));
         }
-        if (jacMethod == MapJacobianMethod::log_idepth)
+        if (jacMethod == MapJacobianMethod::logIdepthJacobian)
         {
             theta = std::log(1.0 / keyframeMesh.getVerticeDepth(v_id));
             initTheta = std::log(1.0 / initMesh.getVerticeDepth(v_id));
@@ -636,7 +578,7 @@ void meshOptimizerCPU::optMapDepth(std::vector<frameCPU> &frames)
         // keyframeMesh.toRayIdepth();
         // std::vector<float> best_idepths = keyframeMesh.getVerticesIdepths();
 
-        MeshTexCoordsCPU initialMesh = keyframeMesh;
+        Mesh initialMesh = keyframeMesh;
         MatrixMapped initialInvVar = invVar;
 
         e.setZero();
@@ -739,13 +681,13 @@ void meshOptimizerCPU::optMapDepth(std::vector<frameCPU> &frames)
 
                     float best_depth = keyframeMesh.getVerticeDepth(ids[index]);
                     float new_depth;
-                    if (jacMethod == MapJacobianMethod::depth)
+                    if (jacMethod == MapJacobianMethod::depthJacobian)
                         new_depth = best_depth + inc(index);
-                    if (jacMethod == MapJacobianMethod::idepth)
+                    if (jacMethod == MapJacobianMethod::idepthJacobian)
                         new_depth = 1.0 / (1.0 / best_depth + inc(index));
-                    if (jacMethod == MapJacobianMethod::log_depth)
+                    if (jacMethod == MapJacobianMethod::logDepthJacobian)
                         new_depth = std::exp(std::log(best_depth) + inc(index));
-                    if (jacMethod == MapJacobianMethod::log_idepth)
+                    if (jacMethod == MapJacobianMethod::logIdepthJacobian)
                         new_depth = 1.0 / std::exp(std::log(1.0 / best_depth) + inc(index));
                     if (new_depth < 0.0001 || new_depth > 1000.0)
                         new_depth = best_depth;
@@ -936,13 +878,13 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                     float best_depth = keyframeMesh.getVerticeDepth(ids[index]);
                     float new_depth;
-                    if (jacMethod == MapJacobianMethod::depth)
+                    if (jacMethod == MapJacobianMethod::depthJacobian)
                         new_depth = best_depth + inc(index);
-                    if (jacMethod == MapJacobianMethod::idepth)
+                    if (jacMethod == MapJacobianMethod::idepthJacobian)
                         new_depth = 1.0 / (1.0 / best_depth + inc(index));
-                    if (jacMethod == MapJacobianMethod::log_depth)
+                    if (jacMethod == MapJacobianMethod::logDepthJacobian)
                         new_depth = std::exp(std::log(best_depth) + inc(index));
-                    if (jacMethod == MapJacobianMethod::log_idepth)
+                    if (jacMethod == MapJacobianMethod::logIdepthJacobian)
                         new_depth = 1.0 / std::exp(std::log(1.0 / best_depth) + inc(index));
                     if (new_depth < 0.001 || new_depth > 100.0)
                         new_depth = best_depth;

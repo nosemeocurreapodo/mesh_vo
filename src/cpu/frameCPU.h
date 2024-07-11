@@ -65,10 +65,32 @@ public:
         pose = p;
     }
 
+    Eigen::Vector2f dIdPix(int y, int x, int lvl)
+    {
+        float _dx = dx.get(y, x, lvl);
+        float _dy = dy.get(y, x, lvl);
+        return Eigen::Vector2f(_dx, _dy);
+    }
+
+    Eigen::Vector2f dIdPix(float y, float x, int lvl)
+    {
+        float _dx = dx.get(y, x, lvl);
+        float _dy = dy.get(y, x, lvl);
+        return Eigen::Vector2f(_dx, _dy);
+    }
+
+    dataCPU<float> image;
+
+    Sophus::SE3f pose;
+
+    bool init;
+    int id;
+
+private:
     void computeFrameDerivative(int lvl)
     {
-        //dx.set(dx.nodata, lvl);
-        //dy.set(dy.nodata, lvl);
+        // dx.set(dx.nodata, lvl);
+        // dy.set(dy.nodata, lvl);
 
         std::array<int, 2> size = image.getSize(lvl);
         for (int y = 0; y < size[1]; y++)
@@ -89,12 +111,6 @@ public:
             }
     }
 
-    dataCPU<float> image;
     dataCPU<float> dx;
     dataCPU<float> dy;
-
-    Sophus::SE3f pose;
-
-    bool init;
-    int id;
 };
