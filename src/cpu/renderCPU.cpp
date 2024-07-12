@@ -2,14 +2,14 @@
 #include <math.h>
 #include "utils/tictoc.h"
 
-void renderCPU::renderIdepth(PointSet &mesh, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
+void renderCPU::renderIdepth(PointSet &scene, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
-    PointSet frameMesh = mesh;
-    frameMesh.transform(pose);
+    std::unique_ptr<PointSet> frameMesh = scene.clone();
+    frameMesh->transform(pose);
 
-    std::vector<unsigned int> polygonsIds = frameMesh.getPolygonsIds();
+    std::vector<unsigned int> polygonsIds = frameMesh->getPolygonsIds();
 
     // for each triangle
     for (auto t_id : polygonsIds)
@@ -19,13 +19,13 @@ void renderCPU::renderIdepth(PointSet &mesh, camera &cam, Sophus::SE3f &pose, da
         //     continue;
         // if (kf_tri.isBackFace())
         //     continue;
-        auto f_pol = frameMesh.getPolygon(t_id);
+        auto f_pol = frameMesh->getPolygon(t_id);
         // if (f_tri2d.vertices[0](2) <= 0.0 || f_tri2d.vertices[1](2) <= 0.0 || f_tri2d.vertices[2](2) <= 0.0)
         //      continue;
         // if (f_tri2d.getArea() < 1.0)
         //    continue;
 
-        std::array<int, 4> minmax = f_pol.getScreenBounds(cam);
+        std::array<int, 4> minmax = f_pol->getScreenBounds(cam);
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
         {
@@ -35,17 +35,17 @@ void renderCPU::renderIdepth(PointSet &mesh, camera &cam, Sophus::SE3f &pose, da
                 if (!cam.isPixVisible(f_pix))
                     continue;
                 Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
-                if (!f_pol.isRayInPolygon(f_ray))
+                if (!f_pol->isRayInPolygon(f_ray))
                     continue;
 
                 // float depth = f_tri2d.interpolate(f_tri3d.vertices[0](2), f_tri3d.vertices[1](2), f_tri3d.vertices[2](2));
-                float f_depth = f_pol.getRayDepth(f_ray);
+                float f_depth = f_pol->getRayDepth(f_ray);
 
                 if (f_depth <= 0.0)
                     continue;
 
                 float z_depth = z_buffer.get(f_pix(1), f_pix(0), lvl);
-                if (z_depth > f_depth && z_depth != z_buffer.nodata)
+                if (z_depth < f_depth && z_depth != z_buffer.nodata)
                     continue;
 
                 buffer.set(1.0 / f_depth, f_pix(1), f_pix(0), lvl);
@@ -56,16 +56,16 @@ void renderCPU::renderIdepth(PointSet &mesh, camera &cam, Sophus::SE3f &pose, da
     }
 }
 
-void renderCPU::renderImage(PointSet &mesh, camera &cam, dataCPU<float> &image, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
+void renderCPU::renderImage(PointSet &scene, camera &cam, dataCPU<float> &image, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
-    PointSet frameMesh = mesh;
-    frameMesh.transform(pose);
-    Sophus::SE3f relPose = pose * mesh.getPose().inverse();
+    std::unique_ptr<PointSet> frameMesh = scene.clone();
+    frameMesh->transform(pose);
+    Sophus::SE3f relPose = pose * scene.getPose().inverse();
     Sophus::SE3f relPoseInv = relPose.inverse();
 
-    std::vector<unsigned int> ids = frameMesh.getPolygonsIds();
+    std::vector<unsigned int> ids = frameMesh->getPolygonsIds();
 
     // for each triangle
     for (auto t_id : ids)
@@ -76,13 +76,13 @@ void renderCPU::renderImage(PointSet &mesh, camera &cam, dataCPU<float> &image, 
         // if (kf_tri.getArea() < 1.0)
         //     continue;
 
-        auto f_pol = frameMesh.getPolygon(t_id);
+        auto f_pol = frameMesh->getPolygon(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         // if (f_tri.getArea() < 1.0)
         //    continue;
 
-        std::array<int, 4> minmax = f_pol.getScreenBounds(cam);
+        std::array<int, 4> minmax = f_pol->getScreenBounds(cam);
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
         {
@@ -93,10 +93,10 @@ void renderCPU::renderImage(PointSet &mesh, camera &cam, dataCPU<float> &image, 
                     continue;
                 Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
 
-                if (!f_pol.isRayInPolygon(f_ray))
+                if (!f_pol->isRayInPolygon(f_ray))
                     continue;
 
-                float f_depth = f_pol.getRayDepth(f_ray);
+                float f_depth = f_pol->getRayDepth(f_ray);
                 if (f_depth <= 0.0)
                     continue;
 
@@ -116,7 +116,7 @@ void renderCPU::renderImage(PointSet &mesh, camera &cam, dataCPU<float> &image, 
                     continue;
 
                 float z_depth = z_buffer.get(f_pix(1), f_pix(0), lvl);
-                if (z_depth > f_depth && z_depth != z_buffer.nodata)
+                if (z_depth < f_depth && z_depth != z_buffer.nodata)
                     continue;
 
                 buffer.set(kf_i, y, x, lvl);
@@ -127,12 +127,12 @@ void renderCPU::renderImage(PointSet &mesh, camera &cam, dataCPU<float> &image, 
     }
 }
 
-void renderCPU::renderDebug(PointSet &mesh, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
+void renderCPU::renderDebug(PointSet &scene, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
-    PointSet frameMesh = mesh;
-    frameMesh.transform(pose);
+    std::unique_ptr<PointSet> frameMesh = scene.clone();
+    frameMesh->transform(pose);
 
-    std::vector<unsigned int> ids = frameMesh.getPolygonsIds();
+    std::vector<unsigned int> ids = frameMesh->getPolygonsIds();
 
     // for each triangle
     for (auto t_id : ids)
@@ -142,13 +142,13 @@ void renderCPU::renderDebug(PointSet &mesh, camera &cam, Sophus::SE3f &pose, dat
         //      continue;
         // if (kf_tri.isBackFace())
         //     continue;
-        auto f_pol = frameMesh.getPolygon(t_id);
+        auto f_pol = frameMesh->getPolygon(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         // if (f_tri.getArea() < 1.0)
         //    continue;
 
-        std::array<int, 4> minmax = f_pol.getScreenBounds(cam);
+        std::array<int, 4> minmax = f_pol->getScreenBounds(cam);
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
         {
@@ -160,7 +160,7 @@ void renderCPU::renderDebug(PointSet &mesh, camera &cam, Sophus::SE3f &pose, dat
 
                 Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
 
-                if (!f_pol.isRayInPolygon(f_ray))
+                if (!f_pol->isRayInPolygon(f_ray))
                     continue;
 
                 bool isLine = false; // f_pol.isLine();
@@ -179,29 +179,29 @@ void renderCPU::renderDebug(PointSet &mesh, camera &cam, Sophus::SE3f &pose, dat
     }
 }
 
-void renderCPU::renderJMap(PointSet &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &id_buffer, MapJacobianMethod jacMethod, int lvl)
+void renderCPU::renderJMap(PointSet &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl)
 {
     // z_buffer.reset(lvl);
 
     float min_area = (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16;
     float min_angle = M_PI / 64.0;
 
-    PointSet frame1Mesh = mesh;
-    PointSet frame2Mesh = mesh;
+    std::unique_ptr<PointSet> frame1Mesh = scene.clone();
+    std::unique_ptr<PointSet> frame2Mesh = scene.clone();
 
-    frame1Mesh.transform(frame1.pose);
-    frame2Mesh.transform(frame2.pose);
+    frame1Mesh->transform(frame1.pose);
+    frame2Mesh->transform(frame2.pose);
 
     Sophus::SE3f relPose = frame2.pose * frame1.pose.inverse();
     Sophus::SE3f relPoseInv = relPose.inverse();
 
     // for each triangle
-    std::vector<unsigned int> t_ids = frame1Mesh.getPolygonsIds();
+    std::vector<unsigned int> t_ids = frame1Mesh->getPolygonsIds();
     for (auto t_id : t_ids)
     {
-        std::array<unsigned int, 3> v_ids;// = frame1Mesh.getPolygonsIds(t_id);
+        std::vector<unsigned int> p_ids = frame1Mesh->getPolygonParamsIds(t_id);
 
-        auto kf_pol = frame1Mesh.getPolygon(t_id);
+        auto kf_pol = frame1Mesh->getPolygon(t_id);
 
         // if (kf_tri_3d.vertices[0](2) <= 0.0 || kf_tri_3d.vertices[1](2) <= 0.0 || kf_tri_3d.vertices[2](2) <= 0.0)
         //     continue;
@@ -211,7 +211,7 @@ void renderCPU::renderJMap(PointSet &mesh, camera &cam, frameCPU &frame1, frameC
         // if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
         //     continue;
 
-        auto f_pol = frame2Mesh.getPolygon(t_id);
+        auto f_pol = frame2Mesh->getPolygon(t_id);
 
         // if (f_tri_3d.vertices[0](2) <= 0.0 || f_tri_3d.vertices[1](2) <= 0.0 || f_tri_3d.vertices[2](2) <= 0.0)
         //     continue;
@@ -221,9 +221,7 @@ void renderCPU::renderJMap(PointSet &mesh, camera &cam, frameCPU &frame1, frameC
         // if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
         //     continue;
 
-        kf_pol.prepareForMapJacobian(jacMethod);
-
-        std::array<int, 4> minmax = f_pol.getScreenBounds(cam);
+        std::array<int, 4> minmax = f_pol->getScreenBounds(cam);
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
         {
@@ -233,10 +231,10 @@ void renderCPU::renderJMap(PointSet &mesh, camera &cam, frameCPU &frame1, frameC
                 if (!cam.isPixVisible(f_pix))
                     continue;
                 Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
-                if (!f_pol.isRayInPolygon(f_ray))
+                if (!f_pol->isRayInPolygon(f_ray))
                     continue;
 
-                float f_depth = f_pol.getRayDepth(f_ray);
+                float f_depth = f_pol->getRayDepth(f_ray);
                 if (f_depth <= 0.0)
                     continue;
                 Eigen::Vector3f f_ver = f_ray * f_depth;
@@ -265,44 +263,44 @@ void renderCPU::renderJMap(PointSet &mesh, camera &cam, frameCPU &frame1, frameC
 
                 Eigen::Vector3f d_f_i_d_f_ver = cam.d_f_i_d_f_ver(d_f_i_d_pix, f_ver);
 
-                //Eigen::Vector3f d_f_i_d_f_ver;
-                //d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
-                //d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
-                //d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
+                // Eigen::Vector3f d_f_i_d_f_ver;
+                // d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
+                // d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
+                // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-                //this could be the jacobian of the depth of the 3 vertices in a triangle
-                //or the jacobian of the normal + depth of a surfel
-                std::array<float, 3> Jacobian = kf_pol.getMapJacobian(d_f_i_d_f_ver, kf_ray, relPose);
+                // this could be the jacobian of the depth of the 3 vertices in a triangle
+                // or the jacobian of the normal + depth of a surfel
+                std::vector<float> Jacobian = kf_pol->getJacobian(d_f_i_d_f_ver, kf_ray, relPose);
 
                 j_buffer.set(Eigen::Vector3f(Jacobian[0], Jacobian[1], Jacobian[2]), y, x, lvl);
                 e_buffer.set(error, y, x, lvl);
-                id_buffer.set(Eigen::Vector3i(v_ids[0], v_ids[1], v_ids[2]), y, x, lvl);
+                pId_buffer.set(Eigen::Vector3i(p_ids[0], p_ids[1], p_ids[2]), y, x, lvl);
             }
         }
     }
 }
 
-void renderCPU::renderJPose(PointSet &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
+void renderCPU::renderJPose(PointSet &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
     float min_area = (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) / 16;
     float min_angle = M_PI / 64.0;
 
-    PointSet frame1Mesh = mesh;
-    PointSet frame2Mesh = mesh;
+    std::unique_ptr<PointSet> frame1Mesh = scene.clone();
+    std::unique_ptr<PointSet> frame2Mesh = scene.clone();
 
-    frame1Mesh.transform(frame1.pose);
-    frame2Mesh.transform(frame2.pose);
+    frame1Mesh->transform(frame1.pose);
+    frame2Mesh->transform(frame2.pose);
 
     Sophus::SE3f relPose = frame2.pose * frame1.pose.inverse();
     Sophus::SE3f relPoseInv = relPose.inverse();
 
     // for each triangle
-    std::vector<unsigned int> t_ids = frame1Mesh.getPolygonsIds();
+    std::vector<unsigned int> t_ids = frame1Mesh->getPolygonsIds();
     for (auto t_id : t_ids)
     {
-        auto kf_pol = frame1Mesh.getPolygon(t_id);
+        auto kf_pol = frame1Mesh->getPolygon(t_id);
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         // if (kf_tri.getArea() < min_area)
@@ -310,7 +308,7 @@ void renderCPU::renderJPose(PointSet &mesh, camera &cam, frameCPU &frame1, frame
         // std::array<float, 3> kf_angle = kf_tri.getAngles();
         // if (fabs(kf_angle[0]) < min_angle || fabs(kf_angle[1]) < min_angle || fabs(kf_angle[2]) < min_angle)
         //    continue;
-        auto f_pol = frame2Mesh.getPolygon(t_id);
+        auto f_pol = frame2Mesh->getPolygon(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         // if (f_tri_2d.getArea() < min_area)
@@ -319,7 +317,7 @@ void renderCPU::renderJPose(PointSet &mesh, camera &cam, frameCPU &frame1, frame
         // if (fabs(f_angle[0]) < min_angle || fabs(f_angle[1]) < min_angle || fabs(f_angle[2]) < min_angle)
         //    continue;
 
-        std::array<int, 4> minmax = f_pol.getScreenBounds(cam);
+        std::array<int, 4> minmax = f_pol->getScreenBounds(cam);
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
         {
@@ -330,10 +328,10 @@ void renderCPU::renderJPose(PointSet &mesh, camera &cam, frameCPU &frame1, frame
                     continue;
                 Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
 
-                if (!f_pol.isRayInPolygon(f_ray))
+                if (!f_pol->isRayInPolygon(f_ray))
                     continue;
 
-                float f_depth = f_pol.getRayDepth(f_ray);
+                float f_depth = f_pol->getRayDepth(f_ray);
                 if (f_depth <= 0.0)
                     continue;
                 Eigen::Vector3f f_ver = f_ray * f_depth;
@@ -437,29 +435,29 @@ void renderCPU::renderJPose(dataCPU<float> &frame1Idepth, camera &cam, frameCPU 
     }
 }
 
-void renderCPU::renderJPoseMap(PointSet &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &id_buffer, MapJacobianMethod jacMethod, int lvl)
+void renderCPU::renderJPoseMap(PointSet &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl)
 {
     // z_buffer.reset(lvl);
 
     float min_area = (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16.0;
     float min_angle = M_PI / 64.0;
 
-    PointSet frame1Mesh = mesh;
-    PointSet frame2Mesh = mesh;
+    std::unique_ptr<PointSet> frame1Scene = mesh.clone();
+    std::unique_ptr<PointSet> frame2Scene = mesh.clone();
 
-    frame1Mesh.transform(frame1.pose);
-    frame2Mesh.transform(frame2.pose);
+    frame1Scene->transform(frame1.pose);
+    frame2Scene->transform(frame2.pose);
 
     Sophus::SE3f relPose = frame2.pose * frame1.pose.inverse();
     Sophus::SE3f relPoseInv = relPose.inverse();
 
     // for each triangle
-    std::vector<unsigned int> t_ids = frame1Mesh.getPolygonsIds();
+    std::vector<unsigned int> t_ids = frame1Scene->getPolygonsIds();
     for (auto t_id : t_ids)
     {
-        std::array<unsigned int, 3> v_ids;// = frame1Mesh.getPolygonsIds(t_id);
+        std::vector<unsigned int> p_ids = frame1Scene->getPolygonParamsIds(t_id);
 
-        auto kf_pol = frame1Mesh.getPolygon(t_id);
+        auto kf_pol = frame1Scene->getPolygon(t_id);
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         // if (kf_tri_2d.getArea() < min_area)
@@ -468,7 +466,7 @@ void renderCPU::renderJPoseMap(PointSet &mesh, camera &cam, frameCPU &frame1, fr
         // if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
         //    continue;
 
-        auto f_pol = frame2Mesh.getPolygon(t_id);
+        auto f_pol = frame2Scene->getPolygon(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         // if (f_tri_2d.getArea() < min_area)
@@ -477,9 +475,7 @@ void renderCPU::renderJPoseMap(PointSet &mesh, camera &cam, frameCPU &frame1, fr
         // if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
         //    continue;
 
-        kf_pol.prepareForMapJacobian(jacMethod);
-
-        std::array<int, 4> minmax = f_pol.getScreenBounds(cam);
+        std::array<int, 4> minmax = f_pol->getScreenBounds(cam);
 
         for (int y = minmax[2]; y <= minmax[3]; y++)
         {
@@ -490,10 +486,10 @@ void renderCPU::renderJPoseMap(PointSet &mesh, camera &cam, frameCPU &frame1, fr
                     continue;
                 Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
 
-                if (!f_pol.isRayInPolygon(f_ray))
+                if (!f_pol->isRayInPolygon(f_ray))
                     continue;
 
-                float f_depth = f_pol.getRayDepth(f_ray);
+                float f_depth = f_pol->getRayDepth(f_ray);
                 if (f_depth <= 0.0)
                     continue;
                 Eigen::Vector3f f_ver = f_ray * f_depth;
@@ -533,13 +529,15 @@ void renderCPU::renderJPoseMap(PointSet &mesh, camera &cam, frameCPU &frame1, fr
                 j1_buffer.set(d_f_i_d_tra, y, x, lvl);
                 j2_buffer.set(d_f_i_d_rot, y, x, lvl);
 
-                std::array<float, 3> J = kf_pol.getMapJacobian(d_f_i_d_f_ver, kf_ray, relPose);
+                std::vector<float> J = kf_pol->getJacobian(d_f_i_d_f_ver, kf_ray, relPose);
 
                 float error = f_i - kf_i;
 
                 e_buffer.set(error, y, x, lvl);
 
                 j3_buffer.set(Eigen::Vector3f(J[0], J[1], J[2]), y, x, lvl);
+
+                pId_buffer.set(Eigen::Vector3i(p_ids[0], p_ids[1], p_ids[2]), y, x, lvl);
             }
         }
     }

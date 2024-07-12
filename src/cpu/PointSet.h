@@ -1,10 +1,11 @@
 #pragma once
-
+#include <memory>
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
 #include "common/common.h"
 #include "common/camera.h"
 #include "cpu/Polygon.h"
+#include "cpu/frameCPU.h"
 
 class PointSet
 {
@@ -12,6 +13,7 @@ public:
     PointSet()
     {
         last_vertice_id = 0;
+        jacMethod = MapJacobianMethod::depthJacobian;
     };
 
     PointSet(const PointSet &other)
@@ -19,8 +21,9 @@ public:
         vertices = other.vertices;
         globalPose = other.globalPose;
         last_vertice_id = other.last_vertice_id;
+        jacMethod = other.jacMethod;
     }
-
+    /*
     PointSet &operator=(const PointSet &other)
     {
         if (this != &other)
@@ -31,6 +34,16 @@ public:
         }
         return *this;
     }
+    */
+
+    virtual std::unique_ptr<PointSet> clone() const = 0;
+    virtual void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) = 0;
+    virtual std::vector<unsigned int> getPolygonsIds() const = 0;
+    virtual std::unique_ptr<Polygon> getPolygon(unsigned int polId) = 0;
+    // virtual std::vector<unsigned int> getPolygonVerticesIds(unsigned int id) = 0;
+    virtual std::vector<unsigned int> getPolygonParamsIds(unsigned int polId) = 0;
+    virtual void setParam(float param, unsigned int paramId) = 0;
+    virtual float getParam(unsigned int paramId) = 0;
 
     void clear()
     {
@@ -75,7 +88,7 @@ public:
         globalPose = pose;
     }
 
-    Sophus::SE3f getPose()
+    Sophus::SE3f getPose() const
     {
         return globalPose;
     }
@@ -94,7 +107,7 @@ public:
         return vertices[id](2);
     }
 
-    std::vector<unsigned int> getVerticesIds()
+    std::vector<unsigned int> getVerticesIds() const
     {
         std::vector<unsigned int> keys;
         for (auto it = vertices.begin(); it != vertices.end(); ++it)
@@ -116,14 +129,14 @@ public:
         globalPose = newGlobalPose;
     }
 
-    virtual std::vector<unsigned int> getPolygonsIds()
+    MapJacobianMethod getJacMethod()
     {
-
+        return jacMethod;
     }
 
-    virtual Polygon getPolygon(unsigned int)
+    void setJackMethod(MapJacobianMethod method)
     {
-        
+        jacMethod = method;
     }
 
 private:
@@ -131,4 +144,6 @@ private:
 
     Sophus::SE3f globalPose;
     int last_vertice_id;
+
+    MapJacobianMethod jacMethod;
 };

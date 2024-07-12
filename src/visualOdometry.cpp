@@ -12,7 +12,8 @@ void visualOdometry::initScene(dataCPU<float> &image, Sophus::SE3f pose)
 {
     lastFrame.set(image, pose);
     dataCPU<float> idepth(cam.width, cam.height, -1.0);
-    idepth.setRandom(0);
+    //idepth.setRandom(0);
+    idepth.setSmooth(0);
     idepth.generateMipmaps();
     dataCPU<float> invVar(cam.width, cam.height, -1.0);
     invVar.set(1.0 / INITIAL_VAR, 0);
@@ -49,7 +50,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
 
     t.tic();
 
-    meshOptimizer.optPoseMap(frames);
+    //meshOptimizer.optPoseMap(frames);
     std::cout << "update pose map time " << t.toc() << std::endl;
 
     float idepthPercentNoData = meshOptimizer.getIdepth(lastFrame.pose, 1).getPercentNoData(1);

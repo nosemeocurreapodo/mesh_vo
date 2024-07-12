@@ -30,19 +30,19 @@ public:
         vector.clear();
     }
 
-    float &operator[](int id)
+    float &operator[](int paramId)
     {
-        if (!vector.count(id))
-            vector[id] = 0.0;
-        return vector[id];
+        if (!vector.count(paramId))
+            vector[paramId] = 0.0;
+        return vector[paramId];
     }
 
-    void add(float value, int id)
+    void add(float value, int paramId)
     {
-        if(vector.count(id))
-            vector[id] += value;
+        if(vector.count(paramId))
+            vector[paramId] += value;
         else
-            vector[id] = value;
+            vector[paramId] = value;
     }
 
     void operator+=(VectorMapped &a)
@@ -68,7 +68,7 @@ public:
         return result;
     }
 
-    std::vector<int> getIds()
+    std::vector<int> getParamIds()
     {
         std::vector<int> ids;
         for (auto it = vector.begin(); it != vector.end(); ++it)
@@ -78,14 +78,14 @@ public:
         return ids;
     }
 
-    Eigen::VectorXf toEigen(std::vector<int> &ids)
+    Eigen::VectorXf toEigen(std::vector<int> &paramIds)
     {
         Eigen::VectorXf eigenVector;
-        eigenVector = Eigen::VectorXf::Zero(ids.size());
+        eigenVector = Eigen::VectorXf::Zero(paramIds.size());
 
-        for (int index = 0; index < ids.size(); index++)
+        for (int index = 0; index < paramIds.size(); index++)
         {
-            int id = ids[index];
+            int id = paramIds[index];
             eigenVector(index) = vector[id];
         }
         return eigenVector;
@@ -122,22 +122,22 @@ public:
         matrix.clear();
     }
 
-    VectorMapped &operator[](int id)
+    VectorMapped &operator[](int paramId)
     {
-        if (!matrix.count(id))
-            matrix[id] = VectorMapped();
-        return matrix[id];
+        if (!matrix.count(paramId))
+            matrix[paramId] = VectorMapped();
+        return matrix[paramId];
     }
 
-    void add(float value, int id1, int id2)
+    void add(float value, int paramId1, int paramId2)
     {
-        if(!matrix.count(id1))
-            matrix[id1] = VectorMapped();
+        if(!matrix.count(paramId1))
+            matrix[paramId1] = VectorMapped();
 
-        if(!matrix[id1].vector.count(id2))
-            matrix[id1].vector[id2] = value;
+        if(!matrix[paramId1].vector.count(paramId2))
+            matrix[paramId1].vector[paramId2] = value;
         else
-            matrix[id1].vector[id2] += value;
+            matrix[paramId1].vector[paramId2] += value;
     }
 
     void operator+=(MatrixMapped &a)
@@ -163,24 +163,24 @@ public:
         return result;
     }
 
-    Eigen::SparseMatrix<float> toEigen(std::vector<int> ids)
+    Eigen::SparseMatrix<float> toEigen(std::vector<int> paramIds)
     {
         Eigen::SparseMatrix<float> eigenMatrix;
-        eigenMatrix = Eigen::SparseMatrix<float>(ids.size(), ids.size());
+        eigenMatrix = Eigen::SparseMatrix<float>(paramIds.size(), paramIds.size());
 
-        for (int y = 0; y < ids.size(); y++)
+        for (int y = 0; y < paramIds.size(); y++)
         {
-            if (!matrix.count(ids[y]))
+            if (!matrix.count(paramIds[y]))
                 continue;
 
-            VectorMapped row = matrix[ids[y]];
+            VectorMapped row = matrix[paramIds[y]];
 
-            for (int x = 0; x < ids.size(); x++)
+            for (int x = 0; x < paramIds.size(); x++)
             {
-                if (!row.vector.count(ids[x]))
+                if (!row.vector.count(paramIds[x]))
                     continue;
     
-                float value = row.vector[ids[x]];
+                float value = row.vector[paramIds[x]];
 
                 eigenMatrix.coeffRef(y, x) = value;
             }

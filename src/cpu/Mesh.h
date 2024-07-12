@@ -1,5 +1,5 @@
 #pragma once
-
+#include <memory>
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
 #include "cpu/PointSet.h"
@@ -14,6 +14,7 @@ public:
     Mesh() : PointSet()
     {
         last_triangle_id = 0;
+        setJackMethod(depthJacobian);
     };
 
     Mesh(const Mesh &other) : PointSet(other)
@@ -21,7 +22,7 @@ public:
         triangles = other.triangles;
         last_triangle_id = other.last_triangle_id;
     }
-
+    /*
     Mesh &operator=(const Mesh &other)
     {
         if (this != &other)
@@ -32,6 +33,41 @@ public:
         }
         return *this;
     }
+    */
+
+    std::unique_ptr<PointSet> clone() const override
+    {
+        return std::make_unique<Mesh>(*this);
+    }
+
+    void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) override
+    {
+        clear();
+
+        for (float y = 0.0; y < MESH_HEIGHT; y++)
+        {
+            for (float x = 0.0; x < MESH_WIDTH; x++)
+            {
+                Eigen::Vector2f pix;
+                pix[0] = (cam.width - 1) * x / (MESH_WIDTH - 1);
+                pix[1] = (cam.height - 1) * y / (MESH_HEIGHT - 1);
+                Eigen::Vector3f ray = cam.pixToRay(pix);
+                float idph = idepth.get(pix[1], pix[0], lvl);
+                if (idph == idepth.nodata)
+                    continue;
+
+                if (idph <= 0.0)
+                    continue;
+
+                Eigen::Vector3f vertice = ray / idph;
+
+                unsigned int id = addVertice(vertice);
+            }
+        }
+
+        setPose(frame.pose);
+        buildTriangles();
+    }
 
     void clear()
     {
@@ -40,15 +76,15 @@ public:
         last_triangle_id = 0;
     }
 
-    Polygon getPolygon(unsigned int id)
+    std::unique_ptr<Polygon> getPolygon(unsigned int polId)
     {
         // always return triangle in cartesian
-        std::array<unsigned int, 3> tri = getTriangleIndices(id);
-        PolygonFlat t(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]));
-        return t;
+        std::array<unsigned int, 3> tri = getTriangleIndices(polId);
+        PolygonFlat pol(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getJacMethod());
+        return std::make_unique<PolygonFlat>(pol);
     }
 
-    std::vector<unsigned int> getPolygonsIds()
+    std::vector<unsigned int> getPolygonsIds() const override
     {
         std::vector<unsigned int> keys;
         for (auto it = triangles.begin(); it != triangles.end(); ++it)
@@ -56,6 +92,60 @@ public:
             keys.push_back(it->first);
         }
         return keys;
+    }
+
+    /*
+    std::vector<unsigned int> getPolygonVerticesIds(unsigned int id) override
+    {
+        std::vector<unsigned int> ids;
+        std::array<unsigned int, 3> i = getTriangleIndices(id);
+        ids.push_back(i[0]);
+        ids.push_back(i[1]);
+        ids.push_back(i[2]);
+        return ids;
+    }
+    */
+
+    std::vector<unsigned int> getPolygonParamsIds(unsigned int polId) override
+    {
+        // the id of the param (the depth in this case) is just the id of the vertice
+        std::vector<unsigned int> ids;
+        std::array<unsigned int, 3> i = getTriangleIndices(polId);
+        ids.push_back(i[0]);
+        ids.push_back(i[1]);
+        ids.push_back(i[2]);
+        return ids;
+    }
+
+    void setParam(float param, unsigned int paramId) override
+    {
+        if (getJacMethod() == MapJacobianMethod::depthJacobian)
+            setVerticeDepth(param, paramId);
+        if (getJacMethod() == MapJacobianMethod::idepthJacobian)
+            setVerticeDepth(1.0/param, paramId);
+        if (getJacMethod() == MapJacobianMethod::logDepthJacobian)
+            setVerticeDepth(std::exp(param), paramId);
+        if (getJacMethod() == MapJacobianMethod::logIdepthJacobian)
+            setVerticeDepth(1.0/std::exp(param), paramId);
+
+        // set the param (the depth in this case)
+        //if (param > 0.01 && param < 100.0)
+        //    setVerticeDepth(param, paramId);
+    }
+
+    float getParam(unsigned int paramId) override
+    {
+        if (getJacMethod() == MapJacobianMethod::depthJacobian)
+            return getVerticeDepth(paramId);
+        if (getJacMethod() == MapJacobianMethod::idepthJacobian)
+            return 1.0/getVerticeDepth(paramId);
+        if (getJacMethod() == MapJacobianMethod::logDepthJacobian)
+            return std::log(getVerticeDepth(paramId));
+        if (getJacMethod() == MapJacobianMethod::logIdepthJacobian)
+            return std::log(1.0 / getVerticeDepth(paramId));
+
+        // set the param (the depth in this case)
+        return getVerticeDepth(paramId);
     }
 
 private:
@@ -74,13 +164,6 @@ private:
         triangles.erase(id);
     }
 
-    std::array<unsigned int, 3> getTriangleIndices(unsigned int id)
-    {
-        if (!triangles.count(id))
-            throw std::out_of_range("getTriangleIndices invalid id");
-        return triangles[id];
-    }
-
     unsigned int addTriangle(std::array<unsigned int, 3> &tri)
     {
         last_triangle_id++;
@@ -95,6 +178,13 @@ private:
         if (!triangles.count(id))
             throw std::out_of_range("setTriangleIndices invalid id");
         triangles[id] = tri;
+    }
+
+    std::array<unsigned int, 3> getTriangleIndices(unsigned int id)
+    {
+        if (!triangles.count(id))
+            throw std::out_of_range("setTriangleIndices invalid id");
+        return triangles[id];
     }
 
     std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> computeEdgeFront()
@@ -174,7 +264,7 @@ private:
             std::array<unsigned int, 3> vertIds = getTriangleIndices(*it);
             try
             {
-                Polygon pol = getPolygon(*it);
+                PolygonFlat pol(getVertice(vertIds[0]), getVertice(vertIds[1]), getVertice(vertIds[2]), getJacMethod());
             }
             catch (std::string error)
             {

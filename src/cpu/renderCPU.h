@@ -21,15 +21,15 @@ public:
     {
     }
 
-    void renderIdepth(PointSet &rendObj, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
-    void renderImage(PointSet &rendObj, camera &cam, dataCPU<float> &image, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
-    void renderDebug(PointSet &rendObj, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
+    void renderIdepth(PointSet &scene, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
+    void renderImage(PointSet &scene, camera &cam, dataCPU<float> &image, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
+    void renderDebug(PointSet &scene, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
 
-    void renderJPose(PointSet &rendObj, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl);
+    void renderJPose(PointSet &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl);
     void renderJPose(dataCPU<float> &frame1Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl);
-    void renderJMap(PointSet &rendObj, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &id_buffer, MapJacobianMethod mapJacMethod, int lvl);
+    void renderJMap(PointSet &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl);
 
-    void renderJPoseMap(PointSet &rendObj, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &id_buffer, MapJacobianMethod mapJacMethod, int lvl);
+    void renderJPoseMap(PointSet &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl);
 
 private:
     dataCPU<float> z_buffer;
