@@ -103,12 +103,6 @@ private:
     HGMapped computeHGMap(frameCPU &frame, int lvl);
     HGMapped computeHGPoseMap(frameCPU &frame, int frame_index, int lvl);
 
-    Error errorRegu();
-    HGMapped HGRegu();
-
-    Error errorInitial(std::unique_ptr<PointSet> initialScene, MatrixMapped &initialInvDepthMap);
-    HGMapped HGInitial(PointSet &initialScene, MatrixMapped &initialInvDepthMap);
-
     renderCPU renderer;
 
     // params

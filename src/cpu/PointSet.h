@@ -45,6 +45,11 @@ public:
     virtual void setParam(float param, unsigned int paramId) = 0;
     virtual float getParam(unsigned int paramId) = 0;
 
+    virtual Error errorRegu() = 0;
+    virtual HGMapped HGRegu() = 0;
+    virtual Error errorInitial(std::unique_ptr<PointSet> initScene, MatrixMapped &initThetaVar) = 0;
+    virtual HGMapped HGInitial(PointSet &initMesh, MatrixMapped &initThetaVar) = 0;
+
     void clear()
     {
         vertices.clear();

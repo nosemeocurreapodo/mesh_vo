@@ -122,14 +122,14 @@ public:
         if (getJacMethod() == MapJacobianMethod::depthJacobian)
             setVerticeDepth(param, paramId);
         if (getJacMethod() == MapJacobianMethod::idepthJacobian)
-            setVerticeDepth(1.0/param, paramId);
+            setVerticeDepth(1.0 / param, paramId);
         if (getJacMethod() == MapJacobianMethod::logDepthJacobian)
             setVerticeDepth(std::exp(param), paramId);
         if (getJacMethod() == MapJacobianMethod::logIdepthJacobian)
-            setVerticeDepth(1.0/std::exp(param), paramId);
+            setVerticeDepth(1.0 / std::exp(param), paramId);
 
         // set the param (the depth in this case)
-        //if (param > 0.01 && param < 100.0)
+        // if (param > 0.01 && param < 100.0)
         //    setVerticeDepth(param, paramId);
     }
 
@@ -138,7 +138,7 @@ public:
         if (getJacMethod() == MapJacobianMethod::depthJacobian)
             return getVerticeDepth(paramId);
         if (getJacMethod() == MapJacobianMethod::idepthJacobian)
-            return 1.0/getVerticeDepth(paramId);
+            return 1.0 / getVerticeDepth(paramId);
         if (getJacMethod() == MapJacobianMethod::logDepthJacobian)
             return std::log(getVerticeDepth(paramId));
         if (getJacMethod() == MapJacobianMethod::logIdepthJacobian)
@@ -146,6 +146,187 @@ public:
 
         // set the param (the depth in this case)
         return getVerticeDepth(paramId);
+    }
+
+    Error errorRegu()
+    {
+        Error error;
+
+        std::vector<unsigned int> polIds = getPolygonsIds();
+
+        for (size_t index = 0; index < polIds.size(); index++)
+        {
+            unsigned int id = polIds[index];
+            std::array<unsigned int, 3> tri = getTriangleIndices(id);
+
+            float theta[3];
+
+            for (int j = 0; j < 3; j++)
+            {
+                if (getJacMethod() == MapJacobianMethod::depthJacobian)
+                    theta[j] = getVerticeDepth(tri[j]);
+                if (getJacMethod() == MapJacobianMethod::idepthJacobian)
+                    theta[j] = 1.0 / getVerticeDepth(tri[j]);
+                if (getJacMethod() == MapJacobianMethod::logDepthJacobian)
+                    theta[j] = std::log(getVerticeDepth(tri[j]));
+                if (getJacMethod() == MapJacobianMethod::logIdepthJacobian)
+                    theta[j] = std::log(1.0 / getVerticeDepth(tri[j]));
+            }
+
+            if (theta[0] <= 0.0 || theta[1] <= 0.0 || theta[2] <= 0.0)
+                continue;
+
+            float diff1 = theta[0] - theta[1];
+            float diff2 = theta[0] - theta[2];
+            float diff3 = theta[1] - theta[2];
+
+            error.error += diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
+        }
+        // divided by the number of triangles
+        // we don't want to have less error if we have less triangles
+        error.count = polIds.size();
+        return error;
+    }
+
+    HGMapped HGRegu()
+    {
+        HGMapped hg;
+
+        std::vector<unsigned int> polIds = getPolygonsIds();
+
+        for (size_t i = 0; i < polIds.size(); i++)
+        {
+            unsigned int p_id = polIds[i];
+
+            std::array<unsigned int, 3> v_ids = getTriangleIndices(p_id);
+
+            float theta[v_ids.size()];
+
+            for (int j = 0; j < v_ids.size(); j++)
+            {
+                if (getJacMethod() == MapJacobianMethod::depthJacobian)
+                    theta[j] = getVerticeDepth(v_ids[j]);
+                if (getJacMethod() == MapJacobianMethod::idepthJacobian)
+                    theta[j] = 1.0 / getVerticeDepth(v_ids[j]);
+                if (getJacMethod() == MapJacobianMethod::logDepthJacobian)
+                    theta[j] = std::log(getVerticeDepth(v_ids[j]));
+                if (getJacMethod() == MapJacobianMethod::logIdepthJacobian)
+                    theta[j] = std::log(1.0 / getVerticeDepth(v_ids[j]));
+            }
+
+            if (theta[0] <= 0.0 || theta[1] <= 0.0 || theta[2] <= 0.0)
+                continue;
+
+            float diff1 = theta[0] - theta[1];
+            float diff2 = theta[0] - theta[2];
+            float diff3 = theta[1] - theta[2];
+
+            float J1[3] = {1.0, -1.0, 0.0};
+            float J2[3] = {1.0, 0.0, -1.0};
+            float J3[3] = {0.0, 1.0, -1.0};
+
+            for (int j = 0; j < 3; j++)
+            {
+                // if (hg.G(NUM_FRAMES*6 + vertexIndex[j]) == 0)
+                //     continue;
+                hg.G[v_ids[j]] += (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
+                for (int k = 0; k < 3; k++)
+                {
+                    hg.H[v_ids[j]][v_ids[k]] += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
+                }
+            }
+        }
+
+        hg.count = polIds.size();
+
+        return hg;
+    }
+
+    Error errorInitial(std::unique_ptr<PointSet> initScene, MatrixMapped &initThetaVar)
+    {
+        Error error;
+
+        std::vector<unsigned int> vertsIds = getVerticesIds();
+
+        for (size_t index = 0; index < vertsIds.size(); index++)
+        {
+            unsigned int id = vertsIds[index];
+
+            float initVar = initThetaVar[id][id];
+            float theta, initTheta;
+
+            if (getJacMethod() == MapJacobianMethod::depthJacobian)
+            {
+                theta = getVerticeDepth(id);
+                initTheta = initScene->getVerticeDepth(id);
+            }
+            if (getJacMethod() == MapJacobianMethod::idepthJacobian)
+            {
+                theta = 1.0 / getVerticeDepth(id);
+                initTheta = 1.0 / initScene->getVerticeDepth(id);
+            }
+            if (getJacMethod() == MapJacobianMethod::logDepthJacobian)
+            {
+                theta = std::log(getVerticeDepth(id));
+                initTheta = std::log(initScene->getVerticeDepth(id));
+            }
+            if (getJacMethod() == MapJacobianMethod::logIdepthJacobian)
+            {
+                theta = std::log(1.0 / getVerticeDepth(id));
+                initTheta = std::log(1.0 / initScene->getVerticeDepth(id));
+            }
+
+            float diff = theta - initTheta;
+
+            error.error += initVar * diff * diff;
+        }
+        // divided by the number of triangles
+        // we don't want to have less error if we have less triangles
+        error.count = vertsIds.size();
+        return error;
+    }
+
+    HGMapped HGInitial(PointSet &initMesh, MatrixMapped &initThetaVar)
+    {
+        HGMapped hg;
+
+        std::vector<unsigned int> vertsIds = getVerticesIds();
+
+        for (size_t i = 0; i < vertsIds.size(); i++)
+        {
+            unsigned int v_id = vertsIds[i];
+
+            float initVar = initThetaVar[v_id][v_id];
+            float theta, initTheta;
+
+            if (getJacMethod() == MapJacobianMethod::depthJacobian)
+            {
+                theta = getVerticeDepth(v_id);
+                initTheta = initMesh.getVerticeDepth(v_id);
+            }
+            if (getJacMethod() == MapJacobianMethod::idepthJacobian)
+            {
+                theta = 1.0 / getVerticeDepth(v_id);
+                initTheta = 1.0 / initMesh.getVerticeDepth(v_id);
+            }
+            if (getJacMethod() == MapJacobianMethod::logDepthJacobian)
+            {
+                theta = std::log(getVerticeDepth(v_id));
+                initTheta = std::log(initMesh.getVerticeDepth(v_id));
+            }
+            if (getJacMethod() == MapJacobianMethod::logIdepthJacobian)
+            {
+                theta = std::log(1.0 / getVerticeDepth(v_id));
+                initTheta = std::log(1.0 / initMesh.getVerticeDepth(v_id));
+            }
+
+            hg.G[v_id] += initVar * (theta - initTheta);
+            hg.H[v_id][v_id] += initVar;
+        }
+
+        hg.count = vertsIds.size();
+
+        return hg;
     }
 
 private:
