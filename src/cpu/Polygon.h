@@ -7,12 +7,12 @@
 class Polygon
 {
 public:
-    virtual Eigen::Vector3f getNormal(Eigen::Vector3f &ray) const = 0;
-    virtual float getArea() const = 0;
+    virtual float getArea() = 0;
     virtual std::array<int, 4> getScreenBounds(camera &cam) = 0;
-    virtual float getRayDepth(Eigen::Vector3f &ray) const = 0;
-    virtual bool isRayInPolygon(Eigen::Vector3f &ray) = 0;
-    virtual std::vector<float> getJacobian(Eigen::Vector3f &d_f_i_d_f_ver, Eigen::Vector3f &kf_ray, Sophus::SE3f &relPose) const = 0;
+    virtual void prepareForRay(Eigen::Vector3f &ray) = 0;
+    virtual float getRayDepth() = 0;
+    virtual bool isRayInPolygon() = 0;
+    virtual std::vector<float> getJacobian(float &d_f_i_d_kf_depth) = 0;
 };
 
 class PolygonFlat : public Polygon
@@ -29,33 +29,30 @@ public:
         rays[2] = vertices[2] / vertices[2](2);
 
         computeNormal();
-        computeTinv();
-
         prepareForMapJacobian(jacMethod);
     };
 
-    float getRayDepth(Eigen::Vector3f &ray) const override
-    {
-        float ray_depth = vertices[0].dot(normal) / ray.dot(normal);
-        return ray_depth;
-    }
-
-    /*
-    Eigen::Vector3f dDepthdVert(Eigen::Vector3f &ray)
-    {
-        Eigen::Vector3f dDepthdVert0 =
-    }
-    */
-
-    Eigen::Vector3f getNormal(Eigen::Vector3f &ray) const override
-    {
-        return normal;
-    }
-
-    float getArea() const override
+    float getArea() override
     {
         return normal.norm() / 2.0;
     }
+
+    void prepareForRay(Eigen::Vector3f &r) override
+    {
+        computeBarycentric(r);
+        ray = r;
+    }
+
+    float getRayDepth() override
+    {
+        // float ray_depth = vertices[0].dot(normal) / ray.dot(normal);
+        float ray_depth = barycentric(0) * vertices[0](2) +
+                          barycentric(1) * vertices[1](2) +
+                          barycentric(2) * vertices[2](2);
+
+        return ray_depth;
+    }
+
     /*
     float getScreenArea()
     {
@@ -86,25 +83,14 @@ public:
      }
      */
 
-    bool isRayInPolygon(Eigen::Vector3f &ray) override
+    bool isRayInPolygon() override
     {
-        Eigen::Vector2f lambda = T_inv * (Eigen::Vector2f(ray(0), ray(1)) - Eigen::Vector2f(rays[2](0), rays[2](1)));
-        barycentric = Eigen::Vector3f(lambda(0), lambda(1), 1.0 - lambda(0) - lambda(1));
-
         if (barycentric(0) < -0.0 || barycentric(1) < -0.0 || barycentric(2) < -0.0)
             return false;
         if (barycentric(0) > 1.0 || barycentric(1) > 1.0 || barycentric(2) > 1.0)
             return false;
         return true;
     };
-
-    /*
-    template <typename Type>
-    Type interpolate(Type &d1, Type &d2, Type &d3)
-    {
-        return barycentric(0) * d1 + barycentric(1) * d2 + barycentric(2) * d3;
-    };
-    */
 
     std::array<int, 4> getScreenBounds(camera &cam) override
     {
@@ -122,18 +108,13 @@ public:
         return minmax;
     };
 
-    std::vector<float> getJacobian(Eigen::Vector3f &d_f_i_d_f_ver, Eigen::Vector3f &kf_ray, Sophus::SE3f &relPose) const override
+    std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
     {
-        Eigen::Vector3f d_f_ver_d_kf_depth = relPose.rotationMatrix() * kf_ray;
-
-        float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
-
+        Eigen::Vector3f d_kf_depth_d_z = barycentric;
         std::vector<float> J;
         for (int i = 0; i < 3; i++)
         {
-            float n_p_dot_ray = n_p[i].dot(kf_ray);
-            float d_kf_depth_d_z = d_n_d_z[i].dot(pr_p[i]) / n_p_dot_ray - n_p_dot_point[i] * d_n_d_z[i].dot(kf_ray) / (n_p_dot_ray * n_p_dot_ray);
-            float d_f_i_d_z = d_f_i_d_kf_depth * d_kf_depth_d_z * d_z_d_iz[i];
+            float d_f_i_d_z = d_f_i_d_kf_depth * d_kf_depth_d_z(i) * d_z_d_iz[i];
             J.push_back(d_f_i_d_z);
         }
 
@@ -143,26 +124,8 @@ public:
 private:
     void prepareForMapJacobian(MapJacobianMethod jacMethod)
     {
-        n_p[0] = (vertices[0] - vertices[1]).cross(vertices[2] - vertices[1]);
-        n_p[1] = (vertices[1] - vertices[0]).cross(vertices[2] - vertices[0]);
-        n_p[2] = (vertices[2] - vertices[1]).cross(vertices[0] - vertices[1]);
-
-        Eigen::Vector3f pw2mpw1[3];
-        pw2mpw1[0] = (vertices[2] - vertices[1]);
-        pw2mpw1[1] = (vertices[2] - vertices[0]);
-        pw2mpw1[2] = (vertices[0] - vertices[1]);
-
-        n_p_dot_point[0] = n_p[0].dot(vertices[1]);
-        n_p_dot_point[1] = n_p[1].dot(vertices[0]);
-        n_p_dot_point[2] = n_p[2].dot(vertices[1]);
-
-        pr_p[0] = vertices[1];
-        pr_p[1] = vertices[0];
-        pr_p[2] = vertices[1];
-
         for (int i = 0; i < 3; i++)
         {
-            d_n_d_z[i] = vertices[i].cross(pw2mpw1[i]);
             // with respect to depth
             if (jacMethod == MapJacobianMethod::depthJacobian)
                 d_z_d_iz[i] = 1.0;
@@ -179,32 +142,35 @@ private:
 
     void computeNormal()
     {
-        normal = ((vertices[0] - vertices[2]).cross(vertices[0] - vertices[1]));
+        // normal = ((vertices[0] - vertices[2]).cross(vertices[0] - vertices[1]));
+        normal = ((vertices[1] - vertices[0]).cross(vertices[2] - vertices[0]));
     }
 
-    void computeTinv()
+    void computeBarycentric(Eigen::Vector3f &ray)
     {
-        Eigen::Matrix2f T;
-        T(0, 0) = rays[0](0) - rays[2](0);
-        T(0, 1) = rays[1](0) - rays[2](0);
-        T(1, 0) = rays[0](1) - rays[2](1);
-        T(1, 1) = rays[1](1) - rays[2](1);
-        T_inv = T.inverse();
-    };
+        // Calculate the area of the triangle
+        float denominator = (rays[1].y() - rays[2].y()) * (rays[0].x() - rays[2].x()) +
+                            (rays[2].x() - rays[1].x()) * (rays[0].y() - rays[2].y());
+
+        // Calculate the sub-areas
+        barycentric(0) = ((rays[1].y() - rays[2].y()) * (ray.x() - rays[2].x()) +
+                          (rays[2].x() - rays[1].x()) * (ray.y() - rays[2].y())) /
+                         denominator;
+        barycentric(1) = ((rays[2].y() - rays[0].y()) * (ray.x() - rays[2].x()) +
+                          (rays[0].x() - rays[2].x()) * (ray.y() - rays[2].y())) /
+                         denominator;
+        barycentric(2) = 1.0f - barycentric(0) - barycentric(1);
+    }
 
     Eigen::Vector3f vertices[3];
     Eigen::Vector3f rays[3];
 
     Eigen::Vector3f normal;
 
-    Eigen::Matrix2f T_inv;
+    Eigen::Vector3f ray;
     Eigen::Vector3f barycentric;
 
     // for der
-    Eigen::Vector3f n_p[3];
-    Eigen::Vector3f d_n_d_z[3];
-    Eigen::Vector3f pr_p[3];
-    float n_p_dot_point[3];
     float d_z_d_iz[3];
 };
 
@@ -224,21 +190,22 @@ public:
         prepareForMapJacobian(jacMethod);
     };
 
-    float getRayDepth(Eigen::Vector3f &ray) const override
+    float getArea() override
+    {
+        return area;
+    }
+
+    void prepareForRay(Eigen::Vector3f &r)
+    {
+        ray = r;
+    }
+
+    float getRayDepth() override
     {
         float ray_depth = vert_dot_normal / ray.dot(normal);
         return ray_depth;
     }
 
-    Eigen::Vector3f getNormal(Eigen::Vector3f &ray) const override
-    {
-        return normal;
-    }
-
-    float getArea() const override
-    {
-        return area;
-    }
     /*
     float getScreenArea()
     {
@@ -248,7 +215,7 @@ public:
         return area;
     }
     */
-    bool isRayInPolygon(Eigen::Vector3f &ray) override
+    bool isRayInPolygon() override
     {
         // float depth = getRayDepth(ray);
         // Eigen::Vector3f point = ray * depth;
@@ -271,16 +238,13 @@ public:
         return minmax;
     };
 
-    std::vector<float> getJacobian(Eigen::Vector3f &d_f_i_d_f_ver, Eigen::Vector3f &kf_ray, Sophus::SE3f &relPose) const override
+    std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
     {
-        Eigen::Vector3f d_f_ver_d_kf_depth = relPose.rotationMatrix() * kf_ray;
-        float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
-
-        float kf_ray_dot_normal = kf_ray.dot(normal);
+        float kf_ray_dot_normal = ray.dot(normal);
 
         float d_depth_d_surfel_depth = vert_ray.dot(normal) / kf_ray_dot_normal;
-        float d_depth_d_normal_x = vertice(0) / kf_ray_dot_normal - kf_ray(0) * vert_dot_normal / (kf_ray_dot_normal * kf_ray_dot_normal);
-        float d_depth_d_normal_y = vertice(1) / kf_ray_dot_normal - kf_ray(1) * vert_dot_normal / (kf_ray_dot_normal * kf_ray_dot_normal);
+        float d_depth_d_normal_x = vertice(0) / kf_ray_dot_normal - ray(0) * vert_dot_normal / (kf_ray_dot_normal * kf_ray_dot_normal);
+        float d_depth_d_normal_y = vertice(1) / kf_ray_dot_normal - ray(1) * vert_dot_normal / (kf_ray_dot_normal * kf_ray_dot_normal);
 
         std::vector<float> J;
 
@@ -312,6 +276,8 @@ private:
     Eigen::Vector3f normal;
     float radius;
 
+    Eigen::Vector3f ray;
+
     Eigen::Vector3f vert_ray;
     float vert_dot_normal;
     float area;
@@ -322,7 +288,8 @@ class PolygonSmooth : public Polygon
 {
 public:
     PolygonSmooth(Eigen::Vector3f vert1, Eigen::Vector3f vert2, Eigen::Vector3f vert3,
-                  Eigen::Vector3f norm1, Eigen::Vector3f norm2, Eigen::Vector3f norm3)
+                  Eigen::Vector3f norm1, Eigen::Vector3f norm2, Eigen::Vector3f norm3,
+                  MapJacobianMethod jacMethod)
     {
         vertices[0] = vert1;
         vertices[1] = vert2;
@@ -336,27 +303,48 @@ public:
         rays[1] = vertices[1] / vertices[1](2);
         rays[2] = vertices[2] / vertices[2](2);
 
-        computeTinv();
+        // computeNormal();
+        prepareForMapJacobian(jacMethod);
     };
 
-    float getRayDepth(Eigen::Vector3f &ray) const override
+    float getArea() override
     {
-        float ray_depth = 0.0;
-        for (int i = 0; i < 3; i++)
-            ray_depth += vertices[0].dot(normals[0]) / ray.dot(normals[0]);
-        ray_depth /= 3.0;
-        return ray_depth;
+        return ((vertices[1] - vertices[0]).cross(vertices[2] - vertices[0])).norm() / 2.0;
     }
 
-    Eigen::Vector3f getNormal(Eigen::Vector3f &ray) const override
+    void prepareForRay(Eigen::Vector3f &r) override
     {
-        return normals[0];
+        ray = r;
+        computeBarycentric(ray);
     }
 
-    float getArea() const override
+    float getRayDepth() override
     {
-        return normals[0].norm() / 2.0;
+        /*
+        float depth_0 = vertices[0].dot(normals[0]) / ray.dot(normals[0]);
+        float depth_1 = vertices[1].dot(normals[1]) / ray.dot(normals[1]);
+        float depth_2 = vertices[2].dot(normals[2]) / ray.dot(normals[2]);
+
+        // float depth = barycentric(0)*depth_0 + barycentric(1)*depth_1 + barycentric(2)*depth_2;
+        float depth = barfunc(barycentric(0)) * depth_0 +
+                      barfunc(barycentric(1)) * depth_1 +
+                      barfunc(barycentric(2)) * depth_2;
+        */
+        
+        float u = barycentric(1);
+        float v = barycentric(2);
+        float w = barycentric(0);
+
+        Eigen::Vector3f point = b300 * pow(w, 3) + b030 * pow(u, 3) + b003 * pow(v, 3) +
+                                b210 * 3 * pow(w, 2) * u + b120 * 3 * w * pow(u, 2) + b201 * 3 * pow(w, 2) * v +
+                                b021 * 3 * pow(u, 2) * v + b102 * 3 * w * pow(v, 2) + b012 * 3 * u * pow(v, 2) +
+                                b111 * 6 * w * u * v;
+        float depth = point(2);
+        
+
+        return depth;
     }
+
     /*
     float getScreenArea()
     {
@@ -387,25 +375,14 @@ public:
      }
      */
 
-    bool isRayInPolygon(Eigen::Vector3f &ray) override
+    bool isRayInPolygon() override
     {
-        Eigen::Vector2f lambda = T_inv * (Eigen::Vector2f(ray(0), ray(1)) - Eigen::Vector2f(rays[2](0), rays[2](1)));
-        barycentric = Eigen::Vector3f(lambda(0), lambda(1), 1.0 - lambda(0) - lambda(1));
-
         if (barycentric(0) < -0.0 || barycentric(1) < -0.0 || barycentric(2) < -0.0)
             return false;
         if (barycentric(0) > 1.0 || barycentric(1) > 1.0 || barycentric(2) > 1.0)
             return false;
         return true;
     };
-
-    /*
-    template <typename Type>
-    Type interpolate(Type &d1, Type &d2, Type &d3)
-    {
-        return barycentric(0) * d1 + barycentric(1) * d2 + barycentric(2) * d3;
-    };
-    */
 
     std::array<int, 4> getScreenBounds(camera &cam) override
     {
@@ -423,27 +400,131 @@ public:
         return minmax;
     };
 
-    Eigen::Vector3f getVertice(unsigned int id)
+    std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
     {
-        return vertices[id];
+        Eigen::Vector3f d_kf_depth_d_z;
+        d_kf_depth_d_z(0) = barycentric(0);// * rays[0].dot(normals[0]) / ray.dot(normals[0]);
+        d_kf_depth_d_z(1) = barycentric(1);// * rays[1].dot(normals[1]) / ray.dot(normals[1]);
+        d_kf_depth_d_z(2) = barycentric(2);// * rays[2].dot(normals[2]) / ray.dot(normals[2]);
+
+        // Eigen::Vector3f d_kf_depth_d_nx;
+        // d_kf_depth_d_nx(0) = barycentric(0) * (rays[0](0) / ray.dot(normals[0]) -
+        //                     rays[0].dot(normals[0])/(pow(ray.dot(normals[0]), 2))*ray(0));
+
+        std::vector<float> J;
+        for (int i = 0; i < 3; i++)
+        {
+            float d_f_i_d_z = d_f_i_d_kf_depth * d_kf_depth_d_z(i) * d_z_d_iz[i];
+            J.push_back(d_f_i_d_z);
+        }
+
+        return J;
     }
 
 private:
-    void computeTinv()
+    void prepareForMapJacobian(MapJacobianMethod jacMethod)
     {
-        Eigen::Matrix2f T;
-        T(0, 0) = rays[0](0) - rays[2](0);
-        T(0, 1) = rays[1](0) - rays[2](0);
-        T(1, 0) = rays[0](1) - rays[2](1);
-        T(1, 1) = rays[1](1) - rays[2](1);
-        T_inv = T.inverse();
-    };
+        Eigen::Vector3f P1 = vertices[0];
+        Eigen::Vector3f P2 = vertices[1];
+        Eigen::Vector3f P3 = vertices[2];
+
+        Eigen::Vector3f N1 = normals[0];
+        Eigen::Vector3f N2 = normals[1];
+        Eigen::Vector3f N3 = normals[2];
+
+        b300 = P1;
+        b030 = P2;
+        b003 = P3;
+
+        float w12 = (P2 - P1).dot(N1);
+        float w21 = (P1 - P2).dot(N2);
+        float w23 = (P3 - P2).dot(N2);
+        float w32 = (P2 - P3).dot(N3);
+        float w31 = (P1 - P3).dot(N3);
+        float w13 = (P3 - P1).dot(N1);
+
+        b210 = (2 * P1 + P2 - w12 * N1) / 3;
+        b120 = (2 * P2 + P1 - w21 * N2) / 3;
+        b021 = (2 * P2 + P3 - w23 * N2) / 3;
+        b012 = (2 * P3 + P2 - w32 * N3) / 3;
+        b102 = (2 * P3 + P1 - w31 * N3) / 3;
+        b201 = (2 * P1 + P3 - w13 * N1) / 3;
+
+        Eigen::Vector3f E = (b210 + b120 + b021 + b012 + b102 + b201) / 6;
+        Eigen::Vector3f V = (P1 + P2 + P3) / 3;
+
+        b111 = E + (E - V) / 2;
+
+        for (int i = 0; i < 3; i++)
+        {
+            // with respect to depth
+            if (jacMethod == MapJacobianMethod::depthJacobian)
+                d_z_d_iz[i] = 1.0;
+            // with respecto to idepth (depth = 1/idepth)
+            if (jacMethod == MapJacobianMethod::idepthJacobian)
+                d_z_d_iz[i] = -(vertices[i](2) * vertices[i](2));
+            // width respect to depth = exp(z)
+            if (jacMethod == MapJacobianMethod::logDepthJacobian)
+                d_z_d_iz[i] = vertices[i](2);
+            if (jacMethod == MapJacobianMethod::logIdepthJacobian)
+                d_z_d_iz[i] = -vertices[i](2);
+        }
+    }
+
+    float barfunc(float input)
+    {
+        //input goes from 0 to 1
+        //sigmoid input should go from -5 to 5
+        //float in = input*10.0*2.0 - 10.0;
+        //float output = 1.0/(1 + exp(-in));
+        //float output = input*input;
+        float output = std::sin(input*M_PI/2);
+        return output;
+    }
+
+    /*
+    void computeNormal()
+    {
+        normal = ((vertices[0] - vertices[2]).cross(vertices[0] - vertices[1]));
+    }
+    */
+
+    void computeBarycentric(Eigen::Vector3f &ray)
+    {
+        // Calculate the area of the triangle
+        float denominator = (rays[1].y() - rays[2].y()) * (rays[0].x() - rays[2].x()) +
+                            (rays[2].x() - rays[1].x()) * (rays[0].y() - rays[2].y());
+
+        // Calculate the sub-areas
+        barycentric(0) = ((rays[1].y() - rays[2].y()) * (ray.x() - rays[2].x()) +
+                          (rays[2].x() - rays[1].x()) * (ray.y() - rays[2].y())) /
+                         denominator;
+        barycentric(1) = ((rays[2].y() - rays[0].y()) * (ray.x() - rays[2].x()) +
+                          (rays[0].x() - rays[2].x()) * (ray.y() - rays[2].y())) /
+                         denominator;
+        barycentric(2) = 1.0f - barycentric(0) - barycentric(1);
+    }
 
     Eigen::Vector3f vertices[3];
+    Eigen::Vector3f rays[3];
     Eigen::Vector3f normals[3];
 
-    Eigen::Vector3f rays[3];
-
-    Eigen::Matrix2f T_inv;
+    Eigen::Vector3f ray;
     Eigen::Vector3f barycentric;
+
+    Eigen::Vector3f b300;
+    Eigen::Vector3f b030;
+    Eigen::Vector3f b003;
+
+    Eigen::Vector3f b210;
+    Eigen::Vector3f b120;
+    Eigen::Vector3f b021;
+    Eigen::Vector3f b012;
+    Eigen::Vector3f b102;
+    Eigen::Vector3f b201;
+
+    Eigen::Vector3f b111;
+
+    // for der
+    float d_z_d_iz[3];
 };

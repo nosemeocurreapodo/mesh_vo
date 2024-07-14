@@ -81,7 +81,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     lastFrame.set(image, pose);
 
     // frames.clear();
-    if (frames.size() >= 1)
+    if (frames.size() >= 2)
         frames.erase(frames.begin());
 
     frames.push_back(lastFrame);
@@ -96,7 +96,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     {
         frames.erase(frames.end());
         meshOptimizer.changeKeyframe(lastFrame);
-        //meshOptimizer.optMapDepth(frames);
+        meshOptimizer.optMap(frames);
     }
 
     meshOptimizer.plotDebug(lastFrame);

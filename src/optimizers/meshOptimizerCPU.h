@@ -13,6 +13,7 @@
 #include "cpu/PointSet.h"
 #include "cpu/Mesh.h"
 #include "cpu/SurfelSet.h"
+#include "cpu/MeshSmooth.h"
 #include "cpu/OpenCVDebug.h"
 #include "params.h"
 
@@ -93,7 +94,7 @@ public:
     }
 
     frameCPU keyframe;
-    SurfelSet keyframeScene;
+    MeshSmooth keyframeScene;
     MatrixMapped invVar;
     camera cam[MAX_LEVELS];
 

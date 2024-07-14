@@ -23,7 +23,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 10.0;
+    meshRegularization = 200.0;
     meshInitial = 0.0;
 }
 

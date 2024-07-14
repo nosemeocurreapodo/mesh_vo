@@ -65,21 +65,9 @@ public:
         pose = p;
     }
 
-    Eigen::Vector2f d_f_i_d_pix(int y, int x, int lvl)
-    {
-        float _dx = dx.get(y, x, lvl);
-        float _dy = dy.get(y, x, lvl);
-        return Eigen::Vector2f(_dx, _dy);
-    }
-
-    Eigen::Vector2f d_f_i_d_pix(float y, float x, int lvl)
-    {
-        float _dx = dx.get(y, x, lvl);
-        float _dy = dy.get(y, x, lvl);
-        return Eigen::Vector2f(_dx, _dy);
-    }
-
     dataCPU<float> image;
+    dataCPU<float> dx;
+    dataCPU<float> dy;
 
     Sophus::SE3f pose;
 
@@ -111,6 +99,4 @@ private:
             }
     }
 
-    dataCPU<float> dx;
-    dataCPU<float> dy;
 };

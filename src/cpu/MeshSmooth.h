@@ -2,22 +2,24 @@
 #include <memory>
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
-#include "cpu/PointSet.h"
+#include "cpu/PointSetNormals.h"
 #include "cpu/Polygon.h"
+#include "common/Error.h"
+#include "common/HGMapped.h"
 #include "common/common.h"
 #include "common/DelaunayTriangulation.h"
 #include "params.h"
 
-class Mesh : public PointSet
+class MeshSmooth : public PointSetNormals
 {
 public:
-    Mesh() : PointSet()
+    MeshSmooth() : PointSetNormals()
     {
         last_triangle_id = 0;
         setJackMethod(idepthJacobian);
     };
 
-    Mesh(const Mesh &other) : PointSet(other)
+    MeshSmooth(const MeshSmooth &other) : PointSetNormals(other)
     {
         triangles = other.triangles;
         last_triangle_id = other.last_triangle_id;
@@ -37,7 +39,7 @@ public:
 
     std::unique_ptr<PointSet> clone() const override
     {
-        return std::make_unique<Mesh>(*this);
+        return std::make_unique<MeshSmooth>(*this);
     }
 
     void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) override
@@ -62,6 +64,7 @@ public:
                 Eigen::Vector3f vertice = ray / idph;
 
                 unsigned int id = addVertice(vertice);
+                setNormal(ray, id);
             }
         }
 
@@ -71,7 +74,7 @@ public:
 
     void clear()
     {
-        PointSet::clear();
+        PointSetNormals::clear();
         triangles.clear();
         last_triangle_id = 0;
     }
@@ -80,8 +83,10 @@ public:
     {
         // always return triangle in cartesian
         std::array<unsigned int, 3> tri = getTriangleIndices(polId);
-        PolygonFlat pol(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getJacMethod());
-        return std::make_unique<PolygonFlat>(pol);
+        PolygonSmooth pol(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]),
+                          getNormal(tri[0]), getNormal(tri[1]), getNormal(tri[2]),
+                          getJacMethod());
+        return std::make_unique<PolygonSmooth>(pol);
     }
 
     std::vector<unsigned int> getPolygonsIds() const override
