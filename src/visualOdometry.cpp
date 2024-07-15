@@ -12,7 +12,7 @@ void visualOdometry::initScene(dataCPU<float> &image, Sophus::SE3f pose)
 {
     lastFrame.set(image, pose);
     dataCPU<float> idepth(cam.width, cam.height, -1.0);
-    //idepth.setRandom(0);
+    // idepth.setRandom(0);
     idepth.setSmooth(0);
     idepth.generateMipmaps();
     dataCPU<float> invVar(cam.width, cam.height, -1.0);
@@ -34,36 +34,31 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
 {
     tic_toc t;
 
-    dataCPU<float> idepth(cam.width, cam.height, -1.0);
-    dataCPU<float> error(cam.width, cam.height, -1.0);
-    dataCPU<float> sceneImage(cam.width, cam.height, -1.0);
-    dataCPU<float> debug(cam.width, cam.height, -1.0);
-
     lastFrame.set(image); //*keyframeData.pose.inverse();
+    lastFrame.id += 1;
+    Sophus::SE3f iniPose = lastFrame.pose;
+    lastFrame.pose = lastMovement * lastFrame.pose;
     meshOptimizer.optPose(lastFrame);
-
-    std::cout << "estimated pose" << std::endl;
-    std::cout << lastFrame.pose.matrix() << std::endl;
+    lastMovement = lastFrame.pose * iniPose.inverse();
 
     frames.clear();
     frames.push_back(lastFrame);
+    meshOptimizer.optPoseMap(frames);
 
-    t.tic();
+    float imagePercentNoData = meshOptimizer.getImage(lastFrame.pose, 1).getPercentNoData(1);
 
-    //meshOptimizer.optPoseMap(frames);
-    std::cout << "update pose map time " << t.toc() << std::endl;
-
-    float idepthPercentNoData = meshOptimizer.getIdepth(lastFrame.pose, 1).getPercentNoData(1);
-
-    if (idepthPercentNoData > 0.10)
+    if (imagePercentNoData > 0.15)
     {
         meshOptimizer.changeKeyframe(lastFrame);
     }
+
+    meshOptimizer.plotDebug(frames[frames.size() - 1]);
 }
 
 void visualOdometry::localization(dataCPU<float> &image)
 {
     lastFrame.set(image);
+    lastFrame.id += 1;
     Sophus::SE3f iniPose = lastFrame.pose;
     lastFrame.pose = lastMovement * lastFrame.pose;
     meshOptimizer.optPose(lastFrame);
@@ -71,6 +66,8 @@ void visualOdometry::localization(dataCPU<float> &image)
 
     std::cout << "estimated pose" << std::endl;
     std::cout << lastFrame.pose.matrix() << std::endl;
+
+    meshOptimizer.plotDebug(lastFrame);
 }
 
 void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
@@ -79,6 +76,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
 
     // lastFrame.set(image);
     lastFrame.set(image, pose);
+    lastFrame.id += 1;
 
     // frames.clear();
     if (frames.size() >= 2)
@@ -92,11 +90,12 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
 
     float imagePercentNoData = meshOptimizer.getImage(lastFrame.pose, 1).getPercentNoData(1);
 
-    if (imagePercentNoData > 0.1)
+    if (imagePercentNoData > 0.10)
     {
-        frames.erase(frames.end());
         meshOptimizer.changeKeyframe(lastFrame);
-        meshOptimizer.optMap(frames);
+        frames.erase(frames.end());
+        if (frames.size() > 0)
+            meshOptimizer.optMap(frames);
     }
 
     meshOptimizer.plotDebug(lastFrame);

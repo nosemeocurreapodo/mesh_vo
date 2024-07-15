@@ -23,7 +23,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 200.0;
+    meshRegularization = 100.0;
     meshInitial = 0.0;
 }
 
@@ -103,6 +103,8 @@ HGMapped meshOptimizerCPU::computeHGMap(frameCPU &frame, int lvl)
     pId_buffer.set(pId_buffer.nodata, lvl);
 
     renderer.renderJMap(keyframeScene, cam[lvl], keyframe, frame, j1_buffer, error_buffer, pId_buffer, lvl);
+    
+    int shapesDoF = keyframeScene.getShapesDoF();
 
     for (int y = 0; y < cam[lvl].height; y++)
     {
@@ -116,7 +118,7 @@ HGMapped meshOptimizerCPU::computeHGMap(frameCPU &frame, int lvl)
                 continue;
 
             hg.count += 1;
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < shapesDoF; i++)
             {
                 // if the jacobian is 0
                 // we really cannot say anything about the depth
@@ -127,7 +129,7 @@ HGMapped meshOptimizerCPU::computeHGMap(frameCPU &frame, int lvl)
                 hg.G.add(jac(i) * err, ids(i));
                 //(*hg).G[v_ids[i]] += J[i] * error;
 
-                for (int j = i; j < 3; j++)
+                for (int j = i; j < shapesDoF; j++)
                 {
                     float jj = jac(i) * jac(j);
                     hg.H.add(jj, ids(i), ids(j));
@@ -142,7 +144,7 @@ HGMapped meshOptimizerCPU::computeHGMap(frameCPU &frame, int lvl)
     return hg;
 }
 
-HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, int frame_index, int lvl)
+HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, int lvl)
 {
     HGMapped hg;
 
@@ -153,6 +155,8 @@ HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, int frame_index, in
     pId_buffer.set(pId_buffer.nodata, lvl);
 
     renderer.renderJPoseMap(keyframeScene, cam[lvl], keyframe, frame, j1_buffer, j2_buffer, j3_buffer, error_buffer, pId_buffer, lvl);
+
+    int shapesDoF = keyframeScene.getShapesDoF();
 
     for (int y = 0; y < cam[lvl].height; y++)
     {
@@ -184,7 +188,7 @@ HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, int frame_index, in
                 }
             }
 
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < shapesDoF; i++)
             {
                 // if the jacobian is 0
                 // we really cannot say anything about the depth
@@ -194,7 +198,7 @@ HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU &frame, int frame_index, in
                 hg.G.add(j_map(i) * error, ids(i));
                 //(*hg).G[v_ids[i]] += J[i] * error;
 
-                for (int j = i; j < 3; j++)
+                for (int j = i; j < shapesDoF; j++)
                 {
                     float jj = j_map(i) * j_map(j);
                     hg.H.add(jj, ids(i), ids(j));
@@ -386,8 +390,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
             // H_init /= hg_init.count;
             // G_init /= hg_init.count;
 
-            H += meshRegularization * H_regu;// + meshInitial * H_init;
-            G += meshRegularization * G_regu;// + meshInitial * G_init;
+            H += meshRegularization * H_regu; // + meshInitial * H_init;
+            G += meshRegularization * G_regu; // + meshInitial * G_init;
 
             std::cout << "HG time " << t.toc() << std::endl;
 
@@ -500,7 +504,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
         }
     }
 }
-/*
+
 void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 {
     tic_toc t;
@@ -519,7 +523,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
             e += computeError(frames[i], lvl);
         e.error /= e.count;
 
-        e_regu = errorRegu();
+        e_regu = keyframeScene.errorRegu();
         e_regu.error /= e_regu.count;
 
         float last_error = e.error + meshRegularization * e_regu.error;
@@ -534,7 +538,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
             hg.setZero();
             for (std::size_t i = 0; i < frames.size(); i++)
-                hg += computeHGPoseMap(frames[i], i, lvl);
+                hg += computeHGPoseMap(frames[i], lvl);
 
             std::vector<int> pIds = hg.G.getParamIds();
 
@@ -544,7 +548,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
             H /= hg.count;
             G /= hg.count;
 
-            hg_regu = HGRegu();
+            hg_regu = keyframeScene.HGRegu();
 
             Eigen::VectorXf G_regu = hg_regu.G.toEigen(pIds);
             Eigen::SparseMatrix<float> H_regu = hg_regu.H.toEigen(pIds);
@@ -600,7 +604,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     // have to fix it some better way
                     for (int j = 0; j < 6; j++)
                     {
-                        int index = j - (i + 1) * 6 + frames.size() * 6;
+                        int paramId = j - (frames[i].id + 1) * 6;
+                        int index = paramId + (frames[frames.size()-1].id + 1) * 6;
                         pose_inc(j) = inc(index);
                     }
                     best_poses.push_back(frames[i].pose);
@@ -608,29 +613,19 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 }
 
                 // update map
-                std::map<unsigned int, float> best_depths;
+
+                std::map<unsigned int,float> best_params;
                 for (int index = 0; index < (int)pIds.size(); index++)
                 {
                     // negative ids are for the poses
-                    if (ids[index] < 0)
+                    if (pIds[index] < 0)
                         continue;
 
-                    float best_depth = keyframeScene.getVerticeDepth(ids[index]);
-                    float new_depth;
-                    if (jacMethod == MapJacobianMethod::depthJacobian)
-                        new_depth = best_depth + inc(index);
-                    if (jacMethod == MapJacobianMethod::idepthJacobian)
-                        new_depth = 1.0 / (1.0 / best_depth + inc(index));
-                    if (jacMethod == MapJacobianMethod::logDepthJacobian)
-                        new_depth = std::exp(std::log(best_depth) + inc(index));
-                    if (jacMethod == MapJacobianMethod::logIdepthJacobian)
-                        new_depth = 1.0 / std::exp(std::log(1.0 / best_depth) + inc(index));
-                    if (new_depth < 0.001 || new_depth > 100.0)
-                        new_depth = best_depth;
-                    best_depths[ids[index]] = best_depth;
-                    keyframeScene.setVerticeDepth(new_depth, ids[index]);
+                    float best_param = keyframeScene.getParam(pIds[index]);
+                    float new_param = best_param + inc(index);
+                    best_params[pIds[index]] = best_param;
+                    keyframeScene.setParam(new_param, pIds[index]);
                 }
-                // keyframeMesh.setVerticesIdepths(new_idepths);
 
                 t.tic();
 
@@ -639,7 +634,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     e += computeError(frames[i], lvl);
                 e.error /= e.count;
 
-                e_regu = errorRegu();
+                e_regu = keyframeScene.errorRegu();
                 e_regu.error /= e_regu.count;
 
                 float error = e.error + meshRegularization * e_regu.error;
@@ -673,12 +668,12 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     for (int index = 0; index < frames.size(); index++)
                         frames[index].pose = best_poses[index];
 
-                    for (int index = 0; index < ids.size(); index++)
+                    for (int index = 0; index < pIds.size(); index++)
                     {
                         // negative ids are for the poses
-                        if (ids[index] < 0)
+                        if (pIds[index] < 0)
                             continue;
-                        keyframeScene.setVerticeDepth(best_depths[ids[index]], ids[index]);
+                        keyframeScene.setParam(best_params[pIds[index]], pIds[index]);
                     }
 
                     n_try++;
@@ -701,4 +696,3 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
         }
     }
 }
-*/

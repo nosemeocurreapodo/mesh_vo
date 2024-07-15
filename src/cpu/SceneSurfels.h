@@ -2,21 +2,21 @@
 #include <memory>
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
-#include "cpu/PointSetNormals.h"
-#include "cpu/Polygon.h"
+#include "cpu/SceneVerticesNormalsBase.h"
+#include "cpu/Shapes.h"
 #include "common/common.h"
 #include "params.h"
 
-class SurfelSet : public PointSetNormals
+class SceneSurfels : public SceneVerticesNormalsBase
 {
 public:
-    SurfelSet() : PointSetNormals()
+    SceneSurfels() : SceneVerticesNormalsBase()
     {
-        radius = 10;
-        setJackMethod(depthJacobian);
+        radius = 3.5;
+        setDepthJackMethod(idepthJacobian);
     };
 
-    SurfelSet(const SurfelSet &other) : PointSetNormals(other)
+    SceneSurfels(const SceneSurfels &other) : SceneVerticesNormalsBase(other)
     {
         radius = other.radius;
     }
@@ -30,69 +30,30 @@ public:
         return *this;
     }
     */
-    std::unique_ptr<PointSet> clone() const override
+    std::unique_ptr<SceneBase> clone() const override
     {
-        return std::make_unique<SurfelSet>(*this);
+        return std::make_unique<SceneSurfels>(*this);
     }
 
-    void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl)
+    int getShapesDoF() override
     {
-        clear();
-
-        for (float y = 0.0; y < MESH_HEIGHT; y++)
-        {
-            for (float x = 0.0; x < MESH_WIDTH; x++)
-            {
-                Eigen::Vector2f pix;
-                pix[0] = (cam.width - 1) * x / (MESH_WIDTH - 1);
-                pix[1] = (cam.height - 1) * y / (MESH_HEIGHT - 1);
-                Eigen::Vector3f ray = cam.pixToRay(pix);
-                float idph = idepth.get(pix[1], pix[0], lvl);
-                if (idph == idepth.nodata)
-                    continue;
-
-                if (idph <= 0.0)
-                    continue;
-
-                Eigen::Vector3f vertice = ray / idph;
-
-                unsigned int id = addVertice(vertice);
-                setNormal(ray, id);
-                radius = 8;//(cam.width - 1) / (MESH_WIDTH * 2);
-            }
-        }
-
-        setPose(frame.pose);
+        return 3;
     }
 
-    void clear()
-    {
-        PointSet::clear();
-    }
-
-    std::unique_ptr<Polygon> getPolygon(unsigned int id)
+    std::unique_ptr<ShapeBase> getShape(unsigned int id) override
     {
         Eigen::Vector3f center = getVertice(id);
         Eigen::Vector3f normal = getNormal(id);
-        PolygonCircle pol(center, normal, radius, getJacMethod());
-        return std::make_unique<PolygonCircle>(pol);
+        ShapeSurfel pol(center, normal, radius, getDepthJacMethod());
+        return std::make_unique<ShapeSurfel>(pol);
     }
 
-    std::vector<unsigned int> getPolygonsIds() const
+    std::vector<unsigned int> getShapesIds() const override
     {
         return getVerticesIds();
     }
 
-    /*
-    std::vector<unsigned int> getPolygonVerticesIds(unsigned int id)
-    {
-        std::vector<unsigned int> ids;
-        ids.push_back(id);
-        return ids;
-    }
-    */
-
-    std::vector<unsigned int> getPolygonParamsIds(unsigned int polId) override
+    std::vector<unsigned int> getShapeParamsIds(unsigned int polId) override
     {
         // the id of the param (depth, nx, ny) is the id of the vertice * 3 + x
         std::vector<unsigned int> ids;
@@ -108,8 +69,7 @@ public:
         // if it is multiple of 3, its the depth
         if (paramId % 3 == 0)
         {
-            if (param > 0.01 && param < 100.0)
-                setVerticeDepth(param, verticeId);
+            setDepthParam(param, verticeId);
         }
         // otherwise its the normal
         else
@@ -131,7 +91,7 @@ public:
         // if it is multiple of 3, its the depth
         if (paramId % 3 == 0)
         {
-            return getVerticeDepth(verticeId);
+            return getDepthParam(verticeId);
         }
         // otherwise its the normal
         else
@@ -148,7 +108,7 @@ public:
     {
         Error error;
 
-        std::vector<unsigned int> polIds = getPolygonsIds();
+        std::vector<unsigned int> polIds = getVerticesIds();
 
         for (size_t index = 0; index < polIds.size(); index++)
         {
@@ -170,7 +130,7 @@ public:
     {
         HGMapped hg;
 
-        std::vector<unsigned int> polIds = getPolygonsIds();
+        std::vector<unsigned int> polIds = getVerticesIds();
 
         for (size_t i = 0; i < polIds.size(); i++)
         {
@@ -180,10 +140,10 @@ public:
             Eigen::Vector3f normal = getNormal(p_id);
             Eigen::Vector3f diff = normal - vertice / vertice(2);
 
-            std::vector<unsigned int> pa_id = getPolygonParamsIds(p_id);
+            std::vector<unsigned int> pa_id = getShapeParamsIds(p_id);
 
             Eigen::Vector3f J[3];
-            J[0] = {vertice(0) / (vertice(2) * vertice(2)), vertice(1) / (vertice(2) * vertice(2)), 0.0};
+            J[0] = {0.0, 0.0, 0.0};
             J[1] = {1.0, 0.0, 0.0};
             J[2] = {0.0, 1.0, 0.0};
 
@@ -204,7 +164,7 @@ public:
         return hg;
     }
 
-    Error errorInitial(std::unique_ptr<PointSet> initScene, MatrixMapped &initThetaVar)
+    Error errorInitial(SceneSurfels &initScene, MatrixMapped &initThetaVar)
     {
         Error error;
 
@@ -216,8 +176,8 @@ public:
 
             float initVar = initThetaVar[id][id];
 
-            float theta = getVerticeDepth(id);
-            float initTheta = initScene->getVerticeDepth(id);
+            float theta = getDepthParam(id);
+            float initTheta = initScene.getDepthParam(id);
 
             float diff = theta - initTheta;
 
@@ -229,7 +189,7 @@ public:
         return error;
     }
 
-    HGMapped HGInitial(PointSet &initMesh, MatrixMapped &initThetaVar)
+    HGMapped HGInitial(SceneSurfels &initScene, MatrixMapped &initThetaVar)
     {
         HGMapped hg;
 
@@ -241,8 +201,8 @@ public:
 
             float initVar = initThetaVar[v_id][v_id];
 
-            float theta = getVerticeDepth(v_id);
-            float initTheta = initMesh.getVerticeDepth(v_id);
+            float theta = getDepthParam(v_id);
+            float initTheta = initScene.getDepthParam(v_id);
 
             hg.G[v_id] += initVar * (theta - initTheta);
             hg.H[v_id][v_id] += initVar;

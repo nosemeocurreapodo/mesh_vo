@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 
 project(mesh_vo)
 
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
 
 #set(CMAKE_CXX_FLAGS " -Wall -Wextra -g")
 #set(CMAKE_CXX_FLAGS_DEBUG "-pg")
@@ -69,5 +69,5 @@ add_executable(testapp ${TESTAPP_SRCS} ${VISUALODOMETRY_SRCS})
 #target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})
 target_link_libraries(testapp boost_system boost_thread ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
 
-#add_executable(tum_dataset ${TUMDATASET_SRCS} ${DepthEstimator_SRCS} ${SHADERS})
-#target_link_libraries(tum_dataset ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
+add_executable(tum_dataset ${TUMDATASET_SRCS} ${VISUALODOMETRY_SRCS})
+target_link_libraries(tum_dataset boost_system boost_thread ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})

@@ -10,10 +10,11 @@
 #include "cpu/dataCPU.h"
 #include "cpu/frameCPU.h"
 #include "cpu/renderCPU.h"
-#include "cpu/PointSet.h"
-#include "cpu/Mesh.h"
-#include "cpu/SurfelSet.h"
-#include "cpu/MeshSmooth.h"
+#include "cpu/SceneBase.h"
+#include "cpu/ScenePatches.h"
+#include "cpu/SceneMesh.h"
+#include "cpu/SceneSurfels.h"
+#include "cpu/SceneMeshSmooth.h"
 #include "cpu/OpenCVDebug.h"
 #include "params.h"
 
@@ -26,7 +27,7 @@ public:
 
     void optPose(frameCPU &frame);
     void optMap(std::vector<frameCPU> &frame);
-    //void optPoseMap(std::vector<frameCPU> &frame);
+    void optPoseMap(std::vector<frameCPU> &frame);
 
     dataCPU<float> getIdepth(Sophus::SE3f &pose, int lvl)
     {
@@ -94,7 +95,7 @@ public:
     }
 
     frameCPU keyframe;
-    MeshSmooth keyframeScene;
+    SceneMesh keyframeScene;
     MatrixMapped invVar;
     camera cam[MAX_LEVELS];
 
@@ -102,7 +103,7 @@ private:
     Error computeError(frameCPU &frame, int lvl);
     HGMapped computeHGPose(frameCPU &frame, int lvl);
     HGMapped computeHGMap(frameCPU &frame, int lvl);
-    HGMapped computeHGPoseMap(frameCPU &frame, int frame_index, int lvl);
+    HGMapped computeHGPoseMap(frameCPU &frame, int lvl);
 
     renderCPU renderer;
 

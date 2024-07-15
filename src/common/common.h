@@ -2,7 +2,7 @@
 
 #include <Eigen/Core>
 
-enum MapJacobianMethod
+enum DepthJacobianMethod
 {
     depthJacobian,
     idepthJacobian,

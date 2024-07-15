@@ -85,7 +85,7 @@ int main(void)
 
         //odometry.localization(image);
         odometry.mapping(image, realPose);
-        //odometry.locAndMap(frame);
+        //odometry.locAndMap(image);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();
