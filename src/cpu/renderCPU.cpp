@@ -260,7 +260,6 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &frame1, fram
                     continue;
 
                 Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
-
                 if (!cam.isPixVisible(kf_pix))
                     continue;
 

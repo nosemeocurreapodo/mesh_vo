@@ -30,9 +30,16 @@ public:
     }
     */
 
+    void clear() override
+    {
+        SceneVerticesBase::clear();
+        normals.clear();
+    }
+
     void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl)
     {
         clear();
+        setPose(frame.pose);
 
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
@@ -55,13 +62,6 @@ public:
                 setNormal(ray, id);
             }
         }
-        setPose(frame.pose);
-    }
-
-    void clear()
-    {
-        SceneVerticesBase::clear();
-        normals.clear();
     }
 
     unsigned int addVertice(Eigen::Vector3f &vert)

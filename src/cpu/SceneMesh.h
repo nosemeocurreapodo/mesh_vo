@@ -14,7 +14,7 @@ public:
     SceneMesh() : SceneVerticesBase()
     {
         last_triangle_id = 0;
-        setDepthJackMethod(logDepthJacobian);
+        setDepthJackMethod(idepthJacobian);
     };
 
     SceneMesh(const SceneMesh &other) : SceneVerticesBase(other)
@@ -35,16 +35,16 @@ public:
     }
     */
 
+    std::unique_ptr<SceneBase> clone() const override
+    {
+        return std::make_unique<SceneMesh>(*this);
+    }
+
     void clear() override
     {
         SceneVerticesBase::clear();
         triangles.clear();
         last_triangle_id = 0;
-    }
-
-    std::unique_ptr<SceneBase> clone() const override
-    {
-        return std::make_unique<SceneMesh>(*this);
     }
 
     void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) override
@@ -111,9 +111,6 @@ public:
                 theta[j] = getDepthParam(tri[j]);
             }
 
-            if (theta[0] <= 0.0 || theta[1] <= 0.0 || theta[2] <= 0.0)
-                continue;
-
             float diff1 = theta[0] - theta[1];
             float diff2 = theta[0] - theta[2];
             float diff3 = theta[1] - theta[2];
@@ -144,9 +141,6 @@ public:
             {
                 theta[j] = getDepthParam(v_ids[j]);
             }
-
-            if (theta[0] <= 0.0 || theta[1] <= 0.0 || theta[2] <= 0.0)
-                continue;
 
             float diff1 = theta[0] - theta[1];
             float diff2 = theta[0] - theta[2];

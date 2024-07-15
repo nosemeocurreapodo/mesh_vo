@@ -332,7 +332,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
     HGMapped hg_regu;
     HGMapped hg_init;
 
-    for (int lvl = 1; lvl >= 1; lvl--)
+    for (int lvl = 2; lvl >= 2; lvl--)
     {
         t.tic();
         // keyframeMesh.toRayIdepth();
@@ -514,7 +514,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
     HGMapped hg;
     HGMapped hg_regu;
 
-    for (int lvl = 1; lvl >= 1; lvl--)
+    for (int lvl = 0; lvl >= 0; lvl--)
     {
         t.tic();
 

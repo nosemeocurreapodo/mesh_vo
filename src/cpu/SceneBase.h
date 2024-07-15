@@ -10,19 +10,12 @@
 class SceneBase
 {
 public:
-    SceneBase()
-    {
-    };
+    SceneBase(){};
 
     SceneBase(const SceneBase &other)
     {
         globalPose = other.globalPose;
     }
-    
-    virtual std::unique_ptr<SceneBase> clone() const = 0;
-    virtual void clear() = 0;
-    virtual void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) = 0;
-    virtual void transform(Sophus::SE3f newGlobalPose) = 0;
 
     void setPose(Sophus::SE3f newGlobalPose)
     {
@@ -34,6 +27,12 @@ public:
         return globalPose;
     }
 
+    virtual std::unique_ptr<SceneBase> clone() const = 0;
+    virtual void clear() = 0;
+
+    virtual void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) = 0;
+    virtual void transform(Sophus::SE3f newGlobalPose) = 0;
+
     virtual std::vector<unsigned int> getShapesIds() const = 0;
     virtual std::unique_ptr<ShapeBase> getShape(unsigned int polId) = 0;
     virtual int getShapesDoF() = 0;
@@ -44,8 +43,8 @@ public:
 
     virtual Error errorRegu() = 0;
     virtual HGMapped HGRegu() = 0;
-    //virtual Error errorInitial(SceneBase &initScene, MatrixMapped &initThetaVar) = 0;
-    //virtual HGMapped HGInitial(SceneBase &initMesh, MatrixMapped &initThetaVar) = 0;
+    // virtual Error errorInitial(SceneBase &initScene, MatrixMapped &initThetaVar) = 0;
+    // virtual HGMapped HGInitial(SceneBase &initMesh, MatrixMapped &initThetaVar) = 0;
 
 private:
     Sophus::SE3f globalPose;

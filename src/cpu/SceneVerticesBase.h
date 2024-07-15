@@ -43,9 +43,16 @@ public:
      }
      */
 
+    void clear() override
+    {
+        vertices.clear();
+        last_vertice_id = 0;
+    }
+
     void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) override
     {
         clear();
+        setPose(frame.pose);
 
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
@@ -67,14 +74,6 @@ public:
                 unsigned int id = addVertice(vertice);
             }
         }
-        setPose(frame.pose);
-    }
-
-    void clear() override
-    {
-        vertices.clear();
-        globalPose = Sophus::SE3f();
-        last_vertice_id = 0;
     }
 
     Eigen::Vector3f getVertice(unsigned int id)
@@ -134,14 +133,14 @@ public:
 
     void transform(Sophus::SE3f newGlobalPose) override
     {
-        Sophus::SE3f relativePose = newGlobalPose * globalPose.inverse();
+        Sophus::SE3f relativePose = newGlobalPose * getPose().inverse();
         for (auto it = vertices.begin(); it != vertices.end(); ++it)
         {
             Eigen::Vector3f pos = it->second;
             pos = relativePose * pos;
             it->second = pos;
         }
-        globalPose = newGlobalPose;
+        setPose(newGlobalPose);
     }
 
     DepthJacobianMethod getDepthJacMethod()
@@ -181,15 +180,13 @@ public:
         if (getDepthJacMethod() == DepthJacobianMethod::logDepthJacobian)
             param = std::log(getVerticeDepth(v_id));
         if (getDepthJacMethod() == DepthJacobianMethod::logIdepthJacobian)
-            param = std::log(1.0 / getVerticeDepth(v_id));
+            param = -std::log(getVerticeDepth(v_id));
 
         return param;
     }
 
 private:
     std::map<unsigned int, Eigen::Vector3f> vertices;
-
-    Sophus::SE3f globalPose;
     int last_vertice_id;
 
     DepthJacobianMethod dJacMethod;
