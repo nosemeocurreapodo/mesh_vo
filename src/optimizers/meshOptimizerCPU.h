@@ -93,7 +93,7 @@ public:
         */
     }
 
-    SceneMesh sceneOptimized;
+    SceneSurfels sceneOptimized;
     camera cam[MAX_LEVELS];
 
 private:

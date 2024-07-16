@@ -32,29 +32,26 @@ void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, So
 
 void visualOdometry::locAndMap(dataCPU<float> &image)
 {
-    /*
     tic_toc t;
 
-    lastFrame.set(image); //*keyframeData.pose.inverse();
-    lastFrame.id += 1;
-    Sophus::SE3f iniPose = lastFrame.pose;
-    lastFrame.pose = lastMovement * lastFrame.pose;
-    meshOptimizer.optPose(lastFrame);
-    lastMovement = lastFrame.pose * iniPose.inverse();
+    frameCPU newFrame(cam.width, cam.height);
+    newFrame.set(image); //*keyframeData.pose.inverse();
+    newFrame.id += 1;
+    newFrame.pose = lastMovement * lastFrame.pose;
+    meshOptimizer.optPose(lastFrame, newFrame);
 
     // float imagePercentNoData = meshOptimizer.getImage(lastFrame.pose, 1).getPercentNoData(1);
-
-    meshOptimizer.changeKeyframe(lastFrame);
-    if(frames.size() > 0)
+    // meshOptimizer.changeKeyframe(lastFrame);
+    if (frames.size() > 0)
     {
-        meshOptimizer.optPoseMap(frames);
+        meshOptimizer.optPoseMap(newFrame, frames);
         meshOptimizer.plotDebug(frames[0]);
     }
-
-    frames.push_back(lastFrame);
-    if (frames.size() > 7)
+    lastMovement = newFrame.pose * lastFrame.pose.inverse();
+    lastFrame = newFrame;
+    frames.push_back(newFrame);
+    if (frames.size() > 3)
         frames.erase(frames.begin());
-        */
 }
 
 void visualOdometry::localization(dataCPU<float> &image)

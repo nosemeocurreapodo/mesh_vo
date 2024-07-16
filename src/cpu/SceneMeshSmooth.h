@@ -141,7 +141,7 @@ public:
 
             float theta[v_ids.size()];
 
-            for (int j = 0; j < v_ids.size(); j++)
+            for (size_t j = 0; j < v_ids.size(); j++)
             {
                 theta[j] = getDepthParam(v_ids[j]);
             }
@@ -290,10 +290,10 @@ private:
             for (int i = 0; i < 3; i++)
             {
                 int edge_index = -1;
-                for (int j = 0; j < edgeFront.size(); j++)
+                for (size_t j = 0; j < edgeFront.size(); j++)
                 {
                     std::array<unsigned int, 2> ef = edgeFront[j].first;
-                    unsigned int t_id = edgeFront[j].second;
+                    //unsigned int t_id = edgeFront[j].second;
                     if (isEdgeEqual(edges[i], ef))
                     {
                         edge_index = j;

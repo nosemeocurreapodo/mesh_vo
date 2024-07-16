@@ -99,11 +99,11 @@ void DelaunayTriangulation::triangulateVertice(Eigen::Vector2f &vertice, unsigne
         edges[1] = {tri[1], tri[2]};
         edges[2] = {tri[2], tri[0]};
 
-        for (int j = 0; j < edges.size(); j++)
+        for (size_t j = 0; j < edges.size(); j++)
         {
             std::array<unsigned int, 2> edge = edges[j];
             int edge_index = -1;
-            for (int k = 0; k < polygon.size(); k++)
+            for (size_t k = 0; k < polygon.size(); k++)
             {
                 std::array<unsigned int, 2> pol = polygon[k];
 

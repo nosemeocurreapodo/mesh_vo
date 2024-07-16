@@ -67,6 +67,8 @@ int main(void)
             frameCounterDirection = -1;
         if(frameNumber < 2)
             frameCounterDirection = 1;
+        if(frameNumber > 20)
+            return 1;
 
         char image_filename[500];
         char RT_filename[500];
@@ -84,8 +86,8 @@ int main(void)
         image.set((float*)imageMat.data);
 
         //odometry.localization(image);
-        odometry.mapping(image, realPose);
-        //odometry.locAndMap(image);
+        //odometry.mapping(image, realPose);
+        odometry.locAndMap(image);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();

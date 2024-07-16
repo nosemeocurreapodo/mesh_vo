@@ -12,7 +12,7 @@ class SceneSurfels : public SceneVerticesNormalsBase
 public:
     SceneSurfels() : SceneVerticesNormalsBase()
     {
-        radius = 3.5;
+        radius = 8;
         setDepthJackMethod(idepthJacobian);
     };
 
@@ -80,7 +80,7 @@ public:
             else
                 normal(1) = param;
             Eigen::Vector3f vertice = getVertice(verticeId);
-            Eigen::Vector3f ray = vertice / vertice(2);
+            //Eigen::Vector3f ray = vertice / vertice(2);
             setNormal(normal, verticeId);
         }
     }

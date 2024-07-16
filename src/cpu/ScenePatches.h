@@ -12,8 +12,8 @@ class ScenePatches : public SceneVerticesBase
 public:
     ScenePatches() : SceneVerticesBase()
     {
-        patch_width = 8.0;
-        patch_height = 8.0;
+        patch_width = 16.0;
+        patch_height = 16.0;
         setDepthJackMethod(idepthJacobian);
     };
 

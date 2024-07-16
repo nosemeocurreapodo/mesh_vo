@@ -61,9 +61,9 @@ void renderCPU::renderImage(SceneBase &scene, camera &cam, frameCPU &kframe, Sop
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
-    //std::unique_ptr<SceneBase> kframeMesh = scene.clone();
+    // std::unique_ptr<SceneBase> kframeMesh = scene.clone();
     std::unique_ptr<SceneBase> frameMesh = scene.clone();
-    //kframeMesh->transform(kframe.pose);
+    // kframeMesh->transform(kframe.pose);
     frameMesh->transform(pose);
     Sophus::SE3f kfTofPose = pose * kframe.pose.inverse();
     Sophus::SE3f fTokfPose = kfTofPose.inverse();
@@ -192,7 +192,7 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &kframe, fram
     z_buffer.set(z_buffer.nodata, lvl);
 
     float min_area = 0.0 * (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16;
-    float min_angle = M_PI / 64.0;
+    //float min_angle = M_PI / 64.0;
 
     std::unique_ptr<SceneBase> kframeMesh = scene.clone();
     std::unique_ptr<SceneBase> frameMesh = scene.clone();
@@ -294,9 +294,9 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &kframe, fram
                 // or the jacobian of the normal + depth of a surfel
                 std::vector<float> Jacobian = kf_pol->getJacobian(d_f_i_d_kf_depth);
 
-                Eigen::Vector3f jacs;
-                Eigen::Vector3i ids;
-                for (int i = 0; i < p_ids.size(); i++)
+                Eigen::Vector3f jacs = j_buffer.nodata;
+                Eigen::Vector3i ids = pId_buffer.nodata;
+                for (size_t i = 0; i < p_ids.size(); i++)
                 {
                     if (i >= 3)
                         break;
@@ -317,7 +317,7 @@ void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &kframe, fra
     z_buffer.set(z_buffer.nodata, lvl);
 
     float min_area = 0.0 * (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) / 16;
-    float min_angle = M_PI / 64.0;
+    //float min_angle = M_PI / 64.0;
 
     std::unique_ptr<SceneBase> kframeMesh = scene.clone();
     std::unique_ptr<SceneBase> frameMesh = scene.clone();
@@ -486,7 +486,7 @@ void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &kframe, f
     z_buffer.set(z_buffer.nodata, lvl);
 
     float min_area = 0.0 * (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16.0;
-    float min_angle = M_PI / 64.0;
+    //float min_angle = M_PI / 64.0;
 
     std::unique_ptr<SceneBase> kframeScene = mesh.clone();
     std::unique_ptr<SceneBase> frameScene = mesh.clone();
@@ -588,9 +588,9 @@ void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &kframe, f
 
                 float error = f_i - kf_i;
 
-                Eigen::Vector3f jacs;
-                Eigen::Vector3i ids;
-                for (int i = 0; i < p_ids.size(); i++)
+                Eigen::Vector3f jacs = j3_buffer.nodata;
+                Eigen::Vector3i ids = pId_buffer.nodata;
+                for (size_t i = 0; i < p_ids.size(); i++)
                 {
                     if (i >= 3)
                         break;

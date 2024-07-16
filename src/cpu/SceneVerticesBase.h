@@ -71,7 +71,7 @@ public:
 
                 Eigen::Vector3f vertice = ray / idph;
 
-                unsigned int id = addVertice(vertice);
+                addVertice(vertice);
             }
         }
     }
@@ -156,6 +156,25 @@ public:
     void setDepthParam(float param, unsigned int v_id)
     {
         float new_depth;
+        switch (getDepthJacMethod())
+        {
+        case DepthJacobianMethod::depthJacobian:
+            new_depth = param;
+            break;
+        case DepthJacobianMethod::idepthJacobian:
+            new_depth = 1.0 / param;
+            break;
+        case DepthJacobianMethod::logDepthJacobian:
+            new_depth = std::exp(param);
+            break;
+        case DepthJacobianMethod::logIdepthJacobian:
+            new_depth = 1.0 / std::exp(param);
+            break;
+        default:
+            new_depth = 0.0;
+        }
+
+        /*
         if (getDepthJacMethod() == DepthJacobianMethod::depthJacobian)
             new_depth = param;
         if (getDepthJacMethod() == DepthJacobianMethod::idepthJacobian)
@@ -164,7 +183,7 @@ public:
             new_depth = std::exp(param);
         if (getDepthJacMethod() == DepthJacobianMethod::logIdepthJacobian)
             new_depth = 1.0 / std::exp(param);
-
+        */
         // set the param (the depth in this case)
         if (new_depth > 0.01 && new_depth < 100.0)
             setVerticeDepth(new_depth, v_id);
@@ -172,6 +191,26 @@ public:
 
     float getDepthParam(unsigned int v_id)
     {
+        float param;
+        switch (getDepthJacMethod())
+        {
+        case DepthJacobianMethod::depthJacobian:
+            param = getVerticeDepth(v_id);
+            break;
+        case DepthJacobianMethod::idepthJacobian:
+            param = 1.0 / getVerticeDepth(v_id);
+            break;
+        case DepthJacobianMethod::logDepthJacobian:
+            param = std::log(getVerticeDepth(v_id));
+            break;
+        case DepthJacobianMethod::logIdepthJacobian:
+            param = -std::log(getVerticeDepth(v_id));
+            break;
+        default:
+            param = 0.0;
+        }
+
+        /*
         float param;
         if (getDepthJacMethod() == DepthJacobianMethod::depthJacobian)
             param = getVerticeDepth(v_id);
@@ -181,7 +220,7 @@ public:
             param = std::log(getVerticeDepth(v_id));
         if (getDepthJacMethod() == DepthJacobianMethod::logIdepthJacobian)
             param = -std::log(getVerticeDepth(v_id));
-
+        */
         return param;
     }
 

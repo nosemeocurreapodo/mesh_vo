@@ -83,7 +83,7 @@ public:
         Eigen::VectorXf eigenVector;
         eigenVector = Eigen::VectorXf::Zero(paramIds.size());
 
-        for (int index = 0; index < paramIds.size(); index++)
+        for (size_t index = 0; index < paramIds.size(); index++)
         {
             int id = paramIds[index];
             eigenVector(index) = vector[id];
@@ -168,14 +168,14 @@ public:
         Eigen::SparseMatrix<float> eigenMatrix;
         eigenMatrix = Eigen::SparseMatrix<float>(paramIds.size(), paramIds.size());
 
-        for (int y = 0; y < paramIds.size(); y++)
+        for (size_t y = 0; y < paramIds.size(); y++)
         {
             if (!matrix.count(paramIds[y]))
                 continue;
 
             VectorMapped row = matrix[paramIds[y]];
 
-            for (int x = 0; x < paramIds.size(); x++)
+            for (size_t x = 0; x < paramIds.size(); x++)
             {
                 if (!row.vector.count(paramIds[x]))
                     continue;
