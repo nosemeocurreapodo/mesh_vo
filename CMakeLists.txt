@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.22)
 
 project(mesh_vo)
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
-set(CMAKE_CXX_FLAGS "-O3 -DNDEBUG -pg -march=native -fno-math-errno")
+#set(CMAKE_CXX_FLAGS "-O3 -DNDEBUG -pg -march=native -fno-math-errno")
 
 #set(CMAKE_CXX_FLAGS_DEBUG "-pg")
 #set(CMAKE_CXX_FLAGS_RELEASE "-O3")

@@ -43,6 +43,11 @@ public:
         minmax[2] = pix(1) - height/2;
         minmax[3] = pix(1) + height/2;
 
+        minmax[0] = std::max(minmax[0], cam.window_min_x);
+        minmax[1] = std::min(minmax[1], cam.window_max_x);
+        minmax[2] = std::max(minmax[2], cam.window_min_y);
+        minmax[3] = std::min(minmax[3], cam.window_max_y);
+
         return minmax;
     }
 
@@ -164,6 +169,11 @@ public:
         minmax[1] = pix(0) + radius;
         minmax[2] = pix(1) - radius;
         minmax[3] = pix(1) + radius;
+
+        minmax[0] = std::max(minmax[0], cam.window_min_x);
+        minmax[1] = std::min(minmax[1], cam.window_max_x);
+        minmax[2] = std::max(minmax[2], cam.window_min_y);
+        minmax[3] = std::min(minmax[3], cam.window_max_y);
 
         return minmax;
     };
@@ -312,6 +322,11 @@ public:
         minmax[1] = (int)std::max(std::max(screencoords[0](0), screencoords[1](0)), screencoords[2](0)) + 1;
         minmax[2] = (int)std::min(std::min(screencoords[0](1), screencoords[1](1)), screencoords[2](1)) - 1;
         minmax[3] = (int)std::max(std::max(screencoords[0](1), screencoords[1](1)), screencoords[2](1)) + 1;
+
+        minmax[0] = std::max(minmax[0], cam.window_min_x);
+        minmax[1] = std::min(minmax[1], cam.window_max_x);
+        minmax[2] = std::max(minmax[2], cam.window_min_y);
+        minmax[3] = std::min(minmax[3], cam.window_max_y);
 
         return minmax;
     };
@@ -502,6 +517,11 @@ public:
         minmax[1] = (int)std::max(std::max(screencoords[0](0), screencoords[1](0)), screencoords[2](0)) + 1;
         minmax[2] = (int)std::min(std::min(screencoords[0](1), screencoords[1](1)), screencoords[2](1)) - 1;
         minmax[3] = (int)std::max(std::max(screencoords[0](1), screencoords[1](1)), screencoords[2](1)) + 1;
+
+        minmax[0] = std::max(minmax[0], cam.window_min_x);
+        minmax[1] = std::min(minmax[1], cam.window_max_x);
+        minmax[2] = std::max(minmax[2], cam.window_min_y);
+        minmax[3] = std::min(minmax[3], cam.window_max_y);
 
         return minmax;
     };

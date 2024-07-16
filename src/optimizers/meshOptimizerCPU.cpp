@@ -59,7 +59,7 @@ HGMapped meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, fra
 
     // renderer.renderJPose(keyframeMesh, cam[lvl], keyframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
     idepth_buffer.set(idepth_buffer.nodata, lvl);
-    renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
+    renderer.renderIdepthParallel(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
     renderer.renderJPose(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
 
     for (int y = 0; y < cam[lvl].height; y++)

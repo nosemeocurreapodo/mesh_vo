@@ -32,7 +32,7 @@ public:
     dataCPU<float> getIdepth(Sophus::SE3f &pose, int lvl)
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
-        renderer.renderIdepth(sceneOptimized, cam[lvl], pose, idepth_buffer, lvl);
+        renderer.renderIdepthParallel(sceneOptimized, cam[lvl], pose, idepth_buffer, lvl);
         return idepth_buffer;
     }
 
@@ -48,7 +48,7 @@ public:
         idepth_buffer.set(idepth_buffer.nodata, 1);
         image_buffer.set(image_buffer.nodata, 1);
 
-        renderer.renderIdepth(sceneOptimized, cam[1], frame.pose, idepth_buffer, 1);
+        renderer.renderIdepthParallel(sceneOptimized, cam[1], frame.pose, idepth_buffer, 1);
         renderer.renderImage(sceneOptimized, cam[1], frame, frame.pose, image_buffer, 1);
 
         debug.set(debug.nodata, 0);
@@ -74,7 +74,7 @@ public:
         dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
         idepth.setRandom(lvl);
 
-        renderer.renderIdepth(sceneOptimized, cam[lvl], frame.pose, idepth, lvl);
+        renderer.renderIdepthParallel(sceneOptimized, cam[lvl], frame.pose, idepth, lvl);
 
         dataCPU<float> invVar(cam[0].width, cam[0].height, -1);
         invVar.set(1.0 / INITIAL_VAR, lvl);
@@ -93,7 +93,7 @@ public:
         */
     }
 
-    SceneSurfels sceneOptimized;
+    SceneMesh sceneOptimized;
     camera cam[MAX_LEVELS];
 
 private:
