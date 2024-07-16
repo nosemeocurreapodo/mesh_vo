@@ -25,21 +25,21 @@ public:
 
     void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar, int lvl);
 
-    void optPose(frameCPU &frame);
-    void optMap(std::vector<frameCPU> &frame);
-    void optPoseMap(std::vector<frameCPU> &frame);
+    void optPose(frameCPU &keyframe, frameCPU &frame);
+    void optMap(frameCPU &keyframe, std::vector<frameCPU> &frames);
+    void optPoseMap(frameCPU &keyframe, std::vector<frameCPU> &frame);
 
     dataCPU<float> getIdepth(Sophus::SE3f &pose, int lvl)
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
-        renderer.renderIdepth(keyframeScene, cam[lvl], pose, idepth_buffer, lvl);
+        renderer.renderIdepth(sceneOptimized, cam[lvl], pose, idepth_buffer, lvl);
         return idepth_buffer;
     }
 
-    dataCPU<float> getImage(Sophus::SE3f &pose, int lvl)
+    dataCPU<float> getImage(frameCPU &frame, Sophus::SE3f &pose, int lvl)
     {
         image_buffer.set(image_buffer.nodata, lvl);
-        renderer.renderImage(keyframeScene, cam[lvl], keyframe.image, pose, image_buffer, lvl);
+        renderer.renderImage(sceneOptimized, cam[lvl], frame, pose, image_buffer, lvl);
         return image_buffer;
     }
 
@@ -48,16 +48,15 @@ public:
         idepth_buffer.set(idepth_buffer.nodata, 1);
         image_buffer.set(image_buffer.nodata, 1);
 
-        renderer.renderIdepth(keyframeScene, cam[1], frame.pose, idepth_buffer, 1);
-        renderer.renderImage(keyframeScene, cam[1], keyframe.image, frame.pose, image_buffer, 1);
+        renderer.renderIdepth(sceneOptimized, cam[1], frame.pose, idepth_buffer, 1);
+        renderer.renderImage(sceneOptimized, cam[1], frame, frame.pose, image_buffer, 1);
 
         debug.set(debug.nodata, 0);
-        renderer.renderDebug(keyframeScene, cam[0], frame.pose, debug, 0);
+        renderer.renderDebug(sceneOptimized, cam[0], frame, debug, 0);
 
         error_buffer = frame.image.sub(image_buffer, 1);
 
         show(frame.image, "frame image", 1);
-        show(keyframe.image, "keyframe image", 1);
         show(error_buffer, "lastFrame error", 1);
         show(idepth_buffer, "lastFrame idepth", 1);
         show(image_buffer, "lastFrame scene", 1);
@@ -75,7 +74,7 @@ public:
         dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
         idepth.setRandom(lvl);
 
-        renderer.renderIdepth(keyframeScene, cam[lvl], frame.pose, idepth, lvl);
+        renderer.renderIdepth(sceneOptimized, cam[lvl], frame.pose, idepth, lvl);
 
         dataCPU<float> invVar(cam[0].width, cam[0].height, -1);
         invVar.set(1.0 / INITIAL_VAR, lvl);
@@ -94,16 +93,14 @@ public:
         */
     }
 
-    frameCPU keyframe;
-    SceneMesh keyframeScene;
-    MatrixMapped invVar;
+    SceneMesh sceneOptimized;
     camera cam[MAX_LEVELS];
 
 private:
-    Error computeError(frameCPU &frame, int lvl);
-    HGMapped computeHGPose(frameCPU &frame, int lvl);
-    HGMapped computeHGMap(frameCPU &frame, int lvl);
-    HGMapped computeHGPoseMap(frameCPU &frame, int lvl);
+    Error computeError(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
+    HGMapped computeHGPose(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
+    HGMapped computeHGMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
+    HGMapped computeHGPoseMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
 
     renderCPU renderer;
 

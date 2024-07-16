@@ -11,6 +11,7 @@ public:
     virtual std::array<int, 4> getScreenBounds(camera &cam) = 0;
     virtual void prepareForRay(Eigen::Vector3f &r) = 0;
     virtual bool rayHitsShape() = 0;
+    virtual bool isEdge() = 0;
     virtual float getRayDepth() = 0;
     virtual std::vector<float> getJacobian(float &d_f_i_d_kf_depth) = 0;
 };
@@ -53,6 +54,11 @@ public:
     bool rayHitsShape() override
     {
         return true;
+    }
+
+    bool isEdge() override
+    {
+        return false;
     }
 
     float getRayDepth() override
@@ -142,6 +148,11 @@ public:
         //     return false;
         return true;
     };
+
+    bool isEdge() override
+    {
+        return false;
+    }
 
     std::array<int, 4> getScreenBounds(camera &cam) override
     {
@@ -279,6 +290,15 @@ public:
             return false;
         return true;
     };
+
+    bool isEdge() override
+    {
+        if (barycentric(0) < 0.05 || barycentric(1) < 0.05 || barycentric(2) < 0.05)
+            return true;
+        if (barycentric(0) > 0.95 || barycentric(1) > 0.95 || barycentric(2) > 0.95)
+            return true;
+        return false;
+    }
 
     std::array<int, 4> getScreenBounds(camera &cam) override
     {
@@ -460,6 +480,15 @@ public:
             return false;
         return true;
     };
+
+    bool isEdge() override
+    {
+        if (barycentric(0) < 0.05 || barycentric(1) < 0.05 || barycentric(2) < 0.05)
+            return true;
+        if (barycentric(0) > 0.95 || barycentric(1) > 0.95 || barycentric(2) > 0.95)
+            return true;
+        return false;
+    }
 
     std::array<int, 4> getScreenBounds(camera &cam) override
     {

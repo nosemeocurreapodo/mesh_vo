@@ -32,6 +32,7 @@ void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, So
 
 void visualOdometry::locAndMap(dataCPU<float> &image)
 {
+    /*
     tic_toc t;
 
     lastFrame.set(image); //*keyframeData.pose.inverse();
@@ -53,10 +54,12 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     frames.push_back(lastFrame);
     if (frames.size() > 7)
         frames.erase(frames.begin());
+        */
 }
 
 void visualOdometry::localization(dataCPU<float> &image)
 {
+    /*
     lastFrame.set(image);
     lastFrame.id += 1;
     Sophus::SE3f iniPose = lastFrame.pose;
@@ -68,16 +71,44 @@ void visualOdometry::localization(dataCPU<float> &image)
     std::cout << lastFrame.pose.matrix() << std::endl;
 
     meshOptimizer.plotDebug(lastFrame);
+    */
 }
 
 void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
 {
     tic_toc t;
 
-    // lastFrame.set(image);
-    lastFrame.set(image, pose);
-    lastFrame.id += 1;
+    frameCPU newFrame(cam.width, cam.height);
+    newFrame.set(image, pose);
+    newFrame.id += 1;
 
+    if (frames.size() > 0)
+    {
+        /*
+        // use new frame as keyframe
+        std::vector<frameCPU> framesOpt;
+        framesOpt.push_back(frames[0]);
+
+        meshOptimizer.optMap(newFrame, framesOpt);
+        meshOptimizer.plotDebug(frames[0]);
+
+        // use last frame as keyframe
+        framesOpt.clear();
+        framesOpt.push_back(newFrame);
+
+        meshOptimizer.optMap(frames[0], framesOpt);
+        meshOptimizer.plotDebug(newFrame);
+        */
+
+        meshOptimizer.optMap(newFrame, frames);
+        meshOptimizer.plotDebug(frames[0]);
+    }
+
+    lastFrame = newFrame;
+    frames.push_back(newFrame);
+    if (frames.size() > 3)
+        frames.erase(frames.begin());
+    /*
     float imagePercentNoData = meshOptimizer.getImage(lastFrame.pose, 1).getPercentNoData(1);
 
     if (imagePercentNoData > 0.15)
@@ -94,4 +125,5 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     meshOptimizer.optMap(frames);
 
     meshOptimizer.plotDebug(frames[0]);
+    */
 }

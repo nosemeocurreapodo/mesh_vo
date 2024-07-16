@@ -56,15 +56,17 @@ void renderCPU::renderIdepth(SceneBase &scene, camera &cam, Sophus::SE3f &pose, 
         }
     }
 }
-
-void renderCPU::renderImage(SceneBase &scene, camera &cam, dataCPU<float> &image, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
+// this should take a frame in some pose and render it in another
+void renderCPU::renderImage(SceneBase &scene, camera &cam, frameCPU &kframe, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
+    //std::unique_ptr<SceneBase> kframeMesh = scene.clone();
     std::unique_ptr<SceneBase> frameMesh = scene.clone();
+    //kframeMesh->transform(kframe.pose);
     frameMesh->transform(pose);
-    Sophus::SE3f relPose = pose * scene.getPose().inverse();
-    Sophus::SE3f relPoseInv = relPose.inverse();
+    Sophus::SE3f kfTofPose = pose * kframe.pose.inverse();
+    Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
     std::vector<unsigned int> ids = frameMesh->getShapesIds();
 
@@ -104,7 +106,7 @@ void renderCPU::renderImage(SceneBase &scene, camera &cam, dataCPU<float> &image
 
                 Eigen::Vector3f f_ver = f_ray * f_depth;
 
-                Eigen::Vector3f kf_ver = relPoseInv * f_ver;
+                Eigen::Vector3f kf_ver = fTokfPose * f_ver;
                 if (kf_ver(2) <= 0.0)
                     continue;
                 Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
@@ -113,8 +115,8 @@ void renderCPU::renderImage(SceneBase &scene, camera &cam, dataCPU<float> &image
                 if (!cam.isPixVisible(kf_pix))
                     continue;
 
-                float kf_i = float(image.get(kf_pix(1), kf_pix(0), lvl));
-                if (kf_i == image.nodata)
+                float kf_i = float(kframe.image.get(kf_pix(1), kf_pix(0), lvl));
+                if (kf_i == kframe.image.nodata)
                     continue;
 
                 float z_depth = z_buffer.get(f_pix(1), f_pix(0), lvl);
@@ -129,10 +131,10 @@ void renderCPU::renderImage(SceneBase &scene, camera &cam, dataCPU<float> &image
     }
 }
 
-void renderCPU::renderDebug(SceneBase &scene, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
+void renderCPU::renderDebug(SceneBase &scene, camera &cam, frameCPU &frame, dataCPU<float> &buffer, int lvl)
 {
     std::unique_ptr<SceneBase> frameMesh = scene.clone();
-    frameMesh->transform(pose);
+    frameMesh->transform(frame.pose);
 
     std::vector<unsigned int> ids = frameMesh->getShapesIds();
 
@@ -166,7 +168,10 @@ void renderCPU::renderDebug(SceneBase &scene, camera &cam, Sophus::SE3f &pose, d
                 if (!f_pol->rayHitsShape())
                     continue;
 
-                bool isLine = false; // f_pol.isLine();
+                bool isLine = f_pol->isEdge();
+
+                float f_i = frame.image.get(y, x, lvl);
+                f_i /= 255.0;
 
                 // z buffer
                 // float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
@@ -176,35 +181,35 @@ void renderCPU::renderDebug(SceneBase &scene, camera &cam, Sophus::SE3f &pose, d
                 if (isLine)
                     buffer.set(1.0, y, x, lvl);
                 else
-                    buffer.set(0.0, y, x, lvl);
+                    buffer.set(f_i, y, x, lvl);
             }
         }
     }
 }
-
-void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl)
+// this function should take a scene, a keyframe and a frame, and compute the derivative of the scene (in the keyframe coordinate system)
+void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<Eigen::Vector3f> &j_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
     float min_area = 0.0 * (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16;
     float min_angle = M_PI / 64.0;
 
-    std::unique_ptr<SceneBase> frame1Mesh = scene.clone();
-    std::unique_ptr<SceneBase> frame2Mesh = scene.clone();
+    std::unique_ptr<SceneBase> kframeMesh = scene.clone();
+    std::unique_ptr<SceneBase> frameMesh = scene.clone();
 
-    frame1Mesh->transform(frame1.pose);
-    frame2Mesh->transform(frame2.pose);
+    kframeMesh->transform(kframe.pose);
+    frameMesh->transform(frame.pose);
 
-    Sophus::SE3f relPose = frame2.pose * frame1.pose.inverse();
-    Sophus::SE3f relPoseInv = relPose.inverse();
+    Sophus::SE3f kfTofPose = frame.pose * kframe.pose.inverse();
+    Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
     // for each triangle
-    std::vector<unsigned int> t_ids = frame1Mesh->getShapesIds();
+    std::vector<unsigned int> t_ids = kframeMesh->getShapesIds();
     for (auto t_id : t_ids)
     {
-        std::vector<unsigned int> p_ids = frame1Mesh->getShapeParamsIds(t_id);
+        std::vector<unsigned int> p_ids = kframeMesh->getShapeParamsIds(t_id);
 
-        auto kf_pol = frame1Mesh->getShape(t_id);
+        auto kf_pol = kframeMesh->getShape(t_id);
 
         // if (kf_tri_3d.vertices[0](2) <= 0.0 || kf_tri_3d.vertices[1](2) <= 0.0 || kf_tri_3d.vertices[2](2) <= 0.0)
         //     continue;
@@ -214,7 +219,7 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &frame1, fram
         // if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
         //     continue;
 
-        auto f_pol = frame2Mesh->getShape(t_id);
+        auto f_pol = frameMesh->getShape(t_id);
 
         // if (f_tri_3d.vertices[0](2) <= 0.0 || f_tri_3d.vertices[1](2) <= 0.0 || f_tri_3d.vertices[2](2) <= 0.0)
         //     continue;
@@ -249,7 +254,7 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &frame1, fram
                     continue;
 
                 Eigen::Vector3f f_ver = f_ray * f_depth;
-                Eigen::Vector3f kf_ver = relPoseInv * f_ver;
+                Eigen::Vector3f kf_ver = fTokfPose * f_ver;
                 if (kf_ver(2) <= 0.0)
                     continue;
 
@@ -263,12 +268,12 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &frame1, fram
                 if (!cam.isPixVisible(kf_pix))
                     continue;
 
-                float kf_i = float(frame1.image.get(kf_pix(1), kf_pix(0), lvl));
-                float f_i = float(frame2.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame2.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame2.dy.get(f_pix(1), f_pix(0), lvl);
+                float kf_i = float(kframe.image.get(kf_pix(1), kf_pix(0), lvl));
+                float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
+                float dx = frame.dx.get(f_pix(1), f_pix(0), lvl);
+                float dy = frame.dy.get(f_pix(1), f_pix(0), lvl);
 
-                if (kf_i == frame1.image.nodata || f_i == frame2.image.nodata || dx == frame2.dx.nodata || dy == frame2.dy.nodata)
+                if (kf_i == kframe.image.nodata || f_i == frame.image.nodata || dx == frame.dx.nodata || dy == frame.dy.nodata)
                     continue;
 
                 Eigen::Vector2f d_f_i_d_pix(dx, dy);
@@ -282,7 +287,7 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &frame1, fram
                 // d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                 // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-                Eigen::Vector3f d_f_ver_d_kf_depth = relPose.rotationMatrix() * kf_ray;
+                Eigen::Vector3f d_f_ver_d_kf_depth = kfTofPose.rotationMatrix() * kf_ray;
                 float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
                 // this could be the jacobian of the depth of the 3 vertices in a triangle
@@ -307,27 +312,27 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &frame1, fram
     }
 }
 
-void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
+void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
     float min_area = 0.0 * (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) / 16;
     float min_angle = M_PI / 64.0;
 
-    std::unique_ptr<SceneBase> frame1Mesh = scene.clone();
-    std::unique_ptr<SceneBase> frame2Mesh = scene.clone();
+    std::unique_ptr<SceneBase> kframeMesh = scene.clone();
+    std::unique_ptr<SceneBase> frameMesh = scene.clone();
 
-    frame1Mesh->transform(frame1.pose);
-    frame2Mesh->transform(frame2.pose);
+    kframeMesh->transform(kframe.pose);
+    frameMesh->transform(frame.pose);
 
-    Sophus::SE3f relPose = frame2.pose * frame1.pose.inverse();
-    Sophus::SE3f relPoseInv = relPose.inverse();
+    Sophus::SE3f kfTofPose = frame.pose * kframe.pose.inverse();
+    Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
     // for each triangle
-    std::vector<unsigned int> t_ids = frame1Mesh->getShapesIds();
+    std::vector<unsigned int> t_ids = kframeMesh->getShapesIds();
     for (auto t_id : t_ids)
     {
-        auto kf_pol = frame1Mesh->getShape(t_id);
+        auto kf_pol = kframeMesh->getShape(t_id);
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (kf_pol->getArea() < min_area)
@@ -335,7 +340,7 @@ void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &frame1, fra
         // std::array<float, 3> kf_angle = kf_tri.getAngles();
         // if (fabs(kf_angle[0]) < min_angle || fabs(kf_angle[1]) < min_angle || fabs(kf_angle[2]) < min_angle)
         //    continue;
-        auto f_pol = frame2Mesh->getShape(t_id);
+        auto f_pol = frameMesh->getShape(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (f_pol->getArea() < min_area)
@@ -364,7 +369,7 @@ void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &frame1, fra
                     continue;
 
                 Eigen::Vector3f f_ver = f_ray * f_depth;
-                Eigen::Vector3f kf_ver = relPoseInv * f_ver;
+                Eigen::Vector3f kf_ver = fTokfPose * f_ver;
                 if (kf_ver(2) <= 0.0)
                     continue;
 
@@ -384,12 +389,12 @@ void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &frame1, fra
                 // if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
                 //    continue;
 
-                float kf_i = float(frame1.image.get(kf_pix(1), kf_pix(0), lvl));
-                float f_i = float(frame2.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame2.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame2.dy.get(f_pix(1), f_pix(0), lvl);
+                float kf_i = float(kframe.image.get(kf_pix(1), kf_pix(0), lvl));
+                float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
+                float dx = frame.dx.get(f_pix(1), f_pix(0), lvl);
+                float dy = frame.dy.get(f_pix(1), f_pix(0), lvl);
 
-                if (kf_i == frame1.image.nodata || f_i == frame2.image.nodata || dx == frame2.dx.nodata || dy == frame2.dy.nodata)
+                if (kf_i == kframe.image.nodata || f_i == frame.image.nodata || dx == frame.dx.nodata || dy == frame.dy.nodata)
                     continue;
 
                 Eigen::Vector2f d_f_i_d_pix(dx, dy);
@@ -416,30 +421,30 @@ void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &frame1, fra
     }
 }
 
-void renderCPU::renderJPose(dataCPU<float> &frame1Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
+void renderCPU::renderJPose(dataCPU<float> &kframeIdepth, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
-    Sophus::SE3f relPos = frame2.pose * frame1.pose.inverse();
+    Sophus::SE3f kfTofPose = frame.pose * kframe.pose.inverse();
 
     for (int y = 0; y < cam.height; y++)
     {
         for (int x = 0; x < cam.width; x++)
         {
-            Eigen::Vector2f f1_pix(x, y);
-            Eigen::Vector3f f1_ray = cam.pixToRay(f1_pix);
-            float f1_idepth = frame1Idepth.get(y, x, lvl);
-            if (f1_idepth <= 0.0 || f1_idepth == frame1Idepth.nodata)
+            Eigen::Vector2f kf_pix(x, y);
+            Eigen::Vector3f kf_ray = cam.pixToRay(kf_pix);
+            float kf_idepth = kframeIdepth.get(y, x, lvl);
+            if (kf_idepth <= 0.0 || kf_idepth == kframeIdepth.nodata)
                 continue;
-            Eigen::Vector3f f1_ver = f1_ray / f1_idepth;
+            Eigen::Vector3f kf_ver = kf_ray / kf_idepth;
 
-            Eigen::Vector3f f2_ver = relPos * f1_ver;
-            if (f2_ver(2) <= 0.0)
+            Eigen::Vector3f f_ver = kfTofPose * kf_ver;
+            if (f_ver(2) <= 0.0)
                 continue;
 
-            Eigen::Vector3f f2_ray = f2_ver / f2_ver(2);
-            Eigen::Vector2f f2_pix = cam.rayToPix(f2_ray);
-            if (!cam.isPixVisible(f2_pix))
+            Eigen::Vector3f f_ray = f_ver / f_ver(2);
+            Eigen::Vector2f f_pix = cam.rayToPix(f_ray);
+            if (!cam.isPixVisible(f_pix))
                 continue;
 
             // z-buffer
@@ -447,27 +452,27 @@ void renderCPU::renderJPose(dataCPU<float> &frame1Idepth, camera &cam, frameCPU 
             // if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
             //    continue;
 
-            float f1_i = float(frame1.image.get(f1_pix(1), f1_pix(0), lvl));
-            float f2_i = float(frame2.image.get(f2_pix(1), f2_pix(0), lvl));
-            float dx = frame2.dx.get(f2_pix(1), f2_pix(0), lvl);
-            float dy = frame2.dy.get(f2_pix(1), f2_pix(0), lvl);
+            float kf_i = float(kframe.image.get(kf_pix(1), kf_pix(0), lvl));
+            float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
+            float dx = frame.dx.get(f_pix(1), f_pix(0), lvl);
+            float dy = frame.dy.get(f_pix(1), f_pix(0), lvl);
             // float dx = frame2.dx.get(f2_pix(1), f2_pix(0), lvl);
             // float dy = frame2.dy.get(f2_pix(1), f2_pix(0), lvl);
             // Eigen::Vector2f d_f_i_d_pix(dx, dy);
 
-            if (f1_i == frame1.image.nodata || f2_i == frame2.image.nodata || dx == frame2.dx.nodata || dy == frame2.dy.nodata)
+            if (kf_i == kframe.image.nodata || f_i == frame.image.nodata || dx == frame.dx.nodata || dy == frame.dy.nodata)
                 continue;
 
             Eigen::Vector2f d_f_i_d_pix(dx, dy);
 
-            float v0 = d_f_i_d_pix(0) * cam.fx / f2_ver(2);
-            float v1 = d_f_i_d_pix(1) * cam.fy / f2_ver(2);
-            float v2 = -(v0 * f2_ver(0) + v1 * f2_ver(1)) / f2_ver(2);
+            float v0 = d_f_i_d_pix(0) * cam.fx / f_ver(2);
+            float v1 = d_f_i_d_pix(1) * cam.fy / f_ver(2);
+            float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
 
             Eigen::Vector3f d_f_i_d_tra = Eigen::Vector3f(v0, v1, v2);
-            Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f2_ver(2) * v1 + f2_ver(1) * v2, f2_ver(2) * v0 - f2_ver(0) * v2, -f2_ver(1) * v0 + f2_ver(0) * v1);
+            Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-            float residual = (f2_i - f1_i);
+            float residual = (f_i - kf_i);
 
             jtra_buffer.set(d_f_i_d_tra, y, x, lvl);
             jrot_buffer.set(d_f_i_d_rot, y, x, lvl);
@@ -476,29 +481,29 @@ void renderCPU::renderJPose(dataCPU<float> &frame1Idepth, camera &cam, frameCPU 
     }
 }
 
-void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl)
+void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
     float min_area = 0.0 * (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16.0;
     float min_angle = M_PI / 64.0;
 
-    std::unique_ptr<SceneBase> frame1Scene = mesh.clone();
-    std::unique_ptr<SceneBase> frame2Scene = mesh.clone();
+    std::unique_ptr<SceneBase> kframeScene = mesh.clone();
+    std::unique_ptr<SceneBase> frameScene = mesh.clone();
 
-    frame1Scene->transform(frame1.pose);
-    frame2Scene->transform(frame2.pose);
+    kframeScene->transform(kframe.pose);
+    frameScene->transform(frame.pose);
 
-    Sophus::SE3f relPose = frame2.pose * frame1.pose.inverse();
-    Sophus::SE3f relPoseInv = relPose.inverse();
+    Sophus::SE3f kfTofPose = frame.pose * kframe.pose.inverse();
+    Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
     // for each triangle
-    std::vector<unsigned int> t_ids = frame1Scene->getShapesIds();
+    std::vector<unsigned int> t_ids = kframeScene->getShapesIds();
     for (auto t_id : t_ids)
     {
-        std::vector<unsigned int> p_ids = frame1Scene->getShapeParamsIds(t_id);
+        std::vector<unsigned int> p_ids = kframeScene->getShapeParamsIds(t_id);
 
-        auto kf_pol = frame1Scene->getShape(t_id);
+        auto kf_pol = kframeScene->getShape(t_id);
         // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (kf_pol->getArea() < min_area)
@@ -507,7 +512,7 @@ void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &frame1, f
         // if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
         //    continue;
 
-        auto f_pol = frame2Scene->getShape(t_id);
+        auto f_pol = frameScene->getShape(t_id);
         // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
         //     continue;
         if (f_pol->getArea() < min_area)
@@ -541,7 +546,7 @@ void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &frame1, f
                     continue;
 
                 Eigen::Vector3f f_ver = f_ray * f_depth;
-                Eigen::Vector3f kf_ver = relPoseInv * f_ver;
+                Eigen::Vector3f kf_ver = fTokfPose * f_ver;
                 if (kf_ver(2) <= 0.0)
                     continue;
                 Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
@@ -555,12 +560,12 @@ void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &frame1, f
                 if (!cam.isPixVisible(kf_pix))
                     continue;
 
-                float kf_i = float(frame1.image.get(kf_pix(1), kf_pix(0), lvl));
-                float f_i = float(frame2.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame2.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame2.dy.get(f_pix(1), f_pix(0), lvl);
+                float kf_i = float(kframe.image.get(kf_pix(1), kf_pix(0), lvl));
+                float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
+                float dx = frame.dx.get(f_pix(1), f_pix(0), lvl);
+                float dy = frame.dy.get(f_pix(1), f_pix(0), lvl);
 
-                if (kf_i == frame1.image.nodata || f_i == frame2.image.nodata || dx == frame2.dx.nodata || dy == frame2.dy.nodata)
+                if (kf_i == kframe.image.nodata || f_i == frame.image.nodata || dx == frame.dx.nodata || dy == frame.dy.nodata)
                     continue;
 
                 Eigen::Vector2f d_f_i_d_pix(dx, dy);
@@ -576,7 +581,7 @@ void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &frame1, f
                 j1_buffer.set(d_f_i_d_tra, y, x, lvl);
                 j2_buffer.set(d_f_i_d_rot, y, x, lvl);
 
-                Eigen::Vector3f d_f_ver_d_kf_depth = relPose.rotationMatrix() * kf_ray;
+                Eigen::Vector3f d_f_ver_d_kf_depth = kfTofPose.rotationMatrix() * kf_ray;
                 float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
                 std::vector<float> Jacobian = kf_pol->getJacobian(d_f_i_d_kf_depth);
