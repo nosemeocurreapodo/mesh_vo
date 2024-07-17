@@ -36,10 +36,6 @@ namespace std {
 #include <Eigen/Eigen>
 #include <Eigen/Geometry>
 
-#define _USE_MATH_DEFINES
-#include <math.h>
-
-
 namespace Sophus {
 using namespace Eigen;
 

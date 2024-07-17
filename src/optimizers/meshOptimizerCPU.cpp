@@ -6,10 +6,10 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     : image_buffer(_cam.width, _cam.height, -1.0),
       idepth_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
-      j1_buffer(_cam.width, _cam.height, Eigen::Vector3f(0.0, 0.0, 0.0)),
-      j2_buffer(_cam.width, _cam.height, Eigen::Vector3f(0.0, 0.0, 0.0)),
-      j3_buffer(_cam.width, _cam.height, Eigen::Vector3f(0.0, 0.0, 0.0)),
-      pId_buffer(_cam.width, _cam.height, Eigen::Vector3i(-1, -1, -1)),
+      j1_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
+      j2_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
+      j3_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
+      pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
       debug(_cam.width, _cam.height, -1.0),
       idepthVar(_cam.width, _cam.height, -1.0),
       renderer(_cam.width, _cam.height)
@@ -145,9 +145,9 @@ HGMapped meshOptimizerCPU::computeHGMap(SceneBase &scene, frameCPU &kframe, fram
     {
         for (int x = 0; x < cam[lvl].width; x++)
         {
-            Eigen::Vector3f jac = j1_buffer.get(y, x, lvl);
+            std::array<float, 3> jac = j1_buffer.get(y, x, lvl);
             float err = error_buffer.get(y, x, lvl);
-            Eigen::Vector3i ids = pId_buffer.get(y, x, lvl);
+            std::array<int, 3> ids = pId_buffer.get(y, x, lvl);
 
             if (jac == j1_buffer.nodata || err == error_buffer.nodata || ids == pId_buffer.nodata)
                 continue;
@@ -158,17 +158,17 @@ HGMapped meshOptimizerCPU::computeHGMap(SceneBase &scene, frameCPU &kframe, fram
                 // if the jacobian is 0
                 // we really cannot say anything about the depth
                 // can make the hessian non-singular
-                if (jac(i) == 0)
+                if (jac[i] == 0)
                     continue;
 
-                hg.G.add(jac(i) * err, ids(i));
+                hg.G.add(jac[i] * err, ids[i]);
                 //(*hg).G[v_ids[i]] += J[i] * error;
 
                 for (int j = i; j < shapesDoF; j++)
                 {
-                    float jj = jac(i) * jac(j);
-                    hg.H.add(jj, ids(i), ids(j));
-                    hg.H.add(jj, ids(j), ids(i));
+                    float jj = jac[i] * jac[j];
+                    hg.H.add(jj, ids[i], ids[j]);
+                    hg.H.add(jj, ids[j], ids[i]);
                     //(*hg).H[v_ids[i]][v_ids[j]] += jj;
                     //(*hg).H[v_ids[j]][v_ids[i]] += jj;
                 }
@@ -197,8 +197,8 @@ HGMapped meshOptimizerCPU::computeHGPoseMap(SceneBase &scene, frameCPU &kframe, 
     {
         for (int x = 0; x < cam[lvl].width; x++)
         {
-            Eigen::Vector3f j_tra = j1_buffer.get(y, x, lvl);
-            Eigen::Vector3f j_rot = j2_buffer.get(y, x, lvl);
+            std::array<float, 3> j_tra = j1_buffer.get(y, x, lvl);
+            std::array<float, 3> j_rot = j2_buffer.get(y, x, lvl);
             float error = error_buffer.get(y, x, lvl);
 
             if (j_tra == j1_buffer.nodata || j_rot == j2_buffer.nodata || error == error_buffer.nodata)
@@ -206,8 +206,7 @@ HGMapped meshOptimizerCPU::computeHGPoseMap(SceneBase &scene, frameCPU &kframe, 
 
             hg.count += 1;
 
-            Eigen::Matrix<float, 6, 1> J_pose;
-            J_pose << j_tra(0), j_tra(1), j_tra(2), j_rot(0), j_rot(1), j_rot(2);
+            std::array<float, 6> J_pose = {j_tra[0], j_tra[1], j_tra[2], j_rot[0], j_rot[1], j_rot[2]};
 
             for (int i = 0; i < 6; i++)
             {
@@ -227,25 +226,25 @@ HGMapped meshOptimizerCPU::computeHGPoseMap(SceneBase &scene, frameCPU &kframe, 
     {
         for (int x = 0; x < cam[lvl].width; x++)
         {
-            Eigen::Vector3f j_map = j3_buffer.get(y, x, lvl);
+            std::array<float, 3> j_map = j3_buffer.get(y, x, lvl);
             float error = error_buffer.get(y, x, lvl);
-            Eigen::Vector3i ids = pId_buffer.get(y, x, lvl);
+            std::array<int, 3> ids = pId_buffer.get(y, x, lvl);
 
             for (int i = 0; i < shapesDoF; i++)
             {
                 // if the jacobian is 0
                 // we really cannot say anything about the depth
                 // can make the hessian non-singular
-                if (j_map(i) == 0)
+                if (j_map[i] == 0)
                     continue;
-                hg.G.add(j_map(i) * error, ids(i));
+                hg.G.add(j_map[i] * error, ids[i]);
                 //(*hg).G[v_ids[i]] += J[i] * error;
 
                 for (int j = i; j < shapesDoF; j++)
                 {
-                    float jj = j_map(i) * j_map(j);
-                    hg.H.add(jj, ids(i), ids(j));
-                    hg.H.add(jj, ids(j), ids(i));
+                    float jj = j_map[i] * j_map[j];
+                    hg.H.add(jj, ids[i], ids[j]);
+                    hg.H.add(jj, ids[j], ids[i]);
                     //(*hg).H[v_ids[i]][v_ids[j]] += jj;
                     //(*hg).H[v_ids[j]][v_ids[i]] += jj;
                 }
@@ -304,7 +303,8 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
                 for (int j = 0; j < 6; j++)
                     H_lambda(j, j) *= 1.0 + lambda;
 
-                Eigen::Matrix<float, 6, 1> inc = H_lambda.ldlt().solve(G);
+                //Eigen::Matrix<float, 6, 1> inc = H_lambda.ldlt().solve(G);
+                Sophus::Vector6f inc = H_lambda.ldlt().solve(G);
 
                 // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
                 frame.pose = best_pose * Sophus::SE3f::exp(inc).inverse();

@@ -104,19 +104,18 @@ private:
     HGMapped computeHGMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
     HGMapped computeHGPoseMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
 
-    void reduceHGPose(camera cam, dataCPU<Eigen::Vector3f> *jtra_buffer, dataCPU<Eigen::Vector3f> *jrot_buffer, dataCPU<float> *err_buffer, HGMapped *hg, int lvl)
+    void reduceHGPose(camera cam, dataCPU<std::array<float, 3>> *jtra_buffer, dataCPU<std::array<float, 3>> *jrot_buffer, dataCPU<float> *err_buffer, HGMapped *hg, int lvl)
     {
         for (int y = cam.window_min_y; y < cam.window_max_y; y++)
         {
             for (int x = cam.window_min_x; x < cam.window_max_x; x++)
             {
-                Eigen::Vector3f j_tra = jtra_buffer->get(y, x, lvl);
-                Eigen::Vector3f j_rot = jrot_buffer->get(y, x, lvl);
+                std::array<float, 3> j_tra = jtra_buffer->get(y, x, lvl);
+                std::array<float, 3> j_rot = jrot_buffer->get(y, x, lvl);
                 float err = err_buffer->get(y, x, lvl);
                 if (j_tra == jtra_buffer->nodata || j_rot == jrot_buffer->nodata || err == err_buffer->nodata)
                     continue;
-                Eigen::Matrix<float, 6, 1> J;
-                J << j_tra(0), j_tra(1), j_tra(2), j_rot(0), j_rot(1), j_rot(2);
+                std::array<float, 6> J = {j_tra[0], j_tra[1], j_tra[2], j_rot[0], j_rot[1], j_rot[2]};
                 hg->count++;
                 for (int i = 0; i < 6; i++)
                 {
@@ -143,10 +142,10 @@ private:
     dataCPU<float> image_buffer;
     dataCPU<float> idepth_buffer;
     dataCPU<float> error_buffer;
-    dataCPU<Eigen::Vector3f> j1_buffer;
-    dataCPU<Eigen::Vector3f> j2_buffer;
-    dataCPU<Eigen::Vector3f> j3_buffer;
-    dataCPU<Eigen::Vector3i> pId_buffer;
+    dataCPU<std::array<float, 3>> j1_buffer;
+    dataCPU<std::array<float, 3>> j2_buffer;
+    dataCPU<std::array<float, 3>> j3_buffer;
+    dataCPU<std::array<int, 3>> pId_buffer;
 
     // debug
     dataCPU<float> debug;

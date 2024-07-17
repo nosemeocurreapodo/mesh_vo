@@ -187,7 +187,7 @@ void renderCPU::renderDebug(SceneBase &scene, camera &cam, frameCPU &frame, data
     }
 }
 // this function should take a scene, a keyframe and a frame, and compute the derivative of the scene (in the keyframe coordinate system)
-void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<Eigen::Vector3f> &j_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl)
+void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<std::array<float, 3>> &j_buffer, dataCPU<float> &e_buffer, dataCPU<std::array<int, 3>> &pId_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
@@ -294,8 +294,8 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &kframe, fram
                 // or the jacobian of the normal + depth of a surfel
                 std::vector<float> Jacobian = kf_pol->getJacobian(d_f_i_d_kf_depth);
 
-                Eigen::Vector3f jacs = j_buffer.nodata;
-                Eigen::Vector3i ids = pId_buffer.nodata;
+                std::array<float, 3> jacs = j_buffer.nodata;
+                std::array<int, 3> ids = pId_buffer.nodata;
                 for (size_t i = 0; i < p_ids.size(); i++)
                 {
                     if (i >= 3)
@@ -312,7 +312,7 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &kframe, fram
     }
 }
 
-void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
+void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
@@ -408,8 +408,8 @@ void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &kframe, fra
                 float v0 = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                 float v1 = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                 float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
-                Eigen::Vector3f d_f_i_d_tra = Eigen::Vector3f(v0, v1, v2);
-                Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+                std::array<float, 3> d_f_i_d_tra = {v0, v1, v2};
+                std::array<float, 3> d_f_i_d_rot = {-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1};
 
                 float residual = (f_i - kf_i);
 
@@ -421,7 +421,7 @@ void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &kframe, fra
     }
 }
 
-void renderCPU::renderJPose(dataCPU<float> &kframeIdepth, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
+void renderCPU::renderJPose(dataCPU<float> &kframeIdepth, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
@@ -469,8 +469,8 @@ void renderCPU::renderJPose(dataCPU<float> &kframeIdepth, camera &cam, frameCPU 
             float v1 = d_f_i_d_pix(1) * cam.fy / f_ver(2);
             float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
 
-            Eigen::Vector3f d_f_i_d_tra = Eigen::Vector3f(v0, v1, v2);
-            Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+            std::array<float, 3> d_f_i_d_tra = {v0, v1, v2};
+            std::array<float, 3> d_f_i_d_rot = {-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1};
 
             float residual = (f_i - kf_i);
 
@@ -481,7 +481,7 @@ void renderCPU::renderJPose(dataCPU<float> &kframeIdepth, camera &cam, frameCPU 
     }
 }
 
-void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl)
+void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<std::array<float, 3>> &j1_buffer, dataCPU<std::array<float, 3>> &j2_buffer, dataCPU<std::array<float, 3>> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<std::array<int, 3>> &pId_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
@@ -575,8 +575,8 @@ void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &kframe, f
                 d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                 d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-                Eigen::Vector3f d_f_i_d_tra = d_f_i_d_f_ver;
-                Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
+                std::array<float, 3> d_f_i_d_tra = {d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2)};
+                std::array<float, 3> d_f_i_d_rot = {-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1)};
 
                 j1_buffer.set(d_f_i_d_tra, y, x, lvl);
                 j2_buffer.set(d_f_i_d_rot, y, x, lvl);
@@ -588,8 +588,8 @@ void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &kframe, f
 
                 float error = f_i - kf_i;
 
-                Eigen::Vector3f jacs = j3_buffer.nodata;
-                Eigen::Vector3i ids = pId_buffer.nodata;
+                std::array<float, 3> jacs = j3_buffer.nodata;
+                std::array<int, 3> ids = pId_buffer.nodata;
                 for (size_t i = 0; i < p_ids.size(); i++)
                 {
                     if (i >= 3)

@@ -91,7 +91,8 @@ public:
         return eigenVector;
     }
 
-    std::map<int, float> vector;
+    std::unordered_map<int, float> vector;
+    //std::map<int, float> vector;
 
 private:
 };
@@ -142,7 +143,7 @@ public:
 
     void operator+=(MatrixMapped &a)
     {
-        for (std::map<int, VectorMapped>::iterator it = a.matrix.begin(); it != a.matrix.end(); ++it)
+        for (auto it = a.matrix.begin(); it != a.matrix.end(); ++it)
         {
             if (!matrix.count(it->first))
             {
@@ -188,7 +189,8 @@ public:
         return eigenMatrix;
     }
 
-    std::map<int, VectorMapped> matrix;
+    std::unordered_map<int, VectorMapped> matrix;
+    //std::map<int, VectorMapped> matrix;
 
 private:
 };

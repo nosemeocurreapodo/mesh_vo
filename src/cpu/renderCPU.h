@@ -26,13 +26,13 @@ public:
     void renderImage(SceneBase &scene, camera &cam, frameCPU &kframe, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
     void renderDebug(SceneBase &scene, camera &cam, frameCPU &pose, dataCPU<float> &buffer, int lvl);
 
-    void renderJPose(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl);
-    void renderJPose(dataCPU<float> &frame1Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl);
-    void renderJMap(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl);
+    void renderJPose(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl);
+    void renderJPose(dataCPU<float> &frame1Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl);
+    void renderJMap(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &j_buffer, dataCPU<float> &e_buffer, dataCPU<std::array<int, 3>> &pId_buffer, int lvl);
 
-    void renderJPoseMap(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl);
+    void renderJPoseMap(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &j1_buffer, dataCPU<std::array<float, 3>> &j2_buffer, dataCPU<std::array<float, 3>> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<std::array<int, 3>> &pId_buffer, int lvl);
 
-    void renderJPoseParallel(dataCPU<float> &frame1Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
+    void renderJPoseParallel(dataCPU<float> &frame1Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -108,7 +108,7 @@ public:
     }
 
 private:
-    void renderJPoseWindow(dataCPU<float> *kframeIdepth, camera cam, frameCPU *kframe, frameCPU *frame, dataCPU<Eigen::Vector3f> *jtra_buffer, dataCPU<Eigen::Vector3f> *jrot_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJPoseWindow(dataCPU<float> *kframeIdepth, camera cam, frameCPU *kframe, frameCPU *frame, dataCPU<std::array<float, 3>> *jtra_buffer, dataCPU<std::array<float, 3>> *jrot_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -156,8 +156,8 @@ private:
                 float v1 = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                 float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
 
-                Eigen::Vector3f d_f_i_d_tra = Eigen::Vector3f(v0, v1, v2);
-                Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+                std::array<float, 3> d_f_i_d_tra = {v0, v1, v2};
+                std::array<float, 3> d_f_i_d_rot = {-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1};
 
                 float residual = (f_i - kf_i);
 
