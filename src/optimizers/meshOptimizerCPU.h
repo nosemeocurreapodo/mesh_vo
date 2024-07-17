@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <thread>
 
 #include "common/camera.h"
 #include "common/HGPose.h"
@@ -43,13 +44,13 @@ public:
         return image_buffer;
     }
 
-    void plotDebug(frameCPU &frame)
+    void plotDebug(frameCPU &keyframe, frameCPU &frame)
     {
         idepth_buffer.set(idepth_buffer.nodata, 1);
         image_buffer.set(image_buffer.nodata, 1);
 
         renderer.renderIdepthParallel(sceneOptimized, cam[1], frame.pose, idepth_buffer, 1);
-        renderer.renderImage(sceneOptimized, cam[1], frame, frame.pose, image_buffer, 1);
+        renderer.renderImage(sceneOptimized, cam[1], keyframe, frame.pose, image_buffer, 1);
 
         debug.set(debug.nodata, 0);
         renderer.renderDebug(sceneOptimized, cam[0], frame, debug, 0);
@@ -57,6 +58,7 @@ public:
         error_buffer = frame.image.sub(image_buffer, 1);
 
         show(frame.image, "frame image", 1);
+        show(keyframe.image, "keyframe image", 1);
         show(error_buffer, "lastFrame error", 1);
         show(idepth_buffer, "lastFrame idepth", 1);
         show(image_buffer, "lastFrame scene", 1);
@@ -101,6 +103,35 @@ private:
     HGMapped computeHGPose(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
     HGMapped computeHGMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
     HGMapped computeHGPoseMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
+
+    void reduceHGPose(camera cam, dataCPU<Eigen::Vector3f> *jtra_buffer, dataCPU<Eigen::Vector3f> *jrot_buffer, dataCPU<float> *err_buffer, HGMapped *hg, int lvl)
+    {
+        for (int y = cam.window_min_y; y < cam.window_max_y; y++)
+        {
+            for (int x = cam.window_min_x; x < cam.window_max_x; x++)
+            {
+                Eigen::Vector3f j_tra = jtra_buffer->get(y, x, lvl);
+                Eigen::Vector3f j_rot = jrot_buffer->get(y, x, lvl);
+                float err = err_buffer->get(y, x, lvl);
+                if (j_tra == jtra_buffer->nodata || j_rot == jrot_buffer->nodata || err == err_buffer->nodata)
+                    continue;
+                Eigen::Matrix<float, 6, 1> J;
+                J << j_tra(0), j_tra(1), j_tra(2), j_rot(0), j_rot(1), j_rot(2);
+                hg->count++;
+                for (int i = 0; i < 6; i++)
+                {
+                    hg->G.add(J[i] * err, i - 6);
+                    // hg->G[i - 6] = J[i] * residual;
+                    for (int j = i; j < 6; j++)
+                    {
+                        float jj = J[i] * J[j];
+                        hg->H.add(jj, i - 6, j - 6);
+                        hg->H.add(jj, j - 6, i - 6);
+                    }
+                }
+            }
+        }
+    }
 
     renderCPU renderer;
 

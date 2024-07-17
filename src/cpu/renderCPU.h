@@ -32,10 +32,8 @@ public:
 
     void renderJPoseMap(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &j1_buffer, dataCPU<Eigen::Vector3f> &j2_buffer, dataCPU<Eigen::Vector3f> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<Eigen::Vector3i> &pId_buffer, int lvl);
 
-    HGMapped renderJPoseParallel(dataCPU<float> &frame1Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
+    void renderJPoseParallel(dataCPU<float> &frame1Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<Eigen::Vector3f> &jtra_buffer, dataCPU<Eigen::Vector3f> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
     {
-        HGMapped hg;
-
         z_buffer.set(z_buffer.nodata, lvl);
 
         std::array<int, 2> windowSize;
@@ -56,7 +54,7 @@ public:
                 camera cam_window = cam;
                 cam_window.setWindow(min_x, max_x, min_y, max_y);
 
-                threads[tx + ty * 2] = std::thread(&renderCPU::renderIdepthParallel, this, &frame1Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl);
+                threads[tx + ty * 2] = std::thread(&renderCPU::renderJPoseWindow, this, &frame1Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl);
             }
         }
 
@@ -67,9 +65,6 @@ public:
                 t.join();
             }
         }
-
-        
-
     }
 
     void renderIdepthParallel(SceneBase &scene, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
@@ -144,10 +139,10 @@ private:
                 // if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
                 //    continue;
 
-                float kf_i = kframe->image.get(kf_pix(1), kf_pix(0), lvl);
-                float f_i = frame->image.get(y, x, lvl);
-                float dx = frame->dx.get(y, x, lvl);
-                float dy = frame->dy.get(y, x, lvl);
+                float kf_i = kframe->image.get(y, x, lvl);
+                float f_i = frame->image.get(f_pix(1), f_pix(0), lvl);
+                float dx = frame->dx.get(f_pix(1), f_pix(0), lvl);
+                float dy = frame->dy.get(f_pix(1), f_pix(0), lvl);
                 // float dx = frame2.dx.get(f2_pix(1), f2_pix(0), lvl);
                 // float dy = frame2.dy.get(f2_pix(1), f2_pix(0), lvl);
                 // Eigen::Vector2f d_f_i_d_pix(dx, dy);

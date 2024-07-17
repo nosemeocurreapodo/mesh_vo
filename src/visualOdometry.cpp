@@ -36,7 +36,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
 
     frameCPU newFrame(cam.width, cam.height);
     newFrame.set(image); //*keyframeData.pose.inverse();
-    newFrame.id += 1;
+    newFrame.id = lastFrame.id + 1;
     newFrame.pose = lastMovement * lastFrame.pose;
     meshOptimizer.optPose(lastFrame, newFrame);
 
@@ -45,7 +45,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     if (frames.size() > 0)
     {
         meshOptimizer.optPoseMap(newFrame, frames);
-        meshOptimizer.plotDebug(frames[0]);
+        meshOptimizer.plotDebug(newFrame, frames[0]);
     }
     lastMovement = newFrame.pose * lastFrame.pose.inverse();
     lastFrame = newFrame;
@@ -56,19 +56,19 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
 
 void visualOdometry::localization(dataCPU<float> &image)
 {
-    /*
-    lastFrame.set(image);
-    lastFrame.id += 1;
-    Sophus::SE3f iniPose = lastFrame.pose;
-    lastFrame.pose = lastMovement * lastFrame.pose;
-    meshOptimizer.optPose(lastFrame);
-    lastMovement = lastFrame.pose * iniPose.inverse();
+    frameCPU newFrame(cam.width, cam.height);
+    newFrame.set(image);
+    newFrame.id = lastFrame.id+1;
+    newFrame.pose = lastMovement * lastFrame.pose;
+    meshOptimizer.optPose(lastFrame, newFrame);
 
     std::cout << "estimated pose" << std::endl;
-    std::cout << lastFrame.pose.matrix() << std::endl;
+    std::cout << newFrame.pose.matrix() << std::endl;
 
-    meshOptimizer.plotDebug(lastFrame);
-    */
+    meshOptimizer.plotDebug(lastFrame, newFrame);
+
+    lastMovement = newFrame.pose * lastFrame.pose.inverse();
+    lastFrame = newFrame;
 }
 
 void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
@@ -77,7 +77,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
 
     frameCPU newFrame(cam.width, cam.height);
     newFrame.set(image, pose);
-    newFrame.id += 1;
+    newFrame.id = lastFrame.id + 1;
 
     if (frames.size() > 0)
     {
@@ -98,7 +98,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
         */
 
         meshOptimizer.optMap(newFrame, frames);
-        meshOptimizer.plotDebug(frames[0]);
+        meshOptimizer.plotDebug(newFrame, frames[0]);
     }
 
     lastFrame = newFrame;
