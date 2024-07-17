@@ -59,9 +59,11 @@ HGMapped meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, fra
 
     // renderer.renderJPose(keyframeMesh, cam[lvl], keyframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
     idepth_buffer.set(idepth_buffer.nodata, lvl);
-    renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
-    renderer.renderJPoseParallel(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    renderer.renderIdepth(scene, cam[lvl], kframe.pose, idepth_buffer, lvl);
+    renderer.renderJPose(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    // renderer.renderJPoseParallel(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
 
+    /*
     std::array<int, 2> windowSize;
     windowSize[0] = cam[lvl].width / 2;
     windowSize[1] = cam[lvl].height / 2;
@@ -97,19 +99,18 @@ HGMapped meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, fra
     {
         hg += partialhg[i];
     }
+    */
 
-    /*
     for (int y = 0; y < cam[lvl].height; y++)
     {
         for (int x = 0; x < cam[lvl].width; x++)
         {
-            Eigen::Vector3f j_tra = j1_buffer.get(y, x, lvl);
-            Eigen::Vector3f j_rot = j2_buffer.get(y, x, lvl);
+            std::array<float, 3> j_tra = j1_buffer.get(y, x, lvl);
+            std::array<float, 3> j_rot = j2_buffer.get(y, x, lvl);
             float err = error_buffer.get(y, x, lvl);
             if (j_tra == j1_buffer.nodata || j_rot == j2_buffer.nodata || err == error_buffer.nodata)
                 continue;
-            Eigen::Matrix<float, 6, 1> J;
-            J << j_tra(0), j_tra(1), j_tra(2), j_rot(0), j_rot(1), j_rot(2);
+            std::array<float, 6> J = {j_tra[0], j_tra[1], j_tra[2], j_rot[0], j_rot[1], j_rot[2]};
             hg.count++;
             for (int i = 0; i < 6; i++)
             {
@@ -124,7 +125,6 @@ HGMapped meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, fra
             }
         }
     }
-    */
 
     return hg;
 }
@@ -263,8 +263,9 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
     Error e;
     HGMapped hg;
 
-    std::unique_ptr<SceneBase> keyframeScene = sceneOptimized.clone();
-    keyframeScene->transform(keyframe.pose);
+    // std::unique_ptr<SceneBase> keyframeScene = sceneOptimized.clone();
+    // keyframeScene->transform(keyframe.pose);
+    sceneOptimized.transform(keyframe.pose);
 
     for (int lvl = 3; lvl >= 1; lvl--)
     {
@@ -272,7 +273,7 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
         t.tic();
         Sophus::SE3f best_pose = frame.pose;
         e.setZero();
-        e = computeError(*keyframeScene, keyframe, frame, lvl);
+        e = computeError(sceneOptimized, keyframe, frame, lvl);
         float last_error = e.error / e.count;
 
         std::cout << "init error " << last_error << " time " << t.toc() << std::endl;
@@ -281,7 +282,7 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
         {
             t.tic();
             hg.setZero();
-            hg += computeHGPose(*keyframeScene, keyframe, frame, lvl);
+            hg += computeHGPose(sceneOptimized, keyframe, frame, lvl);
 
             std::vector<int> pIds = hg.G.getParamIds();
 
@@ -303,7 +304,7 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
                 for (int j = 0; j < 6; j++)
                     H_lambda(j, j) *= 1.0 + lambda;
 
-                //Eigen::Matrix<float, 6, 1> inc = H_lambda.ldlt().solve(G);
+                // Eigen::Matrix<float, 6, 1> inc = H_lambda.ldlt().solve(G);
                 Sophus::Vector6f inc = H_lambda.ldlt().solve(G);
 
                 // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
@@ -312,7 +313,7 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
 
                 t.tic();
                 e.setZero();
-                e = computeError(*keyframeScene, keyframe, frame, lvl);
+                e = computeError(sceneOptimized, keyframe, frame, lvl);
                 float error = e.error / e.count;
                 std::cout << "new error " << error << " time " << t.toc() << std::endl;
 

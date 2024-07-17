@@ -57,8 +57,8 @@ int main(void)
 
     visualOdometry odometry(cam);
 
-    //odometry.initScene(image, idepth);
-    odometry.initScene(image);
+    odometry.initScene(image, idepth);
+    //odometry.initScene(image);
 
     while(1){
         framesTracked++;

@@ -91,8 +91,8 @@ public:
         return eigenVector;
     }
 
-    std::unordered_map<int, float> vector;
-    //std::map<int, float> vector;
+    //std::unordered_map<int, float> vector;
+    std::map<int, float> vector;
 
 private:
 };
@@ -189,8 +189,8 @@ public:
         return eigenMatrix;
     }
 
-    std::unordered_map<int, VectorMapped> matrix;
-    //std::map<int, VectorMapped> matrix;
+    //std::unordered_map<int, VectorMapped> matrix;
+    std::map<int, VectorMapped> matrix;
 
 private:
 };
