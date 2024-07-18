@@ -110,8 +110,6 @@ public:
 private:
     void renderJPoseWindow(dataCPU<float> *kframeIdepth, camera cam, frameCPU *kframe, frameCPU *frame, dataCPU<std::array<float, 3>> *jtra_buffer, dataCPU<std::array<float, 3>> *jrot_buffer, dataCPU<float> *e_buffer, int lvl)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
-
         Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
 
         for (int y = cam.window_min_y; y < cam.window_max_y; y++)

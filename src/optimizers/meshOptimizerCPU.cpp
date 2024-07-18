@@ -57,23 +57,24 @@ HGMapped meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, fra
 {
     HGMapped hg;
 
-    // renderer.renderJPose(keyframeMesh, cam[lvl], keyframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
-    idepth_buffer.set(idepth_buffer.nodata, lvl);
-    renderer.renderIdepth(scene, cam[lvl], kframe.pose, idepth_buffer, lvl);
-    renderer.renderJPose(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
-    // renderer.renderJPoseParallel(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    renderer.renderJPose(scene, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    //idepth_buffer.set(idepth_buffer.nodata, lvl);
+    //renderer.renderIdepth(scene, cam[lvl], kframe.pose, idepth_buffer, lvl);
+    //renderer.renderJPose(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    //renderer.renderJPoseParallel(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
 
-    /*
+    int nthread = 1;
+
     std::array<int, 2> windowSize;
-    windowSize[0] = cam[lvl].width / 2;
-    windowSize[1] = cam[lvl].height / 2;
+    windowSize[0] = cam[lvl].width / nthread;
+    windowSize[1] = cam[lvl].height / nthread;
 
-    std::thread threads[4];
-    HGMapped partialhg[4];
+    std::thread threads[nthread*nthread];
+    HGMapped partialhg[nthread*nthread];
 
-    for (int ty = 0; ty < 2; ty++)
+    for (int ty = 0; ty < nthread; ty++)
     {
-        for (int tx = 0; tx < 2; tx++)
+        for (int tx = 0; tx < nthread; tx++)
         {
             int min_x = tx * windowSize[0];
             int max_x = (tx + 1) * windowSize[0];
@@ -83,7 +84,7 @@ HGMapped meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, fra
             camera cam_window = cam[lvl];
             cam_window.setWindow(min_x, max_x, min_y, max_y);
 
-            threads[tx + ty * 2] = std::thread(&meshOptimizerCPU::reduceHGPose, this, cam_window, &j1_buffer, &j2_buffer, &error_buffer, &partialhg[tx + ty*2], lvl);
+            threads[tx + ty * nthread] = std::thread(&meshOptimizerCPU::reduceHGPose, this, cam_window, &j1_buffer, &j2_buffer, &error_buffer, &partialhg[tx + ty*nthread], lvl);
         }
     }
 
@@ -95,12 +96,12 @@ HGMapped meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, fra
         }
     }
 
-    for(int i = 0; i < 4; i++)
+    for(int i = 0; i < nthread*nthread; i++)
     {
         hg += partialhg[i];
     }
-    */
-
+    
+    /*
     for (int y = 0; y < cam[lvl].height; y++)
     {
         for (int x = 0; x < cam[lvl].width; x++)
@@ -125,7 +126,7 @@ HGMapped meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, fra
             }
         }
     }
-
+    */
     return hg;
 }
 
