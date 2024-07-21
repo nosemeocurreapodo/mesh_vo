@@ -27,12 +27,12 @@ public:
     void renderDebug(SceneBase &scene, camera &cam, frameCPU &pose, dataCPU<float> &buffer, int lvl);
 
     void renderJPose(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl);
-    void renderJPose(dataCPU<float> &frame1Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl);
+    void renderJPose(dataCPU<float> &frame2Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl);
     void renderJMap(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &j_buffer, dataCPU<float> &e_buffer, dataCPU<std::array<int, 3>> &pId_buffer, int lvl);
 
     void renderJPoseMap(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &j1_buffer, dataCPU<std::array<float, 3>> &j2_buffer, dataCPU<std::array<float, 3>> &j3_buffer, dataCPU<float> &e_buffer, dataCPU<std::array<int, 3>> &pId_buffer, int lvl);
 
-    void renderJPoseParallel(dataCPU<float> &frame1Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
+    void renderJPoseParallel(dataCPU<float> &frame2Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -54,7 +54,7 @@ public:
                 camera cam_window = cam;
                 cam_window.setWindow(min_x, max_x, min_y, max_y);
 
-                threads[tx + ty * 2] = std::thread(&renderCPU::renderJPoseWindow, this, &frame1Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl);
+                threads[tx + ty * 2] = std::thread(&renderCPU::renderJPoseWindow, this, &frame2Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl);
             }
         }
 
@@ -108,28 +108,29 @@ public:
     }
 
 private:
-    void renderJPoseWindow(dataCPU<float> *kframeIdepth, camera cam, frameCPU *kframe, frameCPU *frame, dataCPU<std::array<float, 3>> *jtra_buffer, dataCPU<std::array<float, 3>> *jrot_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJPoseWindow(dataCPU<float> *frameIdepth, camera cam, frameCPU *kframe, frameCPU *frame, dataCPU<std::array<float, 3>> *jtra_buffer, dataCPU<std::array<float, 3>> *jrot_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
+        Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         for (int y = cam.window_min_y; y < cam.window_max_y; y++)
         {
             for (int x = cam.window_min_x; x < cam.window_max_x; x++)
             {
-                Eigen::Vector2f kf_pix(x, y);
-                Eigen::Vector3f kf_ray = cam.pixToRay(kf_pix);
-                float kf_idepth = kframeIdepth->get(y, x, lvl);
-                if (kf_idepth <= 0.0 || kf_idepth == kframeIdepth->nodata)
+                Eigen::Vector2f f_pix(x, y);
+                Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
+                float f_idepth = frameIdepth->get(y, x, lvl);
+                if (f_idepth <= 0.0 || f_idepth == frameIdepth->nodata)
                     continue;
-                Eigen::Vector3f kf_ver = kf_ray / kf_idepth;
+                Eigen::Vector3f f_ver = f_ray / f_idepth;
 
-                Eigen::Vector3f f_ver = kfTofPose * kf_ver;
-                if (f_ver(2) <= 0.0)
+                Eigen::Vector3f kf_ver = fTokfPose * f_ver;
+                if (kf_ver(2) <= 0.0)
                     continue;
 
-                Eigen::Vector3f f_ray = f_ver / f_ver(2);
-                Eigen::Vector2f f_pix = cam.rayToPix(f_ray);
-                if (!cam.isPixVisible(f_pix))
+                Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
+                Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
+                if (!cam.isPixVisible(kf_pix))
                     continue;
 
                 // z-buffer
@@ -137,10 +138,10 @@ private:
                 // if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
                 //    continue;
 
-                float kf_i = kframe->image.get(y, x, lvl);
-                float f_i = frame->image.get(f_pix(1), f_pix(0), lvl);
-                float dx = frame->dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame->dy.get(f_pix(1), f_pix(0), lvl);
+                auto kf_i = kframe->image.get(kf_pix(1), kf_pix(0), lvl);
+                auto f_i = frame->image.get(y, x, lvl);
+                float dx = frame->dx.get(y, x, lvl);
+                float dy = frame->dy.get(y, x, lvl);
                 // float dx = frame2.dx.get(f2_pix(1), f2_pix(0), lvl);
                 // float dy = frame2.dy.get(f2_pix(1), f2_pix(0), lvl);
                 // Eigen::Vector2f d_f_i_d_pix(dx, dy);
@@ -204,13 +205,13 @@ private:
                     if (f_depth <= 0.0)
                         continue;
 
-                    float z_depth = z_buffer.get(f_pix(1), f_pix(0), lvl);
+                    float z_depth = z_buffer.get(y, x, lvl);
                     if (z_depth < f_depth && z_depth != z_buffer.nodata)
                         continue;
 
-                    buffer->set(1.0 / f_depth, f_pix(1), f_pix(0), lvl);
+                    buffer->set(1.0 / f_depth, y, x, lvl);
 
-                    z_buffer.set(f_depth, f_pix(1), f_pix(0), lvl);
+                    z_buffer.set(f_depth, y, x, lvl);
                 }
             }
         }

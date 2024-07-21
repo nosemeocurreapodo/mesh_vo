@@ -115,17 +115,17 @@ void renderCPU::renderImage(SceneBase &scene, camera &cam, frameCPU &kframe, Sop
                 if (!cam.isPixVisible(kf_pix))
                     continue;
 
-                float kf_i = float(kframe.image.get(kf_pix(1), kf_pix(0), lvl));
+                auto kf_i = kframe.image.get(kf_pix(1), kf_pix(0), lvl);
                 if (kf_i == kframe.image.nodata)
                     continue;
 
-                float z_depth = z_buffer.get(f_pix(1), f_pix(0), lvl);
+                float z_depth = z_buffer.get(y, x, lvl);
                 if (z_depth < f_depth && z_depth != z_buffer.nodata)
                     continue;
 
                 buffer.set(kf_i, y, x, lvl);
 
-                z_buffer.set(f_depth, f_pix(1), f_pix(0), lvl);
+                z_buffer.set(f_depth, y, x, lvl);
             }
         }
     }
@@ -186,7 +186,7 @@ void renderCPU::renderDebug(SceneBase &scene, camera &cam, frameCPU &frame, data
         }
     }
 }
-// this function should take a scene, a keyframe and a frame, and compute the derivative of the scene (in the keyframe coordinate system)
+
 void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<std::array<float, 3>> &j_buffer, dataCPU<float> &e_buffer, dataCPU<std::array<int, 3>> &pId_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
@@ -249,7 +249,7 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &kframe, fram
                     continue;
 
                 // z-buffer
-                float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
+                float l_idepth = z_buffer.get(y, x, lvl);
                 if (l_idepth < f_depth && l_idepth != z_buffer.nodata)
                     continue;
 
@@ -268,10 +268,10 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &kframe, fram
                 if (!cam.isPixVisible(kf_pix))
                     continue;
 
-                float kf_i = float(kframe.image.get(kf_pix(1), kf_pix(0), lvl));
-                float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame.dy.get(f_pix(1), f_pix(0), lvl);
+                auto kf_i = kframe.image.get(kf_pix(1), kf_pix(0), lvl);
+                auto f_i = frame.image.get(y, x, lvl);
+                float dx = frame.dx.get(y, x, lvl);
+                float dy = frame.dy.get(y, x, lvl);
 
                 if (kf_i == kframe.image.nodata || f_i == frame.image.nodata || dx == frame.dx.nodata || dy == frame.dy.nodata)
                     continue;
@@ -368,6 +368,11 @@ void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &kframe, fra
                 if (f_depth <= 0.0)
                     continue;
 
+                // z-buffer
+                float l_depth = z_buffer.get(y, x, lvl);
+                if (l_depth < f_depth && l_depth != z_buffer.nodata)
+                    continue;
+
                 Eigen::Vector3f f_ver = f_ray * f_depth;
                 Eigen::Vector3f kf_ver = fTokfPose * f_ver;
                 if (kf_ver(2) <= 0.0)
@@ -384,15 +389,10 @@ void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &kframe, fra
                 if (!cam.isPixVisible(kf_pix))
                     continue;
 
-                // z-buffer
-                // float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
-                // if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
-                //    continue;
-
-                float kf_i = float(kframe.image.get(kf_pix(1), kf_pix(0), lvl));
-                float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame.dy.get(f_pix(1), f_pix(0), lvl);
+                auto kf_i = kframe.image.get(kf_pix(1), kf_pix(0), lvl);
+                auto f_i = frame.image.get(y, x, lvl);
+                float dx = frame.dx.get(y, x, lvl);
+                float dy = frame.dy.get(y, x, lvl);
 
                 if (kf_i == kframe.image.nodata || f_i == frame.image.nodata || dx == frame.dx.nodata || dy == frame.dy.nodata)
                     continue;
@@ -416,46 +416,48 @@ void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &kframe, fra
                 jtra_buffer.set(d_f_i_d_tra, y, x, lvl);
                 jrot_buffer.set(d_f_i_d_rot, y, x, lvl);
                 e_buffer.set(residual, y, x, lvl);
+                z_buffer.set(f_depth, y, x, lvl);
             }
         }
     }
 }
 
-void renderCPU::renderJPose(dataCPU<float> &kframeIdepth, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
+void renderCPU::renderJPose(dataCPU<float> &frameIdepth, camera &cam, frameCPU &kframe, frameCPU &frame, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
 
     Sophus::SE3f kfTofPose = frame.pose * kframe.pose.inverse();
+    Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
     for (int y = 0; y < cam.height; y++)
     {
         for (int x = 0; x < cam.width; x++)
         {
-            Eigen::Vector2f kf_pix(x, y);
-            Eigen::Vector3f kf_ray = cam.pixToRay(kf_pix);
-            float kf_idepth = kframeIdepth.get(y, x, lvl);
-            if (kf_idepth <= 0.0 || kf_idepth == kframeIdepth.nodata)
+            Eigen::Vector2f f_pix(x, y);
+            Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
+            float f_idepth = frameIdepth.get(y, x, lvl);
+            if (f_idepth <= 0.0 || f_idepth == frameIdepth.nodata)
                 continue;
-            Eigen::Vector3f kf_ver = kf_ray / kf_idepth;
+            Eigen::Vector3f f_ver = f_ray / f_idepth;
 
-            Eigen::Vector3f f_ver = kfTofPose * kf_ver;
-            if (f_ver(2) <= 0.0)
+            Eigen::Vector3f kf_ver = fTokfPose * f_ver;
+            if (kf_ver(2) <= 0.0)
                 continue;
 
-            Eigen::Vector3f f_ray = f_ver / f_ver(2);
-            Eigen::Vector2f f_pix = cam.rayToPix(f_ray);
-            if (!cam.isPixVisible(f_pix))
+            Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
+            Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
+            if (!cam.isPixVisible(kf_pix))
                 continue;
 
             // z-buffer
-            // float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
-            // if (l_idepth > f_idepth && l_idepth != z_buffer.nodata)
+            //float l_idepth = z_buffer.get(y, x, lvl);
+            //if (l_idepth < f_idepth && l_idepth != z_buffer.nodata)
             //    continue;
 
-            float kf_i = float(kframe.image.get(kf_pix(1), kf_pix(0), lvl));
-            float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
-            float dx = frame.dx.get(f_pix(1), f_pix(0), lvl);
-            float dy = frame.dy.get(f_pix(1), f_pix(0), lvl);
+            auto kf_i = kframe.image.get(kf_pix(1), kf_pix(0), lvl);
+            auto f_i = frame.image.get(y, x, lvl);
+            float dx = frame.dx.get(y, x, lvl);
+            float dy = frame.dy.get(y, x, lvl);
             // float dx = frame2.dx.get(f2_pix(1), f2_pix(0), lvl);
             // float dy = frame2.dy.get(f2_pix(1), f2_pix(0), lvl);
             // Eigen::Vector2f d_f_i_d_pix(dx, dy);
@@ -477,6 +479,7 @@ void renderCPU::renderJPose(dataCPU<float> &kframeIdepth, camera &cam, frameCPU 
             jtra_buffer.set(d_f_i_d_tra, y, x, lvl);
             jrot_buffer.set(d_f_i_d_rot, y, x, lvl);
             e_buffer.set(residual, y, x, lvl);
+            //z_buffer.set(f_depth, y, x, lvl);
         }
     }
 }
@@ -560,10 +563,10 @@ void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &kframe, f
                 if (!cam.isPixVisible(kf_pix))
                     continue;
 
-                float kf_i = float(kframe.image.get(kf_pix(1), kf_pix(0), lvl));
-                float f_i = float(frame.image.get(f_pix(1), f_pix(0), lvl));
-                float dx = frame.dx.get(f_pix(1), f_pix(0), lvl);
-                float dy = frame.dy.get(f_pix(1), f_pix(0), lvl);
+                auto kf_i = kframe.image.get(kf_pix(1), kf_pix(0), lvl);
+                auto f_i = frame.image.get(y, x, lvl);
+                float dx = frame.dx.get(y, x, lvl);
+                float dy = frame.dy.get(y, x, lvl);
 
                 if (kf_i == kframe.image.nodata || f_i == frame.image.nodata || dx == frame.dx.nodata || dy == frame.dy.nodata)
                     continue;

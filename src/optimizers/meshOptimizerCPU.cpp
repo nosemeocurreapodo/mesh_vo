@@ -57,13 +57,13 @@ HGMapped meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, fra
 {
     HGMapped hg;
 
-    renderer.renderJPose(scene, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
-    //idepth_buffer.set(idepth_buffer.nodata, lvl);
-    //renderer.renderIdepth(scene, cam[lvl], kframe.pose, idepth_buffer, lvl);
-    //renderer.renderJPose(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    //renderer.renderJPose(scene, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    idepth_buffer.set(idepth_buffer.nodata, lvl);
+    renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
+    renderer.renderJPose(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
     //renderer.renderJPoseParallel(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
 
-    int nthread = 1;
+    int nthread = 8;
 
     std::array<int, 2> windowSize;
     windowSize[0] = cam[lvl].width / nthread;
@@ -266,7 +266,7 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
 
     // std::unique_ptr<SceneBase> keyframeScene = sceneOptimized.clone();
     // keyframeScene->transform(keyframe.pose);
-    sceneOptimized.transform(keyframe.pose);
+    //sceneOptimized.transform(keyframe.pose);
 
     for (int lvl = 3; lvl >= 1; lvl--)
     {

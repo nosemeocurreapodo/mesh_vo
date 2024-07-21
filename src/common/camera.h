@@ -75,6 +75,11 @@ public:
         cx = cx * scale_x;
         cy = cy * scale_y;
 
+        window_min_x = int(window_min_x * scale_x);
+        window_max_x = int(window_max_x * scale_x);
+        window_min_y = int(window_min_y * scale_y);
+        window_max_y = int(window_max_y * scale_y);
+
         computeKinv();
     }
 

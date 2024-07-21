@@ -86,6 +86,8 @@ public:
     void set(Type value, int y, int x, int lvl)
     {
         int address = x + y * sizes[lvl][0];
+        if (address < 0 || address >= sizes[lvl][1]*sizes[lvl][0])
+            throw std::out_of_range("set invalid address");
         texture[lvl][address] = value;
     }
 
@@ -144,6 +146,8 @@ public:
     Type get(int y, int x, int lvl)
     {
         int address = x + y * sizes[lvl][0];
+        if (address < 0 || address >= sizes[lvl][1]*sizes[lvl][0])
+            throw std::out_of_range("get invalid address");
         return texture[lvl][address];
     }
 
@@ -193,9 +197,9 @@ public:
         return float(nodatacount) / (sizes[lvl][0] * sizes[lvl][1]);
     }
 
-    dataCPU &add(dataCPU &other, int lvl)
+    dataCPU add(dataCPU &other, int lvl)
     {
-        dataCPU<Type> result;
+        dataCPU<Type> result(sizes[0][1], sizes[0][0], nodata);
         for (int y = 0; y < sizes[lvl][1]; y++)
             for (int x = 0; x < sizes[lvl][0]; x++)
             {
