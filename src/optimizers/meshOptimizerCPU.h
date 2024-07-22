@@ -100,11 +100,15 @@ public:
 
 private:
     Error computeError(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
-    HGMapped computeHGPose(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
+    Error computeError(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
+
+    HGPose computeHGPose(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
+    HGPose computeHGPose(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
+
     HGMapped computeHGMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
     HGMapped computeHGPoseMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
 
-    void reduceHGPose(camera cam, dataCPU<std::array<float, 3>> *jtra_buffer, dataCPU<std::array<float, 3>> *jrot_buffer, dataCPU<float> *err_buffer, HGMapped *hg, int lvl)
+    void reduceHGPose(camera cam, dataCPU<std::array<float, 3>> *jtra_buffer, dataCPU<std::array<float, 3>> *jrot_buffer, dataCPU<float> *err_buffer, HGPose *hg, int lvl)
     {
         for (int y = cam.window_min_y; y < cam.window_max_y; y++)
         {
@@ -119,20 +123,21 @@ private:
                 hg->count++;
                 for (int i = 0; i < 6; i++)
                 {
-                    hg->G.add(J[i] * err, i - 6);
+                    //hg->G.add(J[i] * err, i - 6);
+                    hg->G(i) += J[i] * err;
                     // hg->G[i - 6] = J[i] * residual;
                     for (int j = i; j < 6; j++)
                     {
                         float jj = J[i] * J[j];
-                        hg->H.add(jj, i - 6, j - 6);
-                        hg->H.add(jj, j - 6, i - 6);
+                        hg->H(i, j) += jj;
+                        hg->H(j, i) += jj;
+                        //hg->H.add(jj, i - 6, j - 6);
+                        //hg->H.add(jj, j - 6, i - 6);
                     }
                 }
             }
         }
     }
-
-    renderCPU renderer;
 
     // params
     bool multiThreading;
@@ -150,4 +155,6 @@ private:
     // debug
     dataCPU<float> debug;
     dataCPU<float> idepthVar;
+
+    renderCPU renderer;
 };

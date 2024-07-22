@@ -67,7 +67,7 @@ int main(void)
             frameCounterDirection = -1;
         if(frameNumber < 2)
             frameCounterDirection = 1;
-        if(frameNumber > 20)
+        if(frameNumber > 50)
             return 1;
 
         char image_filename[500];

@@ -2,8 +2,8 @@
 #include "utils/tictoc.h"
 
 visualOdometry::visualOdometry(camera &_cam)
-    : meshOptimizer(_cam),
-      lastFrame(_cam.width, _cam.height)
+    : lastFrame(_cam.width, _cam.height),
+      meshOptimizer(_cam)
 {
     cam = _cam;
 }
@@ -58,7 +58,7 @@ void visualOdometry::localization(dataCPU<float> &image)
 {
     frameCPU newFrame(cam.width, cam.height);
     newFrame.set(image);
-    newFrame.id = lastFrame.id+1;
+    newFrame.id = lastFrame.id + 1;
     newFrame.pose = lastMovement * lastFrame.pose;
     meshOptimizer.optPose(lastFrame, newFrame);
 

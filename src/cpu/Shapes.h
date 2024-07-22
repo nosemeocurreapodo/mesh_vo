@@ -9,11 +9,11 @@ class ShapeBase
 public:
     virtual float getArea() = 0;
     virtual std::array<int, 4> getScreenBounds(camera &cam) = 0;
-    virtual void prepareForRay(Eigen::Vector3f &r) = 0;
-    virtual bool rayHitsShape() = 0;
-    virtual bool isEdge() = 0;
-    virtual float getRayDepth() = 0;
-    virtual std::vector<float> getJacobian(float &d_f_i_d_kf_depth) = 0;
+    virtual inline void prepareForRay(Eigen::Vector3f &r) = 0;
+    virtual inline bool rayHitsShape() = 0;
+    virtual inline bool isEdge() = 0;
+    virtual inline float getRayDepth() = 0;
+    virtual inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) = 0;
 };
 
 class ShapePatch : public ShapeBase
@@ -29,7 +29,7 @@ public:
 
     float getArea() override
     {
-        return width*height;
+        return width * height;
     }
 
     std::array<int, 4> getScreenBounds(camera &cam) override
@@ -38,10 +38,10 @@ public:
         Eigen::Vector2f pix = cam.rayToPix(ray);
 
         std::array<int, 4> minmax;
-        minmax[0] = pix(0) - width/2;
-        minmax[1] = pix(0) + width/2;
-        minmax[2] = pix(1) - height/2;
-        minmax[3] = pix(1) + height/2;
+        minmax[0] = pix(0) - width / 2;
+        minmax[1] = pix(0) + width / 2;
+        minmax[2] = pix(1) - height / 2;
+        minmax[3] = pix(1) + height / 2;
 
         minmax[0] = std::max(minmax[0], cam.window_min_x);
         minmax[1] = std::min(minmax[1], cam.window_max_x);
@@ -51,12 +51,12 @@ public:
         return minmax;
     }
 
-    void prepareForRay(Eigen::Vector3f &r) override
+    inline void prepareForRay(Eigen::Vector3f &r) override
     {
         ray = r;
     }
 
-    bool rayHitsShape() override
+    inline bool rayHitsShape() override
     {
         return true;
     }
@@ -66,14 +66,14 @@ public:
         return false;
     }
 
-    float getRayDepth() override
+    inline float getRayDepth() override
     {
         return vertice(2);
     }
 
-    virtual std::vector<float> getJacobian(float &d_f_i_d_kf_depth)
+    inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
     {
-        float d_f_i_d_param = d_f_i_d_kf_depth*d_z_d_param;
+        float d_f_i_d_param = d_f_i_d_kf_depth * d_z_d_param;
         std::vector<float> J;
         J.push_back(d_f_i_d_param);
         return J;
@@ -125,12 +125,12 @@ public:
         return area;
     }
 
-    void prepareForRay(Eigen::Vector3f &r) override
+    inline void prepareForRay(Eigen::Vector3f &r) override
     {
         ray = r;
     }
 
-    float getRayDepth() override
+    inline float getRayDepth() override
     {
         float ray_depth = vert_dot_normal / ray.dot(normal);
         return ray_depth;
@@ -145,7 +145,7 @@ public:
         return area;
     }
     */
-    bool rayHitsShape() override
+    inline bool rayHitsShape() override
     {
         // float depth = getRayDepth(ray);
         // Eigen::Vector3f point = ray * depth;
@@ -178,7 +178,7 @@ public:
         return minmax;
     };
 
-    std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
+    inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
     {
         float kf_ray_dot_normal = ray.dot(normal);
 
@@ -239,6 +239,10 @@ public:
 
         computeNormal();
         prepareForMapJacobian(jacMethod);
+
+        // Calculate the area of the triangle
+        denominator = (rays[1].y() - rays[2].y()) * (rays[0].x() - rays[2].x()) +
+                      (rays[2].x() - rays[1].x()) * (rays[0].y() - rays[2].y());
     };
 
     float getArea() override
@@ -246,13 +250,13 @@ public:
         return normal.norm() / 2.0;
     }
 
-    void prepareForRay(Eigen::Vector3f &r) override
+    inline void prepareForRay(Eigen::Vector3f &r) override
     {
         computeBarycentric(r);
         ray = r;
     }
 
-    float getRayDepth() override
+    inline float getRayDepth() override
     {
         // float ray_depth = vertices[0].dot(normal) / ray.dot(normal);
         float ray_depth = barycentric(0) * vertices[0](2) +
@@ -292,7 +296,7 @@ public:
      }
      */
 
-    bool rayHitsShape() override
+    inline bool rayHitsShape() override
     {
         if (barycentric(0) < -0.0 || barycentric(1) < -0.0 || barycentric(2) < -0.0)
             return false;
@@ -331,7 +335,7 @@ public:
         return minmax;
     };
 
-    std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
+    inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
     {
         Eigen::Vector3f d_kf_depth_d_z = barycentric;
         std::vector<float> J;
@@ -369,12 +373,8 @@ private:
         normal = ((vertices[1] - vertices[0]).cross(vertices[2] - vertices[0]));
     }
 
-    void computeBarycentric(Eigen::Vector3f &ray)
+    inline void computeBarycentric(Eigen::Vector3f &ray)
     {
-        // Calculate the area of the triangle
-        float denominator = (rays[1].y() - rays[2].y()) * (rays[0].x() - rays[2].x()) +
-                            (rays[2].x() - rays[1].x()) * (rays[0].y() - rays[2].y());
-
         // Calculate the sub-areas
         barycentric(0) = ((rays[1].y() - rays[2].y()) * (ray.x() - rays[2].x()) +
                           (rays[2].x() - rays[1].x()) * (ray.y() - rays[2].y())) /
@@ -393,6 +393,8 @@ private:
     Eigen::Vector3f ray;
     Eigen::Vector3f barycentric;
 
+    float denominator;
+
     // for der
     float d_z_d_iz[3];
 };
@@ -401,8 +403,8 @@ class ShapeTriangleSmooth : public ShapeBase
 {
 public:
     ShapeTriangleSmooth(Eigen::Vector3f vert1, Eigen::Vector3f vert2, Eigen::Vector3f vert3,
-                  Eigen::Vector3f norm1, Eigen::Vector3f norm2, Eigen::Vector3f norm3,
-                  DepthJacobianMethod jacMethod)
+                        Eigen::Vector3f norm1, Eigen::Vector3f norm2, Eigen::Vector3f norm3,
+                        DepthJacobianMethod jacMethod)
     {
         vertices[0] = vert1;
         vertices[1] = vert2;
@@ -425,13 +427,13 @@ public:
         return ((vertices[1] - vertices[0]).cross(vertices[2] - vertices[0])).norm() / 2.0;
     }
 
-    void prepareForRay(Eigen::Vector3f &r) override
+    inline void prepareForRay(Eigen::Vector3f &r) override
     {
         ray = r;
         computeBarycentric(ray);
     }
 
-    float getRayDepth() override
+    inline float getRayDepth() override
     {
         /*
         float depth_0 = vertices[0].dot(normals[0]) / ray.dot(normals[0]);
@@ -487,7 +489,7 @@ public:
      }
      */
 
-    bool rayHitsShape() override
+    inline bool rayHitsShape() override
     {
         if (barycentric(0) < -0.0 || barycentric(1) < -0.0 || barycentric(2) < -0.0)
             return false;
@@ -526,7 +528,7 @@ public:
         return minmax;
     };
 
-    std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
+    inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
     {
         Eigen::Vector3f d_kf_depth_d_z;
         d_kf_depth_d_z(0) = barycentric(0); // * rays[0].dot(normals[0]) / ray.dot(normals[0]);

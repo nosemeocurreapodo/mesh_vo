@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 
 project(mesh_vo)
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
@@ -11,9 +11,8 @@ find_package(Eigen3 REQUIRED)
 find_package(Boost COMPONENTS system thread) 
 find_package(OpenCV REQUIRED)
 
-add_definitions("-DENABLE_SSE")
 set(CMAKE_CXX_FLAGS
-   "${SSE_FLAGS} -O3 -std=c++1z -march=native -pg"
+   "-O3 -ffast-math -fno-math-errno -DNDEBUG"
 #   "${SSE_FLAGS} -O3 -g -std=c++0x -fno-omit-frame-pointer"
 )
 

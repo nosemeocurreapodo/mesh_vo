@@ -90,7 +90,7 @@ public:
         resize(new_width, new_height);
     }
 
-    bool isPixVisible(Eigen::Vector2f &pix)
+    inline bool isPixVisible(Eigen::Vector2f &pix)
     {
         // the idea here is that if we have 3 pixels
         // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
@@ -107,7 +107,7 @@ public:
         return true;
     }
 
-    Eigen::Vector2f pointToPix(Eigen::Vector3f &point)
+    inline Eigen::Vector2f pointToPix(Eigen::Vector3f &point)
     {
         Eigen::Vector2f pix;
         pix(0) = fx * point(0) / point(1) + cx;
@@ -115,7 +115,7 @@ public:
         return pix;
     }
 
-    Eigen::Vector2f rayToPix(Eigen::Vector3f &ray)
+    inline Eigen::Vector2f rayToPix(Eigen::Vector3f &ray)
     {
         Eigen::Vector2f pix;
         pix(0) = fx * ray(0) + cx;
@@ -123,7 +123,7 @@ public:
         return pix;
     }
 
-    Eigen::Vector3f pixToRay(Eigen::Vector2f &pix)
+    inline Eigen::Vector3f pixToRay(Eigen::Vector2f &pix)
     {
         Eigen::Vector3f ray;
         ray(0) = fxinv * pix[0] + cxinv;
@@ -132,7 +132,7 @@ public:
         return ray;
     }
 
-    Eigen::Vector3f d_f_i_d_f_ver(Eigen::Vector2f &d_f_i_d_pix, Eigen::Vector3f &f_ver)
+    inline Eigen::Vector3f d_f_i_d_f_ver(Eigen::Vector2f &d_f_i_d_pix, Eigen::Vector3f &f_ver)
     {
         Eigen::Vector3f d_f_i_d_f_ver;
         d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * fx / f_ver(2);

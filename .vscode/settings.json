@@ -90,7 +90,12 @@
         "queue": "cpp",
         "stack": "cpp",
         "*.ipp": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "unordered_set": "cpp",
+        "hash_map": "cpp",
+        "future": "cpp",
+        "any": "cpp",
+        "scoped_allocator": "cpp"
     },
     "cmake.configureOnOpen": true
 }

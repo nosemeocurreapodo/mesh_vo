@@ -14,16 +14,56 @@
 #include "cpu/IndexThreadReduce.h"
 #include "params.h"
 
+// Simple thread pool example
+#include <vector>
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <functional>
+
+class ThreadPool
+{
+public:
+    ThreadPool(size_t numThreads = std::thread::hardware_concurrency());
+    ~ThreadPool();
+    void enqueue(std::function<void()> task);
+    void waitUntilDone();
+
+private:
+    std::vector<std::thread> workers;
+    std::queue<std::function<void()>> tasks;
+    std::mutex queueMutex;
+    std::condition_variable condition;
+    std::condition_variable doneCondition;
+    bool stop;
+    size_t activeTasks;
+    void workerThread();
+};
+
+/*
+int main() {
+    ThreadPool pool(4);
+    for (int i = 0; i < 8; ++i) {
+        pool.enqueue([i] { std::cout << "Task " << i << " executed\n"; });
+    }
+    return 0;
+}
+*/
+
 class renderCPU
 {
 public:
     renderCPU(unsigned int width, unsigned int height)
-        : z_buffer(width, height, -1)
+        : z_buffer(width, height, -1),
+          pool()
     {
     }
 
     void renderIdepth(SceneBase &scene, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
     void renderImage(SceneBase &scene, camera &cam, frameCPU &kframe, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
+    void renderImage(dataCPU<float> &poseIdepth, camera &cam, frameCPU &kframe, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl);
+
     void renderDebug(SceneBase &scene, camera &cam, frameCPU &pose, dataCPU<float> &buffer, int lvl);
 
     void renderJPose(SceneBase &scene, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl);
@@ -34,17 +74,15 @@ public:
 
     void renderJPoseParallel(dataCPU<float> &frame2Idepth, camera &cam, frameCPU &frame1, frameCPU &frame2, dataCPU<std::array<float, 3>> &jtra_buffer, dataCPU<std::array<float, 3>> &jrot_buffer, dataCPU<float> &e_buffer, int lvl)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        int divi = 16;
 
         std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / 2;
-        windowSize[1] = cam.height / 2;
+        windowSize[0] = cam.width;
+        windowSize[1] = cam.height / divi;
 
-        std::thread threads[4];
-
-        for (int ty = 0; ty < 2; ty++)
+        for (int ty = 0; ty < divi; ty++)
         {
-            for (int tx = 0; tx < 2; tx++)
+            for (int tx = 0; tx < 1; tx++)
             {
                 int min_x = tx * windowSize[0];
                 int max_x = (tx + 1) * windowSize[0];
@@ -54,17 +92,12 @@ public:
                 camera cam_window = cam;
                 cam_window.setWindow(min_x, max_x, min_y, max_y);
 
-                threads[tx + ty * 2] = std::thread(&renderCPU::renderJPoseWindow, this, &frame2Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl);
+                //renderJPoseWindow(&frame2Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, &frame2Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl));
             }
         }
 
-        for (auto &t : threads)
-        {
-            if (t.joinable())
-            {
-                t.join();
-            }
-        }
+        pool.waitUntilDone();
     }
 
     void renderIdepthParallel(SceneBase &scene, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
@@ -74,15 +107,15 @@ public:
         frameMesh = scene.clone();
         frameMesh->transform(pose);
 
+        int divi = 2;
+
         std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / 2;
-        windowSize[1] = cam.height / 2;
+        windowSize[0] = cam.width / divi;
+        windowSize[1] = cam.height / divi;
 
-        std::thread threads[4];
-
-        for (int ty = 0; ty < 2; ty++)
+        for (int ty = 0; ty < divi; ty++)
         {
-            for (int tx = 0; tx < 2; tx++)
+            for (int tx = 0; tx < divi; tx++)
             {
                 int min_x = tx * windowSize[0];
                 int max_x = (tx + 1) * windowSize[0];
@@ -92,19 +125,12 @@ public:
                 camera cam_window = cam;
                 cam_window.setWindow(min_x, max_x, min_y, max_y);
 
-                // renderIdepthP(*frameMesh, cam_window, pose, buffer, lvl);
-                // thread = std::thread(std::bind(&renderCPU::renderIdepthWindow, this, *frameMesh, cam_window, pose, buffer, lvl));
-                threads[tx + ty * 2] = std::thread(&renderCPU::renderIdepthWindow, this, cam_window, pose, &buffer, lvl);
+                //renderIdepthWindow(cam_window, &buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, cam_window, &buffer, lvl));
             }
         }
 
-        for (auto &t : threads)
-        {
-            if (t.joinable())
-            {
-                t.join();
-            }
-        }
+        pool.waitUntilDone();
     }
 
 private:
@@ -167,7 +193,7 @@ private:
         }
     }
 
-    void renderIdepthWindow(camera cam, Sophus::SE3f pose, dataCPU<float> *buffer, int lvl)
+    void renderIdepthWindow(camera cam, dataCPU<float> *buffer, int lvl)
     {
         std::vector<unsigned int> shapesIds = frameMesh->getShapesIds();
 
@@ -206,7 +232,7 @@ private:
                         continue;
 
                     float z_depth = z_buffer.get(y, x, lvl);
-                    if (z_depth < f_depth && z_depth != z_buffer.nodata)
+                    if (z_depth <= f_depth && z_depth != z_buffer.nodata)
                         continue;
 
                     buffer->set(1.0 / f_depth, y, x, lvl);
@@ -220,6 +246,8 @@ private:
     dataCPU<float> z_buffer;
 
     std::unique_ptr<SceneBase> frameMesh;
+
+    ThreadPool pool;
 
     // IndexThreadReduce<Error> errorTreadReduce;
     // IndexThreadReduce<HGMapped> hgMappedTreadReduce;

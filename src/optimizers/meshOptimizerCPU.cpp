@@ -36,7 +36,12 @@ Error meshOptimizerCPU::computeError(SceneBase &scene, frameCPU &kframe, frameCP
     Error e;
 
     image_buffer.set(image_buffer.nodata, lvl);
-    renderer.renderImage(scene, cam[lvl], kframe, frame.pose, image_buffer, lvl);
+    idepth_buffer.set(idepth_buffer.nodata, lvl);
+
+    // renderer.renderImage(scene, cam[lvl], kframe, frame.pose, image_buffer, lvl);
+    // renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
+    renderer.renderIdepthParallel(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
+    renderer.renderImage(idepth_buffer, cam[lvl], kframe, frame.pose, image_buffer, lvl);
 
     std::array<int, 2> size = frame.image.getSize(lvl);
     for (int y = 0; y < size[1]; y++)
@@ -53,24 +58,50 @@ Error meshOptimizerCPU::computeError(SceneBase &scene, frameCPU &kframe, frameCP
     return e;
 }
 
-HGMapped meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl)
+Error meshOptimizerCPU::computeError(dataCPU<float> &fIdepth, frameCPU &kframe, frameCPU &frame, int lvl)
 {
-    HGMapped hg;
+    Error e;
 
-    //renderer.renderJPose(scene, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    image_buffer.set(image_buffer.nodata, lvl);
+
+    renderer.renderImage(fIdepth, cam[lvl], kframe, frame.pose, image_buffer, lvl);
+
+    std::array<int, 2> size = frame.image.getSize(lvl);
+    for (int y = 0; y < size[1]; y++)
+        for (int x = 0; x < size[0]; x++)
+        {
+            float p1 = frame.image.get(y, x, lvl);
+            float p2 = image_buffer.get(y, x, lvl);
+            if (p1 == frame.image.nodata || p2 == image_buffer.nodata)
+                continue;
+            e.error += std::pow(p1 - p2, 2);
+            e.count++;
+        }
+
+    return e;
+}
+
+HGPose meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl)
+{
+    // HGMapped hg;
+    HGPose hg;
+
+    // renderer.renderJPose(scene, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
     idepth_buffer.set(idepth_buffer.nodata, lvl);
-    renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
+    // renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
+    renderer.renderIdepthParallel(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
     renderer.renderJPose(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
-    //renderer.renderJPoseParallel(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    // renderer.renderJPoseParallel(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
 
-    int nthread = 8;
+    int nthread = 1;
 
     std::array<int, 2> windowSize;
     windowSize[0] = cam[lvl].width / nthread;
     windowSize[1] = cam[lvl].height / nthread;
 
-    std::thread threads[nthread*nthread];
-    HGMapped partialhg[nthread*nthread];
+    std::thread threads[nthread * nthread];
+    // HGMapped partialhg[nthread*nthread];
+    HGPose partialhg[nthread * nthread];
 
     for (int ty = 0; ty < nthread; ty++)
     {
@@ -84,7 +115,7 @@ HGMapped meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, fra
             camera cam_window = cam[lvl];
             cam_window.setWindow(min_x, max_x, min_y, max_y);
 
-            threads[tx + ty * nthread] = std::thread(&meshOptimizerCPU::reduceHGPose, this, cam_window, &j1_buffer, &j2_buffer, &error_buffer, &partialhg[tx + ty*nthread], lvl);
+            threads[tx + ty * nthread] = std::thread(&meshOptimizerCPU::reduceHGPose, this, cam_window, &j1_buffer, &j2_buffer, &error_buffer, &partialhg[tx + ty * nthread], lvl);
         }
     }
 
@@ -96,11 +127,87 @@ HGMapped meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, fra
         }
     }
 
-    for(int i = 0; i < nthread*nthread; i++)
+    for (int i = 0; i < nthread * nthread; i++)
     {
         hg += partialhg[i];
     }
-    
+
+    /*
+    for (int y = 0; y < cam[lvl].height; y++)
+    {
+        for (int x = 0; x < cam[lvl].width; x++)
+        {
+            std::array<float, 3> j_tra = j1_buffer.get(y, x, lvl);
+            std::array<float, 3> j_rot = j2_buffer.get(y, x, lvl);
+            float err = error_buffer.get(y, x, lvl);
+            if (j_tra == j1_buffer.nodata || j_rot == j2_buffer.nodata || err == error_buffer.nodata)
+                continue;
+            std::array<float, 6> J = {j_tra[0], j_tra[1], j_tra[2], j_rot[0], j_rot[1], j_rot[2]};
+            hg.count++;
+            for (int i = 0; i < 6; i++)
+            {
+                hg.G.add(J[i] * err, i - 6);
+                // hg->G[i - 6] = J[i] * residual;
+                for (int j = i; j < 6; j++)
+                {
+                    float jj = J[i] * J[j];
+                    hg.H.add(jj, i - 6, j - 6);
+                    hg.H.add(jj, j - 6, i - 6);
+                }
+            }
+        }
+    }
+    */
+    return hg;
+}
+
+HGPose meshOptimizerCPU::computeHGPose(dataCPU<float> &fIdepth, frameCPU &kframe, frameCPU &frame, int lvl)
+{
+    // HGMapped hg;
+    HGPose hg;
+
+    //renderer.renderJPose(fIdepth, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    renderer.renderJPoseParallel(fIdepth, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+
+    int nthread = 1;
+
+    std::array<int, 2> windowSize;
+    windowSize[0] = cam[lvl].width / nthread;
+    windowSize[1] = cam[lvl].height / nthread;
+
+    std::thread threads[nthread * nthread];
+    // HGMapped partialhg[nthread*nthread];
+    HGPose partialhg[nthread * nthread];
+
+    for (int ty = 0; ty < nthread; ty++)
+    {
+        for (int tx = 0; tx < nthread; tx++)
+        {
+            int min_x = tx * windowSize[0];
+            int max_x = (tx + 1) * windowSize[0];
+            int min_y = ty * windowSize[1];
+            int max_y = (ty + 1) * windowSize[1];
+
+            camera cam_window = cam[lvl];
+            cam_window.setWindow(min_x, max_x, min_y, max_y);
+
+            threads[tx + ty * nthread] = std::thread(&meshOptimizerCPU::reduceHGPose, this, cam_window, &j1_buffer, &j2_buffer, &error_buffer, &partialhg[tx + ty * nthread], lvl);
+        }
+    }
+
+    for (auto &t : threads)
+    {
+        if (t.joinable())
+        {
+            t.join();
+        }
+    }
+
+    for (int i = 0; i < nthread * nthread; i++)
+    {
+        hg += partialhg[i];
+    }
+
     /*
     for (int y = 0; y < cam[lvl].height; y++)
     {
@@ -262,19 +369,21 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
 
     tic_toc t;
     Error e;
-    HGMapped hg;
+    HGPose hg;
 
     // std::unique_ptr<SceneBase> keyframeScene = sceneOptimized.clone();
     // keyframeScene->transform(keyframe.pose);
-    //sceneOptimized.transform(keyframe.pose);
+    // sceneOptimized.transform(keyframe.pose);
 
     for (int lvl = 3; lvl >= 1; lvl--)
     {
+        renderer.renderIdepth(sceneOptimized, cam[lvl], frame.pose, idepth_buffer, lvl);
+
         std::cout << "*************************lvl " << lvl << std::endl;
         t.tic();
         Sophus::SE3f best_pose = frame.pose;
         e.setZero();
-        e = computeError(sceneOptimized, keyframe, frame, lvl);
+        e = computeError(idepth_buffer, keyframe, frame, lvl);
         float last_error = e.error / e.count;
 
         std::cout << "init error " << last_error << " time " << t.toc() << std::endl;
@@ -283,12 +392,15 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
         {
             t.tic();
             hg.setZero();
-            hg += computeHGPose(sceneOptimized, keyframe, frame, lvl);
+            hg += computeHGPose(idepth_buffer, keyframe, frame, lvl);
 
-            std::vector<int> pIds = hg.G.getParamIds();
+            // std::vector<int> pIds = hg.G.getParamIds();
 
-            Eigen::VectorXf G = hg.G.toEigen(pIds);
-            Eigen::SparseMatrix<float> H = hg.H.toEigen(pIds);
+            // Eigen::VectorXf G = hg.G.toEigen(pIds);
+            // Eigen::SparseMatrix<float> H = hg.H.toEigen(pIds);
+
+            Eigen::VectorXf G = hg.G;
+            Eigen::Matrix<float, 6, 6> H = hg.H;
 
             H /= hg.count;
             G /= hg.count;
@@ -312,9 +424,11 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
                 frame.pose = best_pose * Sophus::SE3f::exp(inc).inverse();
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
 
+                renderer.renderIdepth(sceneOptimized, cam[lvl], frame.pose, idepth_buffer, lvl);
+
                 t.tic();
                 e.setZero();
-                e = computeError(sceneOptimized, keyframe, frame, lvl);
+                e = computeError(idepth_buffer, keyframe, frame, lvl);
                 float error = e.error / e.count;
                 std::cout << "new error " << error << " time " << t.toc() << std::endl;
 

@@ -2,6 +2,73 @@
 #include <math.h>
 #include "utils/tictoc.h"
 
+ThreadPool::ThreadPool(size_t numThreads) : stop(false), activeTasks(0)
+{
+    for (size_t i = 0; i < numThreads; ++i)
+    {
+        workers.emplace_back([this]
+                             { this->workerThread(); });
+    }
+}
+
+ThreadPool::~ThreadPool()
+{
+    {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        stop = true;
+    }
+    condition.notify_all();
+    for (std::thread &worker : workers)
+    {
+        worker.join();
+    }
+}
+
+void ThreadPool::enqueue(std::function<void()> task)
+{
+    {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        tasks.emplace(task);
+        ++activeTasks;
+    }
+    condition.notify_one();
+}
+
+void ThreadPool::waitUntilDone()
+{
+    std::unique_lock<std::mutex> lock(queueMutex);
+    doneCondition.wait(lock, [this]
+                       { return this->tasks.empty() && activeTasks == 0; });
+}
+
+void ThreadPool::workerThread()
+{
+    while (true)
+    {
+        std::function<void()> task;
+        {
+            std::unique_lock<std::mutex> lock(queueMutex);
+            condition.wait(lock, [this]
+                           { return this->stop || !this->tasks.empty(); });
+            if (this->stop && this->tasks.empty())
+            {
+                return;
+            }
+            task = std::move(this->tasks.front());
+            this->tasks.pop();
+        }
+        task();
+        {
+            std::unique_lock<std::mutex> lock(queueMutex);
+            --activeTasks;
+            if (activeTasks == 0 && tasks.empty())
+            {
+                doneCondition.notify_all();
+            }
+        }
+    }
+}
+
 void renderCPU::renderIdepth(SceneBase &scene, camera &cam, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
@@ -56,7 +123,7 @@ void renderCPU::renderIdepth(SceneBase &scene, camera &cam, Sophus::SE3f &pose, 
         }
     }
 }
-// this should take a frame in some pose and render it in another
+
 void renderCPU::renderImage(SceneBase &scene, camera &cam, frameCPU &kframe, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
 {
     z_buffer.set(z_buffer.nodata, lvl);
@@ -131,6 +198,44 @@ void renderCPU::renderImage(SceneBase &scene, camera &cam, frameCPU &kframe, Sop
     }
 }
 
+void renderCPU::renderImage(dataCPU<float> &poseIdepth, camera &cam, frameCPU &kframe, Sophus::SE3f &pose, dataCPU<float> &buffer, int lvl)
+{
+    Sophus::SE3f kfTofPose = pose * kframe.pose.inverse();
+    Sophus::SE3f fTokfPose = kfTofPose.inverse();
+
+    for (int y = cam.window_min_y; y <= cam.window_max_y; y++)
+    {
+        for (int x = cam.window_min_x; x <= cam.window_max_x; x++)
+        {
+            Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
+            if (!cam.isPixVisible(f_pix))
+                continue;
+            Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
+
+            float f_idepth = poseIdepth.get(y, x, lvl);
+            if (f_idepth <= 0.0 || f_idepth == poseIdepth.nodata)
+                continue;
+
+            Eigen::Vector3f f_ver = f_ray / f_idepth;
+
+            Eigen::Vector3f kf_ver = fTokfPose * f_ver;
+            if (kf_ver(2) <= 0.0)
+                continue;
+            Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
+            Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
+
+            if (!cam.isPixVisible(kf_pix))
+                continue;
+
+            auto kf_i = kframe.image.get(kf_pix(1), kf_pix(0), lvl);
+            if (kf_i == kframe.image.nodata)
+                continue;
+
+            buffer.set(kf_i, y, x, lvl);
+        }
+    }
+}
+
 void renderCPU::renderDebug(SceneBase &scene, camera &cam, frameCPU &frame, dataCPU<float> &buffer, int lvl)
 {
     std::unique_ptr<SceneBase> frameMesh = scene.clone();
@@ -192,7 +297,7 @@ void renderCPU::renderJMap(SceneBase &scene, camera &cam, frameCPU &kframe, fram
     z_buffer.set(z_buffer.nodata, lvl);
 
     float min_area = 0.0 * (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16;
-    //float min_angle = M_PI / 64.0;
+    // float min_angle = M_PI / 64.0;
 
     std::unique_ptr<SceneBase> kframeMesh = scene.clone();
     std::unique_ptr<SceneBase> frameMesh = scene.clone();
@@ -317,7 +422,7 @@ void renderCPU::renderJPose(SceneBase &scene, camera &cam, frameCPU &kframe, fra
     z_buffer.set(z_buffer.nodata, lvl);
 
     float min_area = 0.0 * (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) / 16;
-    //float min_angle = M_PI / 64.0;
+    // float min_angle = M_PI / 64.0;
 
     std::unique_ptr<SceneBase> kframeMesh = scene.clone();
     std::unique_ptr<SceneBase> frameMesh = scene.clone();
@@ -450,8 +555,8 @@ void renderCPU::renderJPose(dataCPU<float> &frameIdepth, camera &cam, frameCPU &
                 continue;
 
             // z-buffer
-            //float l_idepth = z_buffer.get(y, x, lvl);
-            //if (l_idepth < f_idepth && l_idepth != z_buffer.nodata)
+            // float l_idepth = z_buffer.get(y, x, lvl);
+            // if (l_idepth < f_idepth && l_idepth != z_buffer.nodata)
             //    continue;
 
             auto kf_i = kframe.image.get(kf_pix(1), kf_pix(0), lvl);
@@ -479,7 +584,7 @@ void renderCPU::renderJPose(dataCPU<float> &frameIdepth, camera &cam, frameCPU &
             jtra_buffer.set(d_f_i_d_tra, y, x, lvl);
             jrot_buffer.set(d_f_i_d_rot, y, x, lvl);
             e_buffer.set(residual, y, x, lvl);
-            //z_buffer.set(f_depth, y, x, lvl);
+            // z_buffer.set(f_depth, y, x, lvl);
         }
     }
 }
@@ -489,7 +594,7 @@ void renderCPU::renderJPoseMap(SceneBase &mesh, camera &cam, frameCPU &kframe, f
     z_buffer.set(z_buffer.nodata, lvl);
 
     float min_area = 0.0 * (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16.0;
-    //float min_angle = M_PI / 64.0;
+    // float min_angle = M_PI / 64.0;
 
     std::unique_ptr<SceneBase> kframeScene = mesh.clone();
     std::unique_ptr<SceneBase> frameScene = mesh.clone();
