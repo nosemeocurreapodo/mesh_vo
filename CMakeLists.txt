@@ -12,7 +12,8 @@ find_package(Boost COMPONENTS system thread)
 find_package(OpenCV REQUIRED)
 
 set(CMAKE_CXX_FLAGS
-   "-O3 -ffast-math -fno-math-errno -DNDEBUG"
+    "-Og"
+#   "-O3 -ffast-math -fno-math-errno -DNDEBUG"
 #   "${SSE_FLAGS} -O3 -g -std=c++0x -fno-omit-frame-pointer"
 )
 

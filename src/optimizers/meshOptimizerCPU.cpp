@@ -6,9 +6,8 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     : image_buffer(_cam.width, _cam.height, -1.0),
       idepth_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
-      j1_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
-      j2_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
-      j3_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
+      jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
+      jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
       pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
       debug(_cam.width, _cam.height, -1.0),
       idepthVar(_cam.width, _cam.height, -1.0),
@@ -83,282 +82,51 @@ Error meshOptimizerCPU::computeError(dataCPU<float> &fIdepth, frameCPU &kframe, 
 
 HGPose meshOptimizerCPU::computeHGPose(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl)
 {
-    // HGMapped hg;
-    HGPose hg;
-
     // renderer.renderJPose(scene, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
     idepth_buffer.set(idepth_buffer.nodata, lvl);
     // renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
     renderer.renderIdepthParallel(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
-    renderer.renderJPose(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    renderer.renderJPose(idepth_buffer, cam[lvl], kframe, frame, jpose_buffer, error_buffer, lvl);
     // renderer.renderJPoseParallel(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
 
-    int nthread = 1;
+    HGPose hg = reducer.reduceHGPose(cam[lvl], jpose_buffer, error_buffer, lvl);
 
-    std::array<int, 2> windowSize;
-    windowSize[0] = cam[lvl].width / nthread;
-    windowSize[1] = cam[lvl].height / nthread;
-
-    std::thread threads[nthread * nthread];
-    // HGMapped partialhg[nthread*nthread];
-    HGPose partialhg[nthread * nthread];
-
-    for (int ty = 0; ty < nthread; ty++)
-    {
-        for (int tx = 0; tx < nthread; tx++)
-        {
-            int min_x = tx * windowSize[0];
-            int max_x = (tx + 1) * windowSize[0];
-            int min_y = ty * windowSize[1];
-            int max_y = (ty + 1) * windowSize[1];
-
-            camera cam_window = cam[lvl];
-            cam_window.setWindow(min_x, max_x, min_y, max_y);
-
-            threads[tx + ty * nthread] = std::thread(&meshOptimizerCPU::reduceHGPose, this, cam_window, &j1_buffer, &j2_buffer, &error_buffer, &partialhg[tx + ty * nthread], lvl);
-        }
-    }
-
-    for (auto &t : threads)
-    {
-        if (t.joinable())
-        {
-            t.join();
-        }
-    }
-
-    for (int i = 0; i < nthread * nthread; i++)
-    {
-        hg += partialhg[i];
-    }
-
-    /*
-    for (int y = 0; y < cam[lvl].height; y++)
-    {
-        for (int x = 0; x < cam[lvl].width; x++)
-        {
-            std::array<float, 3> j_tra = j1_buffer.get(y, x, lvl);
-            std::array<float, 3> j_rot = j2_buffer.get(y, x, lvl);
-            float err = error_buffer.get(y, x, lvl);
-            if (j_tra == j1_buffer.nodata || j_rot == j2_buffer.nodata || err == error_buffer.nodata)
-                continue;
-            std::array<float, 6> J = {j_tra[0], j_tra[1], j_tra[2], j_rot[0], j_rot[1], j_rot[2]};
-            hg.count++;
-            for (int i = 0; i < 6; i++)
-            {
-                hg.G.add(J[i] * err, i - 6);
-                // hg->G[i - 6] = J[i] * residual;
-                for (int j = i; j < 6; j++)
-                {
-                    float jj = J[i] * J[j];
-                    hg.H.add(jj, i - 6, j - 6);
-                    hg.H.add(jj, j - 6, i - 6);
-                }
-            }
-        }
-    }
-    */
     return hg;
 }
 
 HGPose meshOptimizerCPU::computeHGPose(dataCPU<float> &fIdepth, frameCPU &kframe, frameCPU &frame, int lvl)
 {
-    // HGMapped hg;
-    HGPose hg;
-
     //renderer.renderJPose(fIdepth, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
-    renderer.renderJPoseParallel(fIdepth, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
+    renderer.renderJPoseParallel(fIdepth, cam[lvl], kframe, frame, jpose_buffer, error_buffer, lvl);
 
-    int nthread = 1;
+    HGPose hg =reducer.reduceHGPose(cam[lvl], jpose_buffer, error_buffer, lvl);
 
-    std::array<int, 2> windowSize;
-    windowSize[0] = cam[lvl].width / nthread;
-    windowSize[1] = cam[lvl].height / nthread;
-
-    std::thread threads[nthread * nthread];
-    // HGMapped partialhg[nthread*nthread];
-    HGPose partialhg[nthread * nthread];
-
-    for (int ty = 0; ty < nthread; ty++)
-    {
-        for (int tx = 0; tx < nthread; tx++)
-        {
-            int min_x = tx * windowSize[0];
-            int max_x = (tx + 1) * windowSize[0];
-            int min_y = ty * windowSize[1];
-            int max_y = (ty + 1) * windowSize[1];
-
-            camera cam_window = cam[lvl];
-            cam_window.setWindow(min_x, max_x, min_y, max_y);
-
-            threads[tx + ty * nthread] = std::thread(&meshOptimizerCPU::reduceHGPose, this, cam_window, &j1_buffer, &j2_buffer, &error_buffer, &partialhg[tx + ty * nthread], lvl);
-        }
-    }
-
-    for (auto &t : threads)
-    {
-        if (t.joinable())
-        {
-            t.join();
-        }
-    }
-
-    for (int i = 0; i < nthread * nthread; i++)
-    {
-        hg += partialhg[i];
-    }
-
-    /*
-    for (int y = 0; y < cam[lvl].height; y++)
-    {
-        for (int x = 0; x < cam[lvl].width; x++)
-        {
-            std::array<float, 3> j_tra = j1_buffer.get(y, x, lvl);
-            std::array<float, 3> j_rot = j2_buffer.get(y, x, lvl);
-            float err = error_buffer.get(y, x, lvl);
-            if (j_tra == j1_buffer.nodata || j_rot == j2_buffer.nodata || err == error_buffer.nodata)
-                continue;
-            std::array<float, 6> J = {j_tra[0], j_tra[1], j_tra[2], j_rot[0], j_rot[1], j_rot[2]};
-            hg.count++;
-            for (int i = 0; i < 6; i++)
-            {
-                hg.G.add(J[i] * err, i - 6);
-                // hg->G[i - 6] = J[i] * residual;
-                for (int j = i; j < 6; j++)
-                {
-                    float jj = J[i] * J[j];
-                    hg.H.add(jj, i - 6, j - 6);
-                    hg.H.add(jj, j - 6, i - 6);
-                }
-            }
-        }
-    }
-    */
     return hg;
 }
 
 HGMapped meshOptimizerCPU::computeHGMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl)
 {
-    HGMapped hg;
-
     error_buffer.set(error_buffer.nodata, lvl);
-    j1_buffer.set(j1_buffer.nodata, lvl);
+    jmap_buffer.set(jmap_buffer.nodata, lvl);
     pId_buffer.set(pId_buffer.nodata, lvl);
 
-    renderer.renderJMap(scene, cam[lvl], kframe, frame, j1_buffer, error_buffer, pId_buffer, lvl);
+    renderer.renderJMap<MESH_DOF>(scene, cam[lvl], kframe, frame, jmap_buffer, error_buffer, pId_buffer, lvl);
 
-    int shapesDoF = scene.getShapesDoF();
-
-    for (int y = 0; y < cam[lvl].height; y++)
-    {
-        for (int x = 0; x < cam[lvl].width; x++)
-        {
-            std::array<float, 3> jac = j1_buffer.get(y, x, lvl);
-            float err = error_buffer.get(y, x, lvl);
-            std::array<int, 3> ids = pId_buffer.get(y, x, lvl);
-
-            if (jac == j1_buffer.nodata || err == error_buffer.nodata || ids == pId_buffer.nodata)
-                continue;
-
-            hg.count += 1;
-            for (int i = 0; i < shapesDoF; i++)
-            {
-                // if the jacobian is 0
-                // we really cannot say anything about the depth
-                // can make the hessian non-singular
-                if (jac[i] == 0)
-                    continue;
-
-                hg.G.add(jac[i] * err, ids[i]);
-                //(*hg).G[v_ids[i]] += J[i] * error;
-
-                for (int j = i; j < shapesDoF; j++)
-                {
-                    float jj = jac[i] * jac[j];
-                    hg.H.add(jj, ids[i], ids[j]);
-                    hg.H.add(jj, ids[j], ids[i]);
-                    //(*hg).H[v_ids[i]][v_ids[j]] += jj;
-                    //(*hg).H[v_ids[j]][v_ids[i]] += jj;
-                }
-            }
-        }
-    }
+    HGMapped hg = reducer.reduceHGMap<MESH_DOF>(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
 
     return hg;
 }
 
 HGMapped meshOptimizerCPU::computeHGPoseMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl)
 {
-    HGMapped hg;
-
-    j1_buffer.set(j1_buffer.nodata, lvl);
-    j2_buffer.set(j2_buffer.nodata, lvl);
-    j3_buffer.set(j3_buffer.nodata, lvl);
+    jpose_buffer.set(jpose_buffer.nodata, lvl);
+    jmap_buffer.set(jmap_buffer.nodata, lvl);
     error_buffer.set(error_buffer.nodata, lvl);
     pId_buffer.set(pId_buffer.nodata, lvl);
 
-    renderer.renderJPoseMap(scene, cam[lvl], kframe, frame, j1_buffer, j2_buffer, j3_buffer, error_buffer, pId_buffer, lvl);
+    renderer.renderJPoseMap<MESH_DOF>(scene, cam[lvl], kframe, frame, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
-    int shapesDoF = scene.getShapesDoF();
-
-    for (int y = 0; y < cam[lvl].height; y++)
-    {
-        for (int x = 0; x < cam[lvl].width; x++)
-        {
-            std::array<float, 3> j_tra = j1_buffer.get(y, x, lvl);
-            std::array<float, 3> j_rot = j2_buffer.get(y, x, lvl);
-            float error = error_buffer.get(y, x, lvl);
-
-            if (j_tra == j1_buffer.nodata || j_rot == j2_buffer.nodata || error == error_buffer.nodata)
-                continue;
-
-            hg.count += 1;
-
-            std::array<float, 6> J_pose = {j_tra[0], j_tra[1], j_tra[2], j_rot[0], j_rot[1], j_rot[2]};
-
-            for (int i = 0; i < 6; i++)
-            {
-                hg.G.add(J_pose[i] * error, i - (frame.id + 1) * 6);
-
-                for (int j = i; j < 6; j++)
-                {
-                    float jj = J_pose[i] * J_pose[j];
-                    hg.H.add(jj, i - (frame.id + 1) * 6, j - (frame.id + 1) * 6);
-                    hg.H.add(jj, j - (frame.id + 1) * 6, i - (frame.id + 1) * 6);
-                }
-            }
-        }
-    }
-
-    for (int y = 0; y < cam[lvl].height; y++)
-    {
-        for (int x = 0; x < cam[lvl].width; x++)
-        {
-            std::array<float, 3> j_map = j3_buffer.get(y, x, lvl);
-            float error = error_buffer.get(y, x, lvl);
-            std::array<int, 3> ids = pId_buffer.get(y, x, lvl);
-
-            for (int i = 0; i < shapesDoF; i++)
-            {
-                // if the jacobian is 0
-                // we really cannot say anything about the depth
-                // can make the hessian non-singular
-                if (j_map[i] == 0)
-                    continue;
-                hg.G.add(j_map[i] * error, ids[i]);
-                //(*hg).G[v_ids[i]] += J[i] * error;
-
-                for (int j = i; j < shapesDoF; j++)
-                {
-                    float jj = j_map[i] * j_map[j];
-                    hg.H.add(jj, ids[i], ids[j]);
-                    hg.H.add(jj, ids[j], ids[i]);
-                    //(*hg).H[v_ids[i]][v_ids[j]] += jj;
-                    //(*hg).H[v_ids[j]][v_ids[i]] += jj;
-                }
-            }
-        }
-    }
+    HGMapped hg = reducer.reduceHGPoseMap<MESH_DOF>(cam[lvl], frame.id, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
     return hg;
 }
@@ -377,7 +145,7 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
 
     for (int lvl = 3; lvl >= 1; lvl--)
     {
-        renderer.renderIdepth(sceneOptimized, cam[lvl], frame.pose, idepth_buffer, lvl);
+        renderer.renderIdepthParallel(sceneOptimized, cam[lvl], frame.pose, idepth_buffer, lvl);
 
         std::cout << "*************************lvl " << lvl << std::endl;
         t.tic();
@@ -424,7 +192,7 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
                 frame.pose = best_pose * Sophus::SE3f::exp(inc).inverse();
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
 
-                renderer.renderIdepth(sceneOptimized, cam[lvl], frame.pose, idepth_buffer, lvl);
+                renderer.renderIdepthParallel(sceneOptimized, cam[lvl], frame.pose, idepth_buffer, lvl);
 
                 t.tic();
                 e.setZero();

@@ -8,6 +8,8 @@
 #include "common/DelaunayTriangulation.h"
 #include "params.h"
 
+#define MESH_DOF 3
+
 class SceneMesh : public SceneVerticesBase
 {
 public:

@@ -11,11 +11,12 @@
 #include "cpu/dataCPU.h"
 #include "cpu/frameCPU.h"
 #include "cpu/renderCPU.h"
+#include "cpu/reduceCPU.h"
 #include "cpu/SceneBase.h"
-#include "cpu/ScenePatches.h"
+//#include "cpu/ScenePatches.h"
 #include "cpu/SceneMesh.h"
-#include "cpu/SceneSurfels.h"
-#include "cpu/SceneMeshSmooth.h"
+//#include "cpu/SceneSurfels.h"
+//#include "cpu/SceneMeshSmooth.h"
 #include "cpu/OpenCVDebug.h"
 #include "params.h"
 
@@ -108,37 +109,6 @@ private:
     HGMapped computeHGMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
     HGMapped computeHGPoseMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
 
-    void reduceHGPose(camera cam, dataCPU<std::array<float, 3>> *jtra_buffer, dataCPU<std::array<float, 3>> *jrot_buffer, dataCPU<float> *err_buffer, HGPose *hg, int lvl)
-    {
-        for (int y = cam.window_min_y; y < cam.window_max_y; y++)
-        {
-            for (int x = cam.window_min_x; x < cam.window_max_x; x++)
-            {
-                std::array<float, 3> j_tra = jtra_buffer->get(y, x, lvl);
-                std::array<float, 3> j_rot = jrot_buffer->get(y, x, lvl);
-                float err = err_buffer->get(y, x, lvl);
-                if (j_tra == jtra_buffer->nodata || j_rot == jrot_buffer->nodata || err == err_buffer->nodata)
-                    continue;
-                std::array<float, 6> J = {j_tra[0], j_tra[1], j_tra[2], j_rot[0], j_rot[1], j_rot[2]};
-                hg->count++;
-                for (int i = 0; i < 6; i++)
-                {
-                    //hg->G.add(J[i] * err, i - 6);
-                    hg->G(i) += J[i] * err;
-                    // hg->G[i - 6] = J[i] * residual;
-                    for (int j = i; j < 6; j++)
-                    {
-                        float jj = J[i] * J[j];
-                        hg->H(i, j) += jj;
-                        hg->H(j, i) += jj;
-                        //hg->H.add(jj, i - 6, j - 6);
-                        //hg->H.add(jj, j - 6, i - 6);
-                    }
-                }
-            }
-        }
-    }
-
     // params
     bool multiThreading;
     float meshRegularization;
@@ -147,14 +117,15 @@ private:
     dataCPU<float> image_buffer;
     dataCPU<float> idepth_buffer;
     dataCPU<float> error_buffer;
-    dataCPU<std::array<float, 3>> j1_buffer;
-    dataCPU<std::array<float, 3>> j2_buffer;
-    dataCPU<std::array<float, 3>> j3_buffer;
-    dataCPU<std::array<int, 3>> pId_buffer;
+    dataCPU<std::array<float, 6>> jpose_buffer;
+    dataCPU<std::array<float, MESH_DOF>> jmap_buffer;
+    dataCPU<std::array<int, MESH_DOF>> pId_buffer;
 
     // debug
     dataCPU<float> debug;
     dataCPU<float> idepthVar;
 
     renderCPU renderer;
+    reduceCPU reducer;
+
 };
