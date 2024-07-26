@@ -30,17 +30,18 @@ public:
 
     Error reduceErrorParallel(camera cam, dataCPU<float> &image1, dataCPU<float> &image2, int lvl)
     {
-        int divi = 16;
+        int divi_y = 16;
+        int divi_x = 1;
 
-        Error partialerr[divi];
+        Error partialerr[divi_y*divi_x];
 
         std::array<int, 2> windowSize;
-        windowSize[0] = cam.width;
-        windowSize[1] = cam.height / divi;
+        windowSize[0] = cam.width / divi_x;
+        windowSize[1] = cam.height / divi_y;
 
-        for (int ty = 0; ty < divi; ty++)
+        for (int ty = 0; ty < divi_y; ty++)
         {
-            for (int tx = 0; tx < 1; tx++)
+            for (int tx = 0; tx < divi_x; tx++)
             {
                 int min_x = tx * windowSize[0];
                 int max_x = (tx + 1) * windowSize[0];
@@ -51,14 +52,14 @@ public:
                 cam_window.setWindow(min_x, max_x, min_y, max_y);
 
                 // renderJPoseWindow(&frame2Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl);
-                pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, cam_window, &image1, &image2, &partialerr[tx + ty * divi], lvl));
+                pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, cam_window, &image1, &image2, &partialerr[tx + ty * divi_x], lvl));
             }
         }
 
         pool.waitUntilDone();
 
         Error err;
-        for (int i = 0; i < divi; i++)
+        for (int i = 0; i < divi_y*divi_x; i++)
         {
             err += partialerr[i];
         }
@@ -75,17 +76,18 @@ public:
 
     HGPose reduceHGPoseParallel(camera cam, dataCPU<std::array<float, 6>> &jpose_buffer, dataCPU<float> &err_buffer, int lvl)
     {
-        int divi = 16;
+        int divi_y = 16;
+        int divi_x = 1;
 
-        HGPose partialhg[divi];
+        HGPose partialhg[divi_x*divi_y];
 
         std::array<int, 2> windowSize;
-        windowSize[0] = cam.width;
-        windowSize[1] = cam.height / divi;
+        windowSize[0] = cam.width / divi_x;
+        windowSize[1] = cam.height / divi_y;
 
-        for (int ty = 0; ty < divi; ty++)
+        for (int ty = 0; ty < divi_y; ty++)
         {
-            for (int tx = 0; tx < 1; tx++)
+            for (int tx = 0; tx < divi_x; tx++)
             {
                 int min_x = tx * windowSize[0];
                 int max_x = (tx + 1) * windowSize[0];
@@ -96,14 +98,14 @@ public:
                 cam_window.setWindow(min_x, max_x, min_y, max_y);
 
                 // renderJPoseWindow(&frame2Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl);
-                pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, cam_window, &jpose_buffer, &err_buffer, &partialhg[tx + ty * divi], lvl));
+                pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, cam_window, &jpose_buffer, &err_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
 
         pool.waitUntilDone();
 
         HGPose hg;
-        for (int i = 0; i < divi; i++)
+        for (int i = 0; i < divi_y*divi_x; i++)
         {
             hg += partialhg[i];
         }
