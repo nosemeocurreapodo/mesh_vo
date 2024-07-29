@@ -34,14 +34,16 @@ public:
     dataCPU<float> getIdepth(Sophus::SE3f &pose, int lvl)
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
-        renderer.renderIdepth(sceneOptimized, cam[lvl], pose, idepth_buffer, lvl);
+        renderer.setScene(sceneOptimized);
+        renderer.renderIdepth(cam[lvl], pose, idepth_buffer, lvl);
         return idepth_buffer;
     }
 
     dataCPU<float> getImage(frameCPU &frame, Sophus::SE3f &pose, int lvl)
     {
         image_buffer.set(image_buffer.nodata, lvl);
-        renderer.renderImage(sceneOptimized, cam[lvl], frame, pose, image_buffer, lvl);
+        renderer.setScene(sceneOptimized);
+        renderer.renderImage(cam[lvl], frame, pose, image_buffer, lvl);
         return image_buffer;
     }
 
@@ -50,11 +52,13 @@ public:
         idepth_buffer.set(idepth_buffer.nodata, 1);
         image_buffer.set(image_buffer.nodata, 1);
 
-        renderer.renderIdepth(sceneOptimized, cam[1], frame.pose, idepth_buffer, 1);
-        renderer.renderImage(sceneOptimized, cam[1], keyframe, frame.pose, image_buffer, 1);
+        renderer.setScene(sceneOptimized);
+
+        renderer.renderIdepthParallel(cam[1], frame.pose, idepth_buffer, 1);
+        renderer.renderImageParallel(cam[1], keyframe, frame.pose, image_buffer, 1);
 
         debug.set(debug.nodata, 0);
-        renderer.renderDebug(sceneOptimized, cam[0], frame, debug, 0);
+        renderer.renderDebugParallel(cam[0], frame, debug, 0);
 
         error_buffer = frame.image.sub(image_buffer, 1);
 
@@ -77,7 +81,7 @@ public:
         dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
         idepth.setRandom(lvl);
 
-        renderer.renderIdepth(sceneOptimized, cam[lvl], frame.pose, idepth, lvl);
+        renderer.renderIdepth(cam[lvl], frame.pose, idepth, lvl);
 
         dataCPU<float> invVar(cam[0].width, cam[0].height, -1);
         invVar.set(1.0 / INITIAL_VAR, lvl);
@@ -100,14 +104,14 @@ public:
     camera cam[MAX_LEVELS];
 
 private:
-    Error computeError(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
-    Error computeError(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
+    Error computeError(frameCPU &kframe, frameCPU &frame, int lvl);
+    //Error computeError(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
-    HGPose computeHGPose(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
-    HGPose computeHGPose(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
+    HGPose computeHGPose(frameCPU &kframe, frameCPU &frame, int lvl);
+    //HGPose computeHGPose(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
-    HGMapped computeHGMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
-    HGMapped computeHGPoseMap(SceneBase &scene, frameCPU &kframe, frameCPU &frame, int lvl);
+    HGMapped computeHGMap(frameCPU &kframe, frameCPU &frame, int lvl);
+    HGMapped computeHGPoseMap(frameCPU &kframe, frameCPU &frame, int lvl);
 
     // params
     bool multiThreading;

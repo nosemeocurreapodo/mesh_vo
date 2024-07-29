@@ -24,11 +24,6 @@ public:
         cx_norm = cx / width;
         cy_norm = cy / height;
 
-        window_min_x = 0;
-        window_max_x = width;
-        window_min_y = 0;
-        window_max_y = height;
-
         computeKinv();
     }
 
@@ -54,14 +49,6 @@ public:
         cyinv_norm = cyinv * height;
     }
 
-    void setWindow(int min_x, int max_x, int min_y, int max_y)
-    {
-        window_min_x = min_x;
-        window_max_x = max_x;
-        window_min_y = min_y;
-        window_max_y = max_y;
-    }
-
     void resize(int _width, int _height)
     {
         float scale_x = float(_width) / width;
@@ -74,11 +61,6 @@ public:
         fy = fy * scale_y;
         cx = cx * scale_x;
         cy = cy * scale_y;
-
-        window_min_x = int(window_min_x * scale_x);
-        window_max_x = int(window_max_x * scale_x);
-        window_min_y = int(window_min_y * scale_y);
-        window_max_y = int(window_max_y * scale_y);
 
         computeKinv();
     }
@@ -95,7 +77,9 @@ public:
         // the idea here is that if we have 3 pixels
         // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
         // so here the max is one more than the last pixel
-        if (pix(0) < window_min_x || pix(0) >= window_max_x || pix(1) < window_min_y || pix(1) >= window_max_y)
+        //if (pix(0) < window_min_x || pix(0) > window_max_x || pix(1) < window_min_y || pix(1) > window_max_y)
+        //    return false;
+        if (pix(0) < 0 || pix(0) > width || pix(1) < 0 || pix(1) > height)
             return false;
         return true;
     }
@@ -173,11 +157,6 @@ public:
     float fyinv_norm;
     float cxinv_norm;
     float cyinv_norm;
-
-    int window_min_x;
-    int window_max_x;
-    int window_min_y;
-    int window_max_y;
 
 private:
 };
