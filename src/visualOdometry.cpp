@@ -60,7 +60,7 @@ void visualOdometry::localization(dataCPU<float> &image)
     newFrame.set(image);
     newFrame.id = lastFrame.id + 1;
     newFrame.pose = lastMovement * lastFrame.pose;
-    //meshOptimizer.optPose(lastFrame, newFrame);
+    meshOptimizer.optPose(lastFrame, newFrame);
 
     std::cout << "estimated pose" << std::endl;
     std::cout << newFrame.pose.matrix() << std::endl;
@@ -97,7 +97,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
         meshOptimizer.plotDebug(newFrame);
         */
 
-        //meshOptimizer.optMap(newFrame, frames);
+        meshOptimizer.optMap(newFrame, frames);
         meshOptimizer.plotDebug(newFrame, frames[0]);
     }
 

@@ -21,7 +21,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 100.0;
+    meshRegularization = 200.0;
     meshInitial = 0.0;
 }
 
@@ -250,6 +250,7 @@ void meshOptimizerCPU::optMap(frameCPU &keyframe, std::vector<frameCPU> &frames)
     // std::unique_ptr<SceneBase> keyframeScene = sceneOptimized.clone();
     // keyframeScene->transform(keyframe.pose);
     sceneOptimized.transform(keyframe.pose);
+    renderer.setScene(sceneOptimized);
 
     for (int lvl = 1; lvl >= 1; lvl--)
     {
@@ -358,6 +359,7 @@ void meshOptimizerCPU::optMap(frameCPU &keyframe, std::vector<frameCPU> &frames)
                     // the update should take this into account
                     sceneOptimized.setParam(new_param, pIds[index]);
                 }
+                renderer.setScene(sceneOptimized);
 
                 t.tic();
 
@@ -402,6 +404,7 @@ void meshOptimizerCPU::optMap(frameCPU &keyframe, std::vector<frameCPU> &frames)
                 {
                     for (size_t index = 0; index < pIds.size(); index++)
                         sceneOptimized.setParam(best_params[index], pIds[index]);
+                    renderer.setScene(sceneOptimized);
 
                     n_try++;
 

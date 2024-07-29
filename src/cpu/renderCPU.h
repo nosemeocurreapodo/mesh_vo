@@ -45,7 +45,7 @@ public:
 
         m_scene->transform(pose);
 
-        int divi_y = 2;
+        int divi_y = 16;
         int divi_x = 1;
 
         std::array<int, 2> windowSize;
@@ -61,15 +61,14 @@ public:
                 int min_y = ty * windowSize[1];
                 int max_y = (ty + 1) * windowSize[1];
 
-                camera cam_window = cam;
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                renderImageWindow(cam, window, &kframe, &buffer, lvl);
-                //pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, cam, window, &kframe, &buffer, lvl));
+                //renderImageWindow(cam, window, &kframe, &buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, cam, window, &kframe, &buffer, lvl));
             }
         }
 
-        //pool.waitUntilDone();
+        pool.waitUntilDone();
     }
 
     /*
@@ -366,7 +365,7 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                // renderIdepthWindow(cam_window, &buffer, lvl);
+                // renderIdepthWindow(cam, &buffer, lvl);
                 pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, cam, window, &buffer, lvl));
             }
         }
@@ -432,11 +431,7 @@ private:
                     Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
 
                     if (!cam.isPixVisible(kf_pix))
-                    //    continue;
-                    {
-                        buffer->set(0.0, y, x, lvl);
                         continue;
-                    }
 
                     auto kf_i = kframe->image.get(kf_pix(1), kf_pix(0), lvl);
                     if (kf_i == kframe->image.nodata)

@@ -57,8 +57,8 @@ int main(void)
 
     visualOdometry odometry(cam);
 
-    odometry.initScene(image, idepth);
-    //odometry.initScene(image);
+    //odometry.initScene(image, idepth);
+    odometry.initScene(image);
 
     while(1){
         framesTracked++;
@@ -67,7 +67,7 @@ int main(void)
             frameCounterDirection = -1;
         if(frameNumber < 2)
             frameCounterDirection = 1;
-        if(frameNumber > 20)
+        if(frameNumber > 50)
             return 1;
 
         char image_filename[500];

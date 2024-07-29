@@ -79,7 +79,7 @@ public:
         // so here the max is one more than the last pixel
         //if (pix(0) < window_min_x || pix(0) > window_max_x || pix(1) < window_min_y || pix(1) > window_max_y)
         //    return false;
-        if (pix(0) < 0 || pix(0) > width || pix(1) < 0 || pix(1) > height)
+        if (pix(0) < 0 || pix(0) >= width || pix(1) < 0 || pix(1) >= height)
             return false;
         return true;
     }

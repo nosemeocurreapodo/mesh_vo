@@ -24,7 +24,8 @@ public:
     Error reduceError(camera cam, dataCPU<float> &image1, dataCPU<float> &image2, int lvl)
     {
         Error err;
-        reduceErrorWindow(cam, &image1, &image2, &err, lvl);
+        std::array<int, 4> window = {0, cam.width, 0, cam.height};
+        reduceErrorWindow(window, &image1, &image2, &err, lvl);
         return err;
     }
 
@@ -48,11 +49,10 @@ public:
                 int min_y = ty * windowSize[1];
                 int max_y = (ty + 1) * windowSize[1];
 
-                camera cam_window = cam;
-                cam_window.setWindow(min_x, max_x, min_y, max_y);
+                std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
                 // renderJPoseWindow(&frame2Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl);
-                pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, cam_window, &image1, &image2, &partialerr[tx + ty * divi_x], lvl));
+                pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, window, &image1, &image2, &partialerr[tx + ty * divi_x], lvl));
             }
         }
 
@@ -70,7 +70,8 @@ public:
     HGPose reduceHGPose(camera cam, dataCPU<std::array<float, 6>> &jpose_buffer, dataCPU<float> &err_buffer, int lvl)
     {
         HGPose hg;
-        reduceHGPoseWindow(cam, &jpose_buffer, &err_buffer, &hg, lvl);
+        std::array<int, 4> window = {0, cam.width, 0, cam.height};
+        reduceHGPoseWindow(window, &jpose_buffer, &err_buffer, &hg, lvl);
         return hg;
     }
 
@@ -94,11 +95,10 @@ public:
                 int min_y = ty * windowSize[1];
                 int max_y = (ty + 1) * windowSize[1];
 
-                camera cam_window = cam;
-                cam_window.setWindow(min_x, max_x, min_y, max_y);
+                std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
                 // renderJPoseWindow(&frame2Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl);
-                pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, cam_window, &jpose_buffer, &err_buffer, &partialhg[tx + ty * divi_x], lvl));
+                pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, window, &jpose_buffer, &err_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
 
@@ -117,7 +117,8 @@ public:
     HGMapped reduceHGMap(camera cam, dataCPU<std::array<float, DoF>> &j_buffer, dataCPU<float> &err_buffer, dataCPU<std::array<int, DoF>> &pId_buffer, int lvl)
     {
         HGMapped hg;
-        reduceHGMapWindow<DoF>(cam, &j_buffer, &err_buffer, &pId_buffer, &hg, lvl);
+        std::array<int, 4> window = {0, cam.width, 0, cam.height};
+        reduceHGMapWindow<DoF>(window, &j_buffer, &err_buffer, &pId_buffer, &hg, lvl);
         return hg;
     }
 
@@ -142,11 +143,10 @@ public:
                 int min_y = ty * windowSize[1];
                 int max_y = (ty + 1) * windowSize[1];
 
-                camera cam_window = cam;
-                cam_window.setWindow(min_x, max_x, min_y, max_y);
+                std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
                 //reduceHGMapWindow<DoF>(cam, &j_buffer, &err_buffer, &pId_buffer, &hg, lvl);
-                pool.enqueue(std::bind(&reduceCPU::reduceHGMapWindow<DoF>, this, cam_window, &j_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
+                pool.enqueue(std::bind(&reduceCPU::reduceHGMapWindow<DoF>, this, window, &j_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
 
@@ -165,15 +165,16 @@ public:
     HGMapped reduceHGPoseMap(camera cam, int frameId, dataCPU<std::array<float, 6>> &jpose_buffer, dataCPU<std::array<float, DoF>> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<std::array<int, DoF>> &pId_buffer, int lvl)
     {
         HGMapped hg;
-        reduceHGPoseMapWindow<DoF>(cam, frameId, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &hg, lvl);
+        std::array<int, 4> window = {0, cam.width, 0, cam.height};
+        reduceHGPoseMapWindow<DoF>(window, frameId, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &hg, lvl);
         return hg;
     }
 
 private:
-    void reduceErrorWindow(camera cam, dataCPU<float> *frame1, dataCPU<float> *frame2, Error *err, int lvl)
+    void reduceErrorWindow(std::array<int, 4> window, dataCPU<float> *frame1, dataCPU<float> *frame2, Error *err, int lvl)
     {
-        for (int y = cam.window_min_y; y < cam.window_max_y; y++)
-            for (int x = cam.window_min_x; x < cam.window_max_x; x++)
+        for (int y = window[2]; y < window[3]; y++)
+            for (int x = window[0]; x < window[1]; x++)
             {
                 float p1 = frame1->get(y, x, lvl);
                 float p2 = frame2->get(y, x, lvl);
@@ -184,11 +185,11 @@ private:
             }
     }
 
-    void reduceHGPoseWindow(camera cam, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<float> *err_buffer, HGPose *hg, int lvl)
+    void reduceHGPoseWindow(std::array<int, 4> window, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<float> *err_buffer, HGPose *hg, int lvl)
     {
-        for (int y = cam.window_min_y; y < cam.window_max_y; y++)
+        for (int y = window[2]; y < window[3]; y++)
         {
-            for (int x = cam.window_min_x; x < cam.window_max_x; x++)
+            for (int x = window[0]; x < window[1]; x++)
             {
                 std::array<float, 6> J = jpose_buffer->get(y, x, lvl);
                 float err = err_buffer->get(y, x, lvl);
@@ -215,11 +216,11 @@ private:
     }
 
     template <int DoF>
-    void reduceHGMapWindow(camera cam, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *err_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, HGMapped *hg, int lvl)
+    void reduceHGMapWindow(std::array<int, 4> window, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *err_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, HGMapped *hg, int lvl)
     {
-        for (int y = cam.window_min_y; y < cam.window_max_y; y++)
+        for (int y = window[2]; y < window[3]; y++)
         {
-            for (int x = cam.window_min_x; x < cam.window_max_x; x++)
+            for (int x = window[0]; x < window[1]; x++)
             {
                 std::array<float, DoF> jac = jmap_buffer->get(y, x, lvl);
                 float err = err_buffer->get(y, x, lvl);
@@ -254,11 +255,11 @@ private:
     }
 
     template <int DoF>
-    void reduceHGPoseMapWindow(camera cam, int frameId, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *error_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, HGMapped *hg, int lvl)
+    void reduceHGPoseMapWindow(std::array<int, 4> window, int frameId, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *error_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, HGMapped *hg, int lvl)
     {
-        for (int y = cam.window_min_y; y < cam.window_max_y; y++)
+        for (int y = window[2]; y < window[3]; y++)
         {
-            for (int x = cam.window_min_x; x < cam.window_max_x; x++)
+            for (int x = window[0]; x < window[1]; x++)
             {
                 std::array<float, 6> J_pose = jpose_buffer->get(y, x, lvl);
                 float error = error_buffer->get(y, x, lvl);
@@ -282,9 +283,9 @@ private:
             }
         }
 
-        for (int y = cam.window_min_y; y < cam.window_max_y; y++)
+        for (int y = window[2]; y < window[3]; y++)
         {
-            for (int x = cam.window_min_x; x < cam.window_max_x; x++)
+            for (int x = window[0]; x < window[1]; x++)
             {
                 std::array<float, DoF> j_map = jmap_buffer->get(y, x, lvl);
                 float error = error_buffer->get(y, x, lvl);

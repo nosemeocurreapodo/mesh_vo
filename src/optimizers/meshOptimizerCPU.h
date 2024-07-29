@@ -14,8 +14,8 @@
 #include "cpu/reduceCPU.h"
 #include "cpu/SceneBase.h"
 //#include "cpu/ScenePatches.h"
-#include "cpu/SceneMesh.h"
-//#include "cpu/SceneSurfels.h"
+//#include "cpu/SceneMesh.h"
+#include "cpu/SceneSurfels.h"
 //#include "cpu/SceneMeshSmooth.h"
 #include "cpu/OpenCVDebug.h"
 #include "params.h"
@@ -54,6 +54,7 @@ public:
 
         renderer.setScene(sceneOptimized);
 
+        //renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
         renderer.renderIdepthParallel(cam[1], frame.pose, idepth_buffer, 1);
         renderer.renderImageParallel(cam[1], keyframe, frame.pose, image_buffer, 1);
 
@@ -100,7 +101,7 @@ public:
         */
     }
 
-    SceneMesh sceneOptimized;
+    SceneSurfels sceneOptimized;
     camera cam[MAX_LEVELS];
 
 private:

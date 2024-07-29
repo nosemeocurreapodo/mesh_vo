@@ -1,8 +1,8 @@
 #pragma once
 
 #define MAX_LEVELS 10 //max level for a 512x512 image
-#define MESH_WIDTH 2
-#define MESH_HEIGHT 2
+#define MESH_WIDTH 48
+#define MESH_HEIGHT 48
 //for depth
 //#define INITIAL_VAR (10.0 * 10.0)
 //for idepth = 1/depth
