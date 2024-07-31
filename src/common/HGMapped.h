@@ -75,6 +75,7 @@ public:
         {
             ids.push_back(it->first);
         }
+        sort(ids.begin(), ids.end()); 
         return ids;
     }
 

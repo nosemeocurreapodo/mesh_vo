@@ -110,7 +110,6 @@ HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU &kframe, frameCPU &frame, i
     pId_buffer.set(pId_buffer.nodata, lvl);
 
     renderer.renderJPoseMap<MESH_DOF>(cam[lvl], kframe, frame, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
-
     HGMapped hg = reducer.reduceHGPoseMap<MESH_DOF>(cam[lvl], frame.id, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
     return hg;
@@ -440,6 +439,7 @@ void meshOptimizerCPU::optPoseMap(frameCPU &keyframe, std::vector<frameCPU> &fra
     // keyframeScene->transform(keyframe.pose);
 
     sceneOptimized.transform(keyframe.pose);
+    renderer.setScene(sceneOptimized);
 
     for (int lvl = 1; lvl >= 1; lvl--)
     {
@@ -553,6 +553,7 @@ void meshOptimizerCPU::optPoseMap(frameCPU &keyframe, std::vector<frameCPU> &fra
                     best_params[pIds[index]] = best_param;
                     sceneOptimized.setParam(new_param, pIds[index]);
                 }
+                renderer.setScene(sceneOptimized);
 
                 t.tic();
 
@@ -602,6 +603,7 @@ void meshOptimizerCPU::optPoseMap(frameCPU &keyframe, std::vector<frameCPU> &fra
                             continue;
                         sceneOptimized.setParam(best_params[pIds[index]], pIds[index]);
                     }
+                    renderer.setScene(sceneOptimized);
 
                     n_try++;
 

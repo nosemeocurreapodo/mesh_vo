@@ -14,8 +14,8 @@
 #include "cpu/reduceCPU.h"
 #include "cpu/SceneBase.h"
 //#include "cpu/ScenePatches.h"
-//#include "cpu/SceneMesh.h"
-#include "cpu/SceneSurfels.h"
+#include "cpu/SceneMesh.h"
+//#include "cpu/SceneSurfels.h"
 //#include "cpu/SceneMeshSmooth.h"
 #include "cpu/OpenCVDebug.h"
 #include "params.h"
@@ -101,7 +101,7 @@ public:
         */
     }
 
-    SceneSurfels sceneOptimized;
+    SceneMesh sceneOptimized;
     camera cam[MAX_LEVELS];
 
 private:

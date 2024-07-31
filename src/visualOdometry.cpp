@@ -41,7 +41,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     meshOptimizer.optPose(lastFrame, newFrame);
 
     // float imagePercentNoData = meshOptimizer.getImage(lastFrame.pose, 1).getPercentNoData(1);
-    // meshOptimizer.changeKeyframe(lastFrame);
+    meshOptimizer.changeKeyframe(newFrame);
     if (frames.size() > 0)
     {
         meshOptimizer.optPoseMap(newFrame, frames);

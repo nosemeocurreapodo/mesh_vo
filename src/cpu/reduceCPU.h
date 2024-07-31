@@ -170,6 +170,45 @@ public:
         return hg;
     }
 
+    template <int DoF>
+    HGMapped reduceHGPoseMapParallel(camera cam, int frameId, dataCPU<std::array<float, 6>> &jpose_buffer, dataCPU<std::array<float, DoF>> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<std::array<int, DoF>> &pId_buffer, int lvl)
+    {
+        int divi_y = 16;
+        int divi_x = 1;
+
+        HGMapped partialhg[divi_x*divi_y];
+
+        std::array<int, 2> windowSize;
+        windowSize[0] = cam.width / divi_x;
+        windowSize[1] = cam.height / divi_y;
+
+        for (int ty = 0; ty < divi_y; ty++)
+        {
+            for (int tx = 0; tx < divi_x; tx++)
+            {
+                int min_x = tx * windowSize[0];
+                int max_x = (tx + 1) * windowSize[0];
+                int min_y = ty * windowSize[1];
+                int max_y = (ty + 1) * windowSize[1];
+
+                std::array<int, 4> window = {min_x, max_x, min_y, max_y};
+
+                //reduceHGMapWindow<DoF>(cam, &j_buffer, &err_buffer, &pId_buffer, &hg, lvl);
+                pool.enqueue(std::bind(&reduceCPU::reduceHGMapWindow<DoF>, this, window, frameId, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg, lvl));
+            }
+        }
+
+        pool.waitUntilDone();
+
+        HGMapped hg;
+        for (int i = 0; i < divi_y*divi_x; i++)
+        {
+            hg += partialhg[i];
+        }
+
+        return hg;
+    }
+
 private:
     void reduceErrorWindow(std::array<int, 4> window, dataCPU<float> *frame1, dataCPU<float> *frame2, Error *err, int lvl)
     {

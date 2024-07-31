@@ -247,7 +247,7 @@ public:
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
                 //         renderJPoseMapWindow<DoF>(kframeScene.get(), frameScene.get(), cam, &kframe, &frame, &jpose_buffer, &jmap_buffer, &e_buffer, &pId_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderJMapWindow<DoF>, this, kframeMesh.get(), frameMesh.get(), cam, window, &kframe, &frame, &jpose_buffer, &jmap_buffer, &e_buffer, &pId_buffer, lvl));
+                pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow<DoF>, this, kframeMesh.get(), frameMesh.get(), cam, window, &kframe, &frame, &jpose_buffer, &jmap_buffer, &e_buffer, &pId_buffer, lvl));
             }
         }
 
