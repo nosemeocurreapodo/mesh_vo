@@ -10,7 +10,7 @@
 class ThreadPool
 {
 public:
-    ThreadPool(size_t numThreads = 4) : stop(false), activeTasks(0)
+    ThreadPool(size_t numThreads = 24) : stop(false), activeTasks(0)
     {
         for (size_t i = 0; i < numThreads; ++i)
         {

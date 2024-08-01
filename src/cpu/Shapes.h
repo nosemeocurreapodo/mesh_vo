@@ -13,6 +13,7 @@ public:
     virtual inline bool rayHitsShape() = 0;
     virtual inline bool isEdge() = 0;
     virtual inline float getRayDepth() = 0;
+    virtual inline Eigen::Vector3f getRay(ShapeBase *shape) = 0;
     virtual inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) = 0;
 };
 
@@ -254,6 +255,12 @@ public:
                           barycentric(2) * vertices[2](2);
 
         return ray_depth;
+    }
+
+    inline Eigen::Vector3f getRay(ShapeBase *shape)
+    {
+        ShapeTriangleFlat *sh = (ShapeTriangleFlat*)shape;
+        return barycentric(0)*sh->rays[0] + barycentric(1)*sh->rays[1] + barycentric(2)*sh->rays[2];
     }
 
     /*

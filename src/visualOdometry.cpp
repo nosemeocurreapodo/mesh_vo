@@ -38,20 +38,22 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     newFrame.set(image); //*keyframeData.pose.inverse();
     newFrame.id = lastFrame.id + 1;
     newFrame.pose = lastMovement * lastFrame.pose;
-    meshOptimizer.optPose(lastFrame, newFrame);
+    meshOptimizer.optPose(newFrame);
 
-    // float imagePercentNoData = meshOptimizer.getImage(lastFrame.pose, 1).getPercentNoData(1);
-    meshOptimizer.changeKeyframe(newFrame);
-    if (frames.size() > 0)
-    {
-        meshOptimizer.optPoseMap(newFrame, frames);
-        meshOptimizer.plotDebug(newFrame, frames[0]);
-    }
     lastMovement = newFrame.pose * lastFrame.pose.inverse();
     lastFrame = newFrame;
     frames.push_back(newFrame);
+
+    meshOptimizer.optPoseMap(frames);
+
     if (frames.size() > 3)
+    {
+        meshOptimizer.changeKeyframe(frames[0]);
+        //frames.erase(frames.end());
         frames.erase(frames.begin());
+    }
+
+    meshOptimizer.plotDebug(frames[0]);
 }
 
 void visualOdometry::localization(dataCPU<float> &image)
@@ -60,12 +62,13 @@ void visualOdometry::localization(dataCPU<float> &image)
     newFrame.set(image);
     newFrame.id = lastFrame.id + 1;
     newFrame.pose = lastMovement * lastFrame.pose;
-    meshOptimizer.optPose(lastFrame, newFrame);
+    meshOptimizer.optPose(newFrame);
 
     std::cout << "estimated pose" << std::endl;
     std::cout << newFrame.pose.matrix() << std::endl;
 
-    meshOptimizer.plotDebug(lastFrame, newFrame);
+    if(newFrame.id % 1 == 0)
+        meshOptimizer.plotDebug(newFrame);
 
     lastMovement = newFrame.pose * lastFrame.pose.inverse();
     lastFrame = newFrame;
@@ -73,54 +76,24 @@ void visualOdometry::localization(dataCPU<float> &image)
 
 void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
 {
-    tic_toc t;
-
     frameCPU newFrame(cam.width, cam.height);
-    newFrame.set(image, pose);
+    newFrame.set(image); //*keyframeData.pose.inverse();
     newFrame.id = lastFrame.id + 1;
+    newFrame.pose = pose;
+    //meshOptimizer.optPose(newFrame);
 
-    if (frames.size() > 0)
-    {
-        /*
-        // use new frame as keyframe
-        std::vector<frameCPU> framesOpt;
-        framesOpt.push_back(frames[0]);
-
-        meshOptimizer.optMap(newFrame, framesOpt);
-        meshOptimizer.plotDebug(frames[0]);
-
-        // use last frame as keyframe
-        framesOpt.clear();
-        framesOpt.push_back(newFrame);
-
-        meshOptimizer.optMap(frames[0], framesOpt);
-        meshOptimizer.plotDebug(newFrame);
-        */
-
-        meshOptimizer.optMap(newFrame, frames);
-        meshOptimizer.plotDebug(newFrame, frames[0]);
-    }
-
+    lastMovement = newFrame.pose * lastFrame.pose.inverse();
     lastFrame = newFrame;
     frames.push_back(newFrame);
-    if (frames.size() > 3)
-        frames.erase(frames.begin());
-    /*
-    float imagePercentNoData = meshOptimizer.getImage(lastFrame.pose, 1).getPercentNoData(1);
-
-    if (imagePercentNoData > 0.15)
-    {
-        meshOptimizer.changeKeyframe(lastFrame);
-    }
-    else
-    {
-        frames.push_back(lastFrame);
-        if (frames.size() > 3)
-            frames.erase(frames.begin());
-    }
 
     meshOptimizer.optMap(frames);
 
+    if (frames.size() > 3)
+    {
+        meshOptimizer.changeKeyframe(frames[0]);
+        //frames.erase(frames.end());
+        frames.erase(frames.begin());
+    }
+
     meshOptimizer.plotDebug(frames[0]);
-    */
 }

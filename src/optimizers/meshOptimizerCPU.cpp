@@ -3,7 +3,8 @@
 #include "utils/tictoc.h"
 
 meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
-    : image_buffer(_cam.width, _cam.height, -1.0),
+    : kframe(_cam.width, _cam.height),
+      image_buffer(_cam.width, _cam.height, -1.0),
       idepth_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
       jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
@@ -27,20 +28,22 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
 
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar, int lvl)
 {
-    sceneOptimized.init(frame, cam[lvl], idepth, lvl);
+    kscene.init(frame, cam[lvl], idepth, lvl);
+    kframe = frame;
+    scene = kscene.clone();
 }
 
-Error meshOptimizerCPU::computeError(frameCPU &kframe, frameCPU &frame, int lvl)
+Error meshOptimizerCPU::computeError(SceneBase *scene, frameCPU *frame, int lvl)
 {
     image_buffer.set(image_buffer.nodata, lvl);
     idepth_buffer.set(idepth_buffer.nodata, lvl);
 
-    renderer.renderImageParallel(cam[lvl], kframe, frame.pose, image_buffer, lvl);
+    renderer.renderImageParallel(&kscene, &kframe, scene, cam[lvl], &image_buffer, lvl);
     // renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
 
     //renderer.renderIdepthParallel(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
     //renderer.renderImageParallel(idepth_buffer, cam[lvl], kframe, frame.pose, image_buffer, lvl);
-    Error e = reducer.reduceErrorParallel(cam[lvl], image_buffer, frame.image, lvl);
+    Error e = reducer.reduceErrorParallel(cam[lvl], image_buffer, frame->image, lvl);
 
     return e;
 }
@@ -57,13 +60,13 @@ Error meshOptimizerCPU::computeError(dataCPU<float> &fIdepth, frameCPU &kframe, 
 }
 */
 
-HGPose meshOptimizerCPU::computeHGPose(frameCPU &kframe, frameCPU &frame, int lvl)
+HGPose meshOptimizerCPU::computeHGPose(SceneBase *scene, frameCPU *frame, int lvl)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
     jpose_buffer.set(jpose_buffer.nodata, lvl);
     error_buffer.set(error_buffer.nodata, lvl);
 
-    renderer.renderJPoseParallel(cam[lvl], kframe, frame, jpose_buffer, error_buffer, lvl);
+    renderer.renderJPoseParallel(&kscene, &kframe, scene, frame, cam[lvl], &jpose_buffer, &error_buffer, lvl);
     //renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
     //renderer.renderIdepthParallel(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
     //renderer.renderJPose(idepth_buffer, cam[lvl], kframe, frame, jpose_buffer, error_buffer, lvl);
@@ -88,61 +91,58 @@ HGPose meshOptimizerCPU::computeHGPose(dataCPU<float> &fIdepth, frameCPU &kframe
 }
 */
 
-HGMapped meshOptimizerCPU::computeHGMap(frameCPU &kframe, frameCPU &frame, int lvl)
+HGMapped meshOptimizerCPU::computeHGMap(SceneBase *scene, frameCPU *frame, int lvl)
 {
     error_buffer.set(error_buffer.nodata, lvl);
     jmap_buffer.set(jmap_buffer.nodata, lvl);
     pId_buffer.set(pId_buffer.nodata, lvl);
 
     //renderer.renderJMap<MESH_DOF>(scene, cam[lvl], kframe, frame, jmap_buffer, error_buffer, pId_buffer, lvl);
-    renderer.renderJMapParallel<MESH_DOF>(cam[lvl], kframe, frame, jmap_buffer, error_buffer, pId_buffer, lvl);
+    renderer.renderJMapParallel<MESH_DOF>(&kscene, &kframe, scene, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
     //HGMapped hg = reducer.reduceHGMap<MESH_DOF>(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
     HGMapped hg = reducer.reduceHGMapParallel<MESH_DOF>(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
 
     return hg;
 }
 
-HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU &kframe, frameCPU &frame, int lvl)
+HGMapped meshOptimizerCPU::computeHGPoseMap(SceneBase *scene, frameCPU *frame, int lvl)
 {
     jpose_buffer.set(jpose_buffer.nodata, lvl);
     jmap_buffer.set(jmap_buffer.nodata, lvl);
     error_buffer.set(error_buffer.nodata, lvl);
     pId_buffer.set(pId_buffer.nodata, lvl);
 
-    renderer.renderJPoseMap<MESH_DOF>(cam[lvl], kframe, frame, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
-    HGMapped hg = reducer.reduceHGPoseMap<MESH_DOF>(cam[lvl], frame.id, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
+    renderer.renderJPoseMap<MESH_DOF>(&kscene, &kframe, scene, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
+    HGMapped hg = reducer.reduceHGPoseMap<MESH_DOF>(cam[lvl], frame->id, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
     return hg;
 }
 
-void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
+void meshOptimizerCPU::optPose(frameCPU &frame)
 {
     int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
 
-    tic_toc t;
+    //tic_toc t;
 
-    // std::unique_ptr<SceneBase> keyframeScene = sceneOptimized.clone();
-    // keyframeScene->transform(keyframe.pose);
-    // sceneOptimized.transform(keyframe.pose);
-
-    renderer.setScene(sceneOptimized);
+    scene->transform(frame.pose);
 
     for (int lvl = 3; lvl >= 1; lvl--)
     {
-        std::cout << "*************************lvl " << lvl << std::endl;
-        t.tic();
+        //std::cout << "*************************lvl " << lvl << std::endl;
+
+        //t.tic();
         Sophus::SE3f best_pose = frame.pose;
         //Error e = computeError(idepth_buffer, keyframe, frame, lvl);
-        Error e = computeError(keyframe, frame, lvl);
+        Error e = computeError(scene.get(), &frame, lvl);
         float last_error = e.error / e.count;
 
-        std::cout << "init error " << last_error << " time " << t.toc() << std::endl;
+        //std::cout << "init error " << last_error << " time " << t.toc() << std::endl;
 
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
-            t.tic();
+            //t.tic();
             //HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
-            HGPose  hg = computeHGPose(keyframe, frame, lvl);
+            HGPose  hg = computeHGPose(scene.get(), &frame, lvl);
 
             // std::vector<int> pIds = hg.G.getParamIds();
 
@@ -155,7 +155,7 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
             H /= hg.count;
             G /= hg.count;
 
-            std::cout << "HGPose time " << t.toc() << std::endl;
+            //std::cout << "HGPose time " << t.toc() << std::endl;
 
             float lambda = 0.0;
             int n_try = 0;
@@ -173,13 +173,14 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
                 // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
                 frame.pose = best_pose * Sophus::SE3f::exp(inc).inverse();
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
+                scene->transform(frame.pose);
 
-                t.tic();
-                e.setZero();
+                //t.tic();
+                //e.setZero();
                 //e = computeError(idepth_buffer, keyframe, frame, lvl);
-                e = computeError(keyframe, frame, lvl);
+                e = computeError(scene.get(), &frame, lvl);
                 float error = e.error / e.count;
-                std::cout << "new error " << error << " time " << t.toc() << std::endl;
+                //std::cout << "new error " << error << " time " << t.toc() << std::endl;
 
                 if (error < last_error)
                 {
@@ -206,6 +207,7 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
                 else
                 {
                     frame.pose = best_pose;
+                    scene->transform(frame.pose);
 
                     n_try++;
 
@@ -231,7 +233,7 @@ void meshOptimizerCPU::optPose(frameCPU &keyframe, frameCPU &frame)
     }
 }
 
-void meshOptimizerCPU::optMap(frameCPU &keyframe, std::vector<frameCPU> &frames)
+void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 {
     tic_toc t;
 
@@ -243,29 +245,19 @@ void meshOptimizerCPU::optMap(frameCPU &keyframe, std::vector<frameCPU> &frames)
     HGMapped hg_regu;
     HGMapped hg_init;
 
-    // the update will be done with respecto to the keyframe
-    // so change the scene accordingly, then set it back to the original
-    // pose (or maybe not)
-    // std::unique_ptr<SceneBase> keyframeScene = sceneOptimized.clone();
-    // keyframeScene->transform(keyframe.pose);
-    sceneOptimized.transform(keyframe.pose);
-    renderer.setScene(sceneOptimized);
-
     for (int lvl = 1; lvl >= 1; lvl--)
     {
         t.tic();
-        // keyframeMesh.toRayIdepth();
-        // std::vector<float> best_idepths = keyframeMesh.getVerticesIdepths();
-
-        // PointSet* initialScene = (PointSet*)keyframeScene.clone();
-        // MatrixMapped initialInvVar = invVar;
 
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
-            e += computeError(keyframe, frames[i], lvl);
+        {
+            scene->transform(frames[i].pose);
+            e += computeError(scene.get(), &frames[i], lvl);
+        }
         e.error /= e.count;
 
-        e_regu = sceneOptimized.errorRegu();
+        e_regu = kscene.errorRegu();
         e_regu.error /= e_regu.count;
 
         // e_init = keyframeScene.errorInitial(initialScene, initialInvVar);
@@ -283,7 +275,10 @@ void meshOptimizerCPU::optMap(frameCPU &keyframe, std::vector<frameCPU> &frames)
 
             hg.setZero();
             for (std::size_t i = 0; i < frames.size(); i++)
-                hg += computeHGMap(keyframe, frames[i], lvl);
+            {
+                scene->transform(frames[i].pose);
+                hg += computeHGMap(scene.get(), &frames[i], lvl);
+            }
 
             std::vector<int> pIds = hg.G.getParamIds();
 
@@ -293,7 +288,7 @@ void meshOptimizerCPU::optMap(frameCPU &keyframe, std::vector<frameCPU> &frames)
             H /= hg.count;
             G /= hg.count;
 
-            hg_regu = sceneOptimized.HGRegu();
+            hg_regu = kscene.HGRegu();
 
             Eigen::VectorXf G_regu = hg_regu.G.toEigen(pIds);
             Eigen::SparseMatrix<float> H_regu = hg_regu.H.toEigen(pIds);
@@ -351,23 +346,26 @@ void meshOptimizerCPU::optMap(frameCPU &keyframe, std::vector<frameCPU> &frames)
                 std::vector<float> best_params;
                 for (int index = 0; index < (int)pIds.size(); index++)
                 {
-                    float best_param = sceneOptimized.getParam(pIds[index]);
+                    float best_param = kscene.getParam(pIds[index]);
                     float new_param = best_param + inc(index);
                     best_params.push_back(best_param);
                     // the derivative is with respecto to the keyframe pose
                     // the update should take this into account
-                    sceneOptimized.setParam(new_param, pIds[index]);
+                    kscene.setParam(new_param, pIds[index]);
                 }
-                renderer.setScene(sceneOptimized);
+                scene = kscene.clone();
 
                 t.tic();
 
                 e.setZero();
                 for (std::size_t i = 0; i < frames.size(); i++)
-                    e += computeError(keyframe, frames[i], lvl);
+                {
+                    scene->transform(frames[i].pose);
+                    e += computeError(scene.get(), &frames[i], lvl);
+                }
                 e.error /= e.count;
 
-                e_regu = sceneOptimized.errorRegu();
+                e_regu = kscene.errorRegu();
                 e_regu.error /= e_regu.count;
 
                 // e_init = errorInitial(initialMesh, initialInvVar);
@@ -402,8 +400,8 @@ void meshOptimizerCPU::optMap(frameCPU &keyframe, std::vector<frameCPU> &frames)
                 else
                 {
                     for (size_t index = 0; index < pIds.size(); index++)
-                        sceneOptimized.setParam(best_params[index], pIds[index]);
-                    renderer.setScene(sceneOptimized);
+                        kscene.setParam(best_params[index], pIds[index]);
+                    scene = kscene.clone();
 
                     n_try++;
 
@@ -426,7 +424,7 @@ void meshOptimizerCPU::optMap(frameCPU &keyframe, std::vector<frameCPU> &frames)
     }
 }
 
-void meshOptimizerCPU::optPoseMap(frameCPU &keyframe, std::vector<frameCPU> &frames)
+void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 {
     tic_toc t;
 
@@ -435,11 +433,7 @@ void meshOptimizerCPU::optPoseMap(frameCPU &keyframe, std::vector<frameCPU> &fra
     HGMapped hg;
     HGMapped hg_regu;
 
-    // std::unique_ptr<SceneBase> keyframeScene = sceneOptimized.clone();
-    // keyframeScene->transform(keyframe.pose);
-
-    sceneOptimized.transform(keyframe.pose);
-    renderer.setScene(sceneOptimized);
+    scene = kscene.clone();
 
     for (int lvl = 1; lvl >= 1; lvl--)
     {
@@ -447,10 +441,13 @@ void meshOptimizerCPU::optPoseMap(frameCPU &keyframe, std::vector<frameCPU> &fra
 
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
-            e += computeError(keyframe, frames[i], lvl);
+        {
+            scene->transform(frames[i].pose);
+            e += computeError(scene.get(), &frames[i], lvl);
+        }
         e.error /= e.count;
 
-        e_regu = sceneOptimized.errorRegu();
+        e_regu = kscene.errorRegu();
         e_regu.error /= e_regu.count;
 
         float last_error = e.error + meshRegularization * e_regu.error;
@@ -465,7 +462,10 @@ void meshOptimizerCPU::optPoseMap(frameCPU &keyframe, std::vector<frameCPU> &fra
 
             hg.setZero();
             for (std::size_t i = 0; i < frames.size(); i++)
-                hg += computeHGPoseMap(keyframe, frames[i], lvl);
+            {
+                scene->transform(frames[i].pose);
+                hg += computeHGPoseMap(scene.get(), &frames[i], lvl);
+            }
 
             std::vector<int> pIds = hg.G.getParamIds();
 
@@ -475,7 +475,7 @@ void meshOptimizerCPU::optPoseMap(frameCPU &keyframe, std::vector<frameCPU> &fra
             H /= hg.count;
             G /= hg.count;
 
-            hg_regu = sceneOptimized.HGRegu();
+            hg_regu = kscene.HGRegu();
 
             Eigen::VectorXf G_regu = hg_regu.G.toEigen(pIds);
             Eigen::SparseMatrix<float> H_regu = hg_regu.H.toEigen(pIds);
@@ -548,21 +548,24 @@ void meshOptimizerCPU::optPoseMap(frameCPU &keyframe, std::vector<frameCPU> &fra
                     if (pIds[index] < 0)
                         continue;
 
-                    float best_param = sceneOptimized.getParam(pIds[index]);
+                    float best_param = kscene.getParam(pIds[index]);
                     float new_param = best_param + inc(index);
                     best_params[pIds[index]] = best_param;
-                    sceneOptimized.setParam(new_param, pIds[index]);
+                    kscene.setParam(new_param, pIds[index]);
                 }
-                renderer.setScene(sceneOptimized);
+                scene = kscene.clone();
 
                 t.tic();
 
                 e.setZero();
                 for (std::size_t i = 0; i < frames.size(); i++)
-                    e += computeError(keyframe, frames[i], lvl);
+                {
+                    scene->transform(frames[i].pose);
+                    e += computeError(scene.get(), &frames[i], lvl);
+                }
                 e.error /= e.count;
 
-                e_regu = sceneOptimized.errorRegu();
+                e_regu = kscene.errorRegu();
                 e_regu.error /= e_regu.count;
 
                 float error = e.error + meshRegularization * e_regu.error;
@@ -601,9 +604,9 @@ void meshOptimizerCPU::optPoseMap(frameCPU &keyframe, std::vector<frameCPU> &fra
                         // negative ids are for the poses
                         if (pIds[index] < 0)
                             continue;
-                        sceneOptimized.setParam(best_params[pIds[index]], pIds[index]);
+                        kscene.setParam(best_params[pIds[index]], pIds[index]);
                     }
-                    renderer.setScene(sceneOptimized);
+                    scene = kscene.clone();
 
                     n_try++;
 
