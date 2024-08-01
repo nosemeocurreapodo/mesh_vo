@@ -22,7 +22,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 200.0;
+    meshRegularization = 100.0;
     meshInitial = 0.0;
 }
 
@@ -112,8 +112,8 @@ HGMapped meshOptimizerCPU::computeHGPoseMap(SceneBase *scene, frameCPU *frame, i
     error_buffer.set(error_buffer.nodata, lvl);
     pId_buffer.set(pId_buffer.nodata, lvl);
 
-    renderer.renderJPoseMap<MESH_DOF>(&kscene, &kframe, scene, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
-    HGMapped hg = reducer.reduceHGPoseMap<MESH_DOF>(cam[lvl], frame->id, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
+    renderer.renderJPoseMapParallel<MESH_DOF>(&kscene, &kframe, scene, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
+    HGMapped hg = reducer.reduceHGPoseMapParallel<MESH_DOF>(cam[lvl], frame->id, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
     return hg;
 }
@@ -122,30 +122,22 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 {
     int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
 
-    //tic_toc t;
-
     scene->transform(frame.pose);
 
     for (int lvl = 3; lvl >= 1; lvl--)
     {
         //std::cout << "*************************lvl " << lvl << std::endl;
-
-        //t.tic();
         Sophus::SE3f best_pose = frame.pose;
         //Error e = computeError(idepth_buffer, keyframe, frame, lvl);
         Error e = computeError(scene.get(), &frame, lvl);
         float last_error = e.error / e.count;
 
-        //std::cout << "init error " << last_error << " time " << t.toc() << std::endl;
-
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
-            //t.tic();
             //HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
             HGPose  hg = computeHGPose(scene.get(), &frame, lvl);
 
             // std::vector<int> pIds = hg.G.getParamIds();
-
             // Eigen::VectorXf G = hg.G.toEigen(pIds);
             // Eigen::SparseMatrix<float> H = hg.H.toEigen(pIds);
 
@@ -154,8 +146,6 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
             H /= hg.count;
             G /= hg.count;
-
-            //std::cout << "HGPose time " << t.toc() << std::endl;
 
             float lambda = 0.0;
             int n_try = 0;
@@ -175,7 +165,6 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
                 scene->transform(frame.pose);
 
-                //t.tic();
                 //e.setZero();
                 //e = computeError(idepth_buffer, keyframe, frame, lvl);
                 e = computeError(scene.get(), &frame, lvl);
@@ -235,8 +224,6 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
 void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 {
-    tic_toc t;
-
     Error e;
     Error e_regu;
     Error e_init;
@@ -247,8 +234,6 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
     for (int lvl = 1; lvl >= 1; lvl--)
     {
-        t.tic();
-
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
         {
@@ -265,14 +250,12 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
         float last_error = e.error + meshRegularization * e_regu.error + meshInitial * e_init.error;
 
-        std::cout << "--------lvl " << lvl << " initial error " << last_error << " " << t.toc() << std::endl;
+        std::cout << "initial error " << last_error << std::endl;
 
         int maxIterations = 100;
         float lambda = 0.0;
         for (int it = 0; it < maxIterations; it++)
         {
-            t.tic();
-
             hg.setZero();
             for (std::size_t i = 0; i < frames.size(); i++)
             {
@@ -307,8 +290,6 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
             H += meshRegularization * H_regu; // + meshInitial * H_init;
             G += meshRegularization * G_regu; // + meshInitial * G_init;
 
-            std::cout << "HG time " << t.toc() << std::endl;
-
             int n_try = 0;
             while (true)
             {
@@ -318,8 +299,6 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 {
                     H_lambda.coeffRef(j, j) *= (1.0 + lambda);
                 }
-
-                t.tic();
 
                 H_lambda.makeCompressed();
                 // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
@@ -341,8 +320,6 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 // inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
                 // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
 
-                std::cout << "solve time " << t.toc() << std::endl;
-
                 std::vector<float> best_params;
                 for (int index = 0; index < (int)pIds.size(); index++)
                 {
@@ -354,8 +331,6 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                     kscene.setParam(new_param, pIds[index]);
                 }
                 scene = kscene.clone();
-
-                t.tic();
 
                 e.setZero();
                 for (std::size_t i = 0; i < frames.size(); i++)
@@ -373,7 +348,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                 float error = e.error + meshRegularization * e_regu.error + meshInitial * e_init.error;
 
-                std::cout << "new error " << error << " " << t.toc() << std::endl;
+                std::cout << "new error " << error << std::endl;
 
                 if (error < last_error)
                 {
@@ -433,12 +408,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
     HGMapped hg;
     HGMapped hg_regu;
 
-    scene = kscene.clone();
-
     for (int lvl = 1; lvl >= 1; lvl--)
     {
-        t.tic();
-
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
         {
@@ -452,14 +423,12 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
         float last_error = e.error + meshRegularization * e_regu.error;
 
-        std::cout << "--------lvl " << lvl << " initial error " << last_error << " " << t.toc() << std::endl;
+        std::cout << "initial error " << last_error << std::endl;
 
         int maxIterations = 100;
         float lambda = 0.0;
         for (int it = 0; it < maxIterations; it++)
         {
-            t.tic();
-
             hg.setZero();
             for (std::size_t i = 0; i < frames.size(); i++)
             {
@@ -485,8 +454,6 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
             H += meshRegularization * H_regu;
             G += meshRegularization * G_regu;
-
-            std::cout << "HG time " << t.toc() << std::endl;
 
             int n_try = 0;
             while (true)
@@ -520,8 +487,6 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 // inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
                 // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
 
-                std::cout << "solve time " << t.toc() << std::endl;
-
                 // update pose
                 std::vector<Sophus::SE3f> best_poses;
                 for (size_t i = 0; i < frames.size(); i++)
@@ -533,7 +498,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     {
                         int paramId = j - (frames[i].id + 1) * 6;
                         int index = paramId + (frames[frames.size() - 1].id + 1) * 6;
-                        pose_inc(j) = inc(index);
+                        pose_inc(j) = -inc(index);
                     }
                     best_poses.push_back(frames[i].pose);
                     frames[i].pose = frames[i].pose * Sophus::SE3f::exp(pose_inc).inverse();
@@ -570,7 +535,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                 float error = e.error + meshRegularization * e_regu.error;
 
-                std::cout << "new error " << error << " " << t.toc() << std::endl;
+                std::cout << "new error " << error << std::endl;
 
                 if (error < last_error)
                 {

@@ -442,13 +442,18 @@ public:
         float v = barycentric(2);
         float w = barycentric(0);
 
-        Eigen::Vector3f point = b300 * pow(w, 3) + b030 * pow(u, 3) + b003 * pow(v, 3) +
-                                b210 * 3 * pow(w, 2) * u + b120 * 3 * w * pow(u, 2) + b201 * 3 * pow(w, 2) * v +
-                                b021 * 3 * pow(u, 2) * v + b102 * 3 * w * pow(v, 2) + b012 * 3 * u * pow(v, 2) +
-                                b111 * 6 * w * u * v;
-        float depth = point(2);
+        float depth = b300(2) * pow(w, 3)         + b030(2) * pow(u, 3)         + b003(2) * pow(v, 3) +
+                      b210(2) * 3 * pow(w, 2) * u + b120(2) * 3 * w * pow(u, 2) + b201(2) * 3 * pow(w, 2) * v +
+                      b021(2) * 3 * pow(u, 2) * v + b102(2) * 3 * w * pow(v, 2) + b012(2) * 3 * pow(v, 2) * u +
+                      b111(2) * 6 * w * u * v;
 
         return depth;
+    }
+
+    inline Eigen::Vector3f getRay(ShapeBase *shape)
+    {
+        ShapeTriangleSmooth *sh = (ShapeTriangleSmooth*)shape;
+        return barycentric(0)*sh->rays[0] + barycentric(1)*sh->rays[1] + barycentric(2)*sh->rays[2];
     }
 
     /*
@@ -543,9 +548,9 @@ private:
         Eigen::Vector3f P2 = vertices[1];
         Eigen::Vector3f P3 = vertices[2];
 
-        Eigen::Vector3f N1 = normals[0];
-        Eigen::Vector3f N2 = normals[1];
-        Eigen::Vector3f N3 = normals[2];
+        Eigen::Vector3f N1 = normals[0].normalized();
+        Eigen::Vector3f N2 = normals[1].normalized();
+        Eigen::Vector3f N3 = normals[2].normalized();
 
         b300 = P1;
         b030 = P2;

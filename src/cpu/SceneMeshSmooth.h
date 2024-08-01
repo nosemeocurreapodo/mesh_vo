@@ -10,6 +10,8 @@
 #include "common/DelaunayTriangulation.h"
 #include "params.h"
 
+#define MESH_DOF 3
+
 class SceneMeshSmooth : public SceneVerticesNormalsBase
 {
 public:

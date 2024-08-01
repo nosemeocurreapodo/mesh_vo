@@ -672,15 +672,13 @@ private:
 
                     Eigen::Vector3f f_ver = f_ray * f_depth;
 
-                    Eigen::Vector3f kf_ray = f_pol->getRay(kf_pol.get());
+                    //Eigen::Vector3f kf_ray = f_pol->getRay(kf_pol.get());
 
-                    /*
                     Eigen::Vector3f kf_ver = fTokfPose * f_ver;
                     if (kf_ver(2) <= 0.0)
                         continue;
 
                     Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
-                    */
 
                     kf_pol->prepareForRay(kf_ray);
                     if (!kf_pol->rayHitsShape())

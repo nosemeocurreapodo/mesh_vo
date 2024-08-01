@@ -193,8 +193,7 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                //reduceHGMapWindow<DoF>(cam, &j_buffer, &err_buffer, &pId_buffer, &hg, lvl);
-                pool.enqueue(std::bind(&reduceCPU::reduceHGMapWindow<DoF>, this, window, frameId, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg, lvl));
+                pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow<DoF>, this, window, frameId, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
 
@@ -306,8 +305,7 @@ private:
                 if (J_pose == jpose_buffer->nodata || error == error_buffer->nodata)
                     continue;
 
-                hg->count += 1;
-
+                //hg->count += 1;
                 for (int i = 0; i < 6; i++)
                 {
                     hg->G.add(J_pose[i] * error, i - (frameId + 1) * 6);
@@ -330,6 +328,7 @@ private:
                 float error = error_buffer->get(y, x, lvl);
                 std::array<int, DoF> ids = pId_buffer->get(y, x, lvl);
 
+                hg->count += 1;
                 for (int i = 0; i < DoF; i++)
                 {
                     // if the jacobian is 0
