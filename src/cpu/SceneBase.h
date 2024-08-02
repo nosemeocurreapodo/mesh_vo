@@ -35,6 +35,7 @@ public:
     
     virtual std::vector<unsigned int> getShapesIds() const = 0;
     virtual std::unique_ptr<ShapeBase> getShape(unsigned int polId) = 0;
+    virtual void getShape(ShapeBase* shape, unsigned int polId) = 0;
     virtual int getShapesDoF() = 0;
 
     virtual std::vector<unsigned int> getShapeParamsIds(unsigned int polId) = 0;

@@ -98,7 +98,7 @@ public:
     }
     */
 
-    void renderDebug(SceneBase *scene, frameCPU *frame,  camera &cam, dataCPU<float> *buffer, int lvl)
+    void renderDebug(SceneBase *scene, frameCPU *frame, camera &cam, dataCPU<float> *buffer, int lvl)
     {
         std::array<int, 4> window = {0, cam.width, 0, cam.height};
 
@@ -324,10 +324,13 @@ public:
 private:
     void renderImageWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, camera cam, std::array<int, 4> window, dataCPU<float> *buffer, int lvl)
     {
-        //Sophus::SE3f kfTofPose = m_scene_second_view->getPose() * kframe->pose.inverse();
-        //Sophus::SE3f fTokfPose = kfTofPose.inverse();
+        // Sophus::SE3f kfTofPose = m_scene_second_view->getPose() * kframe->pose.inverse();
+        // Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         std::vector<unsigned int> ids = scene->getShapesIds();
+
+        auto kf_pol = kscene->getShape(ids[0]);
+        auto f_pol = scene->getShape(ids[0]);
 
         // for each triangle
         for (auto t_id : ids)
@@ -338,8 +341,11 @@ private:
             // if (kf_tri.getArea() < 1.0)
             //     continue;
 
-            auto kf_pol = kscene->getShape(t_id);
-            auto f_pol = scene->getShape(t_id);
+            //auto kf_pol = kscene->getShape(t_id);
+            //auto f_pol = scene->getShape(t_id);
+            kscene->getShape(kf_pol.get(), t_id);
+            scene->getShape(f_pol.get(), t_id);
+
             // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
             if (f_pol->getArea() < 0.0)
@@ -371,7 +377,7 @@ private:
                         continue;
 
                     Eigen::Vector3f kf_ray = f_pol->getRay(kf_pol.get());
-                    
+
                     /*
                     Eigen::Vector3f f_ver = f_ray * f_depth;
 
@@ -446,8 +452,8 @@ private:
         float min_area = 0.0 * (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) / 16;
         // float min_angle = M_PI / 64.0;
 
-        //Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
-        //Sophus::SE3f fTokfPose = kfTofPose.inverse();
+        // Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
+        // Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         // for each triangle
         std::vector<unsigned int> t_ids = scene->getShapesIds();
@@ -482,14 +488,14 @@ private:
                     float f_depth = f_pol->getRayDepth();
                     if (f_depth <= 0.0)
                         continue;
-                                        
+
                     // z-buffer
                     float l_depth = z_buffer.get(y, x, lvl);
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
                     Eigen::Vector3f f_ver = f_ray * f_depth;
-                    
+
                     Eigen::Vector3f kf_ray = f_pol->getRay(kf_pol.get());
 
                     /*
@@ -499,7 +505,7 @@ private:
 
                     Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
                     */
-                    
+
                     Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
 
                     if (!cam.isPixVisible(kf_pix))
@@ -672,7 +678,7 @@ private:
 
                     Eigen::Vector3f f_ver = f_ray * f_depth;
 
-                    //Eigen::Vector3f kf_ray = f_pol->getRay(kf_pol.get());
+                    // Eigen::Vector3f kf_ray = f_pol->getRay(kf_pol.get());
 
                     Eigen::Vector3f kf_ver = fTokfPose * f_ver;
                     if (kf_ver(2) <= 0.0)
@@ -713,7 +719,7 @@ private:
                     // this could be the jacobian of the depth of the 3 vertices in a triangle
                     // or the jacobian of the normal + depth of a surfel
                     std::vector<float> Jacobian = kf_pol->getJacobian(d_f_i_d_kf_depth);
-                    //std::vector<float> Jacobian2 = f_pol->getJacobian(d_f_i_d_kf_depth);
+                    // std::vector<float> Jacobian2 = f_pol->getJacobian(d_f_i_d_kf_depth);
 
                     std::array<float, DoF> jacs = jmap_buffer->nodata;
                     std::array<int, DoF> ids = pId_buffer->nodata;

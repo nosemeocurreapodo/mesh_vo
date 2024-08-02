@@ -111,5 +111,5 @@ public:
     }
 
 private:
-    std::map<unsigned int, Eigen::Vector3f> normals;
+    std::unordered_map<unsigned int, Eigen::Vector3f> normals;
 };

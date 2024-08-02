@@ -218,7 +218,8 @@ private:
 class ShapeTriangleFlat : public ShapeBase
 {
 public:
-    ShapeTriangleFlat(Eigen::Vector3f vert1, Eigen::Vector3f vert2, Eigen::Vector3f vert3, DepthJacobianMethod jacMethod)
+    /*
+    ShapeTriangleFlat(Eigen::Vector3f &vert1, Eigen::Vector3f &vert2, Eigen::Vector3f &vert3, DepthJacobianMethod &jacMethod)
     {
         vertices[0] = vert1;
         vertices[1] = vert2;
@@ -228,17 +229,56 @@ public:
         rays[1] = vertices[1] / vertices[1](2);
         rays[2] = vertices[2] / vertices[2](2);
 
-        computeNormal();
+        //computeNormal();
         prepareForMapJacobian(jacMethod);
 
         // Calculate the area of the triangle
         denominator = (rays[1].y() - rays[2].y()) * (rays[0].x() - rays[2].x()) +
                       (rays[2].x() - rays[1].x()) * (rays[0].y() - rays[2].y());
     };
+    */
+
+    ShapeTriangleFlat() {};
+
+    ShapeTriangleFlat(Eigen::Vector3f &ray0, Eigen::Vector3f &ray1, Eigen::Vector3f &ray2,
+                      float &depth0, float &depth1, float &depth2, DepthJacobianMethod jacMethod)
+        : m_ray0(ray0),
+          m_ray1(ray1),
+          m_ray2(ray2),
+          m_depth0(depth0),
+          m_depth1(depth1),
+          m_depth2(depth2)
+    {
+        // computeNormal();
+        prepareForMapJacobian(jacMethod);
+
+        // Calculate the area of the triangle
+        denominator = (m_ray1.y() - m_ray2.y()) * (m_ray0.x() - m_ray2.x()) +
+                      (m_ray2.x() - m_ray1.x()) * (m_ray0.y() - m_ray2.y());
+    };
+
+    void set(Eigen::Vector3f &ray0, Eigen::Vector3f &ray1, Eigen::Vector3f &ray2,
+             float &depth0, float &depth1, float &depth2, DepthJacobianMethod jacMethod)
+    {
+        m_ray0 = ray0;
+        m_ray1 = ray1;
+        m_ray2 = ray2;
+
+        m_depth0 = depth0;
+        m_depth1 = depth1;
+        m_depth2 = depth2;
+        // computeNormal();
+        prepareForMapJacobian(jacMethod);
+
+        // Calculate the area of the triangle
+        denominator = (m_ray1.y() - m_ray2.y()) * (m_ray0.x() - m_ray2.x()) +
+                      (m_ray2.x() - m_ray1.x()) * (m_ray0.y() - m_ray2.y());
+    }
 
     float getArea() override
     {
-        return normal.norm() / 2.0;
+        return 1.0;
+        // return normal.norm() / 2.0;
     }
 
     inline void prepareForRay(Eigen::Vector3f &r) override
@@ -250,17 +290,17 @@ public:
     inline float getRayDepth() override
     {
         // float ray_depth = vertices[0].dot(normal) / ray.dot(normal);
-        float ray_depth = barycentric(0) * vertices[0](2) +
-                          barycentric(1) * vertices[1](2) +
-                          barycentric(2) * vertices[2](2);
+        float ray_depth = barycentric(0) * m_depth0 +
+                          barycentric(1) * m_depth1 +
+                          barycentric(2) * m_depth2;
 
         return ray_depth;
     }
 
     inline Eigen::Vector3f getRay(ShapeBase *shape)
     {
-        ShapeTriangleFlat *sh = (ShapeTriangleFlat*)shape;
-        return barycentric(0)*sh->rays[0] + barycentric(1)*sh->rays[1] + barycentric(2)*sh->rays[2];
+        ShapeTriangleFlat *sh = (ShapeTriangleFlat *)shape;
+        return barycentric(0) * sh->m_ray0 + barycentric(1) * sh->m_ray1 + barycentric(2) * sh->m_ray2;
     }
 
     /*
@@ -314,9 +354,9 @@ public:
     std::array<int, 4> getScreenBounds(camera &cam) override
     {
         Eigen::Vector2f screencoords[3];
-        screencoords[0] = cam.rayToPix(rays[0]);
-        screencoords[1] = cam.rayToPix(rays[1]);
-        screencoords[2] = cam.rayToPix(rays[2]);
+        screencoords[0] = cam.rayToPix(m_ray0);
+        screencoords[1] = cam.rayToPix(m_ray1);
+        screencoords[2] = cam.rayToPix(m_ray2);
 
         std::array<int, 4> minmax;
         minmax[0] = (int)std::min(std::min(screencoords[0](0), screencoords[1](0)), screencoords[2](0)) - 1;
@@ -341,46 +381,64 @@ public:
     }
 
 private:
-    void prepareForMapJacobian(DepthJacobianMethod jacMethod)
+    inline void prepareForMapJacobian(DepthJacobianMethod &jacMethod)
     {
-        for (int i = 0; i < 3; i++)
+        // with respecto to idepth (depth = 1/idepth)
+        if (jacMethod == DepthJacobianMethod::idepthJacobian)
         {
-            // with respect to depth
-            if (jacMethod == DepthJacobianMethod::depthJacobian)
-                d_z_d_iz[i] = 1.0;
-            // with respecto to idepth (depth = 1/idepth)
-            if (jacMethod == DepthJacobianMethod::idepthJacobian)
-                d_z_d_iz[i] = -(vertices[i](2) * vertices[i](2));
-            // width respect to depth = exp(z)
-            if (jacMethod == DepthJacobianMethod::logDepthJacobian)
-                d_z_d_iz[i] = vertices[i](2);
-            if (jacMethod == DepthJacobianMethod::logIdepthJacobian)
-                d_z_d_iz[i] = -vertices[i](2);
+            d_z_d_iz[0] = -(m_depth0 * m_depth0);
+            d_z_d_iz[1] = -(m_depth1 * m_depth1);
+            d_z_d_iz[2] = -(m_depth2 * m_depth2);
+        }
+        // with respect to depth
+        if (jacMethod == DepthJacobianMethod::depthJacobian)
+        {
+            d_z_d_iz[0] = 1.0;
+            d_z_d_iz[1] = 1.0;
+            d_z_d_iz[2] = 1.0;
+        }
+        // width respect to depth = exp(z)
+        if (jacMethod == DepthJacobianMethod::logDepthJacobian)
+        {
+            d_z_d_iz[0] = m_depth0;
+            d_z_d_iz[1] = m_depth1;
+            d_z_d_iz[2] = m_depth2;
+        }
+        if (jacMethod == DepthJacobianMethod::logIdepthJacobian)
+        {
+            d_z_d_iz[0] = -m_depth0;
+            d_z_d_iz[1] = -m_depth1;
+            d_z_d_iz[2] = -m_depth2;
         }
     }
 
     void computeNormal()
     {
         // normal = ((vertices[0] - vertices[2]).cross(vertices[0] - vertices[1]));
-        normal = ((vertices[1] - vertices[0]).cross(vertices[2] - vertices[0]));
+        // normal = ((vertices[1] - vertices[0]).cross(vertices[2] - vertices[0]));
     }
 
     inline void computeBarycentric(Eigen::Vector3f &ray)
     {
         // Calculate the sub-areas
-        barycentric(0) = ((rays[1].y() - rays[2].y()) * (ray.x() - rays[2].x()) +
-                          (rays[2].x() - rays[1].x()) * (ray.y() - rays[2].y())) /
+        barycentric(0) = ((m_ray1.y() - m_ray2.y()) * (ray.x() - m_ray2.x()) +
+                          (m_ray2.x() - m_ray1.x()) * (ray.y() - m_ray2.y())) /
                          denominator;
-        barycentric(1) = ((rays[2].y() - rays[0].y()) * (ray.x() - rays[2].x()) +
-                          (rays[0].x() - rays[2].x()) * (ray.y() - rays[2].y())) /
+        barycentric(1) = ((m_ray2.y() - m_ray0.y()) * (ray.x() - m_ray2.x()) +
+                          (m_ray0.x() - m_ray2.x()) * (ray.y() - m_ray2.y())) /
                          denominator;
         barycentric(2) = 1.0f - barycentric(0) - barycentric(1);
     }
 
-    Eigen::Vector3f vertices[3];
-    Eigen::Vector3f rays[3];
+    // Eigen::Vector3f vertices[3];
+    float m_depth0;
+    float m_depth1;
+    float m_depth2;
+    Eigen::Vector3f m_ray0;
+    Eigen::Vector3f m_ray1;
+    Eigen::Vector3f m_ray2;
 
-    Eigen::Vector3f normal;
+    // Eigen::Vector3f normal;
 
     Eigen::Vector3f ray;
     Eigen::Vector3f barycentric;
@@ -442,7 +500,7 @@ public:
         float v = barycentric(2);
         float w = barycentric(0);
 
-        float depth = b300(2) * pow(w, 3)         + b030(2) * pow(u, 3)         + b003(2) * pow(v, 3) +
+        float depth = b300(2) * pow(w, 3) + b030(2) * pow(u, 3) + b003(2) * pow(v, 3) +
                       b210(2) * 3 * pow(w, 2) * u + b120(2) * 3 * w * pow(u, 2) + b201(2) * 3 * pow(w, 2) * v +
                       b021(2) * 3 * pow(u, 2) * v + b102(2) * 3 * w * pow(v, 2) + b012(2) * 3 * pow(v, 2) * u +
                       b111(2) * 6 * w * u * v;
@@ -452,8 +510,8 @@ public:
 
     inline Eigen::Vector3f getRay(ShapeBase *shape)
     {
-        ShapeTriangleSmooth *sh = (ShapeTriangleSmooth*)shape;
-        return barycentric(0)*sh->rays[0] + barycentric(1)*sh->rays[1] + barycentric(2)*sh->rays[2];
+        ShapeTriangleSmooth *sh = (ShapeTriangleSmooth *)shape;
+        return barycentric(0) * sh->rays[0] + barycentric(1) * sh->rays[1] + barycentric(2) * sh->rays[2];
     }
 
     /*

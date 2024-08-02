@@ -20,6 +20,7 @@ public:
     SceneVerticesBase(const SceneVerticesBase &other) : SceneBase(other)
     {
         vertices = other.vertices;
+        rays = other.rays;
         last_vertice_id = other.last_vertice_id;
         dJacMethod = other.dJacMethod;
     }
@@ -46,6 +47,7 @@ public:
     void clear() override
     {
         vertices.clear();
+        rays.clear();
         last_vertice_id = 0;
     }
 
@@ -76,11 +78,34 @@ public:
         }
     }
 
-    Eigen::Vector3f getVertice(unsigned int id)
+    inline Eigen::Vector3f &getVertice(unsigned int id)
     {
+#ifdef DEBUG
         if (!vertices.count(id))
             throw std::out_of_range("getVertice invalid id");
+#endif
+
         return vertices[id];
+    }
+
+    inline Eigen::Vector3f &getRay(unsigned int id)
+    {
+#ifdef DEBUG
+        if (!rays.count(id))
+            throw std::out_of_range("getVertice invalid id");
+#endif
+
+        return rays[id];
+    }
+
+    inline float &getDepth(unsigned int id)
+    {
+#ifdef DEBUG
+        if (!rays.count(id))
+            throw std::out_of_range("getVertice invalid id");
+#endif
+
+        return vertices[id](2);
     }
 
     unsigned int addVertice(Eigen::Vector3f &vert)
@@ -90,6 +115,7 @@ public:
         if (vertices.count(last_vertice_id))
             throw std::out_of_range("addVertice id already exist");
         vertices[last_vertice_id] = vert;
+        rays[last_vertice_id] = vert / vert(2);
         return last_vertice_id;
     }
 
@@ -98,6 +124,7 @@ public:
         if (!vertices.count(id))
             throw std::out_of_range("removeVertice id invalid");
         vertices.erase(id);
+        rays.erase(id);
     }
 
     void setVertice(Eigen::Vector3f &vert, unsigned int id)
@@ -105,13 +132,15 @@ public:
         if (!vertices.count(id))
             throw std::out_of_range("setVertice invalid id");
         vertices[id] = vert;
+        rays[id] = vert / vert(2);
     }
 
     void setVerticeDepth(float depth, unsigned int id)
     {
         if (!vertices.count(id))
             throw std::out_of_range("setVerticeDepth invalid id");
-        vertices[id] = depth * vertices[id] / vertices[id](2);
+        // vertices[id] = depth * vertices[id] / vertices[id](2);
+        vertices[id] = depth * rays[id];
     }
 
     float getVerticeDepth(unsigned int id)
@@ -139,11 +168,12 @@ public:
             Eigen::Vector3f pos = it->second;
             pos = relativePose * pos;
             it->second = pos;
+            rays[it->first] = pos / pos(2);
         }
         setPose(newGlobalPose);
     }
 
-    DepthJacobianMethod getDepthJacMethod()
+    inline DepthJacobianMethod getDepthJacMethod()
     {
         return dJacMethod;
     }
@@ -225,7 +255,9 @@ public:
     }
 
 private:
-    std::map<unsigned int, Eigen::Vector3f> vertices;
+    std::unordered_map<unsigned int, Eigen::Vector3f> vertices;
+    std::unordered_map<unsigned int, Eigen::Vector3f> rays;
+
     int last_vertice_id;
 
     DepthJacobianMethod dJacMethod;

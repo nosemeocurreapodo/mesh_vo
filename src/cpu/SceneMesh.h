@@ -61,12 +61,32 @@ public:
         return 3;
     }
 
+    /*
     std::unique_ptr<ShapeBase> getShape(unsigned int polId) override
     {
-        // always return triangle in cartesian
         std::array<unsigned int, 3> tri = getTriangleIndices(polId);
         ShapeTriangleFlat pol(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
         return std::make_unique<ShapeTriangleFlat>(pol);
+    }
+    */
+
+    std::unique_ptr<ShapeBase> getShape(unsigned int polId) override
+    {
+        auto tri = getTriangleIndices(polId);
+        // return std::make_unique<ShapeTriangleFlat>(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
+        return std::make_unique<ShapeTriangleFlat>(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
+                                                   getDepth(tri[0]), getDepth(tri[1]), getDepth(tri[2]),
+                                                   getDepthJacMethod());
+    }
+
+    void getShape(ShapeBase *shape, unsigned int polId) override
+    {
+        auto tri = getTriangleIndices(polId);
+        // return std::make_unique<ShapeTriangleFlat>(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
+        ShapeTriangleFlat *_shape = (ShapeTriangleFlat *)shape;
+        _shape->set(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
+                    getDepth(tri[0]), getDepth(tri[1]), getDepth(tri[2]),
+                    getDepthJacMethod());
     }
 
     std::vector<unsigned int> getShapesIds() const override
@@ -250,10 +270,13 @@ private:
         triangles[id] = tri;
     }
 
-    std::array<unsigned int, 3> getTriangleIndices(unsigned int id)
+    inline std::array<unsigned int, 3> getTriangleIndices(unsigned int id)
     {
+#ifdef DEBUG
         if (!triangles.count(id))
             throw std::out_of_range("setTriangleIndices invalid id");
+#endif
+
         return triangles[id];
     }
 
@@ -289,7 +312,7 @@ private:
                 for (size_t j = 0; j < edgeFront.size(); j++)
                 {
                     std::array<unsigned int, 2> ef = edgeFront[j].first;
-                    //unsigned int t_id = edgeFront[j].second;
+                    // unsigned int t_id = edgeFront[j].second;
                     if (isEdgeEqual(edges[i], ef))
                     {
                         edge_index = j;
@@ -338,6 +361,7 @@ private:
 
     void removeTrianglesWithoutPoints()
     {
+        /*
         std::vector<unsigned int> trisIds = getTrianglesIds();
         for (auto it = trisIds.begin(); it != trisIds.end(); it++)
         {
@@ -351,6 +375,7 @@ private:
                 triangles.erase(*it);
             }
         }
+        */
     }
 
     void buildTriangles()
