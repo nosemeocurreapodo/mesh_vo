@@ -13,7 +13,6 @@ class SceneVerticesBase : public SceneBase
 public:
     SceneVerticesBase() : SceneBase()
     {
-        last_vertice_id = 0;
         dJacMethod = DepthJacobianMethod::depthJacobian;
     };
 
@@ -21,7 +20,6 @@ public:
     {
         vertices = other.vertices;
         rays = other.rays;
-        last_vertice_id = other.last_vertice_id;
         dJacMethod = other.dJacMethod;
     }
     /*
@@ -48,7 +46,6 @@ public:
     {
         vertices.clear();
         rays.clear();
-        last_vertice_id = 0;
     }
 
     void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) override
@@ -80,45 +77,36 @@ public:
 
     inline Eigen::Vector3f &getVertice(unsigned int id)
     {
-#ifdef DEBUG
-        if (!vertices.count(id))
+        if (id >= vertices.size())
             throw std::out_of_range("getVertice invalid id");
-#endif
 
         return vertices[id];
     }
 
     inline Eigen::Vector3f &getRay(unsigned int id)
     {
-#ifdef DEBUG
-        if (!rays.count(id))
-            throw std::out_of_range("getVertice invalid id");
-#endif
-
+        if (id >= rays.size())
+            throw std::out_of_range("getRay invalid id");
         return rays[id];
     }
 
     inline float &getDepth(unsigned int id)
     {
-#ifdef DEBUG
-        if (!rays.count(id))
-            throw std::out_of_range("getVertice invalid id");
-#endif
+        if (id >= vertices.size())
+            throw std::out_of_range("getDepth invalid id");
 
         return vertices[id](2);
     }
 
     unsigned int addVertice(Eigen::Vector3f &vert)
     {
-        // the input vertice is always in cartesian
-        last_vertice_id++;
-        if (vertices.count(last_vertice_id))
-            throw std::out_of_range("addVertice id already exist");
-        vertices[last_vertice_id] = vert;
-        rays[last_vertice_id] = vert / vert(2);
-        return last_vertice_id;
+        int id = vertices.size();
+        vertices.push_back(vert);
+        rays.push_back(vert / vert(2));
+        return id;
     }
 
+    /*
     void removeVertice(unsigned int id)
     {
         if (!vertices.count(id))
@@ -126,36 +114,40 @@ public:
         vertices.erase(id);
         rays.erase(id);
     }
+    */
 
     void setVertice(Eigen::Vector3f &vert, unsigned int id)
     {
-        if (!vertices.count(id))
+        if (id >= vertices.size())
             throw std::out_of_range("setVertice invalid id");
+
         vertices[id] = vert;
         rays[id] = vert / vert(2);
     }
 
     void setVerticeDepth(float depth, unsigned int id)
     {
-        if (!vertices.count(id))
+        if (id >= vertices.size())
             throw std::out_of_range("setVerticeDepth invalid id");
+
         // vertices[id] = depth * vertices[id] / vertices[id](2);
         vertices[id] = depth * rays[id];
     }
 
     float getVerticeDepth(unsigned int id)
     {
-        if (!vertices.count(id))
+        if (id >= vertices.size())
             throw std::out_of_range("getVerticeDepth invalid id");
+
         return vertices[id](2);
     }
 
     std::vector<unsigned int> getVerticesIds() const
     {
         std::vector<unsigned int> keys;
-        for (auto it = vertices.begin(); it != vertices.end(); ++it)
+        for (size_t it = 0; it < vertices.size(); ++it)
         {
-            keys.push_back(it->first);
+            keys.push_back((unsigned int)it);
         }
         return keys;
     }
@@ -163,12 +155,10 @@ public:
     void transform(Sophus::SE3f newGlobalPose) override
     {
         Sophus::SE3f relativePose = newGlobalPose * getPose().inverse();
-        for (auto it = vertices.begin(); it != vertices.end(); ++it)
+        for (size_t it = 0; it < vertices.size(); ++it)
         {
-            Eigen::Vector3f pos = it->second;
-            pos = relativePose * pos;
-            it->second = pos;
-            rays[it->first] = pos / pos(2);
+            vertices[it] = relativePose * vertices[it];
+            rays[it] = vertices[it] / vertices[it](2);
         }
         setPose(newGlobalPose);
     }
@@ -255,8 +245,8 @@ public:
     }
 
 private:
-    std::unordered_map<unsigned int, Eigen::Vector3f> vertices;
-    std::unordered_map<unsigned int, Eigen::Vector3f> rays;
+    std::vector<Eigen::Vector3f> vertices;
+    std::vector<Eigen::Vector3f> rays;
 
     int last_vertice_id;
 

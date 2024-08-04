@@ -405,8 +405,8 @@ private:
                     break;
                 }
             }
-            if (remove)
-                removeVertice(*it);
+            //if (remove)
+            //    removeVertice(*it);
         }
     }
 
@@ -436,7 +436,7 @@ private:
         std::vector<unsigned int> ids = getVerticesIds();
         for (auto id : ids)
         {
-            Eigen::Vector3f ray = getVertice(id) / getVertice(id)(2);
+            Eigen::Vector3f ray = getRay(id);
             rays[id](0) = ray(0);
             rays[id](1) = ray(1);
         }
