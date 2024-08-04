@@ -135,7 +135,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             //HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
-            HGPose  hg = computeHGPose(scene.get(), &frame, lvl);
+            HGPose hg = computeHGPose(scene.get(), &frame, lvl);
 
             // std::vector<int> pIds = hg.G.getParamIds();
             // Eigen::VectorXf G = hg.G.toEigen(pIds);
@@ -260,7 +260,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
             for (std::size_t i = 0; i < frames.size(); i++)
             {
                 scene->transform(frames[i].pose);
-                hg += computeHGMap(scene.get(), &frames[i], lvl);
+                HGMapped _hg = computeHGMap(scene.get(), &frames[i], lvl);
+                hg += _hg;
             }
 
             std::vector<int> pIds = hg.G.getParamIds();
@@ -433,7 +434,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
             for (std::size_t i = 0; i < frames.size(); i++)
             {
                 scene->transform(frames[i].pose);
-                hg += computeHGPoseMap(scene.get(), &frames[i], lvl);
+                HGMapped _hg = computeHGPoseMap(scene.get(), &frames[i], lvl);
+                hg += _hg;
             }
 
             std::vector<int> pIds = hg.G.getParamIds();

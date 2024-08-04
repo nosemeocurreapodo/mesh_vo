@@ -51,8 +51,8 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                // renderJPoseWindow(&frame2Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl);
-                pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, window, &image1, &image2, &partialerr[tx + ty * divi_x], lvl));
+                reduceErrorWindow(window, &image1, &image2, &partialerr[tx + ty * divi_x], lvl);
+                //pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, window, &image1, &image2, &partialerr[tx + ty * divi_x], lvl));
             }
         }
 
@@ -97,8 +97,8 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                // renderJPoseWindow(&frame2Idepth, cam_window, &frame1, &frame2, &jtra_buffer, &jrot_buffer, &e_buffer, lvl);
-                pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, window, &jpose_buffer, &err_buffer, &partialhg[tx + ty * divi_x], lvl));
+                reduceHGPoseWindow(window, &jpose_buffer, &err_buffer, &partialhg[tx + ty * divi_x], lvl);
+                //pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, window, &jpose_buffer, &err_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
 
@@ -145,8 +145,8 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                //reduceHGMapWindow<DoF>(cam, &j_buffer, &err_buffer, &pId_buffer, &hg, lvl);
-                pool.enqueue(std::bind(&reduceCPU::reduceHGMapWindow<DoF>, this, window, &j_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
+                reduceHGMapWindow<DoF>(window, &j_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl);
+                //pool.enqueue(std::bind(&reduceCPU::reduceHGMapWindow<DoF>, this, window, &j_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
 
@@ -193,7 +193,8 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow<DoF>, this, window, frameId, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
+                reduceHGPoseMapWindow<DoF>(window, frameId, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl);
+                //pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow<DoF>, this, window, frameId, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
 

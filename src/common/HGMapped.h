@@ -242,7 +242,7 @@ public:
         count = 0;
     }
 
-    HGMapped operator+(HGMapped a)
+    HGMapped operator+(HGMapped &a)
     {
         HGMapped sum;
 
@@ -253,7 +253,7 @@ public:
         return sum;
     }
 
-    void operator+=(HGMapped a)
+    void operator+=(HGMapped &a)
     {
         G += a.G;
         H += a.H;

@@ -18,12 +18,12 @@ public:
     void addSuperTriangle();
     void removeSuperTriangle();
 
-    void loadPoints(std::map<unsigned int, Eigen::Vector2f> &texcoords)
+    void loadPoints(std::unordered_map<unsigned int, Eigen::Vector2f> &texcoords)
     {
         vertices = texcoords;
     }
 
-    void loadTriangles(std::map<unsigned int, std::array<unsigned int, 3>> &tris)
+    void loadTriangles(std::unordered_map<unsigned int, std::array<unsigned int, 3>> &tris)
     {
         for (auto it = tris.begin(); it != tris.end(); ++it)
         {
@@ -33,11 +33,11 @@ public:
 
     void triangulateVertice(Eigen::Vector2f &vertice, unsigned int id);
     void triangulate();
-    std::map<unsigned int, std::array<unsigned int, 3>> getTriangles();
+    std::unordered_map<unsigned int, std::array<unsigned int, 3>> getTriangles();
 
 private:
-    std::map<unsigned int, Eigen::Vector2f> vertices;
-    std::map<unsigned int, std::array<unsigned int, 3>> triangles;
+    std::unordered_map<unsigned int, Eigen::Vector2f> vertices;
+    std::unordered_map<unsigned int, std::array<unsigned int, 3>> triangles;
 
     std::array<unsigned int, 3> superTriangle;
 

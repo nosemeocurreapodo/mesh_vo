@@ -196,7 +196,7 @@ void DelaunayTriangulation::removeSuperTriangle()
     }
 }
 
-std::map<unsigned int, std::array<unsigned int, 3>> DelaunayTriangulation::getTriangles()
+std::unordered_map<unsigned int, std::array<unsigned int, 3>> DelaunayTriangulation::getTriangles()
 {
     return triangles;
 }

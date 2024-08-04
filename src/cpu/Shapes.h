@@ -238,7 +238,7 @@ public:
     };
     */
 
-    ShapeTriangleFlat() {};
+    //ShapeTriangleFlat() {};
 
     ShapeTriangleFlat(Eigen::Vector3f &ray0, Eigen::Vector3f &ray1, Eigen::Vector3f &ray2,
                       float &depth0, float &depth1, float &depth2, DepthJacobianMethod jacMethod)

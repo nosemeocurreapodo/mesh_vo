@@ -6,6 +6,7 @@
 #include "cpu/Shapes.h"
 #include "common/common.h"
 #include "common/DelaunayTriangulation.h"
+#include "common/HGEigen.h"
 #include "params.h"
 
 #define MESH_DOF 3
@@ -176,6 +177,56 @@ public:
             {
                 // if (hg.G(NUM_FRAMES*6 + vertexIndex[j]) == 0)
                 //     continue;
+                //hg.G[v_ids[j]] += (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
+                hg.G.add(diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j], v_ids[j]);
+                for (int k = 0; k < 3; k++)
+                {
+                    //hg.H[v_ids[j]][v_ids[k]] += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
+                    hg.H.add(J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k], v_ids[j], v_ids[k]);
+
+                }
+            }
+        }
+
+        hg.count = polIds.size();
+
+        return hg;
+    }
+
+    /*
+    HGEigen HGRegu()
+    {
+        std::vector<unsigned int> verIds = getVerticesIds();
+
+        HGEigen hg(verIds.size(), verIds.size());
+
+        std::vector<unsigned int> polIds = getTrianglesIds();
+
+        for (size_t i = 0; i < polIds.size(); i++)
+        {
+            unsigned int p_id = polIds[i];
+
+            std::array<unsigned int, 3> v_ids = getTriangleIndices(p_id);
+
+            float theta[v_ids.size()];
+
+            for (size_t j = 0; j < v_ids.size(); j++)
+            {
+                theta[j] = getDepthParam(v_ids[j]);
+            }
+
+            float diff1 = theta[0] - theta[1];
+            float diff2 = theta[0] - theta[2];
+            float diff3 = theta[1] - theta[2];
+
+            float J1[3] = {1.0, -1.0, 0.0};
+            float J2[3] = {1.0, 0.0, -1.0};
+            float J3[3] = {0.0, 1.0, -1.0};
+
+            for (int j = 0; j < 3; j++)
+            {
+                // if (hg.G(NUM_FRAMES*6 + vertexIndex[j]) == 0)
+                //     continue;
                 hg.G[v_ids[j]] += (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
                 for (int k = 0; k < 3; k++)
                 {
@@ -188,6 +239,7 @@ public:
 
         return hg;
     }
+    */
 
     Error errorInitial(SceneMesh &initScene, MatrixMapped &initThetaVar)
     {
@@ -244,7 +296,7 @@ private:
         triangles.clear();
     }
 
-    void setTriangles(std::map<unsigned int, std::array<unsigned int, 3>> &new_tris)
+    void setTriangles(std::unordered_map<unsigned int, std::array<unsigned int, 3>> &new_tris)
     {
         triangles = new_tris;
     }
@@ -270,13 +322,12 @@ private:
         triangles[id] = tri;
     }
 
-    inline std::array<unsigned int, 3> getTriangleIndices(unsigned int id)
+    inline std::array<unsigned int, 3> &getTriangleIndices(unsigned int id)
     {
 #ifdef DEBUG
         if (!triangles.count(id))
             throw std::out_of_range("setTriangleIndices invalid id");
 #endif
-
         return triangles[id];
     }
 
@@ -381,7 +432,7 @@ private:
     void buildTriangles()
     {
         DelaunayTriangulation triangulation;
-        std::map<unsigned int, Eigen::Vector2f> rays;
+        std::unordered_map<unsigned int, Eigen::Vector2f> rays;
         std::vector<unsigned int> ids = getVerticesIds();
         for (auto id : ids)
         {
@@ -391,7 +442,7 @@ private:
         }
         triangulation.loadPoints(rays);
         triangulation.triangulate();
-        std::map<unsigned int, std::array<unsigned int, 3>> tris = triangulation.getTriangles();
+        std::unordered_map<unsigned int, std::array<unsigned int, 3>> tris = triangulation.getTriangles();
         clearTriangles();
         setTriangles(tris);
     }
@@ -429,6 +480,6 @@ private:
     }
     */
 
-    std::map<unsigned int, std::array<unsigned int, 3>> triangles;
+    std::unordered_map<unsigned int, std::array<unsigned int, 3>> triangles;
     int last_triangle_id;
 };

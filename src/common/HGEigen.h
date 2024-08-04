@@ -1,39 +1,43 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <Eigen/Sparse>
 
-class HGPose
+class HGEigen
 {
 public:
-    HGPose()
+    HGEigen(int size)
     {
-        H.setZero();
-        G.setZero();
+        H = Eigen::SparseMatrix<float>(size, size);
+        G = Eigen::VectorXf::Zero(size);
         count = 0;
     }
 
+    /*
     void setZero()
     {
         H.setZero();
         G.setZero();
         count = 0;
     }
-
-    HGPose operator+(HGPose &a)
+    */
+    /*
+    HGEigen operator+(HGEigen a)
     {
-        HGPose sum;
+        HGEigen sum;
         sum.H = H + a.H;
         sum.G = G + a.G;
         sum.count = count + a.count;
         return sum;
     }
 
-    void operator+=(HGPose &a)
+    void operator+=(HGMap &a)
     {
         H += a.H;
         G += a.G;
         count += a.count;
     }
+    */
 
     /*
     void operator=(HGPose _pose)
@@ -43,10 +47,9 @@ public:
     }
     */
 
-    Eigen::Matrix<float, 6, 6> H;
-    Eigen::Matrix<float, 6, 1> G;
+    Eigen::SparseMatrix<float> H;
+    Eigen::VectorXf G;
     int count;
 
 private:
-
 };
