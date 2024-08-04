@@ -54,8 +54,8 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                renderImageWindow(kscene, kframe, scene, cam, window, buffer, lvl);
-                //pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kscene, kframe, scene, cam, window, buffer, lvl));
+                //renderImageWindow(kscene, kframe, scene, cam, window, buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kscene, kframe, scene, cam, window, buffer, lvl));
             }
         }
 
@@ -125,8 +125,8 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                renderDebugWindow(scene, frame, cam, window, buffer, lvl);
-                //pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, scene, frame, cam, window, buffer, lvl));
+                //renderDebugWindow(scene, frame, cam, window, buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, scene, frame, cam, window, buffer, lvl));
             }
         }
 
@@ -164,8 +164,8 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                renderJMapWindow<DoF>(kscene, kframe, scene, frame, cam, window, jmap_buffer, e_buffer, pId_buffer, lvl);
-                //pool.enqueue(std::bind(&renderCPU::renderJMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, window, jmap_buffer, e_buffer, pId_buffer, lvl));
+                //renderJMapWindow<DoF>(kscene, kframe, scene, frame, cam, window, jmap_buffer, e_buffer, pId_buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderJMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, window, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
 
@@ -203,8 +203,8 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                renderJPoseMapWindow<DoF>(kscene, kframe, scene, frame, cam, window, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
-                //pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, window, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
+                //renderJPoseMapWindow<DoF>(kscene, kframe, scene, frame, cam, window, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, window, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
 
@@ -238,8 +238,8 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                renderJPoseWindow(kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl);
-                //pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl));
+                //renderJPoseWindow(kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl));
             }
         }
 
@@ -314,8 +314,8 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                renderIdepthWindow(scene, cam, window, buffer, lvl);
-                //pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, scene, cam, window, buffer, lvl));
+                //renderIdepthWindow(scene, cam, window, buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, scene, cam, window, buffer, lvl));
             }
         }
 
