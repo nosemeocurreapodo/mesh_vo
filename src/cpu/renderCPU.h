@@ -28,9 +28,9 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        std::array<int, 4> window = {0, cam.width, 0, cam.height};
+        window win(0, cam.width, 0, cam.height);
 
-        renderImageWindow(kscene, kframe, scene, cam, window, buffer, lvl);
+        renderImageWindow(kscene, kframe, scene, cam, win, buffer, lvl);
     }
 
     void renderImageParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, camera &cam, dataCPU<float> *buffer, int lvl)
@@ -53,10 +53,10 @@ public:
                 int min_y = ty * windowSize[1];
                 int max_y = (ty + 1) * windowSize[1];
 
-                std::array<int, 4> window = {min_x, max_x, min_y, max_y};
+                window win(min_x, max_x, min_y, max_y);
 
                 // renderImageWindow(kscene, kframe, scene, cam, window, buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kscene, kframe, scene, cam, window, buffer, lvl));
+                pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kscene, kframe, scene, cam, win, buffer, lvl));
             }
         }
 
@@ -101,9 +101,9 @@ public:
 
     void renderDebug(SceneBase *scene, frameCPU *frame, camera &cam, dataCPU<float> *buffer, int lvl)
     {
-        std::array<int, 4> window = {0, cam.width, 0, cam.height};
+        window win(0, cam.width, 0, cam.height);
 
-        renderDebugWindow(scene, frame, cam, window, buffer, lvl);
+        renderDebugWindow(scene, frame, cam, win, buffer, lvl);
     }
 
     void renderDebugParallel(SceneBase *scene, frameCPU *frame, camera &cam, dataCPU<float> *buffer, int lvl)
@@ -124,14 +124,14 @@ public:
                 int min_y = ty * windowSize[1];
                 int max_y = (ty + 1) * windowSize[1];
 
-                std::array<int, 4> window = {min_x, max_x, min_y, max_y};
+                window win(min_x, max_x, min_y, max_y);
 
-                renderDebugWindow(scene, frame, cam, window, buffer, lvl);
-                // pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, scene, frame, cam, window, buffer, lvl));
+                //renderDebugWindow(scene, frame, cam, win, buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, scene, frame, cam, win, buffer, lvl));
             }
         }
 
-        // pool.waitUntilDone();
+        pool.waitUntilDone();
     }
 
     template <int DoF>
@@ -139,9 +139,9 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        std::array<int, 4> window = {0, cam.width, 0, cam.height};
+        window win(0, cam.width, 0, cam.height);
 
-        renderJMapWindow<DoF>(kscene, kframe, scene, frame, cam, window, jmap_buffer, e_buffer, pId_buffer, lvl);
+        renderJMapWindow<DoF>(kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
     }
 
     template <int DoF>
@@ -163,14 +163,14 @@ public:
                 int min_y = ty * windowSize[1];
                 int max_y = (ty + 1) * windowSize[1];
 
-                std::array<int, 4> window = {min_x, max_x, min_y, max_y};
+                window win(min_x, max_x, min_y, max_y);
 
-                renderJMapWindow<DoF>(kscene, kframe, scene, frame, cam, window, jmap_buffer, e_buffer, pId_buffer, lvl);
-                // pool.enqueue(std::bind(&renderCPU::renderJMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, window, jmap_buffer, e_buffer, pId_buffer, lvl));
+                //renderJMapWindow<DoF>(kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderJMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
 
-        // pool.waitUntilDone();
+        pool.waitUntilDone();
     }
 
     template <int DoF>
@@ -178,9 +178,9 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        std::array<int, 4> window = {0, cam.width, 0, cam.height};
+        window win(0, cam.width, 0, cam.height);
 
-        renderJPoseMapWindow<DoF>(kscene, kframe, scene, frame, cam, window, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
+        renderJPoseMapWindow<DoF>(kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
     }
 
     template <int DoF>
@@ -202,21 +202,21 @@ public:
                 int min_y = ty * windowSize[1];
                 int max_y = (ty + 1) * windowSize[1];
 
-                std::array<int, 4> window = {min_x, max_x, min_y, max_y};
+                window win(min_x, max_x, min_y, max_y);
 
-                renderJPoseMapWindow<DoF>(kscene, kframe, scene, frame, cam, window, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
-                // pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, window, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
+                //renderJPoseMapWindow<DoF>(kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
 
-        // pool.waitUntilDone();
+        pool.waitUntilDone();
     }
 
     void renderJPose(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
-        std::array<int, 4> window = {0, cam.width, 0, cam.height};
+        window win(0, cam.width, 0, cam.height);
 
-        renderJPoseWindow(kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl);
+        renderJPoseWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl);
     }
 
     void renderJPoseParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
@@ -237,10 +237,10 @@ public:
                 int min_y = ty * windowSize[1];
                 int max_y = (ty + 1) * windowSize[1];
 
-                std::array<int, 4> window = {min_x, max_x, min_y, max_y};
+                window win(min_x, max_x, min_y, max_y);
 
                 // renderJPoseWindow(kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl));
+                pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl));
             }
         }
 
@@ -288,9 +288,9 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        std::array<int, 4> window = {0, cam.width, 0, cam.height};
+        window win(0, cam.width, 0, cam.height);
 
-        renderIdepthWindow(scene, cam, window, buffer, lvl);
+        renderIdepthWindow(scene, cam, win, buffer, lvl);
     }
 
     void renderIdepthParallel(SceneBase *scene, camera cam, dataCPU<float> *buffer, int lvl)
@@ -313,18 +313,18 @@ public:
                 int min_y = ty * windowSize[1];
                 int max_y = (ty + 1) * windowSize[1];
 
-                std::array<int, 4> window = {min_x, max_x, min_y, max_y};
+                window win(min_x, max_x, min_y, max_y);
 
-                renderIdepthWindow(scene, cam, window, buffer, lvl);
-                // pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, scene, cam, window, buffer, lvl));
+                //renderIdepthWindow(scene, cam, win, buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, scene, cam, win, buffer, lvl));
             }
         }
 
-        // pool.waitUntilDone();
+        pool.waitUntilDone();
     }
 
 private:
-    void renderImageWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, camera cam, std::array<int, 4> window, dataCPU<float> *buffer, int lvl)
+    void renderImageWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
         // Sophus::SE3f kfTofPose = m_scene_second_view->getPose() * kframe->pose.inverse();
         // Sophus::SE3f fTokfPose = kfTofPose.inverse();
@@ -346,6 +346,9 @@ private:
             // if (kf_tri.getArea() < 1.0)
             //     continue;
 
+            if(!scene->isShapeInWindow(win, t_id))
+                continue;
+
             //auto kf_pol = kscene->getShape(t_id);
             //auto f_pol = scene->getShape(t_id);
             kscene->getShape(kf_pol.get(), t_id);
@@ -356,16 +359,13 @@ private:
             if (f_pol->getArea() < 0.0)
                 continue;
 
-            std::array<int, 4> minmax = f_pol->getScreenBounds(cam);
+            window pol_win = f_pol->getScreenBounds(cam);
 
-            minmax[0] = std::max(minmax[0], window[0]);
-            minmax[1] = std::min(minmax[1], window[1]);
-            minmax[2] = std::max(minmax[2], window[2]);
-            minmax[3] = std::min(minmax[3], window[3]);
+            pol_win.intersect(win);
 
-            for (int y = minmax[2]; y < minmax[3]; y++)
+            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
             {
-                for (int x = minmax[0]; x < minmax[1]; x++)
+                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     // vec2<float> f_pix(x, y);
                     // if (!cam.isPixVisible(f_pix))
@@ -452,7 +452,7 @@ private:
         }
     }
     */
-    void renderJPoseWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, std::array<int, 4> window, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJPoseWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         float min_area = 0.0 * (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) / 16;
         // float min_angle = M_PI / 64.0;
@@ -474,22 +474,22 @@ private:
             // auto kf_pol = kscene->getShape(t_id);
             // auto f_pol = scene->getShape(t_id);
 
+            if(!scene->isShapeInWindow(win, t_id))
+                continue;
+
             kscene->getShape(kf_pol.get(), t_id);
             scene->getShape(f_pol.get(), t_id);
 
             if (f_pol->getArea() < min_area)
                 continue;
 
-            std::array<int, 4> minmax = f_pol->getScreenBounds(cam);
+            window pol_win = f_pol->getScreenBounds(cam);
 
-            minmax[0] = std::max(minmax[0], window[0]);
-            minmax[1] = std::min(minmax[1], window[1]);
-            minmax[2] = std::max(minmax[2], window[2]);
-            minmax[3] = std::min(minmax[3], window[3]);
+            pol_win.intersect(win);
 
-            for (int y = minmax[2]; y <= minmax[3]; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = minmax[0]; x <= minmax[1]; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     // vec2<float> f_pix(x, y);
                     // if (!cam.isPixVisible(f_pix))
@@ -622,7 +622,7 @@ private:
     */
 
     template <int DoF>
-    void renderJMapWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, std::array<int, 4> window, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, int lvl)
+    void renderJMapWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, int lvl)
     {
         float min_area = 0.0 * (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16;
         // float min_angle = M_PI / 64.0;
@@ -640,6 +640,9 @@ private:
         std::vector<unsigned int> t_ids = scene->getShapesIds();
         for (auto t_id : t_ids)
         {
+            if(!scene->isShapeInWindow(win, t_id))
+                continue;
+
             std::vector<unsigned int> p_ids = scene->getShapeParamsIds(t_id);
 
             auto kf_pol = kscene->getShape(t_id);
@@ -662,16 +665,13 @@ private:
             // if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
             //     continue;
 
-            std::array<int, 4> minmax = f_pol->getScreenBounds(cam);
+            window pol_win = f_pol->getScreenBounds(cam);
 
-            minmax[0] = std::max(minmax[0], window[0]);
-            minmax[1] = std::min(minmax[1], window[1]);
-            minmax[2] = std::max(minmax[2], window[2]);
-            minmax[3] = std::min(minmax[3], window[3]);
+            pol_win.intersect(win);
 
-            for (int y = minmax[2]; y <= minmax[3]; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = minmax[0]; x <= minmax[1]; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
@@ -760,7 +760,7 @@ private:
     }
 
     template <int DoF>
-    void renderJPoseMapWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, std::array<int, 4> window, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, int lvl)
+    void renderJPoseMapWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, int lvl)
     {
         float min_area = 0.0 * (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16.0;
         // float min_angle = M_PI / 64.0;
@@ -772,6 +772,9 @@ private:
         std::vector<unsigned int> t_ids = kscene->getShapesIds();
         for (auto t_id : t_ids)
         {
+            if(!scene->isShapeInWindow(win, t_id))
+                continue;
+
             std::vector<unsigned int> p_ids = kscene->getShapeParamsIds(t_id);
 
             auto kf_pol = kscene->getShape(t_id);
@@ -792,16 +795,13 @@ private:
             // if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
             //    continue;
 
-            std::array<int, 4> minmax = f_pol->getScreenBounds(cam);
+            window pol_win = f_pol->getScreenBounds(cam);
 
-            minmax[0] = std::max(minmax[0], window[0]);
-            minmax[1] = std::min(minmax[1], window[1]);
-            minmax[2] = std::max(minmax[2], window[2]);
-            minmax[3] = std::min(minmax[3], window[3]);
+            pol_win.intersect(win);
 
-            for (int y = minmax[2]; y <= minmax[3]; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = minmax[0]; x <= minmax[1]; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
@@ -889,7 +889,7 @@ private:
         }
     }
 
-    void renderIdepthWindow(SceneBase *scene, camera cam, std::array<int, 4> window, dataCPU<float> *buffer, int lvl)
+    void renderIdepthWindow(SceneBase *scene, camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
         std::vector<unsigned int> shapesIds = scene->getShapesIds();
 
@@ -904,6 +904,9 @@ private:
             // if (kf_tri.isBackFace())
             //     continue;
 
+            if(!scene->isShapeInWindow(win, t_id))
+                continue;
+
             // auto f_pol = scene->getShape(t_id);
             scene->getShape(f_pol.get(), t_id);
 
@@ -912,16 +915,13 @@ private:
             if (f_pol->getArea() < 0.0)
                 continue;
 
-            std::array<int, 4> minmax = f_pol->getScreenBounds(cam);
+            window pol_win = f_pol->getScreenBounds(cam);
 
-            minmax[0] = std::max(minmax[0], window[0]);
-            minmax[1] = std::min(minmax[1], window[1]);
-            minmax[2] = std::max(minmax[2], window[2]);
-            minmax[3] = std::min(minmax[3], window[3]);
+            pol_win.intersect(win);
 
-            for (int y = minmax[2]; y <= minmax[3]; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = minmax[0]; x <= minmax[1]; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
@@ -949,7 +949,7 @@ private:
         }
     }
 
-    void renderDebugWindow(SceneBase *scene, frameCPU *frame, camera cam, std::array<int, 4> window, dataCPU<float> *buffer, int lvl)
+    void renderDebugWindow(SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
         std::vector<unsigned int> ids = scene->getShapesIds();
 
@@ -964,22 +964,23 @@ private:
             // if (kf_tri.isBackFace())
             //     continue;
             // auto f_pol = scene->getShape(t_id);
+
+            if(!scene->isShapeInWindow(win, t_id))
+                continue;
+
             scene->getShape(f_pol.get(), t_id);
             // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
             if (f_pol->getArea() < 0.0)
                 continue;
 
-            std::array<int, 4> minmax = f_pol->getScreenBounds(cam);
+            window pol_win = f_pol->getScreenBounds(cam);
 
-            minmax[0] = std::max(minmax[0], window[0]);
-            minmax[1] = std::min(minmax[1], window[1]);
-            minmax[2] = std::max(minmax[2], window[2]);
-            minmax[3] = std::min(minmax[3], window[3]);
+            pol_win.intersect(win);
 
-            for (int y = minmax[2]; y <= minmax[3]; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = minmax[0]; x <= minmax[1]; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))

@@ -68,6 +68,14 @@ public:
     }
     */
 
+    bool isShapeInWindow(window &win, unsigned int polId) override
+    {
+        auto tri = getTriangleIndices(polId);
+        if (win.isPixInWindow(getPix(tri[0])) || win.isPixInWindow(getPix(tri[1])) || win.isPixInWindow(getPix(tri[2])))
+            return true;
+        return false;
+    }
+
     std::unique_ptr<ShapeBase> getShape(unsigned int polId) override
     {
         auto tri = getTriangleIndices(polId);

@@ -7,7 +7,7 @@ class ShapeBase
 {
 public:
     virtual float getArea() = 0;
-    virtual inline std::array<int, 4> getScreenBounds(camera &cam) = 0;
+    virtual inline window getScreenBounds(camera &cam) = 0;
     virtual inline void prepareForRay(vec3<float> &r) = 0;
     virtual inline bool rayHitsShape() = 0;
     virtual inline bool isEdge() = 0;
@@ -32,18 +32,19 @@ public:
         return width * height;
     }
 
-    std::array<int, 4> getScreenBounds(camera &cam) override
+    window getScreenBounds(camera &cam) override
     {
         vec3<float> ray = vertice / vertice(2);
         vec2<float> pix = cam.rayToPix(ray);
 
-        std::array<int, 4> minmax;
-        minmax[0] = pix(0) - width / 2;
-        minmax[1] = pix(0) + width / 2;
-        minmax[2] = pix(1) - height / 2;
-        minmax[3] = pix(1) + height / 2;
+        int min_x = pix(0) - width / 2;
+        int max_x = pix(0) + width / 2;
+        int min_y = pix(1) - height / 2;
+        int max_y = pix(1) + height / 2;
 
-        return minmax;
+        window win(min_x, max_x, min_y, max_y);
+
+        return win;
     }
 
     inline void prepareForRay(vec3<float> &r) override
@@ -160,18 +161,19 @@ public:
         return false;
     }
 
-    std::array<int, 4> getScreenBounds(camera &cam) override
+    window getScreenBounds(camera &cam) override
     {
         vec3<float> ray = vertice / vertice(2);
         vec2<float> pix = cam.rayToPix(ray);
 
-        std::array<int, 4> minmax;
-        minmax[0] = pix(0) - radius;
-        minmax[1] = pix(0) + radius;
-        minmax[2] = pix(1) - radius;
-        minmax[3] = pix(1) + radius;
+        int min_x = pix(0) - radius;
+        int max_x = pix(0) + radius;
+        int min_y = pix(1) - radius;
+        int max_y = pix(1) + radius;
 
-        return minmax;
+        window win(min_x, max_x, min_y, max_y);
+
+        return win;
     };
 
     inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
@@ -388,20 +390,21 @@ public:
         return false;
     }
 
-    inline std::array<int, 4> getScreenBounds(camera &cam) override
+    inline window getScreenBounds(camera &cam) override
     {
         vec2<float> screencoords[3];
         screencoords[0] = cam.rayToPix(*m_ray0);
         screencoords[1] = cam.rayToPix(*m_ray1);
         screencoords[2] = cam.rayToPix(*m_ray2);
 
-        std::array<int, 4> minmax;
-        minmax[0] = std::min(std::min((int)screencoords[0](0), (int)screencoords[1](0)), (int)screencoords[2](0)) - 1;
-        minmax[1] = std::max(std::max((int)screencoords[0](0), (int)screencoords[1](0)), (int)screencoords[2](0)) + 1;
-        minmax[2] = std::min(std::min((int)screencoords[0](1), (int)screencoords[1](1)), (int)screencoords[2](1)) - 1;
-        minmax[3] = std::max(std::max((int)screencoords[0](1), (int)screencoords[1](1)), (int)screencoords[2](1)) + 1;
+        int min_x = std::min(std::min((int)screencoords[0](0), (int)screencoords[1](0)), (int)screencoords[2](0)) - 1;
+        int max_x = std::max(std::max((int)screencoords[0](0), (int)screencoords[1](0)), (int)screencoords[2](0)) + 1;
+        int min_y = std::min(std::min((int)screencoords[0](1), (int)screencoords[1](1)), (int)screencoords[2](1)) - 1;
+        int max_y = std::max(std::max((int)screencoords[0](1), (int)screencoords[1](1)), (int)screencoords[2](1)) + 1;
 
-        return minmax;
+        window win(min_x, max_x, min_y, max_y);
+
+        return win;
     };
 
     inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
@@ -620,20 +623,21 @@ public:
         return false;
     }
 
-    std::array<int, 4> getScreenBounds(camera &cam) override
+    window getScreenBounds(camera &cam) override
     {
         vec2<float> screencoords[3];
         screencoords[0] = cam.rayToPix(rays[0]);
         screencoords[1] = cam.rayToPix(rays[1]);
         screencoords[2] = cam.rayToPix(rays[2]);
 
-        std::array<int, 4> minmax;
-        minmax[0] = (int)std::min(std::min(screencoords[0](0), screencoords[1](0)), screencoords[2](0)) - 1;
-        minmax[1] = (int)std::max(std::max(screencoords[0](0), screencoords[1](0)), screencoords[2](0)) + 1;
-        minmax[2] = (int)std::min(std::min(screencoords[0](1), screencoords[1](1)), screencoords[2](1)) - 1;
-        minmax[3] = (int)std::max(std::max(screencoords[0](1), screencoords[1](1)), screencoords[2](1)) + 1;
+        int min_x = (int)std::min(std::min(screencoords[0](0), screencoords[1](0)), screencoords[2](0)) - 1;
+        int max_x = (int)std::max(std::max(screencoords[0](0), screencoords[1](0)), screencoords[2](0)) + 1;
+        int min_y = (int)std::min(std::min(screencoords[0](1), screencoords[1](1)), screencoords[2](1)) - 1;
+        int max_y = (int)std::max(std::max(screencoords[0](1), screencoords[1](1)), screencoords[2](1)) + 1;
 
-        return minmax;
+        window win(min_x, max_x, min_y, max_y);
+
+        return win;
     };
 
     inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
