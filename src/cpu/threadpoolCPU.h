@@ -19,6 +19,11 @@ public:
         }
     }
 
+    int getNumThreads()
+    {
+        return workers.size();
+    }
+
     ~ThreadPool()
     {
         {

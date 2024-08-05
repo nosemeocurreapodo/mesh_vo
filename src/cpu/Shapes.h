@@ -302,6 +302,11 @@ public:
         // computeNormal();
         prepareForMapJacobian(jacMethod);
 
+        m1(0) = (*m_ray1)(1) - (*m_ray2)(1);
+        m1(1) = (*m_ray2)(0) - (*m_ray1)(0);
+        m2(0) = (*m_ray2)(1) - (*m_ray0)(1);
+        m2(1) = (*m_ray0)(0) - (*m_ray2)(0);
+
         // Calculate the area of the triangle
         denominator = ((*m_ray1)(1) - (*m_ray2)(1)) * ((*m_ray0)(0) - (*m_ray2)(0)) +
                       ((*m_ray2)(0) - (*m_ray1)(0)) * ((*m_ray0)(1) - (*m_ray2)(1));
@@ -458,15 +463,22 @@ private:
 
     inline void computeBarycentric(vec3<float> &ray)
     {
-        // Calculate the sub-areas
-        barycentric(0) = (((*m_ray1)(1) - (*m_ray2)(1)) * (ray(0) - (*m_ray2)(0)) +
-                          ((*m_ray2)(0) - (*m_ray1)(0)) * (ray(1) - (*m_ray2)(1))) /
-                         denominator;
-        barycentric(1) = (((*m_ray2)(1) - (*m_ray0)(1)) * (ray(0) - (*m_ray2)(0)) +
-                          ((*m_ray0)(0) - (*m_ray2)(0)) * (ray(1) - (*m_ray2)(1))) /
-                         denominator;
+         //barycentric(0) = (((*m_ray1)(1) - (*m_ray2)(1)) * (ray(0) - (*m_ray2)(0)) +
+         //                 ((*m_ray2)(0) - (*m_ray1)(0)) * (ray(1) - (*m_ray2)(1))) /
+         //                denominator;
+         //barycentric(1) = (((*m_ray2)(1) - (*m_ray0)(1)) * (ray(0) - (*m_ray2)(0)) +
+         //                 ((*m_ray0)(0) - (*m_ray2)(0)) * (ray(1) - (*m_ray2)(1))) /
+         //                denominator;
+        vec2<float> diff;
+        diff(0) = ray(0) - (*m_ray2)(0);
+        diff(1) = ray(1) - (*m_ray2)(1);
+        barycentric(0) = m1.dot(diff) / denominator;
+        barycentric(1) = m2.dot(diff) / denominator;
         barycentric(2) = 1.0f - barycentric(0) - barycentric(1);
     }
+
+    vec2<float> m1;
+    vec2<float> m2;
 
     vec3<float> m_vertice0;
     vec3<float> m_vertice1;

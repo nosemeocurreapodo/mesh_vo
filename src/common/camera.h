@@ -118,6 +118,15 @@ public:
         return ray;
     }
 
+    inline vec3<float> pixToRay(int &x, int &y)
+    {
+        vec3<float> ray;
+        ray(0) = fxinv * x + cxinv;
+        ray(1) = fyinv * y + cyinv;
+        ray(2) = 1.0;
+        return ray;
+    }
+
     inline vec3<float> d_f_i_d_f_ver(vec2<float> &d_f_i_d_pix, vec3<float> &f_ver)
     {
         vec3<float> d_f_i_d_f_ver;

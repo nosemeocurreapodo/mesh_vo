@@ -19,8 +19,8 @@ class renderCPU
 {
 public:
     renderCPU(unsigned int width, unsigned int height)
-        : z_buffer(width, height, -1) //,
-                                      // pool(1)
+        : z_buffer(width, height, -1),
+          pool(4)
     {
     }
 
@@ -37,7 +37,7 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        int divi_y = 32;
+        int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
         std::array<int, 2> windowSize;
@@ -55,12 +55,12 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                renderImageWindow(kscene, kframe, scene, cam, window, buffer, lvl);
-                // pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kscene, kframe, scene, cam, window, buffer, lvl));
+                // renderImageWindow(kscene, kframe, scene, cam, window, buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kscene, kframe, scene, cam, window, buffer, lvl));
             }
         }
 
-        // pool.waitUntilDone();
+        pool.waitUntilDone();
     }
 
     /*
@@ -108,7 +108,7 @@ public:
 
     void renderDebugParallel(SceneBase *scene, frameCPU *frame, camera &cam, dataCPU<float> *buffer, int lvl)
     {
-        int divi_y = 32;
+        int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
         std::array<int, 2> windowSize;
@@ -147,7 +147,7 @@ public:
     template <int DoF>
     void renderJMapParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera &cam, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, int lvl)
     {
-        int divi_y = 32;
+        int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
         std::array<int, 2> windowSize;
@@ -186,7 +186,7 @@ public:
     template <int DoF>
     void renderJPoseMapParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, int lvl)
     {
-        int divi_y = 32;
+        int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
         std::array<int, 2> windowSize;
@@ -221,7 +221,7 @@ public:
 
     void renderJPoseParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
-        int divi_y = 32;
+        int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
         std::array<int, 2> windowSize;
@@ -239,12 +239,12 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                renderJPoseWindow(kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl);
-                // pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl));
+                // renderJPoseWindow(kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl));
             }
         }
 
-        // pool.waitUntilDone();
+        pool.waitUntilDone();
     }
 
     /*
@@ -297,7 +297,7 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        int divi_y = 32;
+        int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
         std::array<int, 2> windowSize;
@@ -337,6 +337,9 @@ private:
         // for each triangle
         for (auto t_id : ids)
         {
+            //if (t_id % 2 != 0)
+            //    continue;
+
             // Polygon kf_pol = mesh.getPolygon(t_id);
             //  if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
             //      continue;
@@ -364,11 +367,11 @@ private:
             {
                 for (int x = minmax[0]; x < minmax[1]; x++)
                 {
-                    vec2<float> f_pix(x, y);
-                    if (!cam.isPixVisible(f_pix))
-                        continue;
+                    // vec2<float> f_pix(x, y);
+                    // if (!cam.isPixVisible(f_pix))
+                    //     continue;
 
-                    vec3<float> f_ray = cam.pixToRay(f_pix);
+                    vec3<float> f_ray = cam.pixToRay(x, y);
 
                     f_pol->prepareForRay(f_ray);
                     if (!f_pol->rayHitsShape())
@@ -465,8 +468,11 @@ private:
 
         for (auto t_id : t_ids)
         {
-            //auto kf_pol = kscene->getShape(t_id);
-            //auto f_pol = scene->getShape(t_id);
+            // if (t_id % 2 != 0)
+            //     continue;
+
+            // auto kf_pol = kscene->getShape(t_id);
+            // auto f_pol = scene->getShape(t_id);
 
             kscene->getShape(kf_pol.get(), t_id);
             scene->getShape(f_pol.get(), t_id);
@@ -485,10 +491,10 @@ private:
             {
                 for (int x = minmax[0]; x <= minmax[1]; x++)
                 {
-                    vec2<float> f_pix(x, y);
-                    if (!cam.isPixVisible(f_pix))
-                        continue;
-                    vec3<float> f_ray = cam.pixToRay(f_pix);
+                    // vec2<float> f_pix(x, y);
+                    // if (!cam.isPixVisible(f_pix))
+                    //     continue;
+                    vec3<float> f_ray = cam.pixToRay(x, y);
 
                     f_pol->prepareForRay(f_ray);
                     if (!f_pol->rayHitsShape())
@@ -897,8 +903,8 @@ private:
             //     continue;
             // if (kf_tri.isBackFace())
             //     continue;
-            
-            //auto f_pol = scene->getShape(t_id);
+
+            // auto f_pol = scene->getShape(t_id);
             scene->getShape(f_pol.get(), t_id);
 
             // if (f_tri2d.vertices[0](2) <= 0.0 || f_tri2d.vertices[1](2) <= 0.0 || f_tri2d.vertices[2](2) <= 0.0)
@@ -957,7 +963,7 @@ private:
             //      continue;
             // if (kf_tri.isBackFace())
             //     continue;
-            //auto f_pol = scene->getShape(t_id);
+            // auto f_pol = scene->getShape(t_id);
             scene->getShape(f_pol.get(), t_id);
             // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
@@ -1005,5 +1011,5 @@ private:
     }
 
     dataCPU<float> z_buffer;
-    // ThreadPool pool;
+    ThreadPool pool;
 };

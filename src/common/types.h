@@ -10,10 +10,11 @@ struct vec2
     {
     }
 
-    vec2(type x, type y)
+    template <typename type2>
+    vec2(type2 &x, type2 &y)
     {
-        this->operator()(0) = x;
-        this->operator()(1) = y;
+        this->operator()(0) = (type)x;
+        this->operator()(1) = (type)y;
     }
 
     vec2<type> operator+(vec2<type> c)
@@ -30,6 +31,11 @@ struct vec2
         result(0) = type(this->operator()(0) - c(0));
         result(1) = type(this->operator()(1) - c(1));
         return result;
+    }
+
+    type dot(vec2<type> c)
+    {
+        return this->operator()(0)*c(0) + this->operator()(1)*c(1);
     }
 
     void operator=(vec2<type> c)

@@ -62,9 +62,11 @@ void visualOdometry::localization(dataCPU<float> &image)
     newFrame.set(image);
     newFrame.id = lastFrame.id + 1;
     newFrame.pose = lastMovement * lastFrame.pose;
+    tic_toc t;
+    t.tic();
     meshOptimizer.optPose(newFrame);
 
-    std::cout << "estimated pose" << std::endl;
+    std::cout << "estimated pose " << t.toc() << std::endl;
     std::cout << newFrame.pose.matrix() << std::endl;
 
     if(newFrame.id % 1 == 0)
