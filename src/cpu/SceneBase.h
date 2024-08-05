@@ -32,7 +32,8 @@ public:
 
     virtual void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) = 0;
     virtual void transform(Sophus::SE3f newGlobalPose) = 0;
-    
+    virtual void project(camera cam) = 0;
+
     virtual std::vector<unsigned int> getShapesIds() const = 0;
     virtual std::unique_ptr<ShapeBase> getShape(unsigned int polId) = 0;
     virtual void getShape(ShapeBase* shape, unsigned int polId) = 0;

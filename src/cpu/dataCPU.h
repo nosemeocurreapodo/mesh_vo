@@ -86,8 +86,10 @@ public:
     void set(Type value, int y, int x, int lvl)
     {
         int address = x + y * sizes[lvl][0];
-        if (address < 0 || address >= sizes[lvl][1]*sizes[lvl][0])
+#ifdef DEBUG
+        if (address < 0 || address >= sizes[lvl][1] * sizes[lvl][0])
             throw std::out_of_range("set invalid address");
+#endif
         texture[lvl][address] = value;
     }
 
@@ -146,8 +148,10 @@ public:
     inline Type get(int y, int x, int lvl)
     {
         int address = x + y * sizes[lvl][0];
-        if (address < 0 || address >= sizes[lvl][1]*sizes[lvl][0])
+#ifdef DEBUG
+        if (address < 0 || address >= sizes[lvl][1] * sizes[lvl][0])
             throw std::out_of_range("get invalid address");
+#endif
         return texture[lvl][address];
     }
 
@@ -205,7 +209,7 @@ public:
             {
                 Type p1 = get(y, x, lvl);
                 Type p2 = other.get(y, x, lvl);
-                if(p1 == nodata || p2 == other.nodata)
+                if (p1 == nodata || p2 == other.nodata)
                     continue;
                 Type res = p1 + p2;
                 result.set(res, y, x, lvl);
@@ -221,7 +225,7 @@ public:
             {
                 Type p1 = get(y, x, lvl);
                 Type p2 = other.get(y, x, lvl);
-                if(p1 == nodata || p2 == other.nodata)
+                if (p1 == nodata || p2 == other.nodata)
                     continue;
                 Type res = p1 - p2;
                 result.set(res, y, x, lvl);

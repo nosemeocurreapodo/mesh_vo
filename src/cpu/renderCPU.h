@@ -4,6 +4,7 @@
 #include <thread>
 
 #include "common/camera.h"
+#include "common/types.h"
 #include "common/HGPose.h"
 #include "common/HGMapped.h"
 #include "common/Error.h"
@@ -18,8 +19,8 @@ class renderCPU
 {
 public:
     renderCPU(unsigned int width, unsigned int height)
-        : z_buffer(width, height, -1),
-          pool()
+        : z_buffer(width, height, -1) //,
+                                      // pool(1)
     {
     }
 
@@ -54,12 +55,12 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                //renderImageWindow(kscene, kframe, scene, cam, window, buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kscene, kframe, scene, cam, window, buffer, lvl));
+                renderImageWindow(kscene, kframe, scene, cam, window, buffer, lvl);
+                // pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kscene, kframe, scene, cam, window, buffer, lvl));
             }
         }
 
-        pool.waitUntilDone();
+        // pool.waitUntilDone();
     }
 
     /*
@@ -125,12 +126,12 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                //renderDebugWindow(scene, frame, cam, window, buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, scene, frame, cam, window, buffer, lvl));
+                renderDebugWindow(scene, frame, cam, window, buffer, lvl);
+                // pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, scene, frame, cam, window, buffer, lvl));
             }
         }
 
-        pool.waitUntilDone();
+        // pool.waitUntilDone();
     }
 
     template <int DoF>
@@ -164,12 +165,12 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                //renderJMapWindow<DoF>(kscene, kframe, scene, frame, cam, window, jmap_buffer, e_buffer, pId_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderJMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, window, jmap_buffer, e_buffer, pId_buffer, lvl));
+                renderJMapWindow<DoF>(kscene, kframe, scene, frame, cam, window, jmap_buffer, e_buffer, pId_buffer, lvl);
+                // pool.enqueue(std::bind(&renderCPU::renderJMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, window, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
 
-        pool.waitUntilDone();
+        // pool.waitUntilDone();
     }
 
     template <int DoF>
@@ -203,12 +204,12 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                //renderJPoseMapWindow<DoF>(kscene, kframe, scene, frame, cam, window, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, window, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
+                renderJPoseMapWindow<DoF>(kscene, kframe, scene, frame, cam, window, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
+                // pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, window, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
 
-        pool.waitUntilDone();
+        // pool.waitUntilDone();
     }
 
     void renderJPose(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
@@ -238,12 +239,12 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                //renderJPoseWindow(kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl));
+                renderJPoseWindow(kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl);
+                // pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl));
             }
         }
 
-        pool.waitUntilDone();
+        // pool.waitUntilDone();
     }
 
     /*
@@ -314,12 +315,12 @@ public:
 
                 std::array<int, 4> window = {min_x, max_x, min_y, max_y};
 
-                //renderIdepthWindow(scene, cam, window, buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, scene, cam, window, buffer, lvl));
+                renderIdepthWindow(scene, cam, window, buffer, lvl);
+                // pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, scene, cam, window, buffer, lvl));
             }
         }
 
-        pool.waitUntilDone();
+        // pool.waitUntilDone();
     }
 
 private:
@@ -363,11 +364,11 @@ private:
             {
                 for (int x = minmax[0]; x < minmax[1]; x++)
                 {
-                    Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
+                    vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
                         continue;
 
-                    Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
+                    vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForRay(f_ray);
                     if (!f_pol->rayHitsShape())
@@ -377,7 +378,7 @@ private:
                     if (f_depth <= 0.0)
                         continue;
 
-                    Eigen::Vector3f kf_ray = f_pol->getRay(kf_pol.get());
+                    vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
 
                     /*
                     Eigen::Vector3f f_ver = f_ray * f_depth;
@@ -389,7 +390,7 @@ private:
                     Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
                     */
 
-                    Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
+                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -458,10 +459,17 @@ private:
 
         // for each triangle
         std::vector<unsigned int> t_ids = scene->getShapesIds();
+
+        auto kf_pol = kscene->getShape(t_ids[0]);
+        auto f_pol = scene->getShape(t_ids[0]);
+
         for (auto t_id : t_ids)
         {
-            auto kf_pol = kscene->getShape(t_id);
-            auto f_pol = scene->getShape(t_id);
+            //auto kf_pol = kscene->getShape(t_id);
+            //auto f_pol = scene->getShape(t_id);
+
+            kscene->getShape(kf_pol.get(), t_id);
+            scene->getShape(f_pol.get(), t_id);
 
             if (f_pol->getArea() < min_area)
                 continue;
@@ -477,10 +485,10 @@ private:
             {
                 for (int x = minmax[0]; x <= minmax[1]; x++)
                 {
-                    Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
+                    vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
                         continue;
-                    Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
+                    vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForRay(f_ray);
                     if (!f_pol->rayHitsShape())
@@ -495,9 +503,9 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    Eigen::Vector3f f_ver = f_ray * f_depth;
+                    vec3<float> f_ver = f_ray * f_depth;
 
-                    Eigen::Vector3f kf_ray = f_pol->getRay(kf_pol.get());
+                    vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
 
                     /*
                     Eigen::Vector3f kf_ver = fTokfPose * f_ver;
@@ -507,7 +515,7 @@ private:
                     Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
                     */
 
-                    Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
+                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -520,7 +528,7 @@ private:
                     if (kf_i == kframe->image.nodata || f_i == frame->image.nodata || dx == frame->dx.nodata || dy == frame->dy.nodata)
                         continue;
 
-                    Eigen::Vector2f d_f_i_d_pix(dx, dy);
+                    vec2<float> d_f_i_d_pix(dx, dy);
 
                     // Eigen::MatrixXf d_pix_d_f_ver = cam.dPixdPoint(f_ver);
 
@@ -531,10 +539,10 @@ private:
                     float v0 = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                     float v1 = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                     float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
-                    std::array<float, 3> d_f_i_d_tra = {v0, v1, v2};
-                    std::array<float, 3> d_f_i_d_rot = {-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1};
+                    vec3<float> d_f_i_d_tra(v0, v1, v2);
+                    vec3<float> d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-                    std::array<float, 6> j_pose = {d_f_i_d_tra[0], d_f_i_d_tra[1], d_f_i_d_tra[2], d_f_i_d_rot[0], d_f_i_d_rot[1], d_f_i_d_rot[2]};
+                    std::array<float, 6> j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
 
                     float residual = (f_i - kf_i);
 
@@ -659,10 +667,10 @@ private:
             {
                 for (int x = minmax[0]; x <= minmax[1]; x++)
                 {
-                    Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
+                    vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
                         continue;
-                    Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
+                    vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForRay(f_ray);
                     if (!f_pol->rayHitsShape())
@@ -677,21 +685,23 @@ private:
                     if (l_idepth < f_depth && l_idepth != z_buffer.nodata)
                         continue;
 
-                    Eigen::Vector3f f_ver = f_ray * f_depth;
+                    vec3<float> f_ver = f_ray * f_depth;
 
                     // Eigen::Vector3f kf_ray = f_pol->getRay(kf_pol.get());
 
-                    Eigen::Vector3f kf_ver = fTokfPose * f_ver;
+                    Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
+
+                    vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
                     if (kf_ver(2) <= 0.0)
                         continue;
 
-                    Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
+                    vec3<float> kf_ray = kf_ver / kf_ver(2);
 
                     kf_pol->prepareForRay(kf_ray);
                     if (!kf_pol->rayHitsShape())
                         continue;
 
-                    Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
+                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
@@ -703,18 +713,21 @@ private:
                     if (kf_i == kframe->image.nodata || f_i == frame->image.nodata || dx == frame->dx.nodata || dy == frame->dy.nodata)
                         continue;
 
-                    Eigen::Vector2f d_f_i_d_pix(dx, dy);
+                    vec2<float> d_f_i_d_pix(dx, dy);
 
                     float error = f_i - kf_i;
 
-                    Eigen::Vector3f d_f_i_d_f_ver = cam.d_f_i_d_f_ver(d_f_i_d_pix, f_ver);
+                    vec3<float> d_f_i_d_f_ver = cam.d_f_i_d_f_ver(d_f_i_d_pix, f_ver);
 
                     // Eigen::Vector3f d_f_i_d_f_ver;
                     // d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                     // d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                     // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-                    Eigen::Vector3f d_f_ver_d_kf_depth = kfTofPose.rotationMatrix() * kf_ray;
+                    Eigen::Vector3f d_f_ver_d_kf_depth_e = kfTofPose.rotationMatrix() * Eigen::Vector3f(kf_ray(0), kf_ray(1), kf_ray(2));
+
+                    vec3<float> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_e(0), d_f_ver_d_kf_depth_e(1), d_f_ver_d_kf_depth_e(2));
+
                     float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
                     // this could be the jacobian of the depth of the 3 vertices in a triangle
@@ -784,10 +797,10 @@ private:
             {
                 for (int x = minmax[0]; x <= minmax[1]; x++)
                 {
-                    Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
+                    vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
                         continue;
-                    Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
+                    vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForRay(f_ray);
                     if (!f_pol->rayHitsShape())
@@ -802,9 +815,9 @@ private:
                     if (l_idepth < f_depth && l_idepth != z_buffer.nodata)
                         continue;
 
-                    Eigen::Vector3f f_ver = f_ray * f_depth;
+                    vec3<float> f_ver = f_ray * f_depth;
 
-                    Eigen::Vector3f kf_ray = f_pol->getRay(kf_pol.get());
+                    vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
                     /*
                     Eigen::Vector3f kf_ver = fTokfPose * f_ver;
                     if (kf_ver(2) <= 0.0)
@@ -816,7 +829,7 @@ private:
                     if (!kf_pol->rayHitsShape())
                         continue;
 
-                    Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
+                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -829,21 +842,23 @@ private:
                     if (kf_i == kframe->image.nodata || f_i == frame->image.nodata || dx == frame->dx.nodata || dy == frame->dy.nodata)
                         continue;
 
-                    Eigen::Vector2f d_f_i_d_pix(dx, dy);
+                    vec2<float> d_f_i_d_pix(dx, dy);
 
-                    Eigen::Vector3f d_f_i_d_f_ver;
+                    vec3<float> d_f_i_d_f_ver;
                     d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                     d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                     d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-                    std::array<float, 3> d_f_i_d_tra = {d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2)};
-                    std::array<float, 3> d_f_i_d_rot = {-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1)};
+                    vec3<float> d_f_i_d_tra(d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2));
+                    vec3<float> d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
-                    std::array<float, 6> jpose = {d_f_i_d_tra[0], d_f_i_d_tra[1], d_f_i_d_tra[2], d_f_i_d_rot[0], d_f_i_d_rot[1], d_f_i_d_rot[2]};
+                    std::array<float, 6> jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
 
                     jpose_buffer->set(jpose, y, x, lvl);
 
-                    Eigen::Vector3f d_f_ver_d_kf_depth = kfTofPose.rotationMatrix() * kf_ray;
+                    Eigen::Vector3f d_f_ver_d_kf_depth_e = kfTofPose.rotationMatrix() * Eigen::Vector3f(kf_ray(0), kf_ray(1), kf_ray(2));
+
+                    vec3<float> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_e(0), d_f_ver_d_kf_depth_e(1), d_f_ver_d_kf_depth_e(2));
                     float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
                     std::vector<float> Jacobian = kf_pol->getJacobian(d_f_i_d_kf_depth);
@@ -872,6 +887,8 @@ private:
     {
         std::vector<unsigned int> shapesIds = scene->getShapesIds();
 
+        auto f_pol = scene->getShape(shapesIds[0]);
+
         // for each triangle
         for (auto t_id : shapesIds)
         {
@@ -880,7 +897,10 @@ private:
             //     continue;
             // if (kf_tri.isBackFace())
             //     continue;
-            auto f_pol = scene->getShape(t_id);
+            
+            //auto f_pol = scene->getShape(t_id);
+            scene->getShape(f_pol.get(), t_id);
+
             // if (f_tri2d.vertices[0](2) <= 0.0 || f_tri2d.vertices[1](2) <= 0.0 || f_tri2d.vertices[2](2) <= 0.0)
             //      continue;
             if (f_pol->getArea() < 0.0)
@@ -897,10 +917,10 @@ private:
             {
                 for (int x = minmax[0]; x <= minmax[1]; x++)
                 {
-                    Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
+                    vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
                         continue;
-                    Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
+                    vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForRay(f_ray);
                     if (!f_pol->rayHitsShape())
@@ -927,6 +947,8 @@ private:
     {
         std::vector<unsigned int> ids = scene->getShapesIds();
 
+        auto f_pol = scene->getShape(ids[0]);
+
         // for each triangle
         for (auto t_id : ids)
         {
@@ -935,7 +957,8 @@ private:
             //      continue;
             // if (kf_tri.isBackFace())
             //     continue;
-            auto f_pol = scene->getShape(t_id);
+            //auto f_pol = scene->getShape(t_id);
+            scene->getShape(f_pol.get(), t_id);
             // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
             if (f_pol->getArea() < 0.0)
@@ -952,11 +975,11 @@ private:
             {
                 for (int x = minmax[0]; x <= minmax[1]; x++)
                 {
-                    Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
+                    vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
                         continue;
 
-                    Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
+                    vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForRay(f_ray);
                     if (!f_pol->rayHitsShape())
@@ -982,5 +1005,5 @@ private:
     }
 
     dataCPU<float> z_buffer;
-    ThreadPool pool;
+    // ThreadPool pool;
 };

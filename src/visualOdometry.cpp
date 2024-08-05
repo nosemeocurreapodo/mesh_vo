@@ -86,11 +86,11 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     lastFrame = newFrame;
     frames.push_back(newFrame);
 
-    meshOptimizer.optMap(frames);
+    //meshOptimizer.optMap(frames);
 
     if (frames.size() > 3)
     {
-        meshOptimizer.changeKeyframe(frames[0]);
+        //meshOptimizer.changeKeyframe(frames[0]);
         //frames.erase(frames.end());
         frames.erase(frames.begin());
     }

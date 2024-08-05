@@ -16,14 +16,12 @@ class SceneMesh : public SceneVerticesBase
 public:
     SceneMesh() : SceneVerticesBase()
     {
-        last_triangle_id = 0;
         setDepthJackMethod(idepthJacobian);
     };
 
     SceneMesh(const SceneMesh &other) : SceneVerticesBase(other)
     {
         triangles = other.triangles;
-        last_triangle_id = other.last_triangle_id;
     }
     /*
     Mesh &operator=(const Mesh &other)
@@ -47,7 +45,6 @@ public:
     {
         SceneVerticesBase::clear();
         triangles.clear();
-        last_triangle_id = 0;
     }
 
     void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) override
@@ -78,6 +75,10 @@ public:
         return std::make_unique<ShapeTriangleFlat>(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
                                                    getDepth(tri[0]), getDepth(tri[1]), getDepth(tri[2]),
                                                    getDepthJacMethod());
+        // return std::make_unique<ShapeTriangleFlat>(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
+        //                                            getPix(tri[0]), getPix(tri[1]), getPix(tri[2]),
+        //                                            getDepth(tri[0]), getDepth(tri[1]), getDepth(tri[2]),
+        //                                            getDepthJacMethod());
     }
 
     void getShape(ShapeBase *shape, unsigned int polId) override
@@ -177,13 +178,12 @@ public:
             {
                 // if (hg.G(NUM_FRAMES*6 + vertexIndex[j]) == 0)
                 //     continue;
-                //hg.G[v_ids[j]] += (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
+                // hg.G[v_ids[j]] += (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
                 hg.G.add(diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j], v_ids[j]);
                 for (int k = 0; k < 3; k++)
                 {
-                    //hg.H[v_ids[j]][v_ids[k]] += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
+                    // hg.H[v_ids[j]][v_ids[k]] += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
                     hg.H.add(J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k], v_ids[j], v_ids[k]);
-
                 }
             }
         }
@@ -296,36 +296,38 @@ private:
         triangles.clear();
     }
 
-    void setTriangles(std::unordered_map<unsigned int, std::array<unsigned int, 3>> &new_tris)
+    void setTriangles(std::vector<std::array<unsigned int, 3>> &new_tris)
     {
         triangles = new_tris;
     }
 
+    /*
     void removeTriangle(unsigned int id)
     {
         triangles.erase(id);
     }
+    */
 
     unsigned int addTriangle(std::array<unsigned int, 3> &tri)
     {
-        last_triangle_id++;
-        if (triangles.count(last_triangle_id))
-            throw std::out_of_range("addTriangle id already exist");
-        triangles[last_triangle_id] = tri;
-        return last_triangle_id;
+        int id = triangles.size();
+        triangles.push_back(tri);
+        return id;
     }
 
     void setTriangleIndices(std::array<unsigned int, 3> &tri, unsigned int id)
     {
-        if (!triangles.count(id))
+#ifdef DEBUG
+        if (id >= triangles.size())
             throw std::out_of_range("setTriangleIndices invalid id");
+#endif
         triangles[id] = tri;
     }
 
     inline std::array<unsigned int, 3> &getTriangleIndices(unsigned int id)
     {
 #ifdef DEBUG
-        if (!triangles.count(id))
+        if (id >= triangles.size())
             throw std::out_of_range("setTriangleIndices invalid id");
 #endif
         return triangles[id];
@@ -334,13 +336,13 @@ private:
     std::vector<unsigned int> getTrianglesIds() const
     {
         std::vector<unsigned int> keys;
-        for (auto it = triangles.begin(); it != triangles.end(); ++it)
+        for (int it = 0; it < triangles.size(); ++it)
         {
-            keys.push_back(it->first);
+            keys.push_back(it);
         }
         return keys;
     }
-
+    /*
     std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> computeEdgeFront()
     {
         std::vector<std::pair<std::array<unsigned int, 2>, unsigned int>> edgeFront;
@@ -378,7 +380,9 @@ private:
         }
         return edgeFront;
     }
+    */
 
+    /*
     bool isTrianglePresent(std::array<unsigned int, 3> &tri)
     {
         for (auto it = triangles.begin(); it != triangles.end(); ++it)
@@ -390,25 +394,28 @@ private:
         }
         return false;
     }
+    */
 
-    void removePointsWithoutTriangles()
-    {
-        std::vector<unsigned int> vertsIds = getVerticesIds();
-        for (auto it = vertsIds.begin(); it != vertsIds.end(); it++)
-        {
-            bool remove = true;
-            for (auto t_it = triangles.begin(); t_it != triangles.end(); t_it++)
-            {
-                if (*it == t_it->second[0] || *it == t_it->second[1] || *it == t_it->second[2])
-                {
-                    remove = false;
-                    break;
-                }
-            }
-            //if (remove)
-            //    removeVertice(*it);
-        }
-    }
+    /*
+     void removePointsWithoutTriangles()
+     {
+         std::vector<unsigned int> vertsIds = getVerticesIds();
+         for (auto it = vertsIds.begin(); it != vertsIds.end(); it++)
+         {
+             bool remove = true;
+             for (auto t_it = triangles.begin(); t_it != triangles.end(); t_it++)
+             {
+                 if (*it == t_it->second[0] || *it == t_it->second[1] || *it == t_it->second[2])
+                 {
+                     remove = false;
+                     break;
+                 }
+             }
+             //if (remove)
+             //    removeVertice(*it);
+         }
+     }
+     */
 
     void removeTrianglesWithoutPoints()
     {
@@ -436,7 +443,7 @@ private:
         std::vector<unsigned int> ids = getVerticesIds();
         for (auto id : ids)
         {
-            Eigen::Vector3f ray = getRay(id);
+            vec3<float> ray = getRay(id);
             rays[id](0) = ray(0);
             rays[id](1) = ray(1);
         }
@@ -444,7 +451,12 @@ private:
         triangulation.triangulate();
         std::unordered_map<unsigned int, std::array<unsigned int, 3>> tris = triangulation.getTriangles();
         clearTriangles();
-        setTriangles(tris);
+        std::vector<std::array<unsigned int, 3>> new_tris;
+        for (auto tri : tris)
+        {
+            new_tris.push_back(tri.second);
+        }
+        setTriangles(new_tris);
     }
     /*
     void removeOcluded(camera &cam)
@@ -480,6 +492,5 @@ private:
     }
     */
 
-    std::unordered_map<unsigned int, std::array<unsigned int, 3>> triangles;
-    int last_triangle_id;
+    std::vector<std::array<unsigned int, 3>> triangles;
 };

@@ -56,6 +56,7 @@ public:
         debug.set(debug.nodata, 0);
 
         scene->transform(frame.pose);
+        scene->project(cam[1]);
         //renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
         renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
         renderer.renderImageParallel(&kscene, &kframe, scene.get(), cam[1], &image_buffer, 1);
@@ -70,7 +71,7 @@ public:
         show(idepth_buffer, "lastFrame idepth", 1);
         show(image_buffer, "lastFrame scene", 1);
 
-        show(debug, "frame debug", 0);
+        //show(debug, "frame debug", 0);
     }
 
     void changeKeyframe(frameCPU &frame)

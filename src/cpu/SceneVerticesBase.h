@@ -20,6 +20,7 @@ public:
     {
         vertices = other.vertices;
         rays = other.rays;
+        pixels = other.pixels;
         dJacMethod = other.dJacMethod;
     }
     /*
@@ -44,60 +45,80 @@ public:
 
     void clear() override
     {
-        vertices.clear();
-        rays.clear();
+        // vertices.clear();
+        // rays.clear();
     }
 
     void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) override
     {
-        clear();
+        // clear();
         setPose(frame.pose);
 
+        int id = 0;
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
             for (float x = 0.0; x < MESH_WIDTH; x++)
             {
-                Eigen::Vector2f pix;
-                pix[0] = (cam.width - 1) * x / (MESH_WIDTH - 1);
-                pix[1] = (cam.height - 1) * y / (MESH_HEIGHT - 1);
-                Eigen::Vector3f ray = cam.pixToRay(pix);
-                float idph = idepth.get(pix[1], pix[0], lvl);
+                vec2<float> pix;
+                pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
+                pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
+                vec3<float> ray = cam.pixToRay(pix);
+                float idph = idepth.get(pix(1), pix(0), lvl);
                 if (idph == idepth.nodata)
                     continue;
 
                 if (idph <= 0.0)
                     continue;
 
-                Eigen::Vector3f vertice = ray / idph;
+                vec3<float> vertice = ray / idph;
 
-                addVertice(vertice);
+                // addVertice(vertice);
+                vertices[id] = vertice;
+                rays[id] = ray;
+                pixels[id] = pix;
+
+                id++;
             }
         }
     }
 
-    inline Eigen::Vector3f &getVertice(unsigned int id)
+    inline vec3<float> &getVertice(unsigned int id)
     {
+#ifdef DEBUG
         if (id >= vertices.size())
             throw std::out_of_range("getVertice invalid id");
-
+#endif
         return vertices[id];
     }
 
-    inline Eigen::Vector3f &getRay(unsigned int id)
+    inline vec3<float> &getRay(unsigned int id)
     {
+#ifdef DEBUG
         if (id >= rays.size())
             throw std::out_of_range("getRay invalid id");
+#endif
         return rays[id];
+    }
+
+    inline vec2<float> &getPix(unsigned int id)
+    {
+#ifdef DEBUG
+        if (id >= pixels.size())
+            throw std::out_of_range("getRay invalid id");
+#endif
+        return pixels[id];
     }
 
     inline float &getDepth(unsigned int id)
     {
+#ifdef DEBUG
         if (id >= vertices.size())
             throw std::out_of_range("getDepth invalid id");
-
+#endif
         return vertices[id](2);
     }
 
+    /*
     unsigned int addVertice(Eigen::Vector3f &vert)
     {
         int id = vertices.size();
@@ -105,6 +126,7 @@ public:
         rays.push_back(vert / vert(2));
         return id;
     }
+    */
 
     /*
     void removeVertice(unsigned int id)
@@ -116,29 +138,32 @@ public:
     }
     */
 
-    void setVertice(Eigen::Vector3f &vert, unsigned int id)
+    void setVertice(vec3<float> &vert, unsigned int id)
     {
+#ifdef DEBUG
         if (id >= vertices.size())
             throw std::out_of_range("setVertice invalid id");
-
+#endif
         vertices[id] = vert;
         rays[id] = vert / vert(2);
     }
 
     void setVerticeDepth(float depth, unsigned int id)
     {
+#ifdef DEBUG
         if (id >= vertices.size())
             throw std::out_of_range("setVerticeDepth invalid id");
-
+#endif
         // vertices[id] = depth * vertices[id] / vertices[id](2);
-        vertices[id] = depth * rays[id];
+        vertices[id] = rays[id] * depth;
     }
 
     float getVerticeDepth(unsigned int id)
     {
+#ifdef DEBUG
         if (id >= vertices.size())
             throw std::out_of_range("getVerticeDepth invalid id");
-
+#endif
         return vertices[id](2);
     }
 
@@ -157,10 +182,20 @@ public:
         Sophus::SE3f relativePose = newGlobalPose * getPose().inverse();
         for (size_t it = 0; it < vertices.size(); ++it)
         {
-            vertices[it] = relativePose * vertices[it];
+            Eigen::Vector3f vert(vertices[it](0), vertices[it](1), vertices[it](2));
+            vert = relativePose * vert;
+            vertices[it] = vec3<float>(vert(0), vert(1), vert(2));
             rays[it] = vertices[it] / vertices[it](2);
         }
         setPose(newGlobalPose);
+    }
+
+    void project(camera cam) override
+    {
+        for (size_t it = 0; it < vertices.size(); ++it)
+        {
+            pixels[it] = cam.rayToPix(rays[it]);
+        }
     }
 
     inline DepthJacobianMethod getDepthJacMethod()
@@ -245,10 +280,9 @@ public:
     }
 
 private:
-    std::vector<Eigen::Vector3f> vertices;
-    std::vector<Eigen::Vector3f> rays;
-
-    int last_vertice_id;
+    std::array<vec3<float>, MESH_WIDTH * MESH_HEIGHT> vertices;
+    std::array<vec3<float>, MESH_WIDTH * MESH_HEIGHT> rays;
+    std::array<vec2<float>, MESH_WIDTH * MESH_HEIGHT> pixels;
 
     DepthJacobianMethod dJacMethod;
 };

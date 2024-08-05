@@ -7,8 +7,8 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
       image_buffer(_cam.width, _cam.height, -1.0),
       idepth_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
-      jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
-      jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
+      jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
+      jmap_buffer(_cam.width, _cam.height, {0.0}),
       pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
       debug(_cam.width, _cam.height, -1.0),
       idepthVar(_cam.width, _cam.height, -1.0),
@@ -126,6 +126,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
     for (int lvl = 3; lvl >= 1; lvl--)
     {
+        scene->project(cam[lvl]);
         //std::cout << "*************************lvl " << lvl << std::endl;
         Sophus::SE3f best_pose = frame.pose;
         //Error e = computeError(idepth_buffer, keyframe, frame, lvl);
