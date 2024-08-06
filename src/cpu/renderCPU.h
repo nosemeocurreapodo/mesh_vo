@@ -126,7 +126,7 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                //renderDebugWindow(scene, frame, cam, win, buffer, lvl);
+                // renderDebugWindow(scene, frame, cam, win, buffer, lvl);
                 pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, scene, frame, cam, win, buffer, lvl));
             }
         }
@@ -134,18 +134,18 @@ public:
         pool.waitUntilDone();
     }
 
-    template <int DoF>
-    void renderJMap(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera &cam, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, int lvl)
+    template <typename Type1, typename Type2>
+    void renderJMap(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera &cam, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
         window win(0, cam.width, 0, cam.height);
 
-        renderJMapWindow<DoF>(kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
+        renderJMapWindow(kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
     }
 
-    template <int DoF>
-    void renderJMapParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera &cam, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, int lvl)
+    template <typename Type1, typename Type2>
+    void renderJMapParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera &cam, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -165,26 +165,26 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                //renderJMapWindow<DoF>(kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderJMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
+                renderJMapWindow(kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
+                //pool.enqueue(std::bind(&renderCPU::renderJMapWindow, this, kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
 
         pool.waitUntilDone();
     }
 
-    template <int DoF>
-    void renderJPoseMap(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, int lvl)
+    template <typename Type1, typename Type2, typename Type3>
+    void renderJPoseMap(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<Type1> *jpose_buffer, dataCPU<Type2> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type3> *pId_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
         window win(0, cam.width, 0, cam.height);
 
-        renderJPoseMapWindow<DoF>(kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
+        renderJPoseMapWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
     }
 
-    template <int DoF>
-    void renderJPoseMapParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, int lvl)
+    template <typename Type1, typename Type2, typename Type3>
+    void renderJPoseMapParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<Type1> *jpose_buffer, dataCPU<Type2> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type3> *pId_buffer, int lvl)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -204,22 +204,24 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                //renderJPoseMapWindow<DoF>(kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow<DoF>, this, kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
+                renderJPoseMapWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
+                //pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow, this, kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
 
         pool.waitUntilDone();
     }
 
-    void renderJPose(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
+    template <typename Type>
+    void renderJPose(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<Type> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         window win(0, cam.width, 0, cam.height);
 
         renderJPoseWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl);
     }
 
-    void renderJPoseParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
+    template <typename Type>
+    void renderJPoseParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<Type> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -239,8 +241,8 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                // renderJPoseWindow(kscene, kframe, scene, frame, cam, window, jpose_buffer, e_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl));
+                renderJPoseWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl);
+                //pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl));
             }
         }
 
@@ -315,7 +317,7 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                //renderIdepthWindow(scene, cam, win, buffer, lvl);
+                // renderIdepthWindow(scene, cam, win, buffer, lvl);
                 pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, scene, cam, win, buffer, lvl));
             }
         }
@@ -337,8 +339,8 @@ private:
         // for each triangle
         for (auto t_id : ids)
         {
-            //if (t_id % 2 != 0)
-            //    continue;
+            // if (t_id % 2 != 0)
+            //     continue;
 
             // Polygon kf_pol = mesh.getPolygon(t_id);
             //  if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
@@ -346,11 +348,11 @@ private:
             // if (kf_tri.getArea() < 1.0)
             //     continue;
 
-            if(!scene->isShapeInWindow(win, t_id))
+            if (!scene->isShapeInWindow(win, t_id))
                 continue;
 
-            //auto kf_pol = kscene->getShape(t_id);
-            //auto f_pol = scene->getShape(t_id);
+            // auto kf_pol = kscene->getShape(t_id);
+            // auto f_pol = scene->getShape(t_id);
             kscene->getShape(kf_pol.get(), t_id);
             scene->getShape(f_pol.get(), t_id);
 
@@ -359,7 +361,8 @@ private:
             if (f_pol->getArea() < 0.0)
                 continue;
 
-            window pol_win = f_pol->getScreenBounds(cam);
+            // window pol_win = f_pol->getScreenBounds(cam);
+            window pol_win = f_pol->getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -367,21 +370,25 @@ private:
             {
                 for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
-                    // vec2<float> f_pix(x, y);
+                    vec2<float> f_pix(x, y);
                     // if (!cam.isPixVisible(f_pix))
                     //     continue;
 
-                    vec3<float> f_ray = cam.pixToRay(x, y);
+                    // vec3<float> f_ray = cam.pixToRay(x, y);
 
-                    f_pol->prepareForRay(f_ray);
-                    if (!f_pol->rayHitsShape())
+                    // f_pol->prepareForRay(f_ray);
+                    f_pol->prepareForPix(f_pix);
+
+                    if (!f_pol->hitsShape())
                         continue;
 
-                    float f_depth = f_pol->getRayDepth();
+                    float f_depth = f_pol->getDepth();
                     if (f_depth <= 0.0)
                         continue;
 
-                    vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
+                    vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
+
+                    // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
 
                     /*
                     Eigen::Vector3f f_ver = f_ray * f_depth;
@@ -393,7 +400,7 @@ private:
                     Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
                     */
 
-                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
+                    // vec2<float> kf_pix = cam.rayToPix(kf_ray);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -452,7 +459,8 @@ private:
         }
     }
     */
-    void renderJPoseWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
+    template <typename Type>
+    void renderJPoseWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<Type> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         float min_area = 0.0 * (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) / 16;
         // float min_angle = M_PI / 64.0;
@@ -471,11 +479,11 @@ private:
             // if (t_id % 2 != 0)
             //     continue;
 
+            if (!scene->isShapeInWindow(win, t_id))
+                continue;
+
             // auto kf_pol = kscene->getShape(t_id);
             // auto f_pol = scene->getShape(t_id);
-
-            if(!scene->isShapeInWindow(win, t_id))
-                continue;
 
             kscene->getShape(kf_pol.get(), t_id);
             scene->getShape(f_pol.get(), t_id);
@@ -483,7 +491,8 @@ private:
             if (f_pol->getArea() < min_area)
                 continue;
 
-            window pol_win = f_pol->getScreenBounds(cam);
+            // window pol_win = f_pol->getScreenBounds(cam);
+            window pol_win = f_pol->getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -491,16 +500,17 @@ private:
             {
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
-                    // vec2<float> f_pix(x, y);
+                    vec2<float> f_pix(x, y);
                     // if (!cam.isPixVisible(f_pix))
                     //     continue;
                     vec3<float> f_ray = cam.pixToRay(x, y);
 
-                    f_pol->prepareForRay(f_ray);
-                    if (!f_pol->rayHitsShape())
+                    // f_pol->prepareForRay(f_ray);
+                    f_pol->prepareForPix(f_pix);
+                    if (!f_pol->hitsShape())
                         continue;
 
-                    float f_depth = f_pol->getRayDepth();
+                    float f_depth = f_pol->getDepth();
                     if (f_depth <= 0.0)
                         continue;
 
@@ -511,7 +521,8 @@ private:
 
                     vec3<float> f_ver = f_ray * f_depth;
 
-                    vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
+                    // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
+                    vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
 
                     /*
                     Eigen::Vector3f kf_ver = fTokfPose * f_ver;
@@ -521,7 +532,7 @@ private:
                     Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
                     */
 
-                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
+                    // vec2<float> kf_pix = cam.rayToPix(kf_ray);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -548,7 +559,7 @@ private:
                     vec3<float> d_f_i_d_tra(v0, v1, v2);
                     vec3<float> d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-                    std::array<float, 6> j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
+                    Type j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
 
                     float residual = (f_i - kf_i);
 
@@ -621,8 +632,8 @@ private:
     }
     */
 
-    template <int DoF>
-    void renderJMapWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, int lvl)
+    template <typename Type1, typename Type2>
+    void renderJMapWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
         float min_area = 0.0 * (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16;
         // float min_angle = M_PI / 64.0;
@@ -638,9 +649,12 @@ private:
 
         // for each triangle
         std::vector<unsigned int> t_ids = scene->getShapesIds();
+
+        int shapeDoF = scene->getShapesDoF();
+
         for (auto t_id : t_ids)
         {
-            if(!scene->isShapeInWindow(win, t_id))
+            if (!scene->isShapeInWindow(win, t_id))
                 continue;
 
             std::vector<unsigned int> p_ids = scene->getShapeParamsIds(t_id);
@@ -679,10 +693,10 @@ private:
                     vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForRay(f_ray);
-                    if (!f_pol->rayHitsShape())
+                    if (!f_pol->hitsShape())
                         continue;
 
-                    float f_depth = f_pol->getRayDepth();
+                    float f_depth = f_pol->getDepth();
                     if (f_depth <= 0.0)
                         continue;
 
@@ -704,7 +718,7 @@ private:
                     vec3<float> kf_ray = kf_ver / kf_ver(2);
 
                     kf_pol->prepareForRay(kf_ray);
-                    if (!kf_pol->rayHitsShape())
+                    if (!kf_pol->hitsShape())
                         continue;
 
                     vec2<float> kf_pix = cam.rayToPix(kf_ray);
@@ -741,14 +755,14 @@ private:
                     std::vector<float> Jacobian = kf_pol->getJacobian(d_f_i_d_kf_depth);
                     // std::vector<float> Jacobian2 = f_pol->getJacobian(d_f_i_d_kf_depth);
 
-                    std::array<float, DoF> jacs = jmap_buffer->nodata;
-                    std::array<int, DoF> ids = pId_buffer->nodata;
+                    Type1 jacs = jmap_buffer->nodata;
+                    Type2 ids = pId_buffer->nodata;
                     for (size_t i = 0; i < p_ids.size(); i++)
                     {
-                        if (i >= DoF)
+                        if (i >= shapeDoF)
                             break;
-                        jacs[i] = Jacobian[i];
-                        ids[i] = p_ids[i];
+                        jacs(i) = Jacobian[i];
+                        ids(i) = p_ids[i];
                     }
 
                     e_buffer->set(error, y, x, lvl);
@@ -759,8 +773,8 @@ private:
         }
     }
 
-    template <int DoF>
-    void renderJPoseMapWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<std::array<float, DoF>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<std::array<int, DoF>> *pId_buffer, int lvl)
+    template <typename Type1, typename Type2, typename Type3>
+    void renderJPoseMapWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<Type1> *jpose_buffer, dataCPU<Type2> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type3> *pId_buffer, int lvl)
     {
         float min_area = 0.0 * (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16.0;
         // float min_angle = M_PI / 64.0;
@@ -770,9 +784,11 @@ private:
 
         // for each triangle
         std::vector<unsigned int> t_ids = kscene->getShapesIds();
+        int shapeDoF = kscene->getShapesDoF();
+
         for (auto t_id : t_ids)
         {
-            if(!scene->isShapeInWindow(win, t_id))
+            if (!scene->isShapeInWindow(win, t_id))
                 continue;
 
             std::vector<unsigned int> p_ids = kscene->getShapeParamsIds(t_id);
@@ -809,10 +825,10 @@ private:
                     vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForRay(f_ray);
-                    if (!f_pol->rayHitsShape())
+                    if (!f_pol->hitsShape())
                         continue;
 
-                    float f_depth = f_pol->getRayDepth();
+                    float f_depth = f_pol->getDepth();
                     if (f_depth <= 0.0)
                         continue;
 
@@ -832,7 +848,7 @@ private:
                     */
 
                     kf_pol->prepareForRay(kf_ray);
-                    if (!kf_pol->rayHitsShape())
+                    if (!kf_pol->hitsShape())
                         continue;
 
                     vec2<float> kf_pix = cam.rayToPix(kf_ray);
@@ -858,7 +874,7 @@ private:
                     vec3<float> d_f_i_d_tra(d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2));
                     vec3<float> d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
-                    std::array<float, 6> jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
+                    Type1 jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
 
                     jpose_buffer->set(jpose, y, x, lvl);
 
@@ -871,14 +887,14 @@ private:
 
                     float error = f_i - kf_i;
 
-                    std::array<float, DoF> jacs = jmap_buffer->nodata;
-                    std::array<int, DoF> ids = pId_buffer->nodata;
+                    Type2 jacs = jmap_buffer->nodata;
+                    Type3 ids = pId_buffer->nodata;
                     for (size_t i = 0; i < p_ids.size(); i++)
                     {
-                        if (i >= DoF)
+                        if (i >= shapeDoF)
                             break;
-                        jacs[i] = Jacobian[i];
-                        ids[i] = p_ids[i];
+                        jacs(i) = Jacobian[i];
+                        ids(i) = p_ids[i];
                     }
 
                     e_buffer->set(error, y, x, lvl);
@@ -904,7 +920,7 @@ private:
             // if (kf_tri.isBackFace())
             //     continue;
 
-            if(!scene->isShapeInWindow(win, t_id))
+            if (!scene->isShapeInWindow(win, t_id))
                 continue;
 
             // auto f_pol = scene->getShape(t_id);
@@ -929,10 +945,10 @@ private:
                     vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForRay(f_ray);
-                    if (!f_pol->rayHitsShape())
+                    if (!f_pol->hitsShape())
                         continue;
 
-                    float f_depth = f_pol->getRayDepth();
+                    float f_depth = f_pol->getDepth();
 
                     if (f_depth <= 0.0)
                         continue;
@@ -965,7 +981,7 @@ private:
             //     continue;
             // auto f_pol = scene->getShape(t_id);
 
-            if(!scene->isShapeInWindow(win, t_id))
+            if (!scene->isShapeInWindow(win, t_id))
                 continue;
 
             scene->getShape(f_pol.get(), t_id);
@@ -989,7 +1005,7 @@ private:
                     vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForRay(f_ray);
-                    if (!f_pol->rayHitsShape())
+                    if (!f_pol->hitsShape())
                         continue;
 
                     bool isLine = f_pol->isEdge();

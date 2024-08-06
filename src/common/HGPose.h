@@ -43,10 +43,19 @@ public:
     }
     */
 
+    Eigen::Matrix<float, 6, 6> getH()
+    {
+        return H / count;
+    }
+
+    Eigen::Matrix<float, 6, 1> getG()
+    {
+        return G / count;
+    }
+
     Eigen::Matrix<float, 6, 6> H;
     Eigen::Matrix<float, 6, 1> G;
     int count;
 
 private:
-
 };

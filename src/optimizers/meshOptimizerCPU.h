@@ -4,6 +4,7 @@
 #include <thread>
 
 #include "common/camera.h"
+#include "common/types.h"
 #include "common/HGPose.h"
 #include "common/HGMapped.h"
 #include "common/Error.h"
@@ -57,11 +58,10 @@ public:
 
         scene->transform(frame.pose);
         scene->project(cam[1]);
+        kscene.project(cam[1]);
         //renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
         renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
         renderer.renderImageParallel(&kscene, &kframe, scene.get(), cam[1], &image_buffer, 1);
-
-        renderer.renderDebugParallel(scene.get(), &frame, cam[0], &debug, 0);
 
         error_buffer = frame.image.sub(image_buffer, 1);
 
@@ -71,6 +71,9 @@ public:
         show(idepth_buffer, "lastFrame idepth", 1);
         show(image_buffer, "lastFrame scene", 1);
 
+        //scene->project(cam[0]);
+        //kscene.project(cam[0]);
+        //renderer.renderDebugParallel(scene.get(), &frame, cam[0], &debug, 0);
         //show(debug, "frame debug", 0);
     }
 
@@ -120,6 +123,8 @@ private:
     //HGPose computeHGPose(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
     HGMapped computeHGMap(SceneBase *scene, frameCPU *frame, int lvl);
+    HGEigen computeHGMap2(SceneBase *scene, frameCPU *frame, int lvl);
+
     HGMapped computeHGPoseMap(SceneBase *scene, frameCPU *frame, int lvl);
 
     // params
@@ -130,9 +135,10 @@ private:
     dataCPU<float> image_buffer;
     dataCPU<float> idepth_buffer;
     dataCPU<float> error_buffer;
-    dataCPU<std::array<float, 6>> jpose_buffer;
-    dataCPU<std::array<float, MESH_DOF>> jmap_buffer;
-    dataCPU<std::array<int, MESH_DOF>> pId_buffer;
+    
+    dataCPU<vec6<float>> jpose_buffer;
+    dataCPU<vec3<float>> jmap_buffer;
+    dataCPU<vec3<float>> pId_buffer;
 
     // debug
     dataCPU<float> debug;

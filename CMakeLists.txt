@@ -14,7 +14,7 @@ find_package(OpenCV REQUIRED)
 set(CMAKE_CXX_FLAGS
 #    "-O3"
 #   "-O3 -ffast-math -fno-math-errno -DNDEBUG"
-   "-Og -g -fno-omit-frame-pointer"
+   "-Og -g -fno-omit-frame-pointer -ffast-math"
 )
 
 include_directories("src")

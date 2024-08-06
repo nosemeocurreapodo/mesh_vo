@@ -14,7 +14,7 @@ public:
         max_y = maxy;
     }
 
-    bool isPixInWindow(vec2<float> pix)
+    inline bool isPixInWindow(vec2<float> pix)
     {
         if (pix(0) > min_x && pix(0) < max_x && pix(1) > min_y && pix(1) < max_y)
             return true;
@@ -35,7 +35,6 @@ public:
     int max_y;
 
 private:
-
 };
 
 class camera
@@ -107,7 +106,7 @@ public:
         resize(new_width, new_height);
     }
 
-    inline bool isPixVisible(vec2<float> &pix)
+    inline bool isPixVisible(vec2<float> pix)
     {
         // the idea here is that if we have 3 pixels
         // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
@@ -128,7 +127,7 @@ public:
     }
     */
 
-    inline vec2<float> pointToPix(vec3<float> &point)
+    inline vec2<float> pointToPix(vec3<float> point)
     {
         vec2<float> pix;
         pix(0) = fx * point(0) / point(2) + cx;
@@ -138,13 +137,13 @@ public:
 
     inline vec2<float> rayToPix(vec3<float> ray)
     {
-        vec2<float> pix;
-        pix(0) = fx * ray(0) + cx;
-        pix(1) = fy * ray(1) + cy;
-        return pix;
+        // vec2<float> pix;
+        // pix(0) = fx * ray(0) + cx;
+        // pix(1) = fy * ray(1) + cy;
+        return vec2<float>(fx * ray(0) + cx, fy * ray(1) + cy);
     }
 
-    inline vec3<float> pixToRay(vec2<float> &pix)
+    inline vec3<float> pixToRay(vec2<float> pix)
     {
         vec3<float> ray;
         ray(0) = fxinv * pix(0) + cxinv;
@@ -153,16 +152,16 @@ public:
         return ray;
     }
 
-    inline vec3<float> pixToRay(int &x, int &y)
+    inline vec3<float> pixToRay(int x, int y)
     {
-        vec3<float> ray;
-        ray(0) = fxinv * x + cxinv;
-        ray(1) = fyinv * y + cyinv;
-        ray(2) = 1.0;
-        return ray;
+        // vec3<float> ray;
+        // ray(0) = fxinv * x + cxinv;
+        // ray(1) = fyinv * y + cyinv;
+        // ray(2) = 1.0;
+        return vec3<float>(fxinv * x + cxinv, fyinv * y + cyinv, 1.0);
     }
 
-    inline vec3<float> d_f_i_d_f_ver(vec2<float> &d_f_i_d_pix, vec3<float> &f_ver)
+    inline vec3<float> d_f_i_d_f_ver(vec2<float> d_f_i_d_pix, vec3<float> f_ver)
     {
         vec3<float> d_f_i_d_f_ver;
         d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * fx / f_ver(2);

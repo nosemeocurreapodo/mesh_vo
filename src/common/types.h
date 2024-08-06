@@ -11,10 +11,19 @@ struct vec2
     }
 
     template <typename type2>
-    vec2(type2 &x, type2 &y)
+    vec2(type2 x, type2 y)
     {
         this->operator()(0) = (type)x;
         this->operator()(1) = (type)y;
+    }
+
+    template <typename type2>
+    vec2<type> operator*(type2 c)
+    {
+        vec2<type> result;
+        result(0) = type(this->operator()(0) * c);
+        result(1) = type(this->operator()(1) * c);
+        return result;
     }
 
     vec2<type> operator+(vec2<type> c)
@@ -35,7 +44,14 @@ struct vec2
 
     type dot(vec2<type> c)
     {
-        return this->operator()(0)*c(0) + this->operator()(1)*c(1);
+        return this->operator()(0) * c(0) + this->operator()(1) * c(1);
+    }
+
+    bool operator==(vec2<type> c)
+    {
+        if (this->operator()(0) == c(0) && this->operator()(1) == c(1))
+            return true;
+        return false;
     }
 
     void operator=(vec2<type> c)
@@ -80,7 +96,7 @@ struct vec3
         this->operator()(2) = z;
     }
 
-    type dot(vec3<type> &a)
+    type dot(vec3<type> a)
     {
         type result = this->operator()(0) * a(0) + this->operator()(1) * a(1) + this->operator()(2) * a(2);
         return result;
@@ -89,9 +105,9 @@ struct vec3
     vec3<type> cross(vec3<type> a)
     {
         vec3<type> result;
-        result(0) = this->operator()(1)*a(2) - this->operator()(2)*a(1);
-        result(1) = this->operator()(2)*a(0) - this->operator()(0)*a(2);
-        result(2) = this->operator()(0)*a(1) - this->operator()(1)*a(0);
+        result(0) = this->operator()(1) * a(2) - this->operator()(2) * a(1);
+        result(1) = this->operator()(2) * a(0) - this->operator()(0) * a(2);
+        result(2) = this->operator()(0) * a(1) - this->operator()(1) * a(0);
         return result;
     }
 
@@ -142,7 +158,7 @@ struct vec3
         return result;
     }
 
-    vec3<type> operator+(vec3<type> c)
+    inline vec3<type> operator+(vec3<type> c)
     {
         vec3<type> result;
         result(0) = type(this->operator()(0) + c(0));
@@ -165,6 +181,13 @@ struct vec3
         this->operator()(0) = c(0);
         this->operator()(1) = c(1);
         this->operator()(2) = c(2);
+    }
+
+    bool operator==(vec3<type> c)
+    {
+        if (this->operator()(0) == c(0) && this->operator()(1) == c(1) && this->operator()(2) == c(2))
+            return true;
+        return false;
     }
 
     inline type &operator()(int c)
@@ -282,6 +305,14 @@ struct vec6
         this->operator()(3) = c(3);
         this->operator()(4) = c(4);
         this->operator()(5) = c(5);
+    }
+
+    bool operator==(vec6<type> c)
+    {
+        if (this->operator()(0) == c(0) && this->operator()(1) == c(1) && this->operator()(2) == c(2) &&
+            this->operator()(3) == c(3) && this->operator()(4) == c(4) && this->operator()(5) == c(5))
+            return true;
+        return false;
     }
 
     inline type &operator()(int c)
@@ -790,6 +821,7 @@ struct SO3
         vec3<type> result = matrix.dot(p);
         return result;
     }
+
 private:
     mat3<type> matrix;
 };
@@ -840,8 +872,8 @@ SO3<type> left_jacobian(vec3<type> phi)
     type c = cos(angle);
 
     mat3<type> mat = (s / angle) * mat3<type>::identity() +
-                          (1 - s / angle) * axis.outer(axis) +
-                          ((1 - c) / angle) * wedge(axis);
+                     (1 - s / angle) * axis.outer(axis) +
+                     ((1 - c) / angle) * wedge(axis);
 
     return SO3<type>(mat);
 }
@@ -946,7 +978,6 @@ struct SE3
         */
 
 private:
-
     SO3<type> rotation;
     vec3<type> translation;
 };
@@ -962,4 +993,3 @@ SE3<type> exp(vec6<type> xi)
 
     return SE3<type>(rotation, translation);
 }
-

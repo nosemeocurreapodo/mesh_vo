@@ -8,7 +8,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
       idepth_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
       jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
-      jmap_buffer(_cam.width, _cam.height, {0.0}),
+      jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
       pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
       debug(_cam.width, _cam.height, -1.0),
       idepthVar(_cam.width, _cam.height, -1.0),
@@ -97,10 +97,25 @@ HGMapped meshOptimizerCPU::computeHGMap(SceneBase *scene, frameCPU *frame, int l
     jmap_buffer.set(jmap_buffer.nodata, lvl);
     pId_buffer.set(pId_buffer.nodata, lvl);
 
-    //renderer.renderJMap<MESH_DOF>(scene, cam[lvl], kframe, frame, jmap_buffer, error_buffer, pId_buffer, lvl);
-    renderer.renderJMapParallel<MESH_DOF>(&kscene, &kframe, scene, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
-    //HGMapped hg = reducer.reduceHGMap<MESH_DOF>(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
-    HGMapped hg = reducer.reduceHGMapParallel<MESH_DOF>(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
+    //renderer.renderJMap(scene, cam[lvl], kframe, frame, jmap_buffer, error_buffer, pId_buffer, lvl);
+    renderer.renderJMapParallel(&kscene, &kframe, scene, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
+    //HGMapped hg = reducer.reduceHGMap(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
+    HGMapped hg = reducer.reduceHGMapParallel(cam[lvl], scene->getShapesDoF(), jmap_buffer, error_buffer, pId_buffer, lvl);
+
+    return hg;
+}
+
+HGEigen meshOptimizerCPU::computeHGMap2(SceneBase *scene, frameCPU *frame, int lvl)
+{
+    error_buffer.set(error_buffer.nodata, lvl);
+    jmap_buffer.set(jmap_buffer.nodata, lvl);
+    pId_buffer.set(pId_buffer.nodata, lvl);
+
+    //renderer.renderJMap(scene, cam[lvl], kframe, frame, jmap_buffer, error_buffer, pId_buffer, lvl);
+    renderer.renderJMapParallel(&kscene, &kframe, scene, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
+    //HGMapped hg = reducer.reduceHGMap(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
+    //HGEigen hg = reducer.reduceHGMapParallel(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
+    HGEigen hg = reducer.reduceHGMap2(cam[lvl], scene->getShapesDoF(), jmap_buffer, error_buffer, pId_buffer, lvl);
 
     return hg;
 }
@@ -112,8 +127,8 @@ HGMapped meshOptimizerCPU::computeHGPoseMap(SceneBase *scene, frameCPU *frame, i
     error_buffer.set(error_buffer.nodata, lvl);
     pId_buffer.set(pId_buffer.nodata, lvl);
 
-    renderer.renderJPoseMapParallel<MESH_DOF>(&kscene, &kframe, scene, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
-    HGMapped hg = reducer.reduceHGPoseMapParallel<MESH_DOF>(cam[lvl], frame->id, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
+    renderer.renderJPoseMapParallel(&kscene, &kframe, scene, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
+    HGMapped hg = reducer.reduceHGPoseMapParallel(cam[lvl], frame->id, scene->getShapesDoF(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
     return hg;
 }
@@ -127,6 +142,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
     for (int lvl = 3; lvl >= 1; lvl--)
     {
         scene->project(cam[lvl]);
+        kscene.project(cam[lvl]);
         //std::cout << "*************************lvl " << lvl << std::endl;
         Sophus::SE3f best_pose = frame.pose;
         //Error e = computeError(idepth_buffer, keyframe, frame, lvl);
@@ -142,11 +158,8 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
             // Eigen::VectorXf G = hg.G.toEigen(pIds);
             // Eigen::SparseMatrix<float> H = hg.H.toEigen(pIds);
 
-            Eigen::VectorXf G = hg.G;
-            Eigen::Matrix<float, 6, 6> H = hg.H;
-
-            H /= hg.count;
-            G /= hg.count;
+            Eigen::VectorXf G = hg.getG();
+            Eigen::Matrix<float, 6, 6> H = hg.getH();
 
             float lambda = 0.0;
             int n_try = 0;
@@ -165,6 +178,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
                 frame.pose = best_pose * Sophus::SE3f::exp(inc).inverse();
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
                 scene->transform(frame.pose);
+                scene->project(cam[lvl]);
 
                 //e.setZero();
                 //e = computeError(idepth_buffer, keyframe, frame, lvl);
@@ -198,6 +212,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
                 {
                     frame.pose = best_pose;
                     scene->transform(frame.pose);
+                    scene->project(cam[lvl]);
 
                     n_try++;
 
@@ -229,16 +244,22 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
     Error e_regu;
     Error e_init;
 
-    HGMapped hg;
-    HGMapped hg_regu;
-    HGMapped hg_init;
+    HGEigen hg(kscene.getNumParams());
+    HGEigen hg_regu(kscene.getNumParams());
+    HGEigen hg_init(kscene.getNumParams());
+
+    //HGMapped hg;
+    //HGMapped hg_regu;
+    //HGMapped hg_init;
 
     for (int lvl = 1; lvl >= 1; lvl--)
     {
+        kscene.project(cam[lvl]);
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
         {
             scene->transform(frames[i].pose);
+            scene->project(cam[lvl]);
             e += computeError(scene.get(), &frames[i], lvl);
         }
         e.error /= e.count;
@@ -261,33 +282,25 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
             for (std::size_t i = 0; i < frames.size(); i++)
             {
                 scene->transform(frames[i].pose);
-                HGMapped _hg = computeHGMap(scene.get(), &frames[i], lvl);
+                scene->project(cam[lvl]);
+                HGEigen _hg = computeHGMap2(scene.get(), &frames[i], lvl);
                 hg += _hg;
             }
 
-            std::vector<int> pIds = hg.G.getParamIds();
+            std::vector<int> pIds = hg.getParamIds();
 
-            Eigen::VectorXf G = hg.G.toEigen(pIds);
-            Eigen::SparseMatrix<float> H = hg.H.toEigen(pIds);
-
-            H /= hg.count;
-            G /= hg.count;
+            Eigen::VectorXf G = hg.getG(pIds);
+            Eigen::SparseMatrix<float> H = hg.getH(pIds);
 
             hg_regu = kscene.HGRegu();
 
-            Eigen::VectorXf G_regu = hg_regu.G.toEigen(pIds);
-            Eigen::SparseMatrix<float> H_regu = hg_regu.H.toEigen(pIds);
-
-            H_regu /= hg_regu.count;
-            G_regu /= hg_regu.count;
+            Eigen::VectorXf G_regu = hg_regu.getG(pIds);
+            Eigen::SparseMatrix<float> H_regu = hg_regu.getH(pIds);
 
             // hg_init = HGInitial(initialScene, initialInvVar);
 
             // Eigen::VectorXf G_init = hg_init.G.toEigen(ids);
             // Eigen::SparseMatrix<float> H_init = hg_init.H.toEigen(ids);
-
-            // H_init /= hg_init.count;
-            // G_init /= hg_init.count;
 
             H += meshRegularization * H_regu; // + meshInitial * H_init;
             G += meshRegularization * G_regu; // + meshInitial * G_init;
@@ -338,6 +351,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
                     scene->transform(frames[i].pose);
+                    scene->project(cam[lvl]);
                     e += computeError(scene.get(), &frames[i], lvl);
                 }
                 e.error /= e.count;
@@ -408,7 +422,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
     Error e;
     Error e_regu;
     HGMapped hg;
-    HGMapped hg_regu;
+    HGEigen hg_regu(kscene.getNumParams() + frames.size()*6);
 
     for (int lvl = 1; lvl >= 1; lvl--)
     {
@@ -439,21 +453,15 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 hg += _hg;
             }
 
-            std::vector<int> pIds = hg.G.getParamIds();
+            std::vector<int> pIds = hg.getParamIds();
 
-            Eigen::VectorXf G = hg.G.toEigen(pIds);
-            Eigen::SparseMatrix<float> H = hg.H.toEigen(pIds);
-
-            H /= hg.count;
-            G /= hg.count;
+            Eigen::VectorXf G = hg.getG(pIds);
+            Eigen::SparseMatrix<float> H = hg.getH(pIds);
 
             hg_regu = kscene.HGRegu();
 
-            Eigen::VectorXf G_regu = hg_regu.G.toEigen(pIds);
-            Eigen::SparseMatrix<float> H_regu = hg_regu.H.toEigen(pIds);
-
-            H_regu /= hg_regu.count;
-            G_regu /= hg_regu.count;
+            Eigen::VectorXf G_regu = hg_regu.getG(pIds);
+            Eigen::SparseMatrix<float> H_regu = hg_regu.getH(pIds);
 
             H += meshRegularization * H_regu;
             G += meshRegularization * G_regu;

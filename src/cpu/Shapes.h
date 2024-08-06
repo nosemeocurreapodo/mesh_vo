@@ -6,14 +6,17 @@
 class ShapeBase
 {
 public:
-    virtual float getArea() = 0;
-    virtual inline window getScreenBounds(camera &cam) = 0;
-    virtual inline void prepareForRay(vec3<float> &r) = 0;
-    virtual inline bool rayHitsShape() = 0;
+    virtual inline float getArea() = 0;
+    virtual inline window getScreenBounds(camera cam) = 0;
+    virtual inline window getScreenBounds() = 0;
+    virtual inline void prepareForRay(vec3<float> r) = 0;
+    virtual inline void prepareForPix(vec2<float> p) = 0;
+    virtual inline bool hitsShape() = 0;
     virtual inline bool isEdge() = 0;
-    virtual inline float getRayDepth() = 0;
+    virtual inline float getDepth() = 0;
     virtual inline vec3<float> getRay(ShapeBase *shape) = 0;
-    virtual inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) = 0;
+    virtual inline vec2<float> getPix(ShapeBase *shape) = 0;
+    virtual inline std::vector<float> getJacobian(float d_f_i_d_kf_depth) = 0;
 };
 
 class ShapePatch : public ShapeBase
@@ -32,7 +35,7 @@ public:
         return width * height;
     }
 
-    window getScreenBounds(camera &cam) override
+    window getScreenBounds(camera cam) override
     {
         vec3<float> ray = vertice / vertice(2);
         vec2<float> pix = cam.rayToPix(ray);
@@ -47,12 +50,12 @@ public:
         return win;
     }
 
-    inline void prepareForRay(vec3<float> &r) override
+    inline void prepareForRay(vec3<float> r) override
     {
         ray = r;
     }
 
-    inline bool rayHitsShape() override
+    inline bool hitsShape() override
     {
         return true;
     }
@@ -62,12 +65,12 @@ public:
         return false;
     }
 
-    inline float getRayDepth() override
+    inline float getDepth() override
     {
         return vertice(2);
     }
 
-    inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
+    inline std::vector<float> getJacobian(float d_f_i_d_kf_depth) override
     {
         float d_f_i_d_param = d_f_i_d_kf_depth * d_z_d_param;
         std::vector<float> J;
@@ -127,12 +130,12 @@ public:
         return area;
     }
 
-    inline void prepareForRay(vec3<float> &r) override
+    inline void prepareForRay(vec3<float> r) override
     {
         ray = r;
     }
 
-    inline float getRayDepth() override
+    inline float getDepth() override
     {
         float ray_depth = vert_dot_normal / ray.dot(normal);
         return ray_depth;
@@ -147,7 +150,7 @@ public:
         return area;
     }
     */
-    inline bool rayHitsShape() override
+    inline bool hitsShape() override
     {
         // float depth = getRayDepth(ray);
         // Eigen::Vector3f point = ray * depth;
@@ -161,7 +164,7 @@ public:
         return false;
     }
 
-    window getScreenBounds(camera &cam) override
+    window getScreenBounds(camera cam) override
     {
         vec3<float> ray = vertice / vertice(2);
         vec2<float> pix = cam.rayToPix(ray);
@@ -176,7 +179,7 @@ public:
         return win;
     };
 
-    inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
+    inline std::vector<float> getJacobian(float d_f_i_d_kf_depth) override
     {
         float kf_ray_dot_normal = ray.dot(normal);
 
@@ -225,78 +228,57 @@ private:
 class ShapeTriangleFlat : public ShapeBase
 {
 public:
-    /*
-      ShapeTriangleFlat(Eigen::Vector3f &vert1, Eigen::Vector3f &vert2, Eigen::Vector3f &vert3, DepthJacobianMethod jacMethod)
-          : m_vertice0(vert1),
-            m_vertice1(vert2),
-            m_vertice2(vert3)
-      {
-          m_depth0 = m_vertice0(2);
-          m_depth1 = m_vertice1(2);
-          m_depth2 = m_vertice2(2);
-
-          m_ray0 = m_vertice0 / m_depth0;
-          m_ray1 = m_vertice1 / m_depth1;
-          m_ray2 = m_vertice2 / m_depth2;
-
-          //computeNormal();
-          prepareForMapJacobian(jacMethod);
-
-          // Calculate the area of the triangle
-          denominator = (m_ray1.y() - m_ray2.y()) * (m_ray0.x() - m_ray2.x()) +
-                        (m_ray2.x() - m_ray1.x()) * (m_ray0.y() - m_ray2.y());
-      };
-      */
-
     // ShapeTriangleFlat() {};
 
     ShapeTriangleFlat(vec3<float> &ray0, vec3<float> &ray1, vec3<float> &ray2,
-                      float &depth0, float &depth1, float &depth2, DepthJacobianMethod jacMethod)
-        : m_depth0(depth0),
-          m_depth1(depth1),
-          m_depth2(depth2)
+                      vec2<float> &pix0, vec2<float> &pix1, vec2<float> &pix2,
+                      float depth0, float depth1, float depth2, DepthJacobianMethod jacMethod)
     {
         m_ray0 = &ray0;
         m_ray1 = &ray1;
         m_ray2 = &ray2;
 
+        m_pix0 = &pix0;
+        m_pix1 = &pix1;
+        m_pix2 = &pix2;
+
+        m_depth0 = depth0;
+        m_depth1 = depth1;
+        m_depth2 = depth2;
+
         // computeNormal();
         prepareForMapJacobian(jacMethod);
 
-        // Calculate the area of the triangle
-        denominator = ((*m_ray1)(1) - (*m_ray2)(1)) * ((*m_ray0)(0) - (*m_ray2)(0)) +
-                      ((*m_ray2)(0) - (*m_ray1)(0)) * ((*m_ray0)(1) - (*m_ray2)(1));
-    };
-
-    /*
-    ShapeTriangleFlat(Eigen::Vector3f &ray0, Eigen::Vector3f &ray1, Eigen::Vector3f &ray2,
-                      Eigen::Vector2f &pix0, Eigen::Vector2f &pix1, Eigen::Vector2f &pix2,
-                      float &depth0, float &depth1, float &depth2, DepthJacobianMethod jacMethod)
-        : m_ray0(ray0),
-          m_ray1(ray1),
-          m_ray2(ray2),
-          m_pix0(pix0),
-          m_pix1(pix1),
-          m_pix2(pix2),
-          m_depth0(depth0),
-          m_depth1(depth1),
-          m_depth2(depth2)
-    {
-        // computeNormal();
-        prepareForMapJacobian(jacMethod);
+        r_m1(0) = (*m_ray1)(1) - (*m_ray2)(1);
+        r_m1(1) = (*m_ray2)(0) - (*m_ray1)(0);
+        r_m2(0) = (*m_ray2)(1) - (*m_ray0)(1);
+        r_m2(1) = (*m_ray0)(0) - (*m_ray2)(0);
 
         // Calculate the area of the triangle
-        denominator = (m_ray1.y() - m_ray2.y()) * (m_ray0.x() - m_ray2.x()) +
-                      (m_ray2.x() - m_ray1.x()) * (m_ray0.y() - m_ray2.y());
+        r_denominator = ((*m_ray1)(1) - (*m_ray2)(1)) * ((*m_ray0)(0) - (*m_ray2)(0)) +
+                        ((*m_ray2)(0) - (*m_ray1)(0)) * ((*m_ray0)(1) - (*m_ray2)(1));
+
+        p_m1(0) = (*m_pix1)(1) - (*m_pix2)(1);
+        p_m1(1) = (*m_pix2)(0) - (*m_pix1)(0);
+        p_m2(0) = (*m_pix2)(1) - (*m_pix0)(1);
+        p_m2(1) = (*m_pix0)(0) - (*m_pix2)(0);
+
+        // Calculate the area of the triangle
+        p_denominator = ((*m_pix1)(1) - (*m_pix2)(1)) * ((*m_pix0)(0) - (*m_pix2)(0)) +
+                        ((*m_pix2)(0) - (*m_pix1)(0)) * ((*m_pix0)(1) - (*m_pix2)(1));
     };
-    */
 
     void set(vec3<float> &ray0, vec3<float> &ray1, vec3<float> &ray2,
-             float &depth0, float &depth1, float &depth2, DepthJacobianMethod jacMethod)
+             vec2<float> &pix0, vec2<float> &pix1, vec2<float> &pix2,
+             float depth0, float depth1, float depth2, DepthJacobianMethod jacMethod)
     {
         m_ray0 = &ray0;
         m_ray1 = &ray1;
         m_ray2 = &ray2;
+
+        m_pix0 = &pix0;
+        m_pix1 = &pix1;
+        m_pix2 = &pix2;
 
         m_depth0 = depth0;
         m_depth1 = depth1;
@@ -304,14 +286,23 @@ public:
         // computeNormal();
         prepareForMapJacobian(jacMethod);
 
-        m1(0) = (*m_ray1)(1) - (*m_ray2)(1);
-        m1(1) = (*m_ray2)(0) - (*m_ray1)(0);
-        m2(0) = (*m_ray2)(1) - (*m_ray0)(1);
-        m2(1) = (*m_ray0)(0) - (*m_ray2)(0);
+        r_m1(0) = (*m_ray1)(1) - (*m_ray2)(1);
+        r_m1(1) = (*m_ray2)(0) - (*m_ray1)(0);
+        r_m2(0) = (*m_ray2)(1) - (*m_ray0)(1);
+        r_m2(1) = (*m_ray0)(0) - (*m_ray2)(0);
 
         // Calculate the area of the triangle
-        denominator = ((*m_ray1)(1) - (*m_ray2)(1)) * ((*m_ray0)(0) - (*m_ray2)(0)) +
-                      ((*m_ray2)(0) - (*m_ray1)(0)) * ((*m_ray0)(1) - (*m_ray2)(1));
+        r_denominator = ((*m_ray1)(1) - (*m_ray2)(1)) * ((*m_ray0)(0) - (*m_ray2)(0)) +
+                        ((*m_ray2)(0) - (*m_ray1)(0)) * ((*m_ray0)(1) - (*m_ray2)(1));
+
+        p_m1(0) = (*m_pix1)(1) - (*m_pix2)(1);
+        p_m1(1) = (*m_pix2)(0) - (*m_pix1)(0);
+        p_m2(0) = (*m_pix2)(1) - (*m_pix0)(1);
+        p_m2(1) = (*m_pix0)(0) - (*m_pix2)(0);
+
+        // Calculate the area of the triangle
+        p_denominator = ((*m_pix1)(1) - (*m_pix2)(1)) * ((*m_pix0)(0) - (*m_pix2)(0)) +
+                        ((*m_pix2)(0) - (*m_pix1)(0)) * ((*m_pix0)(1) - (*m_pix2)(1));
     }
 
     float getArea() override
@@ -320,13 +311,17 @@ public:
         // return normal.norm() / 2.0;
     }
 
-    inline void prepareForRay(vec3<float> &r) override
+    inline void prepareForRay(vec3<float> r) override
     {
         computeBarycentric(r);
-        ray = r;
     }
 
-    inline float getRayDepth() override
+    inline void prepareForPix(vec2<float> p) override
+    {
+        computeBarycentric(p);
+    }
+
+    inline float getDepth() override
     {
         // float ray_depth = vertices[0].dot(normal) / ray.dot(normal);
         float ray_depth = barycentric(0) * m_depth0 +
@@ -340,6 +335,12 @@ public:
     {
         ShapeTriangleFlat *sh = (ShapeTriangleFlat *)shape;
         return *sh->m_ray0 * barycentric(0) + *sh->m_ray1 * barycentric(1) + *sh->m_ray2 * barycentric(2);
+    }
+
+    inline vec2<float> getPix(ShapeBase *shape)
+    {
+        ShapeTriangleFlat *sh = (ShapeTriangleFlat *)shape;
+        return *sh->m_pix0 * barycentric(0) + *sh->m_pix1 * barycentric(1) + *sh->m_pix2 * barycentric(2);
     }
 
     /*
@@ -372,7 +373,7 @@ public:
      }
      */
 
-    inline bool rayHitsShape() override
+    inline bool hitsShape() override
     {
         if (barycentric(0) < -0.0 || barycentric(1) < -0.0 || barycentric(2) < -0.0)
             return false;
@@ -390,7 +391,7 @@ public:
         return false;
     }
 
-    inline window getScreenBounds(camera &cam) override
+    inline window getScreenBounds(camera cam) override
     {
         vec2<float> screencoords[3];
         screencoords[0] = cam.rayToPix(*m_ray0);
@@ -407,7 +408,19 @@ public:
         return win;
     };
 
-    inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
+    inline window getScreenBounds() override
+    {
+        int min_x = std::min(std::min((int)(*m_pix0)(0), (int)(*m_pix1)(0)), (int)(*m_pix2)(0)) - 1;
+        int max_x = std::max(std::max((int)(*m_pix0)(0), (int)(*m_pix1)(0)), (int)(*m_pix2)(0)) + 1;
+        int min_y = std::min(std::min((int)(*m_pix0)(1), (int)(*m_pix1)(1)), (int)(*m_pix2)(1)) - 1;
+        int max_y = std::max(std::max((int)(*m_pix0)(1), (int)(*m_pix1)(1)), (int)(*m_pix2)(1)) + 1;
+
+        window win(min_x, max_x, min_y, max_y);
+
+        return win;
+    };
+
+    inline std::vector<float> getJacobian(float d_f_i_d_kf_depth) override
     {
         vec3<float> d_kf_depth_d_z = barycentric;
         std::vector<float> J;
@@ -464,28 +477,41 @@ private:
         // normal = ((vertices[1] - vertices[0]).cross(vertices[2] - vertices[0]));
     }
 
-    inline void computeBarycentric(vec3<float> &ray)
+    inline void computeBarycentric(vec3<float> ray)
     {
-         //barycentric(0) = (((*m_ray1)(1) - (*m_ray2)(1)) * (ray(0) - (*m_ray2)(0)) +
-         //                 ((*m_ray2)(0) - (*m_ray1)(0)) * (ray(1) - (*m_ray2)(1))) /
-         //                denominator;
-         //barycentric(1) = (((*m_ray2)(1) - (*m_ray0)(1)) * (ray(0) - (*m_ray2)(0)) +
-         //                 ((*m_ray0)(0) - (*m_ray2)(0)) * (ray(1) - (*m_ray2)(1))) /
-         //                denominator;
+        // barycentric(0) = (((*m_ray1)(1) - (*m_ray2)(1)) * (ray(0) - (*m_ray2)(0)) +
+        //                  ((*m_ray2)(0) - (*m_ray1)(0)) * (ray(1) - (*m_ray2)(1))) /
+        //                 denominator;
+        // barycentric(1) = (((*m_ray2)(1) - (*m_ray0)(1)) * (ray(0) - (*m_ray2)(0)) +
+        //                  ((*m_ray0)(0) - (*m_ray2)(0)) * (ray(1) - (*m_ray2)(1))) /
+        //                 denominator;
         vec2<float> diff;
         diff(0) = ray(0) - (*m_ray2)(0);
         diff(1) = ray(1) - (*m_ray2)(1);
-        barycentric(0) = m1.dot(diff) / denominator;
-        barycentric(1) = m2.dot(diff) / denominator;
+        barycentric(0) = r_m1.dot(diff) / r_denominator;
+        barycentric(1) = r_m2.dot(diff) / r_denominator;
         barycentric(2) = 1.0f - barycentric(0) - barycentric(1);
     }
 
-    vec2<float> m1;
-    vec2<float> m2;
+    inline void computeBarycentric(vec2<float> pix)
+    {
+        // barycentric(0) = (((*m_ray1)(1) - (*m_ray2)(1)) * (ray(0) - (*m_ray2)(0)) +
+        //                  ((*m_ray2)(0) - (*m_ray1)(0)) * (ray(1) - (*m_ray2)(1))) /
+        //                 denominator;
+        // barycentric(1) = (((*m_ray2)(1) - (*m_ray0)(1)) * (ray(0) - (*m_ray2)(0)) +
+        //                  ((*m_ray0)(0) - (*m_ray2)(0)) * (ray(1) - (*m_ray2)(1))) /
+        //                 denominator;
+        vec2<float> diff;
+        diff(0) = pix(0) - (*m_pix2)(0);
+        diff(1) = pix(1) - (*m_pix2)(1);
+        barycentric(0) = p_m1.dot(diff) / p_denominator;
+        barycentric(1) = p_m2.dot(diff) / p_denominator;
+        barycentric(2) = 1.0f - barycentric(0) - barycentric(1);
+    }
 
-    vec3<float> m_vertice0;
-    vec3<float> m_vertice1;
-    vec3<float> m_vertice2;
+    // vec3<float> m_vertice0;
+    // vec3<float> m_vertice1;
+    // vec3<float> m_vertice2;
 
     float m_depth0;
     float m_depth1;
@@ -495,16 +521,22 @@ private:
     vec3<float> *m_ray1;
     vec3<float> *m_ray2;
 
-    vec2<float> m_pix0;
-    vec2<float> m_pix1;
-    vec2<float> m_pix2;
+    vec2<float> *m_pix0;
+    vec2<float> *m_pix1;
+    vec2<float> *m_pix2;
 
     // Eigen::Vector3f normal;
 
-    vec3<float> ray;
+    // vec3<float> ray;
     vec3<float> barycentric;
 
-    float denominator;
+    vec2<float> r_m1;
+    vec2<float> r_m2;
+    float r_denominator;
+
+    vec2<float> p_m1;
+    vec2<float> p_m2;
+    float p_denominator;
 
     // for der
     float d_z_d_iz[3];
@@ -538,13 +570,13 @@ public:
         return ((vertices[1] - vertices[0]).cross(vertices[2] - vertices[0])).norm() / 2.0;
     }
 
-    inline void prepareForRay(vec3<float> &r) override
+    inline void prepareForRay(vec3<float> r) override
     {
         ray = r;
         computeBarycentric(ray);
     }
 
-    inline float getRayDepth() override
+    inline float getDepth() override
     {
         /*
         float depth_0 = vertices[0].dot(normals[0]) / ray.dot(normals[0]);
@@ -605,7 +637,7 @@ public:
      }
      */
 
-    inline bool rayHitsShape() override
+    inline bool hitsShape() override
     {
         if (barycentric(0) < -0.0 || barycentric(1) < -0.0 || barycentric(2) < -0.0)
             return false;
@@ -623,7 +655,7 @@ public:
         return false;
     }
 
-    window getScreenBounds(camera &cam) override
+    window getScreenBounds(camera cam) override
     {
         vec2<float> screencoords[3];
         screencoords[0] = cam.rayToPix(rays[0]);
@@ -640,7 +672,7 @@ public:
         return win;
     };
 
-    inline std::vector<float> getJacobian(float &d_f_i_d_kf_depth) override
+    inline std::vector<float> getJacobian(float d_f_i_d_kf_depth) override
     {
         vec3<float> d_kf_depth_d_z;
         d_kf_depth_d_z(0) = barycentric(0); // * rays[0].dot(normals[0]) / ray.dot(normals[0]);

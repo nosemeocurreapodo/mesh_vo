@@ -9,7 +9,7 @@
 #include "common/HGEigen.h"
 #include "params.h"
 
-#define MESH_DOF 3
+#define SHAPE_DOF 3
 
 class SceneMesh : public SceneVerticesBase
 {
@@ -59,6 +59,12 @@ public:
         return 3;
     }
 
+    int getNumParams() override
+    {
+        // one depth for each vertice
+        return getVerticesIds().size();
+    }
+
     /*
     std::unique_ptr<ShapeBase> getShape(unsigned int polId) override
     {
@@ -81,6 +87,7 @@ public:
         auto tri = getTriangleIndices(polId);
         // return std::make_unique<ShapeTriangleFlat>(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
         return std::make_unique<ShapeTriangleFlat>(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
+                                                   getPix(tri[0]), getPix(tri[1]), getPix(tri[2]),
                                                    getDepth(tri[0]), getDepth(tri[1]), getDepth(tri[2]),
                                                    getDepthJacMethod());
         // return std::make_unique<ShapeTriangleFlat>(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
@@ -95,6 +102,7 @@ public:
         // return std::make_unique<ShapeTriangleFlat>(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
         ShapeTriangleFlat *_shape = (ShapeTriangleFlat *)shape;
         _shape->set(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
+                    getPix(tri[0]), getPix(tri[1]), getPix(tri[2]),
                     getDepth(tri[0]), getDepth(tri[1]), getDepth(tri[2]),
                     getDepthJacMethod());
     }
@@ -155,11 +163,14 @@ public:
         return error;
     }
 
-    HGMapped HGRegu()
+    HGEigen HGRegu()
     {
-        HGMapped hg;
-
         std::vector<unsigned int> polIds = getTrianglesIds();
+
+        HGEigen hg(getNumParams());
+
+        typedef Eigen::Triplet<double> T;
+        std::vector<T> tripletList;
 
         for (size_t i = 0; i < polIds.size(); i++)
         {
@@ -186,15 +197,21 @@ public:
             {
                 // if (hg.G(NUM_FRAMES*6 + vertexIndex[j]) == 0)
                 //     continue;
-                // hg.G[v_ids[j]] += (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
-                hg.G.add(diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j], v_ids[j]);
+                hg.G[v_ids[j]] += (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
+                //hg.G.add(diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j], v_ids[j]);
                 for (int k = 0; k < 3; k++)
                 {
-                    // hg.H[v_ids[j]][v_ids[k]] += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
-                    hg.H.add(J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k], v_ids[j], v_ids[k]);
+                    float value = (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
+
+                    tripletList.push_back(T(v_ids[j], v_ids[k], value));
+
+                    //hg.H.coeffRef(v_ids[j],v_ids[k]) += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
+                    //hg.H.add(J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k], v_ids[j], v_ids[k]);
                 }
             }
         }
+
+        hg.H.setFromTriplets(tripletList.begin(), tripletList.end());
 
         hg.count = polIds.size();
 

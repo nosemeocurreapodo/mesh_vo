@@ -68,32 +68,8 @@ public:
         return result;
     }
 
-    std::vector<int> getParamIds()
-    {
-        std::vector<int> ids;
-        for (auto it = vector.begin(); it != vector.end(); ++it)
-        {
-            ids.push_back(it->first);
-        }
-        sort(ids.begin(), ids.end()); 
-        return ids;
-    }
-
-    Eigen::VectorXf toEigen(std::vector<int> &paramIds)
-    {
-        Eigen::VectorXf eigenVector;
-        eigenVector = Eigen::VectorXf::Zero(paramIds.size());
-
-        for (size_t index = 0; index < paramIds.size(); index++)
-        {
-            int id = paramIds[index];
-            eigenVector(index) = vector[id];
-        }
-        return eigenVector;
-    }
-
     std::unordered_map<int, float> vector;
-    //std::map<int, float> vector;
+    // std::map<int, float> vector;
 
 private:
 };
@@ -165,64 +141,8 @@ public:
         return result;
     }
 
-    Eigen::SparseMatrix<float> toEigen2(std::vector<int> paramIds)
-    {
-        Eigen::SparseMatrix<float> eigenMatrix;
-        eigenMatrix = Eigen::SparseMatrix<float>(paramIds.size(), paramIds.size());
-
-        for (size_t y = 0; y < paramIds.size(); y++)
-        {
-            if (!matrix.count(paramIds[y]))
-                continue;
-
-            VectorMapped row = matrix[paramIds[y]];
-
-            for (size_t x = 0; x < paramIds.size(); x++)
-            {
-                if (!row.vector.count(paramIds[x]))
-                    continue;
-
-                float value = row.vector[paramIds[x]];
-
-                eigenMatrix.coeffRef(y, x) = value;
-            }
-        }
-        return eigenMatrix;
-    }
-
-    Eigen::SparseMatrix<float> toEigen(std::vector<int> paramIds)
-    {
-        typedef Eigen::Triplet<double> T;
-        std::vector<T> tripletList;
-        tripletList.reserve(paramIds.size() * 3);
-
-        for (size_t y = 0; y < paramIds.size(); y++)
-        {
-            if (!matrix.count(paramIds[y]))
-                continue;
-
-            VectorMapped row = matrix[paramIds[y]];
-
-            for (size_t x = 0; x < paramIds.size(); x++)
-            {
-                if (!row.vector.count(paramIds[x]))
-                    continue;
-
-                float value = row.vector[paramIds[x]];
-
-                tripletList.push_back(T(y, x, value));
-                //eigenMatrix.coeffRef(y, x) = value;
-            }
-        }
-
-        Eigen::SparseMatrix<float> eigenMatrix(paramIds.size(), paramIds.size());
-        eigenMatrix.setFromTriplets(tripletList.begin(), tripletList.end());
-
-        return eigenMatrix;
-    }
-
     std::unordered_map<int, VectorMapped> matrix;
-    //std::map<int, VectorMapped> matrix;
+    // std::map<int, VectorMapped> matrix;
 
 private:
 };
@@ -260,9 +180,88 @@ public:
         count += a.count;
     }
 
+    std::vector<int> getParamIds()
+    {
+        std::vector<int> ids;
+        for (auto it = G.vector.begin(); it != G.vector.end(); ++it)
+        {
+            ids.push_back(it->first);
+        }
+        sort(ids.begin(), ids.end());
+        return ids;
+    }
+
+    Eigen::VectorXf getG(std::vector<int> &paramIds)
+    {
+        Eigen::VectorXf eigenVector;
+        eigenVector = Eigen::VectorXf::Zero(paramIds.size());
+
+        for (size_t index = 0; index < paramIds.size(); index++)
+        {
+            int id = paramIds[index];
+            eigenVector(index) = G.vector[id];
+        }
+        return eigenVector / count;
+    }
+
+    Eigen::SparseMatrix<float> getH2(std::vector<int> paramIds)
+    {
+        Eigen::SparseMatrix<float> eigenMatrix;
+        eigenMatrix = Eigen::SparseMatrix<float>(paramIds.size(), paramIds.size());
+
+        for (size_t y = 0; y < paramIds.size(); y++)
+        {
+            if (!H.matrix.count(paramIds[y]))
+                continue;
+
+            VectorMapped row = H.matrix[paramIds[y]];
+
+            for (size_t x = 0; x < paramIds.size(); x++)
+            {
+                if (!row.vector.count(paramIds[x]))
+                    continue;
+
+                float value = row.vector[paramIds[x]];
+
+                eigenMatrix.coeffRef(y, x) = value;
+            }
+        }
+        return eigenMatrix / count;
+    }
+
+    Eigen::SparseMatrix<float> getH(std::vector<int> paramIds)
+    {
+        typedef Eigen::Triplet<double> T;
+        std::vector<T> tripletList;
+        tripletList.reserve(paramIds.size() * 3);
+
+        for (size_t y = 0; y < paramIds.size(); y++)
+        {
+            if (!H.matrix.count(paramIds[y]))
+                continue;
+
+            VectorMapped row = H.matrix[paramIds[y]];
+
+            for (size_t x = 0; x < paramIds.size(); x++)
+            {
+                if (!row.vector.count(paramIds[x]))
+                    continue;
+
+                float value = row.vector[paramIds[x]];
+
+                tripletList.push_back(T(y, x, value));
+                // eigenMatrix.coeffRef(y, x) = value;
+            }
+        }
+
+        Eigen::SparseMatrix<float> eigenMatrix(paramIds.size(), paramIds.size());
+        eigenMatrix.setFromTriplets(tripletList.begin(), tripletList.end());
+
+        return eigenMatrix / count;
+    }
+
     MatrixMapped H;
     VectorMapped G;
     int count;
-
 private:
 };
