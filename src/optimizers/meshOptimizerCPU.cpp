@@ -270,7 +270,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
         // e_init = keyframeScene.errorInitial(initialScene, initialInvVar);
         //  e_init.error /= e_init.count;
 
-        float last_error = e.error + meshRegularization * e_regu.error + meshInitial * e_init.error;
+        float last_error = e.error + meshRegularization * e_regu.error;// + meshInitial * e_init.error;
 
         std::cout << "initial error " << last_error << std::endl;
 
@@ -287,7 +287,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 hg += _hg;
             }
 
-            std::vector<int> pIds = hg.getParamIds();
+            std::map<int, int> pIds = hg.getParamIds();
 
             Eigen::VectorXf G = hg.getG(pIds);
             Eigen::SparseMatrix<float> H = hg.getH(pIds);
@@ -336,14 +336,14 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
 
                 std::vector<float> best_params;
-                for (int index = 0; index < (int)pIds.size(); index++)
+                for (auto id : pIds)
                 {
-                    float best_param = kscene.getParam(pIds[index]);
-                    float new_param = best_param + inc(index);
+                    float best_param = kscene.getParam(id.first);
+                    float new_param = best_param + inc(id.second);
                     best_params.push_back(best_param);
                     // the derivative is with respecto to the keyframe pose
                     // the update should take this into account
-                    kscene.setParam(new_param, pIds[index]);
+                    kscene.setParam(new_param, id.first);
                 }
                 scene = kscene.clone();
 
@@ -390,8 +390,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 }
                 else
                 {
-                    for (size_t index = 0; index < pIds.size(); index++)
-                        kscene.setParam(best_params[index], pIds[index]);
+                    for (auto id : pIds)
+                        kscene.setParam(best_params[id.second], id.first);
                     scene = kscene.clone();
 
                     n_try++;
@@ -421,7 +421,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
     Error e;
     Error e_regu;
-    HGMapped hg;
+    HGEigen hg(kscene.getNumParams() + frames.size()*6);
     HGEigen hg_regu(kscene.getNumParams() + frames.size()*6);
 
     for (int lvl = 1; lvl >= 1; lvl--)
@@ -449,11 +449,11 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
             for (std::size_t i = 0; i < frames.size(); i++)
             {
                 scene->transform(frames[i].pose);
-                HGMapped _hg = computeHGPoseMap(scene.get(), &frames[i], lvl);
-                hg += _hg;
+                //HGEigen _hg = computeHGPoseMap(scene.get(), &frames[i], lvl);
+                //hg += _hg;
             }
 
-            std::vector<int> pIds = hg.getParamIds();
+            std::map<int, int> pIds = hg.getParamIds();
 
             Eigen::VectorXf G = hg.getG(pIds);
             Eigen::SparseMatrix<float> H = hg.getH(pIds);

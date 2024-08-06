@@ -16,6 +16,7 @@ public:
     virtual inline float getDepth() = 0;
     virtual inline vec3<float> getRay(ShapeBase *shape) = 0;
     virtual inline vec2<float> getPix(ShapeBase *shape) = 0;
+    virtual inline float getDepth(ShapeBase *shape) = 0;
     virtual inline std::vector<float> getJacobian(float d_f_i_d_kf_depth) = 0;
 };
 
@@ -341,6 +342,12 @@ public:
     {
         ShapeTriangleFlat *sh = (ShapeTriangleFlat *)shape;
         return *sh->m_pix0 * barycentric(0) + *sh->m_pix1 * barycentric(1) + *sh->m_pix2 * barycentric(2);
+    }
+
+    inline float getDepth(ShapeBase *shape)
+    {
+        ShapeTriangleFlat *sh = (ShapeTriangleFlat *)shape;
+        return sh->m_depth0 * barycentric(0) + sh->m_depth1 * barycentric(1) + sh->m_depth2 * barycentric(2);
     }
 
     /*

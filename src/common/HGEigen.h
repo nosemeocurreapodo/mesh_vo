@@ -36,6 +36,7 @@ public:
         count += a.count;
     }
 
+    /*
     std::vector<int> getParamIds()
     {
         std::vector<int> ids;
@@ -46,18 +47,39 @@ public:
         }
         return ids;
     }
+    */
 
-    Eigen::VectorXf getG(std::vector<int> &pIds)
+    std::map<int, int> getParamIds()
+    {
+        std::map<int, int> ids;
+        for (int it = 0; it < G.size(); ++it)
+        {
+            if (G[it] != 0.0)
+            {
+                // ids.push_back(it);
+                ids[it] = ids.size();
+            }
+        }
+        return ids;
+    }
+
+    Eigen::VectorXf getG(std::map<int, int> &pIds)
     {
         Eigen::VectorXf _G(pIds.size());
+        for (auto id : pIds)
+        {
+            _G[id.second] = G[id.first];
+        }
+        /*
         for (int id = 0; id < pIds.size(); id++)
         {
             _G[id] = G[pIds[id]];
         }
+        */
         return _G / count;
     }
 
-    Eigen::SparseMatrix<float> getH(std::vector<int> &pIds)
+    Eigen::SparseMatrix<float> getH(std::map<int, int> &pIds)
     {
         Eigen::SparseMatrix<float> _H(pIds.size(), pIds.size());
 
@@ -73,9 +95,10 @@ public:
             }
             */
 
-        for (int dst_col = 0; dst_col < pIds.size(); dst_col++)
+        for (auto id : pIds)
         {
-            int src_col = pIds[dst_col];
+            int dst_col = id.second;
+            int src_col = id.first;
             for (Eigen::SparseMatrix<float>::InnerIterator it(H, src_col); it; ++it)
             {
                 // it.value();
@@ -84,18 +107,9 @@ public:
                 // it.index(); // inner index, here it is equal to it.row()
 
                 int src_row = it.row();
-                int dst_row = -1;
-                for (int i = 0; i < pIds.size(); i++)
-                {
-                    if (src_row == pIds[i])
-                    {
-                        dst_row = i;
-                        break;
-                    }
-                }
-
-                if (dst_row == -1)
+                if (!pIds.count(src_row))
                     continue;
+                int dst_row = pIds[src_row];
 
                 _H.insert(dst_row, dst_col) = it.value();
             }

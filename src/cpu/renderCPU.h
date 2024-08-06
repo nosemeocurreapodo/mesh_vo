@@ -165,8 +165,8 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                renderJMapWindow(kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
-                //pool.enqueue(std::bind(&renderCPU::renderJMapWindow, this, kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
+                // renderJMapWindow(kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderJMapWindow<Type1, Type2>, this, kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
 
@@ -204,8 +204,8 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                renderJPoseMapWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
-                //pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow, this, kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
+                // renderJPoseMapWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow<Type1, Type2, Type3>, this, kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
 
@@ -241,8 +241,8 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                renderJPoseWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl);
-                //pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl));
+                // renderJPoseWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderJPoseWindow<Type>, this, kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl));
             }
         }
 
@@ -679,7 +679,8 @@ private:
             // if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
             //     continue;
 
-            window pol_win = f_pol->getScreenBounds(cam);
+            // window pol_win = f_pol->getScreenBounds(cam);
+            window pol_win = f_pol->getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -688,11 +689,13 @@ private:
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
-                    if (!cam.isPixVisible(f_pix))
-                        continue;
+                    // if (!cam.isPixVisible(f_pix))
+                    //     continue;
                     vec3<float> f_ray = cam.pixToRay(f_pix);
 
-                    f_pol->prepareForRay(f_ray);
+                    // f_pol->prepareForRay(f_ray);
+                    f_pol->prepareForPix(f_pix);
+
                     if (!f_pol->hitsShape())
                         continue;
 
@@ -709,19 +712,25 @@ private:
 
                     // Eigen::Vector3f kf_ray = f_pol->getRay(kf_pol.get());
 
-                    Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
+                    // Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
 
-                    vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
-                    if (kf_ver(2) <= 0.0)
-                        continue;
+                    // vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
+                    // if (kf_ver(2) <= 0.0)
+                    //    continue;
 
-                    vec3<float> kf_ray = kf_ver / kf_ver(2);
+                    // vec3<float> kf_ray = kf_ver / kf_ver(2);
 
-                    kf_pol->prepareForRay(kf_ray);
-                    if (!kf_pol->hitsShape())
-                        continue;
+                    // kf_pol->prepareForRay(kf_ray);
+                    // if (!kf_pol->hitsShape())
+                    //     continue;
 
-                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
+                    // vec2<float> kf_pix = cam.rayToPix(kf_ray);
+
+                    vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
+                    vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
+
+                    kf_pol->prepareForPix(kf_pix);
+                    
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
