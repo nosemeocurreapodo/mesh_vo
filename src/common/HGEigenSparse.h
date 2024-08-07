@@ -3,14 +3,19 @@
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 
-class HGEigen
+class HGEigenSparse
 {
 public:
-    HGEigen(int size)
+    HGEigenSparse(int size)
     {
         H = Eigen::SparseMatrix<float>(size, size);
         G = Eigen::VectorXf::Zero(size);
         count = 0;
+
+        //reserve space, will need roughly
+        //3 entryes for every map parameter
+        //every pose parameter will be related with every map parameter
+        tripletList.reserve(size*3 + 5*6*size);
     }
 
     void setZero()
@@ -20,20 +25,62 @@ public:
         count = 0;
     }
 
-    HGEigen operator+(HGEigen a)
+    HGEigenSparse operator+(HGEigenSparse a)
     {
-        HGEigen sum(G.size());
+        HGEigenSparse sum(G.size());
         sum.H = H + a.H;
         sum.G = G + a.G;
         sum.count = count + a.count;
         return sum;
     }
 
-    void operator+=(HGEigen &a)
+    void operator+=(HGEigenSparse &a)
     {
         H += a.H;
         G += a.G;
         count += a.count;
+    }
+
+    void sparseAdd(vec3<float> jac, float error, vec3<int> ids)
+    {
+        count++;
+
+        for (int j = 0; j < ids.size(); j++)
+        {
+            G(ids(j)) += jac(j) * error;
+
+            for (int k = 0; k < ids.size(); k++)
+            {
+                float value = jac(j) * jac(k);
+                tripletList.push_back(T(ids(j), ids(k), value));
+
+                // hg.H.coeffRef(v_ids[j],v_ids[k]) += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
+            }
+        }
+    }
+
+    void sparseAdd(vecx<float> jac, float error, vecx<int> ids)
+    {
+        count++;
+
+        for (int j = 0; j < ids.size(); j++)
+        {
+            G(ids(j)) += jac(j) * error;
+
+            for (int k = 0; k < ids.size(); k++)
+            {
+                float value = jac(j) * jac(k);
+                tripletList.push_back(T(ids(j), ids(k), value));
+
+                // hg.H.coeffRef(v_ids[j],v_ids[k]) += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
+            }
+        }
+    }
+
+    void endSparseAdd()
+    {
+        H.setFromTriplets(tripletList.begin(), tripletList.end());
+        tripletList.clear();
     }
 
     /*
@@ -49,7 +96,7 @@ public:
     }
     */
 
-    std::map<int, int> getParamIds()
+    std::map<int, int> getObservedParamIds()
     {
         std::map<int, int> ids;
         for (int it = 0; it < G.size(); ++it)
@@ -68,7 +115,9 @@ public:
         Eigen::VectorXf _G(pIds.size());
         for (auto id : pIds)
         {
-            _G[id.second] = G[id.first];
+            int dst = id.second;
+            int src = id.first;
+            _G(dst) = G(src);
         }
         /*
         for (int id = 0; id < pIds.size(); id++)
@@ -129,9 +178,11 @@ public:
     }
     */
 
+private:
     Eigen::SparseMatrix<float> H;
     Eigen::VectorXf G;
     int count;
 
-private:
+    typedef Eigen::Triplet<double> T;
+    std::vector<T> tripletList;
 };

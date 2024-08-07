@@ -17,6 +17,11 @@ struct vec2
         this->operator()(1) = (type)y;
     }
 
+    static int size()
+    {
+        return 2;
+    }
+
     template <typename type2>
     vec2<type> operator*(type2 c)
     {
@@ -86,14 +91,14 @@ struct vec3
 
     vec3(type x, type y, type z)
     {
-        set(x, y, z);
-    }
-
-    void set(type x, type y, type z)
-    {
         this->operator()(0) = x;
         this->operator()(1) = y;
         this->operator()(2) = z;
+    }
+
+    static int size()
+    {
+        return 3;
     }
 
     type dot(vec3<type> a)
@@ -224,6 +229,11 @@ struct vec6
         this->operator()(5) = c;
     }
 
+    static int size()
+    {
+        return 6;
+    }
+
     void zero()
     {
         this->operator()(0) = type(0.0);
@@ -327,6 +337,53 @@ struct vec6
 
 private:
     type data[6];
+};
+
+template <typename type>
+struct vecx
+{
+    vecx()
+    {
+    }
+
+    template <typename type1, typename type2>
+    vecx(type1 vec1, type2 vec2)
+    {
+        for (int i = 0; i < vec1.size(); i++)
+        {
+            data.push_back(vec1(i));
+        }
+        for (int i = 0; i < vec2.size(); i++)
+        {
+            data.push_back(vec2(i));
+        }
+    }
+
+    int size()
+    {
+        return data.size();
+    }
+
+    void operator=(vecx<type> c)
+    {
+        for (int i = 0; i < data.size(); i++)
+        {
+            this->operator()(i) = c(i);
+        }
+    }
+
+    inline type &operator()(int c)
+    {
+        return data[c];
+    }
+
+    inline type operator()(int c) const
+    {
+        return data[c];
+    }
+
+private:
+    std::vector<type> data;
 };
 
 template <typename type>
@@ -890,7 +947,7 @@ struct SE3
     inline SE3(type qw, type qx, type qy, type qz, type tx, type ty, type tz)
     {
         rotation.fromQuaternion(qw, qx, qy, qz);
-        translation.set(tx, ty, tz);
+        translation = vec3<float>(tx, ty, tz);
     }
 
     /// Construct from C arrays
@@ -933,7 +990,7 @@ struct SE3
     void identity()
     {
         rotation.identity();
-        translation.set(0.0, 0.0, 0.0);
+        translation = vec3<float>(0.0, 0.0, 0.0);
     }
 
     inline SE3<type> inv() const

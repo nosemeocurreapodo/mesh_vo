@@ -2,19 +2,18 @@ cmake_minimum_required(VERSION 2.6)
 
 project(mesh_vo)
 
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 find_package(SuiteParse REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(Boost COMPONENTS system thread) 
 find_package(OpenCV REQUIRED)
 
 set(CMAKE_CXX_FLAGS
 #    "-O3"
 #   "-O3 -ffast-math -fno-math-errno -DNDEBUG"
-   "-O3 -g -fno-omit-frame-pointer -ffast-math"
+   "-Og -g -fno-omit-frame-pointer -ffast-math -fopenmp"
 )
 
 include_directories("src")
@@ -61,7 +60,7 @@ endforeach(SHADER)
 # build example app
 add_executable(testapp ${TESTAPP_SRCS} ${VISUALODOMETRY_SRCS})
 #target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})
-target_link_libraries(testapp boost_system boost_thread ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
+target_link_libraries(testapp ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
 
 add_executable(tum_dataset ${TUMDATASET_SRCS} ${VISUALODOMETRY_SRCS})
-target_link_libraries(tum_dataset boost_system boost_thread ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
+target_link_libraries(tum_dataset ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})

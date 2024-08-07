@@ -180,6 +180,26 @@ public:
         count += a.count;
     }
 
+    template <typename type1, typename type2>
+    void add(type1 jac, float error, type2 ids)
+    {
+        count++;
+        for (int j = 0; j < ids.size(); j++)
+        {
+            // G[ids(j)] += jac(j) * error;
+            G.add(jac(j) * error, ids(j));
+
+            for (int k = j; k < 3; k++)
+            {
+                float jj = jac(j) * jac(k);
+                H.add(jj, ids(k), ids(j));
+                H.add(jj, ids(j), ids(k));
+                // H[v_ids[i]][v_ids[j]] += jj;
+                // H[v_ids[j]][v_ids[i]] += jj;
+            }
+        }
+    }
+
     std::vector<int> getParamIds()
     {
         std::vector<int> ids;
@@ -260,8 +280,8 @@ public:
         return eigenMatrix / count;
     }
 
+private:
     MatrixMapped H;
     VectorMapped G;
     int count;
-private:
 };

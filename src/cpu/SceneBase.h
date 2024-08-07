@@ -6,7 +6,7 @@
 #include "common/camera.h"
 #include "cpu/Shapes.h"
 #include "cpu/frameCPU.h"
-#include "common/HGEigen.h"
+#include "common/HGEigenSparse.h"
 
 class SceneBase
 {
@@ -35,20 +35,20 @@ public:
     virtual void transform(Sophus::SE3f newGlobalPose) = 0;
     virtual void project(camera cam) = 0;
 
-    virtual bool isShapeInWindow(window &win, unsigned int polId) = 0;
+    virtual bool isShapeInWindow(window &win, int polId) = 0;
 
-    virtual std::vector<unsigned int> getShapesIds() const = 0;
-    virtual std::unique_ptr<ShapeBase> getShape(unsigned int polId) = 0;
-    virtual void getShape(ShapeBase* shape, unsigned int polId) = 0;
+    virtual std::vector<int> getShapesIds() const = 0;
+    virtual std::unique_ptr<ShapeBase> getShape(int polId) = 0;
+    virtual void getShape(ShapeBase* shape, int polId) = 0;
     virtual int getNumParams() = 0;
     virtual int getShapesDoF() = 0;
 
-    virtual std::vector<unsigned int> getShapeParamsIds(unsigned int polId) = 0;
-    virtual void setParam(float param, unsigned int paramId) = 0;
-    virtual float getParam(unsigned int paramId) = 0;
+    virtual std::vector<int> getShapeParamsIds(int polId) = 0;
+    virtual void setParam(float param, int paramId) = 0;
+    virtual float getParam(int paramId) = 0;
 
     virtual Error errorRegu() = 0;
-    virtual HGEigen HGRegu() = 0;
+    virtual HGEigenSparse HGRegu(int numFrames) = 0;
     // virtual Error errorInitial(SceneBase &initScene, MatrixMapped &initThetaVar) = 0;
     // virtual HGMapped HGInitial(SceneBase &initMesh, MatrixMapped &initThetaVar) = 0;
 

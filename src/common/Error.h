@@ -1,14 +1,5 @@
 #pragma once
 
-#include <Eigen/Core>
-
-//struct HJPose{
-//    float J[6];
-//    float H[21];
-//    float error;
-//    int cout;
-//};
-
 class Error
 {
 public:
@@ -38,7 +29,19 @@ public:
         error += a.error;
         count += a.count;
     }
-    
+
+    template <typename type>
+    void operator+=(type a)
+    {
+        error += a;
+        count++;
+    }
+
+    float getError()
+    {
+        return error / count;
+    }
+
     /*
     void operator=(Error _error)
     {
@@ -47,9 +50,7 @@ public:
     }
     */
 
+private:
     float error;
     float count;
-
-private:
-
 };

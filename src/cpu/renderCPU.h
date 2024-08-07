@@ -5,13 +5,10 @@
 
 #include "common/camera.h"
 #include "common/types.h"
-#include "common/HGPose.h"
-#include "common/HGMapped.h"
-#include "common/Error.h"
 #include "common/common.h"
 #include "cpu/dataCPU.h"
-#include "cpu/SceneBase.h"
 #include "cpu/frameCPU.h"
+#include "cpu/SceneBase.h"
 #include "threadpoolCPU.h"
 #include "params.h"
 
@@ -331,7 +328,7 @@ private:
         // Sophus::SE3f kfTofPose = m_scene_second_view->getPose() * kframe->pose.inverse();
         // Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
-        std::vector<unsigned int> ids = scene->getShapesIds();
+        std::vector<int> ids = scene->getShapesIds();
 
         auto kf_pol = kscene->getShape(ids[0]);
         auto f_pol = scene->getShape(ids[0]);
@@ -469,7 +466,7 @@ private:
         // Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         // for each triangle
-        std::vector<unsigned int> t_ids = scene->getShapesIds();
+        std::vector<int> t_ids = scene->getShapesIds();
 
         auto kf_pol = kscene->getShape(t_ids[0]);
         auto f_pol = scene->getShape(t_ids[0]);
@@ -501,8 +498,8 @@ private:
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
-                    // if (!cam.isPixVisible(f_pix))
-                    //     continue;
+                    if (!cam.isPixVisible(f_pix))
+                         continue;
                     vec3<float> f_ray = cam.pixToRay(x, y);
 
                     // f_pol->prepareForRay(f_ray);
@@ -648,7 +645,7 @@ private:
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         // for each triangle
-        std::vector<unsigned int> t_ids = scene->getShapesIds();
+        std::vector<int> t_ids = scene->getShapesIds();
 
         int shapeDoF = scene->getShapesDoF();
 
@@ -657,7 +654,7 @@ private:
             if (!scene->isShapeInWindow(win, t_id))
                 continue;
 
-            std::vector<unsigned int> p_ids = scene->getShapeParamsIds(t_id);
+            std::vector<int> p_ids = scene->getShapeParamsIds(t_id);
 
             auto kf_pol = kscene->getShape(t_id);
 
@@ -689,8 +686,9 @@ private:
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
-                    // if (!cam.isPixVisible(f_pix))
-                    //     continue;
+                    if (!cam.isPixVisible(f_pix))
+                         continue;
+
                     vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     // f_pol->prepareForRay(f_ray);
@@ -792,7 +790,7 @@ private:
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         // for each triangle
-        std::vector<unsigned int> t_ids = kscene->getShapesIds();
+        std::vector<int> t_ids = kscene->getShapesIds();
         int shapeDoF = kscene->getShapesDoF();
 
         for (auto t_id : t_ids)
@@ -800,7 +798,7 @@ private:
             if (!scene->isShapeInWindow(win, t_id))
                 continue;
 
-            std::vector<unsigned int> p_ids = kscene->getShapeParamsIds(t_id);
+            std::vector<int> p_ids = kscene->getShapeParamsIds(t_id);
 
             auto kf_pol = kscene->getShape(t_id);
             // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
@@ -916,7 +914,7 @@ private:
 
     void renderIdepthWindow(SceneBase *scene, camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
-        std::vector<unsigned int> shapesIds = scene->getShapesIds();
+        std::vector<int> shapesIds = scene->getShapesIds();
 
         auto f_pol = scene->getShape(shapesIds[0]);
 
@@ -976,7 +974,7 @@ private:
 
     void renderDebugWindow(SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
-        std::vector<unsigned int> ids = scene->getShapesIds();
+        std::vector<int> ids = scene->getShapesIds();
 
         auto f_pol = scene->getShape(ids[0]);
 

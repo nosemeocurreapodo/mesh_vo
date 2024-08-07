@@ -46,12 +46,13 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     lastFrame = newFrame;
     frames.push_back(newFrame);
 
+    t.tic();
     meshOptimizer.optPoseMap(frames);
+    std::cout << "optposemap time " << t.toc() << std::endl;
 
     if (frames.size() > 3)
     {
         meshOptimizer.changeKeyframe(frames[0]);
-        //frames.erase(frames.end());
         frames.erase(frames.begin());
     }
 
@@ -71,7 +72,7 @@ void visualOdometry::localization(dataCPU<float> &image)
     std::cout << "estimated pose " << t.toc() << std::endl;
     std::cout << newFrame.pose.matrix() << std::endl;
 
-    //meshOptimizer.plotDebug(newFrame);
+    meshOptimizer.plotDebug(newFrame);
 
     lastMovement = newFrame.pose * lastFrame.pose.inverse();
     lastFrame = newFrame;
@@ -83,7 +84,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     newFrame.set(image); //*keyframeData.pose.inverse();
     newFrame.id = lastFrame.id + 1;
     newFrame.pose = pose;
-    //meshOptimizer.optPose(newFrame);
+    // meshOptimizer.optPose(newFrame);
 
     lastMovement = newFrame.pose * lastFrame.pose.inverse();
     lastFrame = newFrame;
@@ -96,9 +97,9 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
 
     if (frames.size() > 3)
     {
-        //meshOptimizer.changeKeyframe(frames[0]);
+        meshOptimizer.changeKeyframe(frames[0]);
         frames.erase(frames.begin());
     }
 
-    //meshOptimizer.plotDebug(frames[0]);
+    meshOptimizer.plotDebug(frames[0]);
 }

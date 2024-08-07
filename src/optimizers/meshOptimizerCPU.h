@@ -5,8 +5,9 @@
 
 #include "common/camera.h"
 #include "common/types.h"
-#include "common/HGPose.h"
-#include "common/HGMapped.h"
+#include "common/HGEigenDense.h"
+#include "common/HGEigenSparse.h"
+//#include "common/HGMapped.h"
 #include "common/Error.h"
 #include "common/common.h"
 #include "cpu/dataCPU.h"
@@ -71,10 +72,10 @@ public:
         show(idepth_buffer, "lastFrame idepth", 1);
         show(image_buffer, "lastFrame scene", 1);
 
-        //scene->project(cam[0]);
-        //kscene.project(cam[0]);
-        //renderer.renderDebugParallel(scene.get(), &frame, cam[0], &debug, 0);
-        //show(debug, "frame debug", 0);
+        scene->project(cam[0]);
+        kscene.project(cam[0]);
+        renderer.renderDebugParallel(scene.get(), &frame, cam[0], &debug, 0);
+        show(debug, "frame debug", 0);
     }
 
     void changeKeyframe(frameCPU &frame)
@@ -88,6 +89,7 @@ public:
         idepth.setRandom(lvl);
 
         scene->transform(frame.pose);
+        scene->project(cam[lvl]);
         renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth, lvl);
 
         dataCPU<float> invVar(cam[0].width, cam[0].height, -1);
@@ -119,13 +121,14 @@ private:
     Error computeError(SceneBase *scene, frameCPU *frame, int lvl);
     //Error computeError(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
-    HGPose computeHGPose(SceneBase *scene, frameCPU *frame, int lvl);
+    HGEigenDense computeHGPose(SceneBase *scene, frameCPU *frame, int lvl);
     //HGPose computeHGPose(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
     HGMapped computeHGMap(SceneBase *scene, frameCPU *frame, int lvl);
-    HGEigen computeHGMap2(SceneBase *scene, frameCPU *frame, int lvl);
+    HGEigenSparse computeHGMap2(SceneBase *scene, frameCPU *frame, int lvl);
 
-    HGMapped computeHGPoseMap(SceneBase *scene, frameCPU *frame, int lvl);
+    HGMapped computeHGPoseMap(SceneBase *scene, frameCPU *frame, int frameIndex, int numFrames, int lvl);
+    HGEigenSparse computeHGPoseMap2(SceneBase *scene, frameCPU *frame, int frameIndex, int numFrames, int lvl);
 
     // params
     bool multiThreading;
@@ -138,7 +141,7 @@ private:
     
     dataCPU<vec6<float>> jpose_buffer;
     dataCPU<vec3<float>> jmap_buffer;
-    dataCPU<vec3<float>> pId_buffer;
+    dataCPU<vec3<int>> pId_buffer;
 
     // debug
     dataCPU<float> debug;

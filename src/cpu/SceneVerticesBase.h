@@ -45,13 +45,14 @@ public:
 
     void clear() override
     {
-        // vertices.clear();
-        // rays.clear();
+        vertices.clear();
+        rays.clear();
+        pixels.clear();
     }
 
     void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) override
     {
-        // clear();
+        clear();
         setPose(frame.pose);
 
         int id = 0;
@@ -72,10 +73,12 @@ public:
 
                 vec3<float> vertice = ray / idph;
 
-                // addVertice(vertice);
-                vertices[id] = vertice;
-                rays[id] = ray;
-                pixels[id] = pix;
+                // vertices[id] = vertice;
+                // rays[id] = ray;
+                // pixels[id] = pix;
+                vertices.push_back(vertice);
+                rays.push_back(ray);
+                pixels.push_back(pix);
 
                 id++;
             }
@@ -116,6 +119,21 @@ public:
             throw std::out_of_range("getDepth invalid id");
 #endif
         return vertices[id](2);
+    }
+
+    inline std::vector<vec3<float>> &getVertices()
+    {
+        return vertices;
+    }
+
+    inline std::vector<vec3<float>> &getRays()
+    {
+        return rays;
+    }
+
+    inline std::vector<vec2<float>> &getPixels()
+    {
+        return pixels;
     }
 
     /*
@@ -280,9 +298,9 @@ public:
     }
 
 private:
-    std::array<vec3<float>, MESH_WIDTH * MESH_HEIGHT> vertices;
-    std::array<vec3<float>, MESH_WIDTH * MESH_HEIGHT> rays;
-    std::array<vec2<float>, MESH_WIDTH * MESH_HEIGHT> pixels;
+    std::vector<vec3<float>> vertices;
+    std::vector<vec3<float>> rays;
+    std::vector<vec2<float>> pixels;
 
     DepthJacobianMethod dJacMethod;
 };

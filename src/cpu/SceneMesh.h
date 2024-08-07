@@ -6,7 +6,7 @@
 #include "cpu/Shapes.h"
 #include "common/common.h"
 #include "common/DelaunayTriangulation.h"
-#include "common/HGEigen.h"
+#include "common/HGEigenSparse.h"
 #include "params.h"
 
 #define SHAPE_DOF 3
@@ -74,21 +74,21 @@ public:
     }
     */
 
-    bool isShapeInWindow(window &win, unsigned int polId) override
+    bool isShapeInWindow(window &win, int polId) override
     {
         auto tri = getTriangleIndices(polId);
-        if (win.isPixInWindow(getPix(tri[0])) || win.isPixInWindow(getPix(tri[1])) || win.isPixInWindow(getPix(tri[2])))
+        if (win.isPixInWindow(getPix(tri(0))) || win.isPixInWindow(getPix(tri(1))) || win.isPixInWindow(getPix(tri(2))))
             return true;
         return false;
     }
 
-    std::unique_ptr<ShapeBase> getShape(unsigned int polId) override
+    std::unique_ptr<ShapeBase> getShape(int polId) override
     {
         auto tri = getTriangleIndices(polId);
         // return std::make_unique<ShapeTriangleFlat>(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
-        return std::make_unique<ShapeTriangleFlat>(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
-                                                   getPix(tri[0]), getPix(tri[1]), getPix(tri[2]),
-                                                   getDepth(tri[0]), getDepth(tri[1]), getDepth(tri[2]),
+        return std::make_unique<ShapeTriangleFlat>(getRay(tri(0)), getRay(tri(1)), getRay(tri(2)),
+                                                   getPix(tri(0)), getPix(tri(1)), getPix(tri(2)),
+                                                   getDepth(tri(0)), getDepth(tri(1)), getDepth(tri(2)),
                                                    getDepthJacMethod());
         // return std::make_unique<ShapeTriangleFlat>(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
         //                                            getPix(tri[0]), getPix(tri[1]), getPix(tri[2]),
@@ -96,39 +96,39 @@ public:
         //                                            getDepthJacMethod());
     }
 
-    void getShape(ShapeBase *shape, unsigned int polId) override
+    void getShape(ShapeBase *shape, int polId) override
     {
         auto tri = getTriangleIndices(polId);
         // return std::make_unique<ShapeTriangleFlat>(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
         ShapeTriangleFlat *_shape = (ShapeTriangleFlat *)shape;
-        _shape->set(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
-                    getPix(tri[0]), getPix(tri[1]), getPix(tri[2]),
-                    getDepth(tri[0]), getDepth(tri[1]), getDepth(tri[2]),
+        _shape->set(getRay(tri(0)), getRay(tri(1)), getRay(tri(2)),
+                    getPix(tri(0)), getPix(tri(1)), getPix(tri(2)),
+                    getDepth(tri(0)), getDepth(tri(1)), getDepth(tri(2)),
                     getDepthJacMethod());
     }
 
-    std::vector<unsigned int> getShapesIds() const override
+    std::vector<int> getShapesIds() const override
     {
         return getTrianglesIds();
     }
 
-    std::vector<unsigned int> getShapeParamsIds(unsigned int polId) override
+    std::vector<int> getShapeParamsIds(int polId) override
     {
         // the id of the param (the depth in this case) is just the id of the vertice
-        std::vector<unsigned int> ids;
-        std::array<unsigned int, 3> i = getTriangleIndices(polId);
-        ids.push_back(i[0]);
-        ids.push_back(i[1]);
-        ids.push_back(i[2]);
+        std::vector<int> ids;
+        vec3<int> i = getTriangleIndices(polId);
+        ids.push_back(i(0));
+        ids.push_back(i(1));
+        ids.push_back(i(2));
         return ids;
     }
 
-    void setParam(float param, unsigned int paramId) override
+    void setParam(float param, int paramId) override
     {
         setDepthParam(param, paramId);
     }
 
-    float getParam(unsigned int paramId) override
+    float getParam(int paramId) override
     {
         return getDepthParam(paramId);
     }
@@ -137,83 +137,61 @@ public:
     {
         Error error;
 
-        std::vector<unsigned int> polIds = getShapesIds();
+        std::vector<int> polIds = getShapesIds();
 
         for (size_t index = 0; index < polIds.size(); index++)
         {
-            unsigned int id = polIds[index];
-            std::array<unsigned int, 3> tri = getTriangleIndices(id);
+            int id = polIds[index];
+            vec3<int> tri = getTriangleIndices(id);
 
             float theta[3];
 
             for (int j = 0; j < 3; j++)
             {
-                theta[j] = getDepthParam(tri[j]);
+                theta[j] = getDepthParam(tri(j));
             }
 
             float diff1 = theta[0] - theta[1];
             float diff2 = theta[0] - theta[2];
             float diff3 = theta[1] - theta[2];
 
-            error.error += diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
+            error += diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
         }
-        // divided by the number of triangles
-        // we don't want to have less error if we have less triangles
-        error.count = polIds.size();
+
         return error;
     }
 
-    HGEigen HGRegu()
+    HGEigenSparse HGRegu(int numFrames = 0)
     {
-        std::vector<unsigned int> polIds = getTrianglesIds();
+        std::vector<int> polIds = getTrianglesIds();
 
-        HGEigen hg(getNumParams());
-
-        typedef Eigen::Triplet<double> T;
-        std::vector<T> tripletList;
+        HGEigenSparse hg(getNumParams() + numFrames * 6);
 
         for (size_t i = 0; i < polIds.size(); i++)
         {
-            unsigned int p_id = polIds[i];
+            int p_id = polIds[i];
 
-            std::array<unsigned int, 3> v_ids = getTriangleIndices(p_id);
+            vec3<int> v_ids = getTriangleIndices(p_id);
 
-            float theta[v_ids.size()];
-
-            for (size_t j = 0; j < v_ids.size(); j++)
-            {
-                theta[j] = getDepthParam(v_ids[j]);
-            }
+            float theta[3];
+            theta[0] = getDepthParam(v_ids(0));
+            theta[1] = getDepthParam(v_ids(1));
+            theta[2] = getDepthParam(v_ids(2));
 
             float diff1 = theta[0] - theta[1];
             float diff2 = theta[0] - theta[2];
             float diff3 = theta[1] - theta[2];
 
-            float J1[3] = {1.0, -1.0, 0.0};
-            float J2[3] = {1.0, 0.0, -1.0};
-            float J3[3] = {0.0, 1.0, -1.0};
+            vec3<float> J1(1.0, -1.0, 0.0);
+            vec3<float> J2(1.0, 0.0, -1.0);
+            vec3<float> J3(0.0, 1.0, -1.0);
 
-            for (int j = 0; j < 3; j++)
-            {
-                // if (hg.G(NUM_FRAMES*6 + vertexIndex[j]) == 0)
-                //     continue;
-                hg.G[v_ids[j]] += (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
-                //hg.G.add(diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j], v_ids[j]);
-                for (int k = 0; k < 3; k++)
-                {
-                    float value = (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
-
-                    tripletList.push_back(T(v_ids[j], v_ids[k], value));
-
-                    //hg.H.coeffRef(v_ids[j],v_ids[k]) += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
-                    //hg.H.add(J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k], v_ids[j], v_ids[k]);
-                }
-            }
+            hg.sparseAdd(J1, diff1, v_ids);
+            hg.sparseAdd(J2, diff2, v_ids);
+            hg.sparseAdd(J3, diff3, v_ids);
         }
 
-        hg.H.setFromTriplets(tripletList.begin(), tripletList.end());
-
-        hg.count = polIds.size();
+        hg.endSparseAdd();
 
         return hg;
     }
@@ -283,11 +261,9 @@ public:
 
             float diff = theta - initTheta;
 
-            error.error += initVar * diff * diff;
+            error += initVar * diff * diff;
         }
-        // divided by the number of triangles
-        // we don't want to have less error if we have less triangles
-        error.count = vertsIds.size();
+
         return error;
     }
 
@@ -295,6 +271,7 @@ public:
     {
         HGMapped hg;
 
+        /*
         std::vector<unsigned int> vertsIds = getVerticesIds();
 
         for (size_t i = 0; i < vertsIds.size(); i++)
@@ -311,6 +288,7 @@ public:
         }
 
         hg.count = vertsIds.size();
+        */
 
         return hg;
     }
@@ -321,7 +299,7 @@ private:
         triangles.clear();
     }
 
-    void setTriangles(std::vector<std::array<unsigned int, 3>> &new_tris)
+    void setTriangles(std::vector<vec3<int>> new_tris)
     {
         triangles = new_tris;
     }
@@ -333,14 +311,14 @@ private:
     }
     */
 
-    unsigned int addTriangle(std::array<unsigned int, 3> &tri)
+    unsigned int addTriangle(vec3<int> &tri)
     {
         int id = triangles.size();
         triangles.push_back(tri);
         return id;
     }
 
-    void setTriangleIndices(std::array<unsigned int, 3> &tri, unsigned int id)
+    void setTriangleIndices(vec3<int> &tri, int id)
     {
 #ifdef DEBUG
         if (id >= triangles.size())
@@ -349,7 +327,7 @@ private:
         triangles[id] = tri;
     }
 
-    inline std::array<unsigned int, 3> &getTriangleIndices(unsigned int id)
+    inline vec3<int> &getTriangleIndices(int id)
     {
 #ifdef DEBUG
         if (id >= triangles.size())
@@ -358,9 +336,9 @@ private:
         return triangles[id];
     }
 
-    std::vector<unsigned int> getTrianglesIds() const
+    std::vector<int> getTrianglesIds() const
     {
-        std::vector<unsigned int> keys;
+        std::vector<int> keys;
         for (int it = 0; it < triangles.size(); ++it)
         {
             keys.push_back(it);
@@ -464,24 +442,10 @@ private:
     void buildTriangles()
     {
         DelaunayTriangulation triangulation;
-        std::unordered_map<unsigned int, Eigen::Vector2f> rays;
-        std::vector<unsigned int> ids = getVerticesIds();
-        for (auto id : ids)
-        {
-            vec3<float> ray = getRay(id);
-            rays[id](0) = ray(0);
-            rays[id](1) = ray(1);
-        }
-        triangulation.loadPoints(rays);
+        triangulation.loadPoints(getPixels());
         triangulation.triangulate();
-        std::unordered_map<unsigned int, std::array<unsigned int, 3>> tris = triangulation.getTriangles();
-        clearTriangles();
-        std::vector<std::array<unsigned int, 3>> new_tris;
-        for (auto tri : tris)
-        {
-            new_tris.push_back(tri.second);
-        }
-        setTriangles(new_tris);
+        // clearTriangles();
+        setTriangles(triangulation.getTriangles());
     }
     /*
     void removeOcluded(camera &cam)
@@ -517,5 +481,5 @@ private:
     }
     */
 
-    std::vector<std::array<unsigned int, 3>> triangles;
+    std::vector<vec3<int>> triangles;
 };
