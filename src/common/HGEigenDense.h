@@ -31,11 +31,10 @@ public:
         for (int i = 0; i < J.size(); i++)
         {
             G(i) += J(i)*error;
-            for (int j = i; j < J.size(); j++)
+            for (int j = 0; j < J.size(); j++)
             {
                 float jj = J(i) * J(j);
                 H(i, j) += jj;
-                H(j, i) += jj;
             }
         }
     }

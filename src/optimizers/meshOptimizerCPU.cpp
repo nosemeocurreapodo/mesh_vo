@@ -214,7 +214,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
                     last_error = error;
 
-                    if (p > 0.999f)
+                    if (p > 0.99f)
                     {
                         // if converged, do next level
                         it = maxIterations[lvl];
@@ -374,7 +374,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                 float error = e.getError() + meshRegularization * e_regu.getError(); // + meshInitial * e_init.error;
 
-                std::cout << "new error " << error << std::endl;
+                std::cout << "new error " << error << " " << lambda << std::endl;
 
                 if (error < last_error)
                 {
@@ -388,7 +388,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                     last_error = error;
 
-                    if (p > 0.999f)
+                    if (p > 0.99f)
                     {
                         // std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
                         //  if converged, do next level
@@ -488,12 +488,14 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                 H_lambda.makeCompressed();
                 // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
-                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
                 // Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
-                //Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
-                solver.analyzePattern(H_lambda);
-                // std::cout << solver.info() << std::endl;
-                solver.factorize(H_lambda);
+                // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+
+                solver.compute(H_lambda);
+                // solver.analyzePattern(H_lambda);
+                // solver.factorize(H_lambda);
                 if (solver.info() != Eigen::Success)
                 {
                     // some problem i have still to debug
@@ -505,6 +507,13 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 // inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
                 // inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
                 // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
+
+                if (solver.info() != Eigen::Success)
+                {
+                    // solving failed
+                    it = maxIterations;
+                    break;
+                }
 
                 // update pose
                 std::vector<Sophus::SE3f> best_poses;
@@ -564,7 +573,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                     last_error = error;
 
-                    if (p > 0.999f)
+                    if (p > 0.99f)
                     {
                         // std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
                         //  if converged, do next level

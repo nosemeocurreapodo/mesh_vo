@@ -12,10 +12,10 @@ public:
         G = Eigen::VectorXf::Zero(size);
         count = 0;
 
-        //reserve space, will need roughly
-        //3 entryes for every map parameter
-        //every pose parameter will be related with every map parameter
-        tripletList.reserve(size*3 + 5*6*size);
+        // reserve space, will need roughly
+        // 3 entryes for every map parameter
+        // every pose parameter will be related with every map parameter
+        tripletList.reserve(size * 3 + 5 * 6 * size);
     }
 
     void setZero()
@@ -67,11 +67,12 @@ public:
         {
             G(ids(j)) += jac(j) * error;
 
+            // tripletList.push_back(T(ids(j), ids(j), jac(j)*jac(j)));
+
             for (int k = 0; k < ids.size(); k++)
             {
                 float value = jac(j) * jac(k);
                 tripletList.push_back(T(ids(j), ids(k), value));
-
                 // hg.H.coeffRef(v_ids[j],v_ids[k]) += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
             }
         }
