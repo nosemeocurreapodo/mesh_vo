@@ -818,7 +818,7 @@ private:
             // if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
             //    continue;
 
-            window pol_win = f_pol->getScreenBounds(cam);
+            window pol_win = f_pol->getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -829,9 +829,8 @@ private:
                     vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
                         continue;
-                    vec3<float> f_ray = cam.pixToRay(f_pix);
-
-                    f_pol->prepareForRay(f_ray);
+                    
+                    f_pol->prepareForPix(f_pix);
                     if (!f_pol->hitsShape())
                         continue;
 
@@ -844,21 +843,24 @@ private:
                     if (l_idepth < f_depth && l_idepth != z_buffer.nodata)
                         continue;
 
+                    vec3<float> f_ray = cam.pixToRay(f_pix);
                     vec3<float> f_ver = f_ray * f_depth;
 
                     vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
+                    vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
+
                     /*
                     Eigen::Vector3f kf_ver = fTokfPose * f_ver;
                     if (kf_ver(2) <= 0.0)
                         continue;
                     Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
+                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
+
                     */
 
-                    kf_pol->prepareForRay(kf_ray);
-                    if (!kf_pol->hitsShape())
-                        continue;
-
-                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
+                    kf_pol->prepareForPix(kf_pix);
+                    //if (!kf_pol->hitsShape())
+                    //    continue;
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;

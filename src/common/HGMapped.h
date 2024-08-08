@@ -188,8 +188,10 @@ public:
         {
             // G[ids(j)] += jac(j) * error;
             G.add(jac(j) * error, ids(j));
+            
+            H.add(jac(j)*jac(j), ids(j), ids(j));
 
-            for (int k = 0; k < 3; k++)
+            for (int k = j+1; k < ids.size(); k++)
             {
                 float jj = jac(j) * jac(k);
                 H.add(jj, ids(k), ids(j));

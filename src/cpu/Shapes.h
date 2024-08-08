@@ -9,6 +9,7 @@ public:
     virtual inline float getArea() = 0;
     virtual inline window getScreenBounds(camera cam) = 0;
     virtual inline window getScreenBounds() = 0;
+    virtual inline vec2<float> getCenterPix() = 0;
     virtual inline void prepareForRay(vec3<float> r) = 0;
     virtual inline void prepareForPix(vec2<float> p) = 0;
     virtual inline bool hitsShape() = 0;
@@ -425,6 +426,14 @@ public:
         window win(min_x, max_x, min_y, max_y);
 
         return win;
+    };
+
+    inline vec2<float> getCenterPix() override
+    {
+        vec2<float> center;
+        center(0) = ((*m_pix0)(0) + (*m_pix1)(0) + (*m_pix2)(0)) / 3.0;
+        center(1) = ((*m_pix0)(1) + (*m_pix1)(1) + (*m_pix2)(1)) / 3.0;
+        return center;
     };
 
     inline std::vector<float> getJacobian(float d_f_i_d_kf_depth) override

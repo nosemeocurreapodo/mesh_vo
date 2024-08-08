@@ -48,11 +48,13 @@ public:
         for (int j = 0; j < ids.size(); j++)
         {
             G(ids(j)) += jac(j) * error;
+            tripletList.push_back(T(ids(j), ids(j), jac(j) * jac(j)));
 
             for (int k = 0; k < ids.size(); k++)
             {
                 float value = jac(j) * jac(k);
                 tripletList.push_back(T(ids(j), ids(k), value));
+                tripletList.push_back(T(ids(k), ids(j), value));
 
                 // hg.H.coeffRef(v_ids[j],v_ids[k]) += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
             }
@@ -67,12 +69,13 @@ public:
         {
             G(ids(j)) += jac(j) * error;
 
-            // tripletList.push_back(T(ids(j), ids(j), jac(j)*jac(j)));
+            tripletList.push_back(T(ids(j), ids(j), jac(j) * jac(j)));
 
-            for (int k = 0; k < ids.size(); k++)
+            for (int k = j + 1; k < ids.size(); k++)
             {
                 float value = jac(j) * jac(k);
                 tripletList.push_back(T(ids(j), ids(k), value));
+                tripletList.push_back(T(ids(k), ids(j), value));
                 // hg.H.coeffRef(v_ids[j],v_ids[k]) += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
             }
         }
@@ -96,6 +99,17 @@ public:
         return ids;
     }
     */
+
+    std::map<int, int> getParamIds()
+    {
+        std::map<int, int> ids;
+        for (int it = 0; it < G.size(); ++it)
+        {
+            // ids.push_back(it);
+            ids[it] = ids.size();
+        }
+        return ids;
+    }
 
     std::map<int, int> getObservedParamIds()
     {

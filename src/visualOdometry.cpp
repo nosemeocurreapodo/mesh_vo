@@ -54,13 +54,13 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     meshOptimizer.optPoseMap(frames);
     std::cout << "optposemap time " << t.toc() << std::endl;
 
-    if (frames.size() > 3)
+    if (frames.size() > 5)
     {
         meshOptimizer.changeKeyframe(frames[0]);
         frames.erase(frames.begin());
     }
 
-    //meshOptimizer.plotDebug(frames[0]);
+    meshOptimizer.plotDebug(frames[0]);
 }
 
 void visualOdometry::localization(dataCPU<float> &image)

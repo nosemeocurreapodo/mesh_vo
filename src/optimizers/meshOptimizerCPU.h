@@ -7,7 +7,7 @@
 #include "common/types.h"
 #include "common/HGEigenDense.h"
 #include "common/HGEigenSparse.h"
-//#include "common/HGMapped.h"
+// #include "common/HGMapped.h"
 #include "common/Error.h"
 #include "common/common.h"
 #include "cpu/dataCPU.h"
@@ -15,10 +15,10 @@
 #include "cpu/renderCPU.h"
 #include "cpu/reduceCPU.h"
 #include "cpu/SceneBase.h"
-//#include "cpu/ScenePatches.h"
+// #include "cpu/ScenePatches.h"
 #include "cpu/SceneMesh.h"
-//#include "cpu/SceneSurfels.h"
-//#include "cpu/SceneMeshSmooth.h"
+// #include "cpu/SceneSurfels.h"
+// #include "cpu/SceneMeshSmooth.h"
 #include "cpu/OpenCVDebug.h"
 #include "params.h"
 
@@ -33,14 +33,16 @@ public:
     void optMap(std::vector<frameCPU> &frames);
     void optPoseMap(std::vector<frameCPU> &frame);
 
-    /*
     dataCPU<float> getIdepth(Sophus::SE3f &pose, int lvl)
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
-        renderer.renderIdepthParallel(cam[lvl], pose, idepth_buffer, lvl);
+
+        scene->transform(pose);
+        scene->project(cam[1]);
+        
+        renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
         return idepth_buffer;
     }
-    */
 
     /*
     dataCPU<float> getImage(frameCPU &frame, Sophus::SE3f &pose, int lvl)
@@ -60,7 +62,7 @@ public:
         scene->transform(frame.pose);
         scene->project(cam[1]);
         kscene.project(cam[1]);
-        //renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
+        // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
         renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
         renderer.renderImageParallel(&kscene, &kframe, scene.get(), cam[1], &image_buffer, 1);
 
@@ -115,14 +117,13 @@ public:
     camera cam[MAX_LEVELS];
 
 private:
-
     std::unique_ptr<SceneBase> scene;
 
     Error computeError(SceneBase *scene, frameCPU *frame, int lvl);
-    //Error computeError(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
+    // Error computeError(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
     HGEigenDense computeHGPose(SceneBase *scene, frameCPU *frame, int lvl);
-    //HGPose computeHGPose(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
+    // HGPose computeHGPose(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
     HGMapped computeHGMap(SceneBase *scene, frameCPU *frame, int lvl);
     HGEigenSparse computeHGMap2(SceneBase *scene, frameCPU *frame, int lvl);
@@ -138,7 +139,7 @@ private:
     dataCPU<float> image_buffer;
     dataCPU<float> idepth_buffer;
     dataCPU<float> error_buffer;
-    
+
     dataCPU<vec6<float>> jpose_buffer;
     dataCPU<vec3<float>> jmap_buffer;
     dataCPU<vec3<int>> pId_buffer;
@@ -149,5 +150,4 @@ private:
 
     renderCPU renderer;
     reduceCPU reducer;
-
 };

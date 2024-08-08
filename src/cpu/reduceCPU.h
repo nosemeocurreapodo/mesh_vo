@@ -18,7 +18,7 @@ class reduceCPU
 {
 public:
     reduceCPU()
-    //    : pool(2)
+        : pool(4)
     {
     }
 
@@ -32,7 +32,7 @@ public:
 
     Error reduceErrorParallel(camera cam, dataCPU<float> &image1, dataCPU<float> &image2, int lvl)
     {
-        int divi_y = 16;
+        int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
         Error partialerr[divi_y * divi_x];
@@ -80,7 +80,7 @@ public:
     template <typename Type>
     HGEigenDense reduceHGPoseParallel(camera cam, dataCPU<Type> &jpose_buffer, dataCPU<float> &err_buffer, int lvl)
     {
-        int divi_y = 16;
+        int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
         HGEigenDense partialhg[divi_x * divi_y];
@@ -137,7 +137,7 @@ public:
     template <typename Type1, typename Type2>
     HGMapped reduceHGMapParallel(camera cam, dataCPU<Type1> &j_buffer, dataCPU<float> &err_buffer, dataCPU<Type2> &pId_buffer, int lvl)
     {
-        int divi_y = 1;
+        int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
         HGMapped partialhg[divi_x * divi_y];
@@ -187,14 +187,14 @@ public:
     {
         HGEigenSparse hg(numMapParams + numFrames * 6);
         window win(0, cam.width, 0, cam.height);
-        reduceHGPoseMapWindow(win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &hg, lvl);
+        reduceHGPoseMapWindow2(win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &hg, lvl);
         return hg;
     }
 
     template <typename Type1, typename Type2>
     HGMapped reduceHGPoseMapParallel(camera cam, int frameId, int numFrames, int numMapParams, dataCPU<vec6<float>> &jpose_buffer, dataCPU<Type1> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<Type2> &pId_buffer, int lvl)
     {
-        int divi_y = 16;
+        int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
         HGMapped partialhg[divi_x * divi_y];
@@ -233,10 +233,19 @@ public:
     template <typename Type1, typename Type2>
     HGEigenSparse reduceHGPoseMapParallel2(camera cam, int frameId, int numFrames, int numMapParams, dataCPU<vec6<float>> &jpose_buffer, dataCPU<Type1> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<Type2> &pId_buffer, int lvl)
     {
-        int divi_y = 16;
+        int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        HGEigenSparse partialhg[divi_x * divi_y];
+        // HGEigenSparse partialhg[divi_x * divi_y];
+
+        std::vector<HGEigenSparse> partialhg;
+
+        // calling constructor
+        // for each index of array
+        for (int i = 0; i < divi_x * divi_y; i++)
+        {
+            partialhg.push_back(HGEigenSparse(numMapParams + numFrames * 6));
+        }
 
         std::array<int, 2> windowSize;
         windowSize[0] = cam.width / divi_x;
@@ -253,14 +262,14 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                reduceHGPoseMapWindow(win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl);
-                // pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow<DoF>, this, window, frameId, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
+                // reduceHGPoseMapWindow(win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl);
+                pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow2<Type1, Type2>, this, win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
 
-        // pool.waitUntilDone();
+        pool.waitUntilDone();
 
-        HGEigenSparse hg;
+        HGEigenSparse hg(numMapParams + numFrames * 6);
         for (int i = 0; i < divi_y * divi_x; i++)
         {
             hg += partialhg[i];
@@ -410,7 +419,7 @@ private:
     }
 
     template <typename Type1, typename Type2>
-    void reduceHGPoseMapWindow(window win, int frameId, int numMapParams, dataCPU<vec6<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *error_buffer, dataCPU<Type2> *pId_buffer, HGEigenSparse *hg, int lvl)
+    void reduceHGPoseMapWindow2(window win, int frameId, int numMapParams, dataCPU<vec6<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *error_buffer, dataCPU<Type2> *pId_buffer, HGEigenSparse *hg, int lvl)
     {
         typedef Eigen::Triplet<double> T;
         std::vector<T> tripletList;
@@ -455,5 +464,5 @@ private:
         hg->endSparseAdd();
     }
 
-    // ThreadPool pool;
+    ThreadPool pool;
 };

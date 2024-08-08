@@ -24,6 +24,12 @@ public:
     void mapping(dataCPU<float> &image, Sophus::SE3f pose);
 
 private:
+
+    void checkFrameAndAddToList(frameCPU &frame)
+    {
+        dataCPU<float> kIdepth = meshOptimizer.getIdepth(meshOptimizer.kframe.pose, 1);
+    }
+
     camera cam;
     frameCPU lastFrame;
     Sophus::SE3f lastMovement;

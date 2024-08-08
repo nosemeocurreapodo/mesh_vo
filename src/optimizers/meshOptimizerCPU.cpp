@@ -22,7 +22,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 100.0;
+    meshRegularization = 400.0;
     meshInitial = 0.0;
 }
 
@@ -141,8 +141,8 @@ HGEigenSparse meshOptimizerCPU::computeHGPoseMap2(SceneBase *scene, frameCPU *fr
     pId_buffer.set(pId_buffer.nodata, lvl);
 
     renderer.renderJPoseMapParallel(&kscene, &kframe, scene, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
-    // HGEigen hg = reducer.reduceHGPoseMapParallel(cam[lvl], frame->id, scene->getShapesDoF(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
-    HGEigenSparse hg = reducer.reduceHGPoseMap2(cam[lvl], frameIndex, numFrames, scene->getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
+    // HGEigenSparse hg = reducer.reduceHGPoseMap2(cam[lvl], frameIndex, numFrames, scene->getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
+    HGEigenSparse hg = reducer.reduceHGPoseMapParallel2(cam[lvl], frameIndex, numFrames, scene->getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
     return hg;
 }
@@ -162,6 +162,8 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
         // Error e = computeError(idepth_buffer, keyframe, frame, lvl);
         Error e = computeError(scene.get(), &frame, lvl);
         float last_error = e.getError();
+
+        std::cout << "initial error " << last_error << " " << lvl << std::endl;
 
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
@@ -199,6 +201,8 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
                 e = computeError(scene.get(), &frame, lvl);
                 float error = e.getError();
                 // std::cout << "new error " << error << " time " << t.toc() << std::endl;
+
+                std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
 
                 if (error < last_error)
                 {
@@ -238,7 +242,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
                     // reject update, increase lambda, use un-updated data
                     // std::cout << "update rejected " << std::endl;
 
-                    if (!(inc.dot(inc) > 1e-4))
+                    if (!(inc.dot(inc) > 1e-8))
                     // if(!(inc.dot(inc) > 1e-6))
                     {
                         // std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations and " << t_try << " total tries, with lambda " << lambda << std::endl;
@@ -284,7 +288,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
         float last_error = e.getError() + meshRegularization * e_regu.getError(); // + meshInitial * e_init.error;
 
-        std::cout << "initial error " << last_error << std::endl;
+        std::cout << "initial error " << last_error << " " << lvl << std::endl;
 
         int maxIterations = 100;
         float lambda = 0.0;
@@ -329,12 +333,15 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                 H_lambda.makeCompressed();
                 // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
-                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
                 // Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
                 // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
-                solver.analyzePattern(H_lambda);
-                // std::cout << solver.info() << std::endl;
-                solver.factorize(H_lambda);
+
+                solver.compute(H_lambda);
+                // solver.analyzePattern(H_lambda);
+                // solver.factorize(H_lambda);
+
                 if (solver.info() != Eigen::Success)
                 {
                     // some problem i have still to debug
@@ -342,16 +349,23 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                     break;
                 }
                 // std::cout << solver.lastErrorMessage() << std::endl;
-                Eigen::VectorXf inc = -solver.solve(G);
+                Eigen::VectorXf inc = solver.solve(G);
                 // inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
                 // inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
                 // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
+
+                if (solver.info() != Eigen::Success)
+                {
+                    // solving failed
+                    it = maxIterations;
+                    break;
+                }
 
                 std::vector<float> best_params;
                 for (auto id : obsParamIds)
                 {
                     float best_param = kscene.getParam(id.first);
-                    float new_param = best_param + inc(id.second);
+                    float new_param = best_param - inc(id.second);
                     best_params.push_back(best_param);
                     // the derivative is with respecto to the keyframe pose
                     // the update should take this into account
@@ -374,7 +388,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                 float error = e.getError() + meshRegularization * e_regu.getError(); // + meshInitial * e_init.error;
 
-                std::cout << "new error " << error << " " << lambda << std::endl;
+                std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
 
                 if (error < last_error)
                 {
@@ -413,7 +427,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                     // reject update, increase lambda, use un-updated data
 
-                    if (inc.dot(inc) < 1e-4)
+                    if (inc.dot(inc) < 1e-8)
                     {
                         // if too small, do next level!
                         it = maxIterations;
@@ -462,6 +476,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 hg += _hg;
             }
 
+            saveH(hg, "H.png");
+
             // map from param id to param index paramIndex = obsParamIds[paramId]
             std::map<int, int> obsParamIds = hg.getObservedParamIds();
 
@@ -503,7 +519,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     break;
                 }
                 // std::cout << solver.lastErrorMessage() << std::endl;
-                Eigen::VectorXf inc = -solver.solve(G);
+                Eigen::VectorXf inc = solver.solve(G);
                 // inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
                 // inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
                 // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
@@ -526,10 +542,11 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     {
                         int paramId = kscene.getNumParams() + i * 6 + j;
                         int index = obsParamIds[paramId];
-                        pose_inc(j) = -inc(index);
+                        pose_inc(j) = inc(index);
                     }
                     best_poses.push_back(frames[i].pose);
                     frames[i].pose = frames[i].pose * Sophus::SE3f::exp(pose_inc).inverse();
+                    // frames[i].pose = Sophus::SE3f::exp(pose_inc).inverse() * frames[i].pose;
                 }
 
                 // update map
@@ -541,7 +558,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                         continue;
 
                     float best_param = kscene.getParam(id.first);
-                    float new_param = best_param + inc(id.second);
+                    float new_param = best_param - inc(id.second);
                     best_params[id.first] = best_param;
                     kscene.setParam(new_param, id.first);
                 }
@@ -559,7 +576,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                 float error = e.getError() + meshRegularization * e_regu.getError();
 
-                std::cout << "new error " << error << " " << lambda << std::endl;
+                std::cout << "new error " << error << " " << it << " " << lambda << std::endl;
 
                 if (error < last_error)
                 {
