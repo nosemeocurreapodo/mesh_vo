@@ -41,26 +41,63 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     meshOptimizer.optPose(newFrame);
     std::cout << "estimated pose " << t.toc() << std::endl;
     std::cout << newFrame.pose.matrix() << std::endl;
-
     lastMovement = newFrame.pose * lastFrame.pose.inverse();
     lastFrame = newFrame;
-    frames.push_back(newFrame);
 
-    //t.tic();
-    //meshOptimizer.optMap(frames);
-    //std::cout << "optmap time " << t.toc() << std::endl;
+    float info = meshOptimizer.checkInfo(newFrame);
+    std::cout << "info: " << info << std::endl;
 
-    t.tic();
-    meshOptimizer.optPoseMap(frames);
-    std::cout << "optposemap time " << t.toc() << std::endl;
+    dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
+    float percentNoData = idepth.getPercentNoData(1);
 
-    if (frames.size() > 5)
+    bool updateMap = false;
+
+    if (percentNoData > 0.25)
     {
-        meshOptimizer.changeKeyframe(frames[0]);
-        frames.erase(frames.begin());
+        meshOptimizer.changeKeyframe(newFrame);
+        updateMap = true;
+
+        for(int i = 0; i < framesInfo.size(); i++)
+            framesInfo[i] *= 2.0;
+    }
+    else
+    {
+        if (frames.size() < 3)
+        {
+            frames.push_back(newFrame);
+            framesInfo.push_back(info);
+            updateMap = true;
+            // frames.erase(frames.begin());
+        }
+        else
+        {
+            float maxInfo = 0;
+            int maxI = -1;
+            for (int i = 0; i < framesInfo.size(); i++)
+            {
+                if (framesInfo[i] > maxInfo)
+                {
+                    maxInfo = framesInfo[i];
+                    maxI = i;
+                }
+            }
+            if (info < maxInfo)
+            {
+                frames[maxI] = newFrame;
+                framesInfo[maxI] = info;
+                updateMap = true;
+            }
+        }
     }
 
-    meshOptimizer.plotDebug(frames[0]);
+    if (updateMap)
+    {
+        t.tic();
+        meshOptimizer.optPoseMap(frames);
+        std::cout << "optposemap time " << t.toc() << std::endl;
+    }
+
+    meshOptimizer.plotDebug(newFrame);
 }
 
 void visualOdometry::localization(dataCPU<float> &image)
@@ -105,5 +142,5 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
         frames.erase(frames.begin());
     }
 
-    //meshOptimizer.plotDebug(frames[0]);
+    // meshOptimizer.plotDebug(frames[0]);
 }

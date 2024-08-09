@@ -34,6 +34,8 @@ private:
     frameCPU lastFrame;
     Sophus::SE3f lastMovement;
     std::vector<frameCPU> frames;
+    std::vector<float> framesInfo;
+
     meshOptimizerCPU meshOptimizer;
     // keyframeIdepthSceneCPU scene;
 };

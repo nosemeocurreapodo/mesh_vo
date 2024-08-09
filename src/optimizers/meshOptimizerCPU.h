@@ -33,14 +33,56 @@ public:
     void optMap(std::vector<frameCPU> &frames);
     void optPoseMap(std::vector<frameCPU> &frame);
 
+    float checkInfo(frameCPU &frame)
+    {
+        int lvl = 2;
+        scene->transform(frame.pose);
+        scene->project(cam[lvl]);
+        kscene.project(cam[lvl]);
+        HGEigenSparse hg = computeHGMap2(scene.get(), &frame, lvl);
+        std::map<int, int> ids = hg.getObservedParamIds();
+        Eigen::SparseMatrix<float> H = hg.getH(ids);
+        Eigen::VectorXf G = hg.getG(ids);
+
+        // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
+        // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+        Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+        // Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+        // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+
+        solver.compute(H);
+        // solver.analyzePattern(H_lambda);
+        // solver.factorize(H_lambda);
+
+        if (solver.info() != Eigen::Success)
+        {
+            return 0.0;
+        }
+        // std::cout << solver.lastErrorMessage() << std::endl;
+        Eigen::VectorXf inc = solver.solve(G);
+        // inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
+        // inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
+        // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
+
+        if (solver.info() != Eigen::Success)
+        {
+            return 0.0;
+        }
+
+        float relative_error = (H*inc - G).norm() / G.size(); // norm() is L2 norm
+
+        return relative_error;
+    }
+
     dataCPU<float> getIdepth(Sophus::SE3f &pose, int lvl)
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
 
         scene->transform(pose);
-        scene->project(cam[1]);
-        
-        renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
+        scene->project(cam[lvl]);
+        kscene.project(cam[lvl]);
+
+        renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth_buffer, lvl);
         return idepth_buffer;
     }
 
