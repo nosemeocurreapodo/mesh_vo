@@ -591,7 +591,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                     last_error = error;
 
-                    if (p > 0.999f)
+                    if (p > 0.9999f)
                     {
                         // std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
                         //  if converged, do next level
@@ -625,7 +625,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                     // reject update, increase lambda, use un-updated data
 
-                    if (inc.dot(inc) < 1e-8)
+                    if (inc.dot(inc) < 1e-16)
                     {
                         // if too small, do next level!
                         it = maxIterations;

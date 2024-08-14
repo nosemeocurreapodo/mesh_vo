@@ -54,14 +54,21 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         meshOptimizer.changeKeyframe(newFrame);
         updateMap = true;
 
-        std::vector<frameCPU> newFrames;
-        newFrames.push_back(frames[1]);
-        newFrames.push_back(lastFrame);
+        //std::vector<frameCPU> newFrames;
+        //newFrames.push_back(frames[1]);
+        //newFrames.push_back(lastFrame);
 
-        frames = newFrames;
+        //frames = newFrames;
     }
     else
     {
+        frames.push_back(newFrame);
+        if(frames.size() > 3)
+        {
+            frames.erase(frames.begin());
+        }
+        updateMap = true;
+        /*
         if (frames.size() < 3)
         {
             frames.push_back(newFrame);
@@ -72,6 +79,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
             frames[frames.size()-1] = newFrame;
             updateMap = true;
         }
+        */
     }
 
     if (updateMap)
