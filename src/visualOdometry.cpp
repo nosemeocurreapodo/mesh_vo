@@ -44,24 +44,39 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     lastMovement = newFrame.pose * lastFrame.pose.inverse();
     lastFrame = newFrame;
 
-    float info = meshOptimizer.checkInfo(newFrame);
-    std::cout << "info: " << info << std::endl;
+    // float info = meshOptimizer.checkInfo(newFrame);
+    // std::cout << "info: " << info << std::endl;
 
     dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
     float percentNoData = idepth.getPercentNoData(1);
 
     bool updateMap = false;
 
-    if (percentNoData > 0.25)
+    if (percentNoData > 0.20)
     {
         meshOptimizer.changeKeyframe(newFrame);
         updateMap = true;
 
-        for(int i = 0; i < framesInfo.size(); i++)
-            framesInfo[i] *= 2.0;
+        for (int i = 0; i < framesInfo.size(); i++)
+            framesInfo[i] = 10000.0;
     }
     else
     {
+        if (frames.size() < 3)
+        {
+            frames.push_back(newFrame);
+            updateMap = true;
+        }
+        else
+        {
+            if (newFrame.id % 2)
+            {
+                frames.erase(frames.begin());
+                frames.push_back(newFrame);
+                updateMap = true;
+            }
+        }
+        /*
         if (frames.size() < 3)
         {
             frames.push_back(newFrame);
@@ -71,7 +86,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         }
         else
         {
-            float maxInfo = 0;
+            float maxInfo = 0.0;
             int maxI = -1;
             for (int i = 0; i < framesInfo.size(); i++)
             {
@@ -88,6 +103,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
                 updateMap = true;
             }
         }
+        */
     }
 
     if (updateMap)

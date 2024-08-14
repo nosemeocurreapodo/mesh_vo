@@ -22,7 +22,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 400.0;
+    meshRegularization = 100.0;
     meshInitial = 0.0;
 }
 
@@ -476,7 +476,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 hg += _hg;
             }
 
-            saveH(hg, "H.png");
+            //saveH(hg, "H.png");
 
             // map from param id to param index paramIndex = obsParamIds[paramId]
             std::map<int, int> obsParamIds = hg.getObservedParamIds();
@@ -504,8 +504,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                 H_lambda.makeCompressed();
                 // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
-                // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-                Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                //Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
                 // Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
                 // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
 
@@ -590,7 +590,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                     last_error = error;
 
-                    if (p > 0.99f)
+                    if (p > 0.999f)
                     {
                         // std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
                         //  if converged, do next level
