@@ -258,7 +258,7 @@ public:
             new_depth = 1.0 / std::exp(param);
         */
         // set the param (the depth in this case)
-        if (new_depth > 0.01 && new_depth < 100.0)
+        if (new_depth > 0.001 && new_depth < 1000.0)
             setVerticeDepth(new_depth, v_id);
     }
 

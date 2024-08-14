@@ -130,7 +130,8 @@ public:
         // compute idepth, complete nodata with random
         // init mesh with it
         dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
-        idepth.setRandom(lvl);
+        //idepth.setRandom(lvl);
+        idepth.setSmooth(lvl);
 
         scene->transform(frame.pose);
         scene->project(cam[lvl]);
