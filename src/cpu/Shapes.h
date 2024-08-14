@@ -452,11 +452,10 @@ public:
 private:
     inline void prepareForMapJacobian(DepthJacobianMethod &jacMethod)
     {
-        d_z_d_iz[0] = -(m_depth0 * m_depth0);
-        d_z_d_iz[1] = -(m_depth1 * m_depth1);
-        d_z_d_iz[2] = -(m_depth2 * m_depth2);
+        // d_z_d_iz[0] = -(m_depth0 * m_depth0);
+        // d_z_d_iz[1] = -(m_depth1 * m_depth1);
+        // d_z_d_iz[2] = -(m_depth2 * m_depth2);
 
-        /*
         switch (jacMethod)
         {
         case DepthJacobianMethod::depthJacobian:
@@ -484,7 +483,6 @@ private:
             d_z_d_iz[1] = 1.0;
             d_z_d_iz[2] = 1.0;
         }
-        */
     }
 
     void computeNormal()

@@ -22,7 +22,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 100.0;
+    meshRegularization = 400.0;
     meshInitial = 0.0;
 }
 
@@ -304,6 +304,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
             }
 
             std::map<int, int> obsParamIds = hg.getObservedParamIds();
+            // std::map<int, int> paramIds = hg.getParamIds();
 
             Eigen::VectorXf G = hg.getG(obsParamIds);
             Eigen::SparseMatrix<float> H = hg.getH(obsParamIds);

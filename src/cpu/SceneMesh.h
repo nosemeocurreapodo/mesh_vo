@@ -16,7 +16,7 @@ class SceneMesh : public SceneVerticesBase
 public:
     SceneMesh() : SceneVerticesBase()
     {
-        setDepthJackMethod(idepthJacobian);
+        setDepthJackMethod(logDepthJacobian);
     };
 
     SceneMesh(const SceneMesh &other) : SceneVerticesBase(other)

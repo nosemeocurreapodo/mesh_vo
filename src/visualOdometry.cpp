@@ -44,9 +44,6 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     lastMovement = newFrame.pose * lastFrame.pose.inverse();
     lastFrame = newFrame;
 
-    // float info = meshOptimizer.checkInfo(newFrame);
-    // std::cout << "info: " << info << std::endl;
-
     dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
     float percentNoData = idepth.getPercentNoData(1);
 
@@ -57,8 +54,11 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         meshOptimizer.changeKeyframe(newFrame);
         updateMap = true;
 
-        for (int i = 0; i < framesInfo.size(); i++)
-            framesInfo[i] = 10000.0;
+        std::vector<frameCPU> newFrames;
+        newFrames.push_back(frames[1]);
+        newFrames.push_back(lastFrame);
+
+        frames = newFrames;
     }
     else
     {
@@ -69,41 +69,9 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         }
         else
         {
-            if (newFrame.id % 2)
-            {
-                frames.erase(frames.begin());
-                frames.push_back(newFrame);
-                updateMap = true;
-            }
-        }
-        /*
-        if (frames.size() < 3)
-        {
-            frames.push_back(newFrame);
-            framesInfo.push_back(info);
+            frames[frames.size()-1] = newFrame;
             updateMap = true;
-            // frames.erase(frames.begin());
         }
-        else
-        {
-            float maxInfo = 0.0;
-            int maxI = -1;
-            for (int i = 0; i < framesInfo.size(); i++)
-            {
-                if (framesInfo[i] > maxInfo)
-                {
-                    maxInfo = framesInfo[i];
-                    maxI = i;
-                }
-            }
-            if (info < maxInfo)
-            {
-                frames[maxI] = newFrame;
-                framesInfo[maxI] = info;
-                updateMap = true;
-            }
-        }
-        */
     }
 
     if (updateMap)
@@ -141,22 +109,50 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     newFrame.set(image); //*keyframeData.pose.inverse();
     newFrame.id = lastFrame.id + 1;
     newFrame.pose = pose;
-    // meshOptimizer.optPose(newFrame);
-
-    lastMovement = newFrame.pose * lastFrame.pose.inverse();
-    lastFrame = newFrame;
-    frames.push_back(newFrame);
-
     tic_toc t;
-    t.tic();
-    meshOptimizer.optMap(frames);
-    std::cout << "opmap time " << t.toc() << std::endl;
+    //t.tic();
+    //meshOptimizer.optPose(newFrame);
+    //std::cout << "estimated pose " << t.toc() << std::endl;
+    //std::cout << newFrame.pose.matrix() << std::endl;
+    //lastMovement = newFrame.pose * lastFrame.pose.inverse();
+    lastFrame = newFrame;
 
-    if (frames.size() > 3)
+    dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
+    float percentNoData = idepth.getPercentNoData(1);
+
+    bool updateMap = false;
+
+    if (percentNoData > 0.20)
     {
-        meshOptimizer.changeKeyframe(frames[0]);
-        frames.erase(frames.begin());
+        meshOptimizer.changeKeyframe(newFrame);
+        updateMap = true;
+
+        std::vector<frameCPU> newFrames;
+        newFrames.push_back(frames[1]);
+        newFrames.push_back(lastFrame);
+
+        frames = newFrames;
+    }
+    else
+    {
+        if (frames.size() < 3)
+        {
+            frames.push_back(newFrame);
+            updateMap = true;
+        }
+        else
+        {
+            frames[frames.size()-1] = newFrame;
+            updateMap = true;
+        }
     }
 
-    // meshOptimizer.plotDebug(frames[0]);
+    if (updateMap)
+    {
+        t.tic();
+        meshOptimizer.optMap(frames);
+        std::cout << "optmap time " << t.toc() << std::endl;
+    }
+
+    meshOptimizer.plotDebug(newFrame);
 }
