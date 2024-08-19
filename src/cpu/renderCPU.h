@@ -342,12 +342,14 @@ private:
         Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
+        int size = 5;
+
         for (int y = win.min_y; y < win.max_y; y++)
         {
             for (int x = win.min_x; x < win.max_x; x++)
             {
                 auto f_i = frame->image.get(y, x, lvl);
-                if (f_i == kframe->image.nodata)
+                if (f_i == frame->image.nodata)
                     continue;
 
                 vec2<float> f_pix(x, y);
@@ -356,28 +358,20 @@ private:
 
                 vec3<float> f_ray = cam.pixToRay(x, y);
 
-                float depth_min = 0.01;
-                float depth_max = 100.0;
+                float depth_min = 0.1;
+                float depth_max = 10.0;
 
                 vec3<float> f_ver_min = f_ray * depth_min;
                 Eigen::Vector3f kf_ver_min_e = fTokfPose * Eigen::Vector3f(f_ver_min(0), f_ver_min(1), f_ver_min(2));
                 vec3<float> kf_ver_min(kf_ver_min_e(0), kf_ver_min_e(1), kf_ver_min_e(2));
-                if (kf_ver_min(2) <= depth_min)
-                {
-                    kf_ver_min = (kf_ver_min / kf_ver_min(2)) * depth_min;
-                }
                 vec3<float> kf_ray_min = kf_ver_min / kf_ver_min(2);
                 vec2<float> kf_pix_min = cam.rayToPix(kf_ray_min);
-                kf_pix_min = cam.clipToVisible(kf_pix_min);
 
                 vec3<float> f_ver_max = f_ray * depth_max;
                 Eigen::Vector3f kf_ver_max_e = fTokfPose * Eigen::Vector3f(f_ver_max(0), f_ver_max(1), f_ver_max(2));
                 vec3<float> kf_ver_max(kf_ver_max_e(0), kf_ver_max_e(1), kf_ver_max_e(2));
-                if (kf_ver_max(2) >= depth_max)
-                    kf_ver_max = (kf_ver_max / kf_ver_max(2)) * depth_max;
                 vec3<float> kf_ray_max = kf_ver_max / kf_ver_max(2);
                 vec2<float> kf_pix_max = cam.rayToPix(kf_ray_max);
-                kf_pix_max = cam.clipToVisible(kf_pix_max);
 
                 vec2<float> kf_pix_diff = kf_pix_max - kf_pix_min;
                 float kf_pix_diff_norm = kf_pix_diff.norm();
@@ -386,15 +380,13 @@ private:
                 for (int i = 0; i < kf_pix_diff_norm; i++)
                 {
                     vec2<float> kf_pix = kf_pix_min + kf_pix_diff * i;
-                    float f_depth = depth_min + i * (depth_max - depth_min) / kf_pix_diff_norm;
-                    // float f_idepth = 1.0 / f_depth;
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    //float z_depth = z_buffer.get(y, x, lvl);
-                    //if (z_depth < f_depth && z_depth != z_buffer.nodata)
-                    //    continue;
+                    // float z_depth = z_buffer.get(y, x, lvl);
+                    // if (z_depth < f_depth && z_depth != z_buffer.nodata)
+                    //     continue;
 
                     auto kf_i = kframe->image.get(kf_pix(1), kf_pix(0), lvl);
                     if (kf_i == kframe->image.nodata)
@@ -407,6 +399,17 @@ private:
                     if (error < last_error || last_error == buffer->nodata)
                     {
                         buffer->set(error, y, x, lvl);
+
+                        vec3<float> kf_ray = cam.pixToRay(kf_pix);
+                        Eigen::Vector3f Y_e = fTokfPose * Eigen::Vector3f(f_ray(0), f_ray(1), f_ray(2));
+                        vec3<float> Y(Y_e(0), Y_e(1), Y_e(2));
+                        Eigen::Vector3f C_e = fTokfPose.translation();
+                        vec3<float> C(C_e(0), C_e(1), C_e(2));
+
+                        float f_depth = (C(1) / kf_ray(1) - C(2)) / (Y(2) - Y(1) / kf_ray(1));
+                        // float f_depth = depth_min + i * (depth_max - depth_min) / kf_pix_diff_norm;
+                        // float f_idepth = 1.0 / f_depth;
+
                         z_buffer.set(f_depth, y, x, lvl);
                     }
                 }

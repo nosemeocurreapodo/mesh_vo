@@ -99,6 +99,7 @@ public:
     {
         idepth_buffer.set(idepth_buffer.nodata, 1);
         image_buffer.set(image_buffer.nodata, 1);
+        error_buffer.set(error_buffer.nodata, 1);
         debug.set(debug.nodata, 0);
 
         scene->transform(frame.pose);
@@ -109,8 +110,8 @@ public:
         renderer.renderImageParallel(&kscene, &kframe, scene.get(), cam[1], &image_buffer, 1);
 
         //error_buffer = frame.image.sub(image_buffer, 1);
-        //renderer.renderIdepthLineSearch(&kframe, &frame, cam[1], &error_buffer, 1);
-        //idepth_buffer = renderer.getzbuffer();
+        renderer.renderIdepthLineSearch(&kframe, &frame, cam[1], &error_buffer, 1);
+        idepth_buffer = renderer.getzbuffer();
 
         show(frame.image, "frame image", 1);
         show(kframe.image, "keyframe image", 1);
