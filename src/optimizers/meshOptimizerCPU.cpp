@@ -8,8 +8,10 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
       idepth_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
       jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
-      jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
-      pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
+      //jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
+      //pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
+      jmap_buffer(_cam.width, _cam.height, 0.0),
+      pId_buffer(_cam.width, _cam.height, -1),
       debug(_cam.width, _cam.height, -1.0),
       idepthVar(_cam.width, _cam.height, -1.0),
       renderer(_cam.width, _cam.height)
@@ -22,7 +24,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 400.0;
+    meshRegularization = 0.0;
     meshInitial = 0.0;
 }
 
@@ -302,6 +304,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 HGEigenSparse _hg = computeHGMap2(scene.get(), &frames[i], lvl);
                 hg += _hg;
             }
+
+            saveH(hg, "H.png");
 
             std::map<int, int> obsParamIds = hg.getObservedParamIds();
             // std::map<int, int> paramIds = hg.getParamIds();

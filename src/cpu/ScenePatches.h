@@ -12,9 +12,9 @@ class ScenePatches : public SceneVerticesBase
 public:
     ScenePatches() : SceneVerticesBase()
     {
-        patch_width = 16.0;
-        patch_height = 16.0;
-        setDepthJackMethod(idepthJacobian);
+        patch_width = 8.0;
+        patch_height = 8.0;
+        setDepthJackMethod(logIdepthJacobian);
     };
 
     ScenePatches(const ScenePatches &other) : SceneVerticesBase(other)
@@ -45,31 +45,50 @@ public:
         return 1;
     }
 
-    std::unique_ptr<ShapeBase> getShape(unsigned int polId) override
+    int getNumParams() override
+    {
+        // one depth for each vertice
+        return getVerticesIds().size();
+    }
+
+    bool isShapeInWindow(window &win, int polId) override
+    {
+        if (win.isPixInWindow(getPix(polId)))
+            return true;
+        return false;
+    }
+
+    std::unique_ptr<ShapeBase> getShape(int polId) override
     {
         // always return triangle in cartesian
-        ShapePatch pol(getVertice(polId), patch_width, patch_height, getDepthJacMethod());
+        ShapePatch pol(getRay(polId), getPix(polId), getDepth(polId), patch_width, patch_height, getDepthJacMethod());
         return std::make_unique<ShapePatch>(pol);
     }
 
-    std::vector<unsigned int> getShapesIds() const override
+    void getShape(ShapeBase *shape, int polId) override
+    {
+        ShapePatch *_shape = (ShapePatch *)shape;
+        _shape->set(getRay(polId), getPix(polId), getDepth(polId), patch_width, patch_height, getDepthJacMethod());
+    }
+
+    std::vector<int> getShapesIds() const override
     {
         return getVerticesIds();
     }
 
-    std::vector<unsigned int> getShapeParamsIds(unsigned int polId) override
+    std::vector<int> getShapeParamsIds(int polId) override
     {
-        std::vector<unsigned int> paramsIds;
+        std::vector<int> paramsIds;
         paramsIds.push_back(polId);
         return paramsIds;
     }
 
-    void setParam(float param, unsigned int paramId) override
+    void setParam(float param, int paramId) override
     {
         setDepthParam(param, paramId);
     }
 
-    float getParam(unsigned int paramId) override
+    float getParam(int paramId) override
     {
         return getDepthParam(paramId);
     }
@@ -78,45 +97,45 @@ public:
     {
         Error error;
 
-        std::vector<unsigned int> polIds = getShapesIds();
-        
+        std::vector<int> polIds = getShapesIds();
+
         float meanParam = 0;
-        for(auto polId : polIds)
+        for (auto polId : polIds)
         {
             meanParam += getDepthParam(polId);
         }
         meanParam /= polIds.size();
 
-        for(auto polId : polIds)
+        for (auto polId : polIds)
         {
             float err = getDepthParam(polId) - meanParam;
-            error.error += err*err;
+            error += err * err;
         }
 
-        error.count = polIds.size();
         return error;
     }
 
-    HGMapped HGRegu()
+    HGEigenSparse HGRegu(int numFrames = 0)
     {
-        HGMapped hg;
-        std::vector<unsigned int> polIds = getShapesIds();
+        std::vector<int> polIds = getShapesIds();
+
+        HGEigenSparse hg(getNumParams() + numFrames * 6);
 
         float meanParam = 0;
-        for(auto polId : polIds)
+        for (auto polId : polIds)
         {
             meanParam += getDepthParam(polId);
         }
         meanParam /= polIds.size();
 
-        for(auto polId : polIds)
+        for (auto polId : polIds)
         {
             float error = getDepthParam(polId) - meanParam;
-            hg.G[polId] += error;
-            hg.H[polId][polId] += 1.0;
+
+            hg.sparseAdd(1.0, error, polId);
         }
 
-        hg.count = polIds.size();
+        hg.endSparseAdd();
 
         return hg;
     }
@@ -125,7 +144,8 @@ public:
     {
         Error error;
 
-        std::vector<unsigned int> vertsIds = getVerticesIds();
+        /*
+        std::vector<int> vertsIds = getShapesIds();
 
         for (size_t index = 0; index < vertsIds.size(); index++)
         {
@@ -138,11 +158,10 @@ public:
 
             float diff = theta - initTheta;
 
-            error.error += initVar * diff * diff;
+            error += initVar * diff * diff;
         }
-        // divided by the number of triangles
-        // we don't want to have less error if we have less triangles
-        error.count = vertsIds.size();
+        */
+
         return error;
     }
 
@@ -150,6 +169,7 @@ public:
     {
         HGMapped hg;
 
+        /*
         std::vector<unsigned int> vertsIds = getVerticesIds();
 
         for (size_t i = 0; i < vertsIds.size(); i++)
@@ -166,12 +186,11 @@ public:
         }
 
         hg.count = vertsIds.size();
-
+        */
         return hg;
     }
 
 private:
-
     int patch_width;
     int patch_height;
 };

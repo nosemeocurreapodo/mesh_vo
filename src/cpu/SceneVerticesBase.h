@@ -185,12 +185,12 @@ public:
         return vertices[id](2);
     }
 
-    std::vector<unsigned int> getVerticesIds() const
+    std::vector<int> getVerticesIds() const
     {
-        std::vector<unsigned int> keys;
+        std::vector<int> keys;
         for (size_t it = 0; it < vertices.size(); ++it)
         {
-            keys.push_back((unsigned int)it);
+            keys.push_back((int)it);
         }
         return keys;
     }

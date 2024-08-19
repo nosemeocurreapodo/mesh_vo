@@ -15,7 +15,7 @@
 #include "cpu/renderCPU.h"
 #include "cpu/reduceCPU.h"
 #include "cpu/SceneBase.h"
-// #include "cpu/ScenePatches.h"
+#include "cpu/ScenePatches.h"
 #include "cpu/SceneMesh.h"
 // #include "cpu/SceneSurfels.h"
 // #include "cpu/SceneMeshSmooth.h"
@@ -69,7 +69,7 @@ public:
             return 0.0;
         }
 
-        float relative_error = (H*inc - G).norm() / G.size(); // norm() is L2 norm
+        float relative_error = (H * inc - G).norm() / G.size(); // norm() is L2 norm
 
         return relative_error;
     }
@@ -108,7 +108,9 @@ public:
         renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
         renderer.renderImageParallel(&kscene, &kframe, scene.get(), cam[1], &image_buffer, 1);
 
-        error_buffer = frame.image.sub(image_buffer, 1);
+        //error_buffer = frame.image.sub(image_buffer, 1);
+        //renderer.renderIdepthLineSearch(&kframe, &frame, cam[1], &error_buffer, 1);
+        //idepth_buffer = renderer.getzbuffer();
 
         show(frame.image, "frame image", 1);
         show(kframe.image, "keyframe image", 1);
@@ -130,7 +132,7 @@ public:
         // compute idepth, complete nodata with random
         // init mesh with it
         dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
-        //idepth.setRandom(lvl);
+        // idepth.setRandom(lvl);
         idepth.setSmooth(lvl);
 
         scene->transform(frame.pose);
@@ -154,14 +156,13 @@ public:
         */
     }
 
-    SceneMesh kscene;
+    ScenePatches kscene;
+    // SceneMesh kscene;
     frameCPU kframe;
 
     camera cam[MAX_LEVELS];
 
 private:
-    std::unique_ptr<SceneBase> scene;
-
     Error computeError(SceneBase *scene, frameCPU *frame, int lvl);
     // Error computeError(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
@@ -174,6 +175,7 @@ private:
     HGMapped computeHGPoseMap(SceneBase *scene, frameCPU *frame, int frameIndex, int numFrames, int lvl);
     HGEigenSparse computeHGPoseMap2(SceneBase *scene, frameCPU *frame, int frameIndex, int numFrames, int lvl);
 
+    std::unique_ptr<SceneBase> scene;
     // params
     bool multiThreading;
     float meshRegularization;
@@ -184,8 +186,12 @@ private:
     dataCPU<float> error_buffer;
 
     dataCPU<vec6<float>> jpose_buffer;
-    dataCPU<vec3<float>> jmap_buffer;
-    dataCPU<vec3<int>> pId_buffer;
+
+    dataCPU<vec1<float>> jmap_buffer;
+    dataCPU<vec1<int>> pId_buffer;
+
+    // dataCPU<vec3<float>> jmap_buffer;
+    // dataCPU<vec3<int>> pId_buffer;
 
     // debug
     dataCPU<float> debug;

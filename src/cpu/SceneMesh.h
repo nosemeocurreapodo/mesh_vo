@@ -9,8 +9,6 @@
 #include "common/HGEigenSparse.h"
 #include "params.h"
 
-#define SHAPE_DOF 3
-
 class SceneMesh : public SceneVerticesBase
 {
 public:
@@ -196,63 +194,15 @@ public:
         return hg;
     }
 
-    /*
-    HGEigen HGRegu()
-    {
-        std::vector<unsigned int> verIds = getVerticesIds();
-
-        HGEigen hg(verIds.size(), verIds.size());
-
-        std::vector<unsigned int> polIds = getTrianglesIds();
-
-        for (size_t i = 0; i < polIds.size(); i++)
-        {
-            unsigned int p_id = polIds[i];
-
-            std::array<unsigned int, 3> v_ids = getTriangleIndices(p_id);
-
-            float theta[v_ids.size()];
-
-            for (size_t j = 0; j < v_ids.size(); j++)
-            {
-                theta[j] = getDepthParam(v_ids[j]);
-            }
-
-            float diff1 = theta[0] - theta[1];
-            float diff2 = theta[0] - theta[2];
-            float diff3 = theta[1] - theta[2];
-
-            float J1[3] = {1.0, -1.0, 0.0};
-            float J2[3] = {1.0, 0.0, -1.0};
-            float J3[3] = {0.0, 1.0, -1.0};
-
-            for (int j = 0; j < 3; j++)
-            {
-                // if (hg.G(NUM_FRAMES*6 + vertexIndex[j]) == 0)
-                //     continue;
-                hg.G[v_ids[j]] += (diff1 * J1[j] + diff2 * J2[j] + diff3 * J3[j]);
-                for (int k = 0; k < 3; k++)
-                {
-                    hg.H[v_ids[j]][v_ids[k]] += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
-                }
-            }
-        }
-
-        hg.count = polIds.size();
-
-        return hg;
-    }
-    */
-
     Error errorInitial(SceneMesh &initScene, MatrixMapped &initThetaVar)
     {
         Error error;
 
-        std::vector<unsigned int> vertsIds = getVerticesIds();
+        std::vector<int> vertsIds = getVerticesIds();
 
         for (size_t index = 0; index < vertsIds.size(); index++)
         {
-            unsigned int id = vertsIds[index];
+            int id = vertsIds[index];
 
             float initVar = initThetaVar[id][id];
 

@@ -39,6 +39,8 @@ public:
 
     float getError()
     {
+        if(count == 0)
+            return 0;
         return error / count;
     }
 

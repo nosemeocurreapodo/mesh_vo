@@ -24,13 +24,25 @@ public:
 class ShapePatch : public ShapeBase
 {
 public:
-    ShapePatch(vec3<float> vert, float w, float h, DepthJacobianMethod jacMethod)
+    ShapePatch(vec3<float> r, vec2<float> pix, float d, float w, float h, DepthJacobianMethod jacMethod)
     {
-        vertice = vert;
+        ray = r;
+        pixel = pix;
+        depth = d;
         width = w;
         height = h;
         prepareForMapJacobian(jacMethod);
     };
+
+    void set(vec3<float> r, vec2<float> pix, float d, float w, float h, DepthJacobianMethod jacMethod)
+    {
+        ray = r;
+        pixel = pix;
+        depth = d;
+        width = w;
+        height = h;
+        prepareForMapJacobian(jacMethod);
+    }
 
     float getArea() override
     {
@@ -39,22 +51,41 @@ public:
 
     window getScreenBounds(camera cam) override
     {
-        vec3<float> ray = vertice / vertice(2);
-        vec2<float> pix = cam.rayToPix(ray);
-
-        int min_x = pix(0) - width / 2;
-        int max_x = pix(0) + width / 2;
-        int min_y = pix(1) - height / 2;
-        int max_y = pix(1) + height / 2;
+        int min_x = pixel(0) - width / 2;
+        int max_x = pixel(0) + width / 2;
+        int min_y = pixel(1) - height / 2;
+        int max_y = pixel(1) + height / 2;
 
         window win(min_x, max_x, min_y, max_y);
 
         return win;
     }
 
+    window getScreenBounds() override
+    {
+        int min_x = pixel(0) - width / 2;
+        int max_x = pixel(0) + width / 2;
+        int min_y = pixel(1) - height / 2;
+        int max_y = pixel(1) + height / 2;
+
+        window win(min_x, max_x, min_y, max_y);
+
+        return win;
+    }
+
+    inline vec2<float> getCenterPix()
+    {
+        return pixel;
+    }
+
     inline void prepareForRay(vec3<float> r) override
     {
-        ray = r;
+        ray_diff = r - ray;
+    }
+
+    inline void prepareForPix(vec2<float> p) override
+    {
+        pix_diff = p - pixel;
     }
 
     inline bool hitsShape() override
@@ -67,9 +98,27 @@ public:
         return false;
     }
 
-    inline float getDepth() override
+    inline vec3<float> getRay(ShapeBase *shape)
     {
-        return vertice(2);
+        ShapePatch *sh = (ShapePatch *)shape;
+        return sh->ray + ray_diff;
+    }
+
+    inline vec2<float> getPix(ShapeBase *shape)
+    {
+        ShapePatch *sh = (ShapePatch *)shape;
+        return sh->pixel + pix_diff;
+    }
+
+    inline float getDepth()
+    {
+        return depth;
+    }
+
+    inline float getDepth(ShapeBase *shape)
+    {
+        ShapePatch *sh = (ShapePatch *)shape;
+        return sh->depth;
     }
 
     inline std::vector<float> getJacobian(float d_f_i_d_kf_depth) override
@@ -89,24 +138,28 @@ private:
             d_z_d_param = 1.0;
             break;
         case DepthJacobianMethod::idepthJacobian:
-            d_z_d_param = -(vertice(0) * vertice(0));
+            d_z_d_param = -(depth * depth);
             break;
         case DepthJacobianMethod::logDepthJacobian:
-            d_z_d_param = vertice(0);
+            d_z_d_param = depth;
             break;
         case DepthJacobianMethod::logIdepthJacobian:
-            d_z_d_param = -vertice(0);
+            d_z_d_param = -depth;
             break;
         default:
             d_z_d_param = 1.0;
         }
     }
 
-    vec3<float> vertice;
     vec3<float> ray;
+    vec2<float> pixel;
+    float depth;
 
     float width;
     float height;
+
+    vec3<float> ray_diff;
+    vec2<float> pix_diff;
 
     float d_z_d_param;
 };
@@ -559,8 +612,8 @@ private:
 class ShapeTriangleSmooth : public ShapeBase
 {
 public:
-    ShapeTriangleSmooth(vec3<float> vert1, vec3<float> vert2, vec3<float> vert3,
-                        vec3<float> norm1, vec3<float> norm2, vec3<float> norm3,
+    ShapeTriangleSmooth(vec3<float> &vert1, vec3<float> &vert2, vec3<float> &vert3,
+                        vec3<float> &norm1, vec3<float> &norm2, vec3<float> &norm3,
                         DepthJacobianMethod jacMethod)
     {
         vertices[0] = vert1;

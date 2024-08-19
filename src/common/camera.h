@@ -118,6 +118,20 @@ public:
         return true;
     }
 
+    inline vec2<float> clipToVisible(vec2<float> pix)
+    {
+        vec2<float> clipped = pix;
+        if (clipped(0) < 0.0)
+            clipped(0) = 0.0;
+        if (clipped(0) > width)
+            clipped(0) = width;
+        if (clipped(1) < 0.0)
+            clipped(1) = 0.0;
+        if (clipped(1) > height)
+            clipped(1) = height;
+        return clipped;
+    }
+
     /*
     bool isPixVisibleNormalized(Eigen::Vector2f &norm_pix)
     {

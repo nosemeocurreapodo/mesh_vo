@@ -4,6 +4,77 @@
 #include "sophus/se3.hpp"
 
 template <typename type>
+struct vec1
+{
+    vec1()
+    {
+    }
+
+    template <typename type2>
+    vec1(type2 x)
+    {
+        this->operator()(0) = (type)x;
+    }
+
+    static int size()
+    {
+        return 1;
+    }
+
+    template <typename type2>
+    vec1<type> operator*(type2 c)
+    {
+        vec1<type> result;
+        result(0) = type(this->operator()(0) * c);
+        return result;
+    }
+
+    vec1<type> operator+(vec1<type> c)
+    {
+        vec1<type> result;
+        result(0) = type(this->operator()(0) + c(0));
+        return result;
+    }
+
+    vec1<type> operator-(vec1<type> c)
+    {
+        vec1<type> result;
+        result(0) = type(this->operator()(0) - c(0));
+        return result;
+    }
+
+    type dot(vec1<type> c)
+    {
+        return this->operator()(0) * c(0);
+    }
+
+    bool operator==(vec1<type> c)
+    {
+        if (this->operator()(0) == c(0))
+            return true;
+        return false;
+    }
+
+    void operator=(vec1<type> c)
+    {
+        this->operator()(0) = c(0);
+    }
+
+    inline type &operator()(int c)
+    {
+        return data;
+    }
+
+    inline type operator()(int c) const
+    {
+        return data;
+    }
+
+private:
+    type data;
+};
+
+template <typename type>
 struct vec2
 {
     vec2()
@@ -22,12 +93,26 @@ struct vec2
         return 2;
     }
 
+    type norm()
+    {
+        return sqrt(this->operator()(0) * this->operator()(0) + this->operator()(1) * this->operator()(1));
+    }
+
     template <typename type2>
     vec2<type> operator*(type2 c)
     {
         vec2<type> result;
         result(0) = type(this->operator()(0) * c);
         result(1) = type(this->operator()(1) * c);
+        return result;
+    }
+
+    template <typename type2>
+    vec2<type> operator/(type2 c)
+    {
+        vec2<type> result;
+        result(0) = type(this->operator()(0) / c);
+        result(1) = type(this->operator()(1) / c);
         return result;
     }
 

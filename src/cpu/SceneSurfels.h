@@ -7,8 +7,6 @@
 #include "common/common.h"
 #include "params.h"
 
-#define MESH_DOF 3
-
 class SceneSurfels : public SceneVerticesNormalsBase
 {
 public:

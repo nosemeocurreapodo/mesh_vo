@@ -21,6 +21,20 @@ public:
     {
     }
 
+    dataCPU<float> getzbuffer()
+    {
+        return z_buffer;
+    }
+
+    void renderIdepthLineSearch(frameCPU *kframe, frameCPU *frame, camera &cam, dataCPU<float> *buffer, int lvl)
+    {
+        z_buffer.set(z_buffer.nodata, lvl);
+
+        window win(0, cam.width, 0, cam.height);
+
+        renderIdepthLineSearchWindow(kframe, frame, cam, win, buffer, lvl);
+    }
+
     void renderImage(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, camera &cam, dataCPU<float> *buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
@@ -323,10 +337,115 @@ public:
     }
 
 private:
+    void renderIdepthLineSearchWindow(frameCPU *kframe, frameCPU *frame, camera cam, window win, dataCPU<float> *buffer, int lvl)
+    {
+        Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
+        Sophus::SE3f fTokfPose = kfTofPose.inverse();
+
+        for (int y = win.min_y; y < win.max_y; y++)
+        {
+            for (int x = win.min_x; x < win.max_x; x++)
+            {
+                auto f_i = frame->image.get(y, x, lvl);
+                if (f_i == kframe->image.nodata)
+                    continue;
+
+                vec2<float> f_pix(x, y);
+                // if (!cam.isPixVisible(f_pix))
+                //     continue;
+
+                vec3<float> f_ray = cam.pixToRay(x, y);
+
+                float depth_min = 0.01;
+                float depth_max = 100.0;
+
+                vec3<float> f_ver_min = f_ray * depth_min;
+                Eigen::Vector3f kf_ver_min_e = fTokfPose * Eigen::Vector3f(f_ver_min(0), f_ver_min(1), f_ver_min(2));
+                vec3<float> kf_ver_min(kf_ver_min_e(0), kf_ver_min_e(1), kf_ver_min_e(2));
+                if (kf_ver_min(2) <= depth_min)
+                {
+                    kf_ver_min = (kf_ver_min / kf_ver_min(2)) * depth_min;
+                }
+                vec3<float> kf_ray_min = kf_ver_min / kf_ver_min(2);
+                vec2<float> kf_pix_min = cam.rayToPix(kf_ray_min);
+                kf_pix_min = cam.clipToVisible(kf_pix_min);
+
+                vec3<float> f_ver_max = f_ray * depth_max;
+                Eigen::Vector3f kf_ver_max_e = fTokfPose * Eigen::Vector3f(f_ver_max(0), f_ver_max(1), f_ver_max(2));
+                vec3<float> kf_ver_max(kf_ver_max_e(0), kf_ver_max_e(1), kf_ver_max_e(2));
+                if (kf_ver_max(2) >= depth_max)
+                    kf_ver_max = (kf_ver_max / kf_ver_max(2)) * depth_max;
+                vec3<float> kf_ray_max = kf_ver_max / kf_ver_max(2);
+                vec2<float> kf_pix_max = cam.rayToPix(kf_ray_max);
+                kf_pix_max = cam.clipToVisible(kf_pix_max);
+
+                vec2<float> kf_pix_diff = kf_pix_max - kf_pix_min;
+                float kf_pix_diff_norm = kf_pix_diff.norm();
+                kf_pix_diff = kf_pix_diff / kf_pix_diff_norm;
+
+                for (int i = 0; i < kf_pix_diff_norm; i++)
+                {
+                    vec2<float> kf_pix = kf_pix_min + kf_pix_diff * i;
+                    float f_depth = depth_min + i * (depth_max - depth_min) / kf_pix_diff_norm;
+                    // float f_idepth = 1.0 / f_depth;
+
+                    if (!cam.isPixVisible(kf_pix))
+                        continue;
+
+                    //float z_depth = z_buffer.get(y, x, lvl);
+                    //if (z_depth < f_depth && z_depth != z_buffer.nodata)
+                    //    continue;
+
+                    auto kf_i = kframe->image.get(kf_pix(1), kf_pix(0), lvl);
+                    if (kf_i == kframe->image.nodata)
+                        continue;
+
+                    float error = (f_i - kf_i) * (f_i - kf_i);
+
+                    float last_error = buffer->get(y, x, lvl);
+
+                    if (error < last_error || last_error == buffer->nodata)
+                    {
+                        buffer->set(error, y, x, lvl);
+                        z_buffer.set(f_depth, y, x, lvl);
+                    }
+                }
+            }
+        }
+    }
+
+    /*
+    void initIdepthSmooth(int lvl, float start = 0.5, float end = 1.0)
+    {
+        idepth_buffer.set(idepth_buffer.nodata);
+
+        for (int y = 0; y < sizes[lvl][1]; y++)
+        {
+            for (int x = 0; x < sizes[lvl][0]; x++)
+            {
+                float val = start + (end - start) * float(y) / (sizes[lvl][1] - 1.0);
+                set(val, y, x, lvl);
+            }
+        }
+    }
+
+    void initIdepthRandom(int lvl, float min = 0.5, float max = 1.0)
+    {
+        for (int y = 0; y < sizes[lvl][1]; y++)
+        {
+            for (int x = 0; x < sizes[lvl][0]; x++)
+            {
+                float val = (max - min) * float(rand() % 1000) / 1000.0 + min;
+                set(val, y, x, lvl);
+            }
+        }
+    }
+    */
+
     void renderImageWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
-        // Sophus::SE3f kfTofPose = m_scene_second_view->getPose() * kframe->pose.inverse();
-        // Sophus::SE3f fTokfPose = kfTofPose.inverse();
+        Sophus::SE3f kfTofPose = scene->getPose() * kframe->pose.inverse();
+        Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         std::vector<int> ids = scene->getShapesIds();
 
@@ -371,7 +490,7 @@ private:
                     // if (!cam.isPixVisible(f_pix))
                     //     continue;
 
-                    // vec3<float> f_ray = cam.pixToRay(x, y);
+                    vec3<float> f_ray = cam.pixToRay(x, y);
 
                     // f_pol->prepareForRay(f_ray);
                     f_pol->prepareForPix(f_pix);
@@ -383,21 +502,19 @@ private:
                     if (f_depth <= 0.0)
                         continue;
 
-                    vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
+                    // vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
 
                     // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
 
-                    /*
-                    Eigen::Vector3f f_ver = f_ray * f_depth;
+                    vec3<float> f_ver = f_ray * f_depth;
 
-                    Eigen::Vector3f kf_ver = fTokfPose * f_ver;
+                    Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
+                    vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
                     if (kf_ver(2) <= 0.0)
                         continue;
 
-                    Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
-                    */
-
-                    // vec2<float> kf_pix = cam.rayToPix(kf_ray);
+                    vec3<float> kf_ray = kf_ver / kf_ver(2);
+                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -417,53 +534,15 @@ private:
             }
         }
     }
-    /*
-    void renderImageWindow(dataCPU<float> *poseIdepth, camera cam, frameCPU *kframe, Sophus::SE3f pose, dataCPU<float> *buffer, int lvl)
-    {
-        Sophus::SE3f kfTofPose = pose * kframe->pose.inverse();
-        Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
-        for (int y = cam.window_min_y; y <= cam.window_max_y; y++)
-        {
-            for (int x = cam.window_min_x; x <= cam.window_max_x; x++)
-            {
-                Eigen::Vector2f f_pix = Eigen::Vector2f(x, y);
-                if (!cam.isPixVisible(f_pix))
-                    continue;
-                Eigen::Vector3f f_ray = cam.pixToRay(f_pix);
-
-                float f_idepth = poseIdepth->get(y, x, lvl);
-                if (f_idepth <= 0.0 || f_idepth == poseIdepth->nodata)
-                    continue;
-
-                Eigen::Vector3f f_ver = f_ray / f_idepth;
-
-                Eigen::Vector3f kf_ver = fTokfPose * f_ver;
-                if (kf_ver(2) <= 0.0)
-                    continue;
-                Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
-                Eigen::Vector2f kf_pix = cam.rayToPix(kf_ray);
-
-                if (!cam.isPixVisible(kf_pix))
-                    continue;
-
-                auto kf_i = kframe->image.get(kf_pix(1), kf_pix(0), lvl);
-                if (kf_i == kframe->image.nodata)
-                    continue;
-
-                buffer->set(kf_i, y, x, lvl);
-            }
-        }
-    }
-    */
     template <typename Type>
     void renderJPoseWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<Type> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         float min_area = 0.0 * (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) / 16;
         // float min_angle = M_PI / 64.0;
 
-        // Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
-        // Sophus::SE3f fTokfPose = kfTofPose.inverse();
+        Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
+        Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         // for each triangle
         std::vector<int> t_ids = scene->getShapesIds();
@@ -499,7 +578,7 @@ private:
                 {
                     vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
-                         continue;
+                        continue;
                     vec3<float> f_ray = cam.pixToRay(x, y);
 
                     // f_pol->prepareForRay(f_ray);
@@ -519,17 +598,17 @@ private:
                     vec3<float> f_ver = f_ray * f_depth;
 
                     // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
-                    vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
+                    // vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
 
-                    /*
-                    Eigen::Vector3f kf_ver = fTokfPose * f_ver;
+                    Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
+                    vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
+
                     if (kf_ver(2) <= 0.0)
                         continue;
 
-                    Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
-                    */
+                    vec3<float> kf_ray = kf_ver / kf_ver(2);
 
-                    // vec2<float> kf_pix = cam.rayToPix(kf_ray);
+                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -687,7 +766,7 @@ private:
                 {
                     vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
-                         continue;
+                        continue;
 
                     vec3<float> f_ray = cam.pixToRay(f_pix);
 
@@ -708,27 +787,27 @@ private:
 
                     vec3<float> f_ver = f_ray * f_depth;
 
-                    // Eigen::Vector3f kf_ray = f_pol->getRay(kf_pol.get());
+                    // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
 
-                    // Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
+                    Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
+                    vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
 
-                    // vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
-                    // if (kf_ver(2) <= 0.0)
-                    //    continue;
+                    if (kf_ver(2) <= 0.0)
+                        continue;
 
-                    // vec3<float> kf_ray = kf_ver / kf_ver(2);
+                    vec3<float> kf_ray = kf_ver / kf_ver(2);
 
                     // kf_pol->prepareForRay(kf_ray);
                     // if (!kf_pol->hitsShape())
                     //     continue;
 
-                    // vec2<float> kf_pix = cam.rayToPix(kf_ray);
+                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
 
-                    vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
-                    vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
+                    // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
+                    // vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
 
                     kf_pol->prepareForPix(kf_pix);
-                    
+
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
@@ -829,7 +908,7 @@ private:
                     vec2<float> f_pix(x, y);
                     if (!cam.isPixVisible(f_pix))
                         continue;
-                    
+
                     f_pol->prepareForPix(f_pix);
                     if (!f_pol->hitsShape())
                         continue;
@@ -846,21 +925,20 @@ private:
                     vec3<float> f_ray = cam.pixToRay(f_pix);
                     vec3<float> f_ver = f_ray * f_depth;
 
-                    vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
-                    vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
+                    // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
+                    // vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
 
-                    /*
-                    Eigen::Vector3f kf_ver = fTokfPose * f_ver;
+                    Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
+                    vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
                     if (kf_ver(2) <= 0.0)
                         continue;
-                    Eigen::Vector3f kf_ray = kf_ver / kf_ver(2);
+
+                    vec3<float> kf_ray = kf_ver / kf_ver(2);
                     vec2<float> kf_pix = cam.rayToPix(kf_ray);
 
-                    */
-
                     kf_pol->prepareForPix(kf_pix);
-                    //if (!kf_pol->hitsShape())
-                    //    continue;
+                    // if (!kf_pol->hitsShape())
+                    //     continue;
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;

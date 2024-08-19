@@ -41,6 +41,22 @@ public:
         count += a.count;
     }
 
+    void sparseAdd(float jac, float error, int ids)
+    {
+        count++;
+
+        G(ids) += jac * error;
+        tripletList.push_back(T(ids, ids, jac * jac));
+    }
+
+    void sparseAdd(vec1<float> jac, float error, vec1<int> ids)
+    {
+        count++;
+
+        G(ids(0)) += jac(0) * error;
+        tripletList.push_back(T(ids(0), ids(0), jac(0) * jac(0)));
+    }
+
     void sparseAdd(vec3<float> jac, float error, vec3<int> ids)
     {
         count++;

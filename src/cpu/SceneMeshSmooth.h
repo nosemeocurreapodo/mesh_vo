@@ -10,8 +10,6 @@
 #include "common/DelaunayTriangulation.h"
 #include "params.h"
 
-#define MESH_DOF 3
-
 class SceneMeshSmooth : public SceneVerticesNormalsBase
 {
 public:
@@ -63,7 +61,7 @@ public:
         return 3;
     }
 
-    std::unique_ptr<ShapeBase> getShape(unsigned int polId) override
+    std::unique_ptr<ShapeBase> getShape(int polId) override
     {
         // always return triangle in cartesian
         std::array<unsigned int, 3> tri = getTriangleIndices(polId);
