@@ -134,11 +134,12 @@ public:
         // init mesh with it
         dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
         // idepth.setRandom(lvl);
-        idepth.setSmooth(lvl);
+        //idepth.setSmooth(lvl);
 
         scene->transform(frame.pose);
         scene->project(cam[lvl]);
         renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth, lvl);
+        renderer.renderIdepthRandom(cam[lvl], &idepth, lvl);
 
         dataCPU<float> invVar(cam[0].width, cam[0].height, -1);
         invVar.set(1.0 / INITIAL_VAR, lvl);

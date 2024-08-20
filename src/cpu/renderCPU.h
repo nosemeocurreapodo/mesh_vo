@@ -35,6 +35,13 @@ public:
         renderIdepthLineSearchWindow(kframe, frame, cam, win, buffer, lvl);
     }
 
+    void renderIdepthRandom(camera &cam, dataCPU<float> *buffer, int lvl)
+    {
+        window win(0, cam.width, 0, cam.height);
+
+        renderIdepthRandomWindow(win, buffer, lvl);
+    }
+
     void renderImage(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, camera &cam, dataCPU<float> *buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
@@ -337,6 +344,21 @@ public:
     }
 
 private:
+    void renderIdepthRandomWindow(window win, dataCPU<float> *buffer, int lvl, float max = 1.0, float min = 0.0)
+    {
+        for (int y = win.min_y; y < win.max_y; y++)
+        {
+            for (int x = win.min_x; x < win.max_x; x++)
+            {
+                if (buffer->get(y, x, lvl) == buffer->nodata)
+                {
+                    float val = (max - min) * float(rand() % 1000) / 1000.0 + min;
+                    buffer->set(val, y, x, lvl);
+                }
+            }
+        }
+    }
+
     void renderIdepthLineSearchWindow(frameCPU *kframe, frameCPU *frame, camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
         Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
@@ -826,7 +848,7 @@ private:
 
                     float error = f_i - kf_i;
 
-                    //vec3<float> d_f_i_d_f_ver = cam.d_f_i_d_f_ver(d_f_i_d_pix, f_ver);
+                    // vec3<float> d_f_i_d_f_ver = cam.d_f_i_d_f_ver(d_f_i_d_pix, f_ver);
 
                     vec3<float> d_f_i_d_f_ver;
                     d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
