@@ -17,7 +17,7 @@
 #include "cpu/SceneBase.h"
 #include "cpu/ScenePatches.h"
 #include "cpu/SceneMesh.h"
-// #include "cpu/SceneSurfels.h"
+//#include "cpu/SceneSurfels.h"
 // #include "cpu/SceneMeshSmooth.h"
 #include "cpu/OpenCVDebug.h"
 #include "params.h"
@@ -109,9 +109,9 @@ public:
         renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
         renderer.renderImageParallel(&kscene, &kframe, scene.get(), cam[1], &image_buffer, 1);
 
-        //error_buffer = frame.image.sub(image_buffer, 1);
-        renderer.renderIdepthLineSearch(&kframe, &frame, cam[1], &error_buffer, 1);
-        idepth_buffer = renderer.getzbuffer();
+        error_buffer = frame.image.sub(image_buffer, 1);
+        //renderer.renderIdepthLineSearch(&kframe, &frame, cam[1], &error_buffer, 1);
+        //idepth_buffer = renderer.getzbuffer();
 
         show(frame.image, "frame image", 1);
         show(kframe.image, "keyframe image", 1);
@@ -158,7 +158,8 @@ public:
     }
 
     ScenePatches kscene;
-    // SceneMesh kscene;
+    //SceneSurfels kscene;
+    //SceneMesh kscene;
     frameCPU kframe;
 
     camera cam[MAX_LEVELS];
@@ -191,8 +192,8 @@ private:
     dataCPU<vec1<float>> jmap_buffer;
     dataCPU<vec1<int>> pId_buffer;
 
-    // dataCPU<vec3<float>> jmap_buffer;
-    // dataCPU<vec3<int>> pId_buffer;
+    //dataCPU<vec3<float>> jmap_buffer;
+    //dataCPU<vec3<int>> pId_buffer;
 
     // debug
     dataCPU<float> debug;

@@ -826,12 +826,12 @@ private:
 
                     float error = f_i - kf_i;
 
-                    vec3<float> d_f_i_d_f_ver = cam.d_f_i_d_f_ver(d_f_i_d_pix, f_ver);
+                    //vec3<float> d_f_i_d_f_ver = cam.d_f_i_d_f_ver(d_f_i_d_pix, f_ver);
 
-                    // Eigen::Vector3f d_f_i_d_f_ver;
-                    // d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
-                    // d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
-                    // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
+                    vec3<float> d_f_i_d_f_ver;
+                    d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
+                    d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
+                    d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
                     Eigen::Vector3f d_f_ver_d_kf_depth_e = kfTofPose.rotationMatrix() * Eigen::Vector3f(kf_ray(0), kf_ray(1), kf_ray(2));
 

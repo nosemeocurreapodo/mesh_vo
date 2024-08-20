@@ -13,7 +13,7 @@ public:
     ScenePatches() : SceneVerticesBase()
     {
         patch_width = 8.0;
-        patch_height = 8.0;
+        patch_height = 4.0;
         setDepthJackMethod(logIdepthJacobian);
     };
 
@@ -99,16 +99,26 @@ public:
 
         std::vector<int> polIds = getShapesIds();
 
-        float meanParam = 0;
         for (auto polId : polIds)
         {
-            meanParam += getDepthParam(polId);
-        }
-        meanParam /= polIds.size();
+            vec2<float> pix = getPix(polId);
 
-        for (auto polId : polIds)
-        {
-            float err = getDepthParam(polId) - meanParam;
+            window win(pix(0) - patch_width * 2, pix(0) + patch_width * 2, pix(1) - patch_height * 2, pix(1) + patch_height * 2);
+
+            float meanParam = 0;
+            int count = 0;
+            for (auto polId2 : polIds)
+            {
+                vec2<float> pix2 = getPix(polId2);
+                if (win.isPixInWindow(pix2))
+                {
+                    meanParam += getDepthParam(polId2);
+                    count++;
+                }
+            }
+            meanParam /= count;
+            float param = getDepthParam(polId);
+            float err = param - meanParam;
             error += err * err;
         }
 
@@ -121,18 +131,33 @@ public:
 
         HGEigenSparse hg(getNumParams() + numFrames * 6);
 
-        float meanParam = 0;
         for (auto polId : polIds)
         {
-            meanParam += getDepthParam(polId);
-        }
-        meanParam /= polIds.size();
+            vec2<float> pix = getPix(polId);
 
-        for (auto polId : polIds)
-        {
-            float error = getDepthParam(polId) - meanParam;
+            window win(pix(0) - patch_width * 2, pix(0) + patch_width * 2, pix(1) - patch_height * 2, pix(1) + patch_height * 2);
+
+            float meanParam = 0;
+            int count;
+            std::vector<float> polIds2;
+            for (auto polId2 : polIds)
+            {
+                vec2<float> pix2 = getPix(polId2);
+                if (win.isPixInWindow(pix2))
+                {
+                    polIds2.push_back(polId2);
+                    float d = getDepthParam(polId2);
+                    meanParam += d;
+                    count++;
+                }
+            }
+            float error = getDepthParam(polId) - meanParam / count;
 
             hg.sparseAdd(1.0, error, polId);
+            for (auto polId2 : polIds2)
+            {
+                hg.sparseAdd(-1.0 / count, error, polId2);
+            }
         }
 
         hg.endSparseAdd();

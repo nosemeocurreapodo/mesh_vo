@@ -71,7 +71,6 @@ public:
                 float value = jac(j) * jac(k);
                 tripletList.push_back(T(ids(j), ids(k), value));
                 tripletList.push_back(T(ids(k), ids(j), value));
-
                 // hg.H.coeffRef(v_ids[j],v_ids[k]) += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
             }
         }

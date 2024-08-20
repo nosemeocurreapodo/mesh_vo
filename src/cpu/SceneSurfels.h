@@ -42,8 +42,8 @@ public:
 
     std::unique_ptr<ShapeBase> getShape(unsigned int id) override
     {
-        Eigen::Vector3f center = getVertice(id);
-        Eigen::Vector3f normal = getNormal(id);
+        vec3<float> center = getVertice(id);
+        vec3<float> normal = getNormal(id);
         ShapeSurfel pol(center, normal, radius, getDepthJacMethod());
         return std::make_unique<ShapeSurfel>(pol);
     }

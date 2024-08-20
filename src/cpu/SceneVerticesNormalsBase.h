@@ -84,32 +84,36 @@ public:
         normals.erase(id);
     }
 
-    Eigen::Vector3f getNormal(unsigned int id)
+    vec3<float> getNormal(unsigned int id)
     {
-        if (!normals.count(id))
+#ifdef DEBUG
+        if (id >= normals.size())
             throw std::out_of_range("getNormal invalid id");
+#endif
         return normals[id];
     }
 
-    void setNormal(Eigen::Vector3f &vert, unsigned int id)
+    void setNormal(vec3<float> &norm, unsigned int id)
     {
-        if (!normals.count(id))
-            throw std::out_of_range("setVertice invalid id");
-        normals[id] = vert;
+#ifdef DEBUG
+        if (id >= normals.size())
+            throw std::out_of_range("setNormal invalid id");
+#endif
+        normals[id] = norm;
     }
 
     void transform(Sophus::SE3f newGlobalPose)
     {
         Sophus::SE3f relativePose = newGlobalPose * getPose().inverse();
-        for (auto it = normals.begin(); it != normals.end(); ++it)
+        for (size_t it = 0; it < normals.size(); ++it)
         {
-            Eigen::Vector3f normal = it->second;
+            Eigen::Vector3f normal(normals[it](0), normals[it](1), normals[it](2));
             normal = relativePose * normal;
-            it->second = normal;
+            normals[it] = vec3<float>(normal(0), normal(1), normal(2));
         }
         SceneVerticesBase::transform(newGlobalPose);
     }
 
 private:
-    std::unordered_map<unsigned int, Eigen::Vector3f> normals;
+    std::vector<vec3<float>> normals;
 };

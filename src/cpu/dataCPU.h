@@ -203,7 +203,7 @@ public:
 
     dataCPU add(dataCPU &other, int lvl)
     {
-        dataCPU<Type> result(sizes[0][1], sizes[0][0], nodata);
+        dataCPU<Type> result(sizes[0][0], sizes[0][1], nodata);
         for (int y = 0; y < sizes[lvl][1]; y++)
             for (int x = 0; x < sizes[lvl][0]; x++)
             {
@@ -219,7 +219,7 @@ public:
 
     dataCPU sub(dataCPU &other, int lvl)
     {
-        dataCPU<Type> result(sizes[0][1], sizes[0][0], nodata);
+        dataCPU<Type> result(sizes[0][0], sizes[0][1], nodata);
         for (int y = 0; y < sizes[lvl][1]; y++)
             for (int x = 0; x < sizes[lvl][0]; x++)
             {
