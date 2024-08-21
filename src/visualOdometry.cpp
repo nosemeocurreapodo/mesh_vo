@@ -79,8 +79,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
 
     if (percentNoData > 0.20)
     {
-        meshOptimizer.changeKeyframe(newFrame);
-        frames.erase(frames.end());
+        meshOptimizer.changeKeyframe(frames[0]);
+        frames.erase(frames.begin());
         // t.tic();
         // meshOptimizer.optPoseMap(frames);
         // std::cout << "optposemap time " << t.toc() << std::endl;
