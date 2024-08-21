@@ -156,7 +156,7 @@ int main(int argc, char **argv)
 
 	camera cam = getKittiCamera(calibFile.c_str());
 
-	//cam.resize(512, 512);
+	cam.resize(512, 512);
 
 	visualOdometry odometry(cam);
 
@@ -180,7 +180,7 @@ int main(int argc, char **argv)
 	// get HZ
 	double hz = std::atof(argv[2]);
 
-	cv::Mat image = cv::Mat(cam.height, cam.width, CV_8U);
+	cv::Mat image = cv::Mat(376, 1241, CV_8U);
 	int runningIDX = 0;
 	float fakeTimeStamp = 0;
 
@@ -188,14 +188,14 @@ int main(int argc, char **argv)
 	{
 		cv::Mat imageDist = cv::imread(files[i], cv::IMREAD_GRAYSCALE);
 
-		if (imageDist.rows != cam.height || imageDist.cols != cam.width)
+		if (imageDist.rows != 376 || imageDist.cols != 1241)
 		{
 			if (imageDist.rows * imageDist.cols == 0)
 				printf("failed to load image %s! skipping.\n", files[i].c_str());
 			else
 				printf("image %s has wrong dimensions - expecting %d x %d, found %d x %d. Skipping.\n",
 					   files[i].c_str(),
-					   cam.width, cam.height, imageDist.cols, imageDist.rows);
+					   1241, 376, imageDist.cols, imageDist.rows);
 			continue;
 		}
 		assert(imageDist.type() == CV_8U);

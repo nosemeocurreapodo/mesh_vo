@@ -121,30 +121,6 @@ public:
         generateMipmaps();
     }
 
-    void setSmooth(int lvl, float start = 0.5, float end = 1.0)
-    {
-        for (int y = 0; y < sizes[lvl][1]; y++)
-        {
-            for (int x = 0; x < sizes[lvl][0]; x++)
-            {
-                float val = start + (end - start) * float(y) / (sizes[lvl][1] - 1.0);
-                set(val, y, x, lvl);
-            }
-        }
-    }
-
-    void setRandom(int lvl, float min = 0.5, float max = 1.0)
-    {
-        for (int y = 0; y < sizes[lvl][1]; y++)
-        {
-            for (int x = 0; x < sizes[lvl][0]; x++)
-            {
-                float val = (max - min) * float(rand() % 1000) / 1000.0 + min;
-                set(val, y, x, lvl);
-            }
-        }
-    }
-
     inline Type get(int y, int x, int lvl)
     {
         int address = x + y * sizes[lvl][0];

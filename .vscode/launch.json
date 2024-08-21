@@ -35,8 +35,8 @@
             "program": "${workspaceFolder}/build/tum_dataset",
             //"args": ["/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_44/camera.txt", "/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_44/images/"], 
             "args": [
-                "/mnt/nvme0n1p5/datasets/LSD_foodcourt/cameraCalibration.cfg",
-                "/mnt/nvme0n1p5/datasets/LSD_foodcourt/images/"
+                "/mnt/nvme0n1p5/datasets/LSD_machine/cameraCalibration.cfg",
+                "/mnt/nvme0n1p5/datasets/LSD_machine/images/"
             ],
             //"args": ["/mnt/nvme0n1p5/datasets/LSD_machine/cameraCalibration.cfg", "/mnt/nvme0n1p5/datasets/LSD_machine/images/"], 
             //"args": [

@@ -28,7 +28,16 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     meshInitial = 0.0;
 }
 
-void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar, int lvl)
+void meshOptimizerCPU::initKeyframe(frameCPU &frame, int lvl)
+{
+    idepth_buffer.set(idepth_buffer.nodata, lvl);
+    renderer.renderRandom(cam[lvl], &idepth_buffer, lvl);
+    kscene.init(frame, cam[lvl], idepth_buffer, lvl);
+    kframe = frame;
+    scene = kscene.clone();
+}
+
+void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, int lvl)
 {
     kscene.init(frame, cam[lvl], idepth, lvl);
     kframe = frame;

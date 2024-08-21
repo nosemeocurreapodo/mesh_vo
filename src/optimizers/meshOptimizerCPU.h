@@ -17,8 +17,8 @@
 #include "cpu/SceneBase.h"
 #include "cpu/ScenePatches.h"
 #include "cpu/SceneMesh.h"
-//#include "cpu/SceneSurfels.h"
-// #include "cpu/SceneMeshSmooth.h"
+// #include "cpu/SceneSurfels.h"
+//  #include "cpu/SceneMeshSmooth.h"
 #include "cpu/OpenCVDebug.h"
 #include "params.h"
 
@@ -27,11 +27,61 @@ class meshOptimizerCPU
 public:
     meshOptimizerCPU(camera &cam);
 
-    void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &idepthVar, int lvl);
+    void initKeyframe(frameCPU &frame, int lvl);
+    void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, int lvl);
 
     void optPose(frameCPU &frame);
     void optMap(std::vector<frameCPU> &frames);
     void optPoseMap(std::vector<frameCPU> &frame);
+
+    float meanViewAngle(frameCPU *kframe, frameCPU *frame)
+    {
+        int lvl = 1;
+
+        scene->transform(kframe->pose);
+        scene->project(cam[lvl]);
+
+        std::vector<int> sIds = scene->getShapesIds();
+
+        Sophus::SE3f fromkframeToframe = frame->pose * kframe->pose.inverse();
+        Sophus::SE3f fromframeTokframe = fromkframeToframe.inverse();
+
+        float accAngle = 0;
+        int count = 0;
+        for (auto sId : sIds)
+        {
+            auto shape = scene->getShape(sId);
+            vec2<float> centerPix = shape->getCenterPix();
+            if (!cam[lvl].isPixVisible(centerPix))
+                continue;
+
+            vec3<float> centerRay = cam[lvl].pixToRay(centerPix);
+
+            shape->prepareForPix(centerPix);
+            float centerDepth = shape->getDepth();
+
+            vec3<float> centerPoint = centerRay * centerDepth;
+
+            Eigen::Vector3f lastPoint_e = fromkframeToframe * Eigen::Vector3f(centerPoint(0), centerPoint(1), centerPoint(2));
+            Eigen::Vector3f lastRay_e = lastPoint_e / lastPoint_e(2);
+            vec3<float> lastRay(lastRay_e(0), lastRay_e(1), lastRay_e(2));
+            vec2<float> lastPix = cam[lvl].rayToPix(lastRay);
+            if (!cam[lvl].isPixVisible(lastPix))
+                continue;
+
+            Eigen::Vector3f lastRotatedRay_e = fromframeTokframe.inverse().rotationMatrix() * lastRay_e;
+            vec3<float> lastRotatedRay = vec3<float>(lastRotatedRay_e(0), lastRotatedRay_e(1), lastRotatedRay_e(2));
+            vec3<float> centerRayNormalized = centerRay / centerRay.norm();
+            vec3<float> lastRoratedRayNormalized = lastRotatedRay / lastRotatedRay.norm();
+            float cos_angle = centerRayNormalized.dot(lastRoratedRayNormalized);
+            float angle = std::acos(cos_angle);
+
+            accAngle += std::fabs(angle);
+            count += 1;
+        }
+
+        return accAngle / count;
+    }
 
     float checkInfo(frameCPU &frame)
     {
@@ -83,6 +133,7 @@ public:
         kscene.project(cam[lvl]);
 
         renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth_buffer, lvl);
+        // renderer.renderInterpolate(cam[lvl], &idepth_buffer, lvl);
         return idepth_buffer;
     }
 
@@ -110,8 +161,8 @@ public:
         renderer.renderImageParallel(&kscene, &kframe, scene.get(), cam[1], &image_buffer, 1);
 
         error_buffer = frame.image.sub(image_buffer, 1);
-        //renderer.renderIdepthLineSearch(&kframe, &frame, cam[1], &error_buffer, 1);
-        //idepth_buffer = renderer.getzbuffer();
+        // renderer.renderIdepthLineSearch(&kframe, &frame, cam[1], &error_buffer, 1);
+        // idepth_buffer = renderer.getzbuffer();
 
         show(frame.image, "frame image", 1);
         show(kframe.image, "keyframe image", 1);
@@ -134,17 +185,15 @@ public:
         // init mesh with it
         dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
         // idepth.setRandom(lvl);
-        //idepth.setSmooth(lvl);
+        // idepth.setSmooth(lvl);
 
         scene->transform(frame.pose);
         scene->project(cam[lvl]);
         renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth, lvl);
-        renderer.renderIdepthRandom(cam[lvl], &idepth, lvl);
+        // renderer.renderRandom(cam[lvl], &idepth, lvl);
+        renderer.renderInterpolate(cam[lvl], &idepth, lvl);
 
-        dataCPU<float> invVar(cam[0].width, cam[0].height, -1);
-        invVar.set(1.0 / INITIAL_VAR, lvl);
-
-        initKeyframe(frame, idepth, invVar, lvl);
+        initKeyframe(frame, idepth, lvl);
 
         /*
         //method 2
@@ -159,7 +208,7 @@ public:
     }
 
     ScenePatches kscene;
-    //SceneSurfels kscene;
+    // SceneSurfels kscene;
     //SceneMesh kscene;
     frameCPU kframe;
 

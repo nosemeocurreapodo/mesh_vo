@@ -11,23 +11,13 @@ visualOdometry::visualOdometry(camera &_cam)
 void visualOdometry::initScene(dataCPU<float> &image, Sophus::SE3f pose)
 {
     lastFrame.set(image, pose);
-    dataCPU<float> idepth(cam.width, cam.height, -1.0);
-    // idepth.setRandom(0);
-    idepth.setSmooth(0);
-    idepth.generateMipmaps();
-    dataCPU<float> invVar(cam.width, cam.height, -1.0);
-    invVar.set(1.0 / INITIAL_VAR, 0);
-    invVar.generateMipmaps();
-
-    meshOptimizer.initKeyframe(lastFrame, idepth, invVar, 0);
+    meshOptimizer.initKeyframe(lastFrame, 0);
 }
 
 void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, Sophus::SE3f pose)
 {
     lastFrame.set(image, pose);
-    dataCPU<float> invVar(cam.width, cam.height, -1.0);
-    invVar.set(1.0 / INITIAL_VAR, 0);
-    meshOptimizer.initKeyframe(lastFrame, idepth, invVar, 0);
+    meshOptimizer.initKeyframe(lastFrame, idepth, 0);
 }
 
 void visualOdometry::locAndMap(dataCPU<float> &image)
@@ -42,22 +32,47 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     std::cout << "estimated pose " << t.toc() << std::endl;
     std::cout << newFrame.pose.matrix() << std::endl;
 
-    lastMovement = newFrame.pose * lastFrame.pose.inverse();
-    lastFrame = newFrame;
+    float angle = meshOptimizer.meanViewAngle(&lastFrame, &newFrame);
 
-    frames.push_back(newFrame);
+    // vec3<float> lastRay = vec3<float>(lastPoint_e(0), lastPoint_e(1), lastPoint_e(2));
+    // vec3<float> lastRotatedRay = last
+
+    // vec2<float> lastPix = cam.rayToPix(lastRay);
+    // float pixBaseline = (lastPix - centerPix).norm();
+    // std::cout << "pixBaseline " << pixBaseline << std::endl;
+
+    // float baseline = (newFrame.pose.translation() - lastFrame.pose.translation()).norm();
+    // float centerIdepth = idepth.get(int(cam.height/2), int(cam.width/2), 0);
+    // float relBaseline = baseline*centerIdepth;
+
+    // std::cout << "relBaseline " << relBaseline << " idepth " << centerIdepth << " baseline " << baseline << std::endl;
+
+    bool optimize = false;
+    if (frames.size() == 0 || angle > M_PI / 32.0)
+    {
+        frames.push_back(newFrame);
+        optimize = true;
+    }
+
     if (frames.size() > 3)
     {
         frames.erase(frames.begin());
     }
 
-    t.tic();
-    meshOptimizer.optMap(frames);
-    std::cout << "optmap time " << t.toc() << std::endl;
+    if (optimize)
+    {
+        // t.tic();
+        // meshOptimizer.optMap(frames);
+        // std::cout << "optmap time " << t.toc() << std::endl;
 
-    t.tic();
-    meshOptimizer.optPoseMap(frames);
-    std::cout << "optposemap time " << t.toc() << std::endl;
+        t.tic();
+        meshOptimizer.optPoseMap(frames);
+        std::cout << "optposemap time " << t.toc() << std::endl;
+        newFrame.pose = frames[frames.size() - 1].pose;
+    }
+
+    lastMovement = newFrame.pose * lastFrame.pose.inverse();
+    lastFrame = newFrame;
 
     dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
     float percentNoData = idepth.getPercentNoData(1);
@@ -65,6 +80,10 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     if (percentNoData > 0.20)
     {
         meshOptimizer.changeKeyframe(newFrame);
+        frames.erase(frames.end());
+        // t.tic();
+        // meshOptimizer.optPoseMap(frames);
+        // std::cout << "optposemap time " << t.toc() << std::endl;
     }
 
     meshOptimizer.plotDebug(newFrame);

@@ -35,11 +35,25 @@ public:
         renderIdepthLineSearchWindow(kframe, frame, cam, win, buffer, lvl);
     }
 
-    void renderIdepthRandom(camera &cam, dataCPU<float> *buffer, int lvl)
+    void renderRandom(camera &cam, dataCPU<float> *buffer, int lvl)
     {
         window win(0, cam.width, 0, cam.height);
 
-        renderIdepthRandomWindow(win, buffer, lvl);
+        renderRandomWindow(cam, win, buffer, lvl);
+    }
+
+    void renderSmooth(camera &cam, dataCPU<float> *buffer, int lvl)
+    {
+        window win(0, cam.width, 0, cam.height);
+
+        renderSmoothWindow(cam, win, buffer, lvl);
+    }
+
+    void renderInterpolate(camera &cam, dataCPU<float> *buffer, int lvl)
+    {
+        window win(0, cam.width, 0, cam.height);
+
+        renderInterpolateWindow(cam, win, buffer, lvl);
     }
 
     void renderImage(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, camera &cam, dataCPU<float> *buffer, int lvl)
@@ -344,7 +358,21 @@ public:
     }
 
 private:
-    void renderIdepthRandomWindow(window win, dataCPU<float> *buffer, int lvl, float max = 1.0, float min = 0.0)
+
+    void renderSmoothWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float start = 1.0, float end = 0.0)
+    {
+        for (int y = win.min_y; y < win.max_y; y++)
+        {
+            for (int x = win.min_x; x < win.max_x; x++)
+            {
+                float val = start + (end - start) * float(y) / (cam.width - 1.0);
+                buffer->set(val, y, x, lvl);
+            }
+        }
+    }
+
+
+    void renderRandomWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float max = 1.0, float min = 0.0)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
@@ -354,6 +382,50 @@ private:
                 {
                     float val = (max - min) * float(rand() % 1000) / 1000.0 + min;
                     buffer->set(val, y, x, lvl);
+                }
+            }
+        }
+    }
+
+    void renderInterpolateWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float max = 1.0, float min = 0.0)
+    {
+        for (int y = win.min_y; y < win.max_y; y++)
+        {
+            for (int x = win.min_x; x < win.max_x; x++)
+            {
+                if (buffer->get(y, x, lvl) == buffer->nodata)
+                {
+                    int size = 10;
+                    float acc = 0.0;
+                    int count = 0;
+                    while (true)
+                    {
+                        for (int y_ = y - size; y_ <= y + size; y_ += size)
+                        {
+                            for (int x_ = x - size; x_ <= x + size; x_ += size)
+                            {
+                                if (!cam.isPixVisible(x_, y_))
+                                    continue;
+
+                                auto val = buffer->get(y_, x_, lvl);
+                                if (val == buffer->nodata)
+                                    continue;
+
+                                acc += val;
+                                count += 1;
+                            }
+                        }
+                        if (count == 0)
+                        {
+                            size *= 2;
+                        }
+                        else
+                        {
+                            acc /= count;
+                            break;
+                        }
+                    }
+                    buffer->set(acc, y, x, lvl);
                 }
             }
         }
@@ -438,34 +510,6 @@ private:
             }
         }
     }
-
-    /*
-    void initIdepthSmooth(int lvl, float start = 0.5, float end = 1.0)
-    {
-        idepth_buffer.set(idepth_buffer.nodata);
-
-        for (int y = 0; y < sizes[lvl][1]; y++)
-        {
-            for (int x = 0; x < sizes[lvl][0]; x++)
-            {
-                float val = start + (end - start) * float(y) / (sizes[lvl][1] - 1.0);
-                set(val, y, x, lvl);
-            }
-        }
-    }
-
-    void initIdepthRandom(int lvl, float min = 0.5, float max = 1.0)
-    {
-        for (int y = 0; y < sizes[lvl][1]; y++)
-        {
-            for (int x = 0; x < sizes[lvl][0]; x++)
-            {
-                float val = (max - min) * float(rand() % 1000) / 1000.0 + min;
-                set(val, y, x, lvl);
-            }
-        }
-    }
-    */
 
     void renderImageWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, camera cam, window win, dataCPU<float> *buffer, int lvl)
     {

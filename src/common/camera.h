@@ -118,6 +118,18 @@ public:
         return true;
     }
 
+    inline bool isPixVisible(int x, int y)
+    {
+        // the idea here is that if we have 3 pixels
+        // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
+        // so here the max is one more than the last pixel
+        // if (pix(0) < window_min_x || pix(0) > window_max_x || pix(1) < window_min_y || pix(1) > window_max_y)
+        //    return false;
+        if (x < 0 || x >= width || y < 0 || y >= height)
+            return false;
+        return true;
+    }
+
     /*
     bool isPixVisibleNormalized(Eigen::Vector2f &norm_pix)
     {
