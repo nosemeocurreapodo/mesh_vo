@@ -2,172 +2,176 @@
 #include "utils/tictoc.h"
 
 visualOdometry::visualOdometry(camera &_cam)
-    : lastFrame(_cam.width, _cam.height),
-      meshOptimizer(_cam)
+    : meshOptimizer(_cam)
 {
     cam = _cam;
+    lastId = 0;
 }
 
 void visualOdometry::initScene(dataCPU<float> &image, Sophus::SE3f pose)
 {
-    lastFrame.set(image, pose);
-    meshOptimizer.initKeyframe(lastFrame, 0);
+    frameCPU newFrame(cam.width, cam.height);
+    newFrame.set(image, pose);
+    meshOptimizer.initKeyframe(newFrame, 0);
 }
 
 void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, Sophus::SE3f pose)
 {
-    lastFrame.set(image, pose);
-    meshOptimizer.initKeyframe(lastFrame, idepth, 0);
+    frameCPU newFrame(cam.width, cam.height);
+    newFrame.set(image, pose);
+    meshOptimizer.initKeyframe(newFrame, idepth, 0);
 }
 
 void visualOdometry::locAndMap(dataCPU<float> &image)
 {
+    tic_toc t;
+    bool optimize = false;
+
     frameCPU newFrame(cam.width, cam.height);
     newFrame.set(image); //*keyframeData.pose.inverse();
-    newFrame.id = lastFrame.id + 1;
-    newFrame.pose = lastMovement * lastFrame.pose;
-    tic_toc t;
+    newFrame.id = lastId;
+    lastId++;
+    if (lastFrames.size() == 0)
+        newFrame.pose = meshOptimizer.kscene.getPose();
+    else
+        newFrame.pose = lastMovement * lastFrames[lastFrames.size() - 1].pose;
+
     t.tic();
     meshOptimizer.optPose(newFrame);
     std::cout << "estimated pose " << t.toc() << std::endl;
     std::cout << newFrame.pose.matrix() << std::endl;
 
-    //float angle = meshOptimizer.meanViewAngle(&lastFrame, &newFrame);
+    lastFrames.push_back(newFrame);
 
-    // vec3<float> lastRay = vec3<float>(lastPoint_e(0), lastPoint_e(1), lastPoint_e(2));
-    // vec3<float> lastRotatedRay = last
-
-    // vec2<float> lastPix = cam.rayToPix(lastRay);
-    // float pixBaseline = (lastPix - centerPix).norm();
-    // std::cout << "pixBaseline " << pixBaseline << std::endl;
-
-    // float baseline = (newFrame.pose.translation() - lastFrame.pose.translation()).norm();
-    // float centerIdepth = idepth.get(int(cam.height/2), int(cam.width/2), 0);
-    // float relBaseline = baseline*centerIdepth;
-
-    // std::cout << "relBaseline " << relBaseline << " idepth " << centerIdepth << " baseline " << baseline << std::endl;
-
-    bool optimize = false;
-    //if (frames.size() < NUM_FRAMES || angle > M_PI / 32.0)
+    if (lastFrames.size() < NUM_FRAMES)
     {
-        frames.push_back(newFrame);
         optimize = true;
+        keyFrames = lastFrames;
     }
 
-    if (frames.size() > NUM_FRAMES)
+    if (lastFrames.size() > NUM_FRAMES)
     {
-        frames.erase(frames.begin());
+        lastFrames.erase(lastFrames.begin());
     }
 
+    /*
     if (optimize)
     {
-        // t.tic();
-        // meshOptimizer.optMap(frames);
-        // std::cout << "optmap time " << t.toc() << std::endl;
-
         t.tic();
-        meshOptimizer.optPoseMap(frames);
-        std::cout << "optposemap time " << t.toc() << std::endl;
-        newFrame.pose = frames[frames.size() - 1].pose;
+        meshOptimizer.optMap(frames);
+        std::cout << "optmap time " << t.toc() << std::endl;
+        //newFrame.pose = frames[frames.size() - 1].pose;
     }
-
-    lastMovement = newFrame.pose * lastFrame.pose.inverse();
-    lastFrame = newFrame;
+    */
 
     dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
     float percentNoData = idepth.getPercentNoData(1);
 
     if (percentNoData > 0.20)
     {
-        meshOptimizer.changeKeyframe(frames[0]);
-        frames.erase(frames.begin());
-        // t.tic();
-        // meshOptimizer.optPoseMap(frames);
-        // std::cout << "optposemap time " << t.toc() << std::endl;
+        keyFrames.clear();
+        keyFrames = lastFrames;
+
+        int newFrameIndex = int(keyFrames.size() / 2);
+        meshOptimizer.changeKeyframe(lastFrames[newFrameIndex]);
+        keyFrames.erase(keyFrames.begin() + newFrameIndex);
+        optimize = true;
     }
+
+    if (optimize)
+    {
+        t.tic();
+        meshOptimizer.optPoseMap(keyFrames);
+        std::cout << "optposemap time " << t.toc() << std::endl;
+    }
+
+    if (lastFrames.size() >= 2)
+        lastMovement = lastFrames[lastFrames.size() - 1].pose * lastFrames[lastFrames.size() - 2].pose.inverse();
 
     meshOptimizer.plotDebug(newFrame);
 }
 
 void visualOdometry::localization(dataCPU<float> &image)
 {
+    tic_toc t;
+
     frameCPU newFrame(cam.width, cam.height);
     newFrame.set(image);
-    newFrame.id = lastFrame.id + 1;
-    newFrame.pose = lastMovement * lastFrame.pose;
-    tic_toc t;
+    newFrame.id = lastId;
+    lastId++;
+    if (lastFrames.size() == 0)
+        newFrame.pose = meshOptimizer.kscene.getPose();
+    else
+        newFrame.pose = lastMovement * lastFrames[lastFrames.size() - 1].pose;
+
     t.tic();
     meshOptimizer.optPose(newFrame);
-
     std::cout << "estimated pose " << t.toc() << std::endl;
     std::cout << newFrame.pose.matrix() << std::endl;
 
-    meshOptimizer.plotDebug(newFrame);
+    lastFrames.push_back(newFrame);
+    if (lastFrames.size() > NUM_FRAMES)
+    {
+        lastFrames.erase(lastFrames.begin());
+    }
 
-    lastMovement = newFrame.pose * lastFrame.pose.inverse();
-    lastFrame = newFrame;
+    if (lastFrames.size() >= 2)
+        lastMovement = lastFrames[lastFrames.size() - 1].pose * lastFrames[lastFrames.size() - 2].pose.inverse();
+
+    meshOptimizer.plotDebug(newFrame);
 }
 
 void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
 {
+    tic_toc t;
+    bool optimize = false;
+
     frameCPU newFrame(cam.width, cam.height);
     newFrame.set(image); //*keyframeData.pose.inverse();
-    newFrame.id = lastFrame.id + 1;
+    newFrame.id = lastId;
+    lastId++;
     newFrame.pose = pose;
-    tic_toc t;
 
-    float angle = meshOptimizer.meanViewAngle(&lastFrame, &newFrame);
+    lastFrames.push_back(newFrame);
 
-    // vec3<float> lastRay = vec3<float>(lastPoint_e(0), lastPoint_e(1), lastPoint_e(2));
-    // vec3<float> lastRotatedRay = last
-
-    // vec2<float> lastPix = cam.rayToPix(lastRay);
-    // float pixBaseline = (lastPix - centerPix).norm();
-    // std::cout << "pixBaseline " << pixBaseline << std::endl;
-
-    // float baseline = (newFrame.pose.translation() - lastFrame.pose.translation()).norm();
-    // float centerIdepth = idepth.get(int(cam.height/2), int(cam.width/2), 0);
-    // float relBaseline = baseline*centerIdepth;
-
-    // std::cout << "relBaseline " << relBaseline << " idepth " << centerIdepth << " baseline " << baseline << std::endl;
-
-    bool optimize = false;
-    if (frames.size() < NUM_FRAMES || angle > M_PI / 32.0)
+    if (lastFrames.size() < NUM_FRAMES)
     {
-        frames.push_back(newFrame);
         optimize = true;
+        keyFrames = lastFrames;
     }
 
-    if (frames.size() > NUM_FRAMES)
-    {
-        frames.erase(frames.begin());
-    }
+    if (lastFrames.size() > NUM_FRAMES)
+        lastFrames.erase(lastFrames.begin());
 
+    /*
     if (optimize)
     {
-        // t.tic();
-        // meshOptimizer.optMap(frames);
-        // std::cout << "optmap time " << t.toc() << std::endl;
-
         t.tic();
         meshOptimizer.optMap(frames);
-        std::cout << "optposemap time " << t.toc() << std::endl;
+        std::cout << "optmap time " << t.toc() << std::endl;
         //newFrame.pose = frames[frames.size() - 1].pose;
     }
-
-    //lastMovement = newFrame.pose * lastFrame.pose.inverse();
-    lastFrame = newFrame;
+    */
 
     dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
     float percentNoData = idepth.getPercentNoData(1);
 
     if (percentNoData > 0.20)
     {
-        meshOptimizer.changeKeyframe(frames[0]);
-        frames.erase(frames.begin());
-        // t.tic();
-        // meshOptimizer.optPoseMap(frames);
-        // std::cout << "optposemap time " << t.toc() << std::endl;
+        keyFrames.clear();
+        keyFrames = lastFrames;
+
+        int newFrameIndex = int(keyFrames.size() / 2);
+        meshOptimizer.changeKeyframe(lastFrames[newFrameIndex]);
+        keyFrames.erase(keyFrames.begin() + newFrameIndex);
+        optimize = true;
+    }
+
+    if (optimize)
+    {
+        t.tic();
+        meshOptimizer.optMap(keyFrames);
+        std::cout << "optmap time " << t.toc() << std::endl;
     }
 
     meshOptimizer.plotDebug(newFrame);

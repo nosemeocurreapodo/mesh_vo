@@ -14,7 +14,7 @@ public:
     {
         patch_width = 8.0;
         patch_height = 8.0;
-        setDepthJackMethod(logIdepthJacobian);
+        setDepthJackMethod(logDepthJacobian);
     };
 
     ScenePatches(const ScenePatches &other) : SceneVerticesBase(other)

@@ -30,10 +30,11 @@ private:
         dataCPU<float> kIdepth = meshOptimizer.getIdepth(meshOptimizer.kframe.pose, 1);
     }
 
+    int lastId;
     camera cam;
-    frameCPU lastFrame;
     Sophus::SE3f lastMovement;
-    std::vector<frameCPU> frames;
+    std::vector<frameCPU> lastFrames;
+    std::vector<frameCPU> keyFrames;
 
     meshOptimizerCPU meshOptimizer;
     // keyframeIdepthSceneCPU scene;
