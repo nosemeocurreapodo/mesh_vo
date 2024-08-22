@@ -226,9 +226,9 @@ public:
         */
     }
 
-    // ScenePatches kscene;
+    ScenePatches kscene;
     // SceneSurfels kscene;
-    SceneMesh kscene;
+    // SceneMesh kscene;
     frameCPU kframe;
 
     camera cam[MAX_LEVELS];
@@ -258,11 +258,11 @@ private:
 
     dataCPU<vec6<float>> jpose_buffer;
 
-    //dataCPU<vec1<float>> jmap_buffer;
-    //dataCPU<vec1<int>> pId_buffer;
+    dataCPU<vec1<float>> jmap_buffer;
+    dataCPU<vec1<int>> pId_buffer;
 
-    dataCPU<vec3<float>> jmap_buffer;
-    dataCPU<vec3<int>> pId_buffer;
+    //dataCPU<vec3<float>> jmap_buffer;
+    //dataCPU<vec3<int>> pId_buffer;
 
     // debug
     dataCPU<float> debug;
