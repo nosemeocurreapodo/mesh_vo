@@ -95,7 +95,7 @@ public:
                 pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
                 pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
 
-                int size = ((cam.width - 1) / (MESH_WIDTH - 1));
+                int size = ((cam.width - 1) / (MESH_WIDTH - 1))/2;
 
                 bool isNoData = true;
                 for (int y_ = pix(1) - size; y_ <= pix(1) + size; y_++)
