@@ -32,6 +32,7 @@ public:
     virtual void clear() = 0;
 
     virtual void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) = 0;
+    virtual void complete(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) = 0;
     virtual void transform(Sophus::SE3f newGlobalPose) = 0;
     virtual void project(camera cam) = 0;
 

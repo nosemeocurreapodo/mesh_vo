@@ -64,10 +64,11 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     }
     */
 
-    dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
-    float percentNoData = idepth.getPercentNoData(1);
+    //dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
+    //float percentNoData = idepth.getPercentNoData(1);
+    float viewPercent = meshOptimizer.getViewPercent(newFrame);
 
-    if (percentNoData > 0.20)
+    if (viewPercent < 0.80)
     {
         keyFrames.clear();
         keyFrames = lastFrames;

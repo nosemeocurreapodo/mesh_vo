@@ -176,24 +176,43 @@ public:
         show(debug, "frame debug", 0);
     }
 
+    float getViewPercent(frameCPU &frame)
+    {
+        int lvl = 1;
+        scene->transform(frame.pose);
+        scene->project(cam[lvl]);
+
+        std::vector<int> shapeIds = scene->getShapesIds();
+
+        int numVisible = 0;
+        for(auto shapeId : shapeIds)
+        {
+            auto shape = scene->getShape(shapeId);
+            auto pix = shape->getCenterPix();
+            if(cam->isPixVisible(pix))
+                numVisible++;
+        }
+
+        return float(numVisible)/shapeIds.size();
+    }
+
     void changeKeyframe(frameCPU &frame)
     {
         int lvl = 1;
 
-        // method 1
-        // compute idepth, complete nodata with random
-        // init mesh with it
-        dataCPU<float> idepth(cam[0].width, cam[0].height, -1);
-        // idepth.setRandom(lvl);
-        // idepth.setSmooth(lvl);
+        idepth_buffer.set(idepth_buffer.nodata, lvl);
 
         scene->transform(frame.pose);
         scene->project(cam[lvl]);
-        renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth, lvl);
+        renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth_buffer, lvl);
         // renderer.renderRandom(cam[lvl], &idepth, lvl);
-        renderer.renderInterpolate(cam[lvl], &idepth, lvl);
+        //renderer.renderInterpolate(cam[lvl], &idepth, lvl);
+        //initKeyframe(frame, idepth, lvl);
 
-        initKeyframe(frame, idepth, lvl);
+        kscene.transform(frame.pose);
+        kscene.project(cam[lvl]);
+        kscene.complete(frame, cam[lvl], idepth_buffer, lvl);
+        scene = kscene.clone();
 
         /*
         //method 2

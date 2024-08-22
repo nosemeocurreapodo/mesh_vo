@@ -55,7 +55,6 @@ public:
         clear();
         setPose(frame.pose);
 
-        int id = 0;
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
             for (float x = 0.0; x < MESH_WIDTH; x++)
@@ -79,8 +78,64 @@ public:
                 vertices.push_back(vertice);
                 rays.push_back(ray);
                 pixels.push_back(pix);
+            }
+        }
+    }
 
-                id++;
+    void complete(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) override
+    {
+        float max = 1.0;
+        float min = 0.0;
+
+        for (float y = 0.0; y < MESH_HEIGHT; y++)
+        {
+            for (float x = 0.0; x < MESH_WIDTH; x++)
+            {
+                vec2<float> pix;
+                pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
+                pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
+
+                int size = ((cam.width - 1) / (MESH_WIDTH - 1));
+
+                bool isNoData = true;
+                for (int y_ = pix(1) - size; y_ <= pix(1) + size; y_++)
+                {
+                    for (int x_ = pix(0) - size; x_ <= pix(0) + size; x_++)
+                    {
+                        if (!cam.isPixVisible(x_, y_))
+                            continue;
+
+                        vec3<float> ray = cam.pixToRay(x_, y_);
+                        float idph = idepth.get(y_, x_, lvl);
+                        if (idph != idepth.nodata)
+                            isNoData = false;
+                    }
+                }
+
+                if (!isNoData)
+                    continue;
+
+                vec3<float> ray = cam.pixToRay(pix(0), pix(1));
+                float idph = (max - min) * float(rand() % 1000) / 1000.0 + min;
+
+                vec3<float> vertice = ray / idph;
+
+                // vertices[id] = vertice;
+                // rays[id] = ray;
+                // pixels[id] = pix;
+                vertices.push_back(vertice);
+                rays.push_back(ray);
+                pixels.push_back(pix);
+
+                for (int y_ = pix(1) - size; y_ <= pix(1) + size; y_++)
+                {
+                    for (int x_ = pix(0) - size; x_ <= pix(0) + size; x_++)
+                    {
+                        if (!cam.isPixVisible(x_, y_))
+                            continue;
+                        idepth.set(1.0, y_, x_, lvl);
+                    }
+                }
             }
         }
     }
