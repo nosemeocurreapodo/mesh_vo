@@ -359,7 +359,7 @@ public:
 
 private:
 
-    void renderSmoothWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float start = 1.0, float end = 0.0)
+    void renderSmoothWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float start = 0.0, float end = 1.0)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {

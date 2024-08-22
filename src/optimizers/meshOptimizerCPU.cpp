@@ -8,10 +8,10 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
       idepth_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
       jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
-      //jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
-      //pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
-      jmap_buffer(_cam.width, _cam.height, 0.0),
-      pId_buffer(_cam.width, _cam.height, -1),
+      jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
+      pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
+      //jmap_buffer(_cam.width, _cam.height, 0.0),
+      //pId_buffer(_cam.width, _cam.height, -1),
       debug(_cam.width, _cam.height, -1.0),
       idepthVar(_cam.width, _cam.height, -1.0),
       renderer(_cam.width, _cam.height)
@@ -24,14 +24,15 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 50.0;
+    meshRegularization = 400.0;
     meshInitial = 0.0;
 }
 
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, int lvl)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
-    renderer.renderRandom(cam[lvl], &idepth_buffer, lvl);
+    //renderer.renderRandom(cam[lvl], &idepth_buffer, lvl);
+    renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl);
     kscene.init(frame, cam[lvl], idepth_buffer, lvl);
     kframe = frame;
     scene = kscene.clone();
