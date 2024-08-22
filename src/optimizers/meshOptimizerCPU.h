@@ -189,7 +189,7 @@ public:
         {
             auto shape = scene->getShape(shapeId);
             auto pix = shape->getCenterPix();
-            if(cam->isPixVisible(pix))
+            if(cam[lvl].isPixVisible(pix))
                 numVisible++;
         }
 
@@ -205,14 +205,14 @@ public:
         scene->transform(frame.pose);
         scene->project(cam[lvl]);
         renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth_buffer, lvl);
-        // renderer.renderRandom(cam[lvl], &idepth, lvl);
-        //renderer.renderInterpolate(cam[lvl], &idepth, lvl);
-        //initKeyframe(frame, idepth, lvl);
+        //renderer.renderRandom(cam[lvl], &idepth, lvl);
+        renderer.renderInterpolate(cam[lvl], &idepth_buffer, lvl);
+        initKeyframe(frame, idepth_buffer, lvl);
 
-        kscene.transform(frame.pose);
-        kscene.project(cam[lvl]);
-        kscene.complete(frame, cam[lvl], idepth_buffer, lvl);
-        scene = kscene.clone();
+        //kscene.transform(frame.pose);
+        //kscene.project(cam[lvl]);
+        //kscene.complete(frame, cam[lvl], idepth_buffer, lvl);
+        //scene = kscene.clone();
 
         /*
         //method 2
@@ -226,9 +226,9 @@ public:
         */
     }
 
-    ScenePatches kscene;
+    // ScenePatches kscene;
     // SceneSurfels kscene;
-    //SceneMesh kscene;
+    SceneMesh kscene;
     frameCPU kframe;
 
     camera cam[MAX_LEVELS];
@@ -258,11 +258,11 @@ private:
 
     dataCPU<vec6<float>> jpose_buffer;
 
-    dataCPU<vec1<float>> jmap_buffer;
-    dataCPU<vec1<int>> pId_buffer;
+    //dataCPU<vec1<float>> jmap_buffer;
+    //dataCPU<vec1<int>> pId_buffer;
 
-    //dataCPU<vec3<float>> jmap_buffer;
-    //dataCPU<vec3<int>> pId_buffer;
+    dataCPU<vec3<float>> jmap_buffer;
+    dataCPU<vec3<int>> pId_buffer;
 
     // debug
     dataCPU<float> debug;

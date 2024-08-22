@@ -68,6 +68,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     //float percentNoData = idepth.getPercentNoData(1);
     float viewPercent = meshOptimizer.getViewPercent(newFrame);
 
+    std::cout << "view percent " << viewPercent << std::endl;
+
     if (viewPercent < 0.80)
     {
         keyFrames.clear();
