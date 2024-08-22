@@ -3,7 +3,7 @@
 #define MAX_LEVELS 10 //max level for a 512x512 image
 #define MESH_WIDTH 16
 #define MESH_HEIGHT 16
-#define NUM_FRAMES 7
+#define NUM_FRAMES 3
 //for depth
 //#define INITIAL_VAR (10.0 * 10.0)
 //for idepth = 1/depth
