@@ -297,7 +297,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
         if (meshRegularization > 0.0)
         {
-            e_regu = kscene.errorRegu();
+            e_regu = kscene.errorRegu(cam[lvl]);
             last_error += meshRegularization * e_regu.getError();
         }
 
@@ -329,7 +329,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
             if (meshRegularization > 0.0)
             {
-                hg_regu = kscene.HGRegu();
+                hg_regu = kscene.HGRegu(cam[lvl]);
 
                 Eigen::VectorXf G_regu = hg_regu.getG(paramIds);
                 Eigen::SparseMatrix<float> H_regu = hg_regu.getH(paramIds);
@@ -358,8 +358,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                 H_lambda.makeCompressed();
                 // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
-                // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-                Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                //Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
                 // Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
                 // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
 
@@ -414,7 +414,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                 if (meshRegularization > 0.0)
                 {
-                    e_regu = kscene.errorRegu();
+                    e_regu = kscene.errorRegu(cam[lvl]);
                     error += meshRegularization * e_regu.getError();
                 }
 
@@ -494,7 +494,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
         if (meshRegularization > 0.0)
         {
-            e_regu = kscene.errorRegu();
+            e_regu = kscene.errorRegu(cam[lvl]);
             last_error += meshRegularization * e_regu.getError();
         }
 
@@ -523,7 +523,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
             if (meshRegularization > 0.0)
             {
-                hg_regu = kscene.HGRegu(frames.size());
+                hg_regu = kscene.HGRegu(cam[lvl], frames.size());
 
                 Eigen::VectorXf G_regu = hg_regu.getG(paramIds);
                 Eigen::SparseMatrix<float> H_regu = hg_regu.getH(paramIds);
@@ -618,7 +618,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                 if (meshRegularization > 0.0)
                 {
-                    e_regu = kscene.errorRegu();
+                    e_regu = kscene.errorRegu(cam[lvl]);
                     error += meshRegularization * e_regu.getError();
                 }
 

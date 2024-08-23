@@ -43,7 +43,13 @@ public:
     camera()
     {
     }
+
     camera(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
+    {
+        init(_fx, _fy, _cx, _cy, _width, _height);
+    }
+
+    void init(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
     {
         width = _width;
         height = _height;

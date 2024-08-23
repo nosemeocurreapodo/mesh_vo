@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 
 project(mesh_vo)
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
@@ -13,8 +13,8 @@ find_package(OpenCV REQUIRED)
 set(CMAKE_CXX_FLAGS
 #    "-O3"
 #   "-O3 -ffast-math -fno-math-errno -DNDEBUG"
-"-O3 -ffast-math -march=native -fopenmp"
-#"-g -DEBUG -fno-omit-frame-pointer"
+#"-O3 -ffast-math -march=native -fopenmp"
+"-g -DEBUG -fno-omit-frame-pointer"
 )
 
 include_directories("src")
@@ -56,6 +56,10 @@ set(KITTI_SRCS
       "src/kitti/main_on_images.cpp"
 )
 
+set(KITTI_BINOCULAR_SRCS
+      "src/kitti_binocular/main_on_images.cpp"
+)
+
 file(GLOB SHADERS  "src/shaders/*"
                    )
 foreach(SHADER ${SHADERS})
@@ -72,3 +76,6 @@ target_link_libraries(tum_dataset ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
 
 add_executable(kitti_dataset ${KITTI_SRCS} ${VISUALODOMETRY_SRCS})
 target_link_libraries(kitti_dataset ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
+
+add_executable(kitti_binocular ${KITTI_BINOCULAR_SRCS} ${VISUALODOMETRY_SRCS})
+target_link_libraries(kitti_binocular ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})

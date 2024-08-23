@@ -80,7 +80,7 @@ public:
         return false;
     }
 
-    std::unique_ptr<ShapeBase> getShape(int polId) override
+    std::unique_ptr<ShapeBase> getShape(camera cam, int polId) override
     {
         auto tri = getTriangleIndices(polId);
         // return std::make_unique<ShapeTriangleFlat>(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
@@ -94,7 +94,7 @@ public:
         //                                            getDepthJacMethod());
     }
 
-    void getShape(ShapeBase *shape, int polId) override
+    void getShape(ShapeBase *shape, camera cam, int polId) override
     {
         auto tri = getTriangleIndices(polId);
         // return std::make_unique<ShapeTriangleFlat>(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
@@ -131,7 +131,7 @@ public:
         return getDepthParam(paramId);
     }
 
-    Error errorRegu()
+    Error errorRegu(camera cam)
     {
         Error error;
 
@@ -159,7 +159,7 @@ public:
         return error;
     }
 
-    HGEigenSparse HGRegu(int numFrames = 0)
+    HGEigenSparse HGRegu(camera cam, int numFrames = 0)
     {
         std::vector<int> polIds = getTrianglesIds();
 

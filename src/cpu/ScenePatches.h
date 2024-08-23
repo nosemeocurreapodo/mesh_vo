@@ -12,15 +12,11 @@ class ScenePatches : public SceneVerticesBase
 public:
     ScenePatches() : SceneVerticesBase()
     {
-        patch_width = 4.0;
-        patch_height = 4.0;
         setDepthJackMethod(logDepthJacobian);
     };
 
     ScenePatches(const ScenePatches &other) : SceneVerticesBase(other)
     {
-        patch_width = other.patch_width;
-        patch_height = other.patch_height;
     }
     /*
     Mesh &operator=(const Mesh &other)
@@ -58,15 +54,19 @@ public:
         return false;
     }
 
-    std::unique_ptr<ShapeBase> getShape(int polId) override
+    std::unique_ptr<ShapeBase> getShape(camera cam, int polId) override
     {
+        int patch_width = cam.width / MESH_WIDTH;
+        int patch_height = cam.height / MESH_HEIGHT;
         // always return triangle in cartesian
         ShapePatch pol(getRay(polId), getPix(polId), getDepth(polId), patch_width, patch_height, getDepthJacMethod());
         return std::make_unique<ShapePatch>(pol);
     }
 
-    void getShape(ShapeBase *shape, int polId) override
+    void getShape(ShapeBase *shape, camera cam, int polId) override
     {
+        int patch_width = cam.width / MESH_WIDTH;
+        int patch_height = cam.height / MESH_HEIGHT;
         ShapePatch *_shape = (ShapePatch *)shape;
         _shape->set(getRay(polId), getPix(polId), getDepth(polId), patch_width, patch_height, getDepthJacMethod());
     }
@@ -93,11 +93,14 @@ public:
         return getDepthParam(paramId);
     }
 
-    Error errorRegu()
+    Error errorRegu(camera cam)
     {
         Error error;
 
         std::vector<int> polIds = getShapesIds();
+
+        int patch_width = cam.width / MESH_WIDTH;
+        int patch_height = cam.height / MESH_HEIGHT;
 
         for (auto polId : polIds)
         {
@@ -125,12 +128,15 @@ public:
         return error;
     }
 
-    HGEigenSparse HGRegu(int numFrames = 0)
+    HGEigenSparse HGRegu(camera cam, int numFrames = 0)
     {
         std::vector<int> polIds = getShapesIds();
 
         HGEigenSparse hg(getNumParams() + numFrames * 6);
 
+        int patch_width = cam.width / MESH_WIDTH;
+        int patch_height = cam.height / MESH_HEIGHT;
+        
         for (auto polId : polIds)
         {
             vec2<float> pix = getPix(polId);
@@ -216,6 +222,4 @@ public:
     }
 
 private:
-    int patch_width;
-    int patch_height;
 };

@@ -10,6 +10,9 @@ visualOdometry::visualOdometry(camera &_cam)
 
 void visualOdometry::initScene(dataCPU<float> &image, Sophus::SE3f pose)
 {
+    lastFrames.clear();
+    keyFrames.clear();
+    lastMovement = Sophus::SE3f();
     frameCPU newFrame(cam.width, cam.height);
     newFrame.set(image, pose);
     meshOptimizer.initKeyframe(newFrame, 0);
@@ -17,6 +20,9 @@ void visualOdometry::initScene(dataCPU<float> &image, Sophus::SE3f pose)
 
 void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, Sophus::SE3f pose)
 {
+    lastFrames.clear();
+    keyFrames.clear();
+    lastMovement = Sophus::SE3f();
     frameCPU newFrame(cam.width, cam.height);
     newFrame.set(image, pose);
     meshOptimizer.initKeyframe(newFrame, idepth, 0);
@@ -64,8 +70,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     }
     */
 
-    //dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
-    //float percentNoData = idepth.getPercentNoData(1);
+    // dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
+    // float percentNoData = idepth.getPercentNoData(1);
     float viewPercent = meshOptimizer.getViewPercent(newFrame);
 
     std::cout << "view percent " << viewPercent << std::endl;
@@ -144,7 +150,9 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     }
 
     if (lastFrames.size() > NUM_FRAMES)
+    {
         lastFrames.erase(lastFrames.begin());
+    }
 
     /*
     if (optimize)
@@ -156,10 +164,13 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     }
     */
 
-    dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
-    float percentNoData = idepth.getPercentNoData(1);
+    // dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
+    // float percentNoData = idepth.getPercentNoData(1);
+    float viewPercent = meshOptimizer.getViewPercent(newFrame);
 
-    if (percentNoData > 0.20)
+    std::cout << "view percent " << viewPercent << std::endl;
+
+    if (viewPercent < 0.80)
     {
         keyFrames.clear();
         keyFrames = lastFrames;
@@ -176,6 +187,9 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
         meshOptimizer.optMap(keyFrames);
         std::cout << "optmap time " << t.toc() << std::endl;
     }
+
+    if (lastFrames.size() >= 2)
+        lastMovement = lastFrames[lastFrames.size() - 1].pose * lastFrames[lastFrames.size() - 2].pose.inverse();
 
     meshOptimizer.plotDebug(newFrame);
 }

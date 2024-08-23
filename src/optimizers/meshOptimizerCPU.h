@@ -50,7 +50,7 @@ public:
         int count = 0;
         for (auto sId : sIds)
         {
-            auto shape = scene->getShape(sId);
+            auto shape = scene->getShape(cam[lvl], sId);
             vec2<float> centerPix = shape->getCenterPix();
             if (!cam[lvl].isPixVisible(centerPix))
                 continue;
@@ -187,7 +187,7 @@ public:
         int numVisible = 0;
         for(auto shapeId : shapeIds)
         {
-            auto shape = scene->getShape(shapeId);
+            auto shape = scene->getShape(cam[lvl], shapeId);
             auto pix = shape->getCenterPix();
             if(cam[lvl].isPixVisible(pix))
                 numVisible++;
@@ -228,7 +228,7 @@ public:
 
     ScenePatches kscene;
     // SceneSurfels kscene;
-    // SceneMesh kscene;
+    //SceneMesh kscene;
     frameCPU kframe;
 
     camera cam[MAX_LEVELS];

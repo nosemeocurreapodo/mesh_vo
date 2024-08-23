@@ -34,15 +34,15 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/tum_dataset",
             //"args": ["/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_44/camera.txt", "/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_44/images/"], 
-            //"args": [
-            //    "/mnt/nvme0n1p5/datasets/LSD_foodcourt/cameraCalibration.cfg",
-            //    "/mnt/nvme0n1p5/datasets/LSD_foodcourt/images/"
-            //],
-            //"args": ["/mnt/nvme0n1p5/datasets/LSD_machine/cameraCalibration.cfg", "/mnt/nvme0n1p5/datasets/LSD_machine/images/"], 
             "args": [
-                "/mnt/sda1/workspace/datasets/TUM_VO/sequence_50/camera.txt",
-                "/mnt/sda1/workspace/datasets/TUM_VO/sequence_50/images/"
+                "/mnt/nvme0n1p5/datasets/LSD_foodcourt/cameraCalibration.cfg",
+                "/mnt/nvme0n1p5/datasets/LSD_foodcourt/images/"
             ],
+            //"args": ["/mnt/nvme0n1p5/datasets/LSD_machine/cameraCalibration.cfg", "/mnt/nvme0n1p5/datasets/LSD_machine/images/"], 
+            //"args": [
+            //    "/mnt/sda1/workspace/datasets/TUM_VO/sequence_50/camera.txt",
+            //    "/mnt/sda1/workspace/datasets/TUM_VO/sequence_50/images/"
+            //],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
@@ -69,14 +69,49 @@
             //"args": ["/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_44/camera.txt", "/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_44/images/"], 
             //"args": ["/mnt/nvme0n1p5/datasets/LSD_foodcourt/cameraCalibration.cfg", "/mnt/nvme0n1p5/datasets/LSD_foodcourt/images/"], 
             //"args": ["/mnt/nvme0n1p5/datasets/LSD_machine/cameraCalibration.cfg", "/mnt/nvme0n1p5/datasets/LSD_machine/images/"], 
-            //"args": [
-            //    "/mnt/nvme0n1p5/datasets/kitti/data_odometry_gray/dataset/sequences/00/calib.txt",
-            //    "/mnt/nvme0n1p5/datasets/kitti/data_odometry_gray/dataset/sequences/00/image_0"
-            //],
             "args": [
-                "/mnt/sda1/workspace/datasets/data_odometry_gray/dataset/sequences/00/calib.txt",
-                "/mnt/sda1/workspace/datasets/data_odometry_gray/dataset/sequences/00/image_0/"
+                "/mnt/nvme0n1p5/datasets/kitti/data_odometry_gray/dataset/sequences/00/calib.txt",
+                "/mnt/nvme0n1p5/datasets/kitti/data_odometry_gray/dataset/sequences/00/image_0"
             ],
+            //"args": [
+            //    "/mnt/sda1/workspace/datasets/data_odometry_gray/dataset/sequences/00/calib.txt",
+            //    "/mnt/sda1/workspace/datasets/data_odometry_gray/dataset/sequences/00/image_0/"
+            //],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "(gdb) Launch kitti binocular",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/kitti_binocular",
+            //"args": ["/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_44/camera.txt", "/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_44/images/"], 
+            //"args": ["/mnt/nvme0n1p5/datasets/LSD_foodcourt/cameraCalibration.cfg", "/mnt/nvme0n1p5/datasets/LSD_foodcourt/images/"], 
+            //"args": ["/mnt/nvme0n1p5/datasets/LSD_machine/cameraCalibration.cfg", "/mnt/nvme0n1p5/datasets/LSD_machine/images/"], 
+            "args": [
+                "/mnt/nvme0n1p5/datasets/kitti/data_odometry_gray/dataset/sequences/00/calib.txt",
+                "/mnt/nvme0n1p5/datasets/kitti/data_odometry_gray/dataset/sequences/00/image_0",
+                "/mnt/nvme0n1p5/datasets/kitti/data_odometry_gray/dataset/sequences/00/image_1"
+            ],
+            //"args": [
+            //    "/mnt/sda1/workspace/datasets/data_odometry_gray/dataset/sequences/00/calib.txt",
+            //    "/mnt/sda1/workspace/datasets/data_odometry_gray/dataset/sequences/00/image_0/"
+            //],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

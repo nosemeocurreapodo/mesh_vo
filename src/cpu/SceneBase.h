@@ -39,8 +39,8 @@ public:
     virtual bool isShapeInWindow(window &win, int polId) = 0;
 
     virtual std::vector<int> getShapesIds() const = 0;
-    virtual std::unique_ptr<ShapeBase> getShape(int polId) = 0;
-    virtual void getShape(ShapeBase* shape, int polId) = 0;
+    virtual std::unique_ptr<ShapeBase> getShape(camera cam, int polId) = 0;
+    virtual void getShape(ShapeBase* shape, camera cam, int polId) = 0;
     virtual int getNumParams() = 0;
     virtual int getShapesDoF() = 0;
 
@@ -48,8 +48,8 @@ public:
     virtual void setParam(float param, int paramId) = 0;
     virtual float getParam(int paramId) = 0;
 
-    virtual Error errorRegu() = 0;
-    virtual HGEigenSparse HGRegu(int numFrames) = 0;
+    virtual Error errorRegu(camera cam) = 0;
+    virtual HGEigenSparse HGRegu(camera cam, int numFrames) = 0;
     // virtual Error errorInitial(SceneBase &initScene, MatrixMapped &initThetaVar) = 0;
     // virtual HGMapped HGInitial(SceneBase &initMesh, MatrixMapped &initThetaVar) = 0;
 

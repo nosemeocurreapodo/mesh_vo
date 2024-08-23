@@ -358,12 +358,11 @@ public:
     }
 
 private:
-
-    void renderSmoothWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float start = 0.0, float end = 1.0)
+    void renderSmoothWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float start = 1.0, float end = 2.0)
     {
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y <= win.max_y; y++)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x <= win.max_x; x++)
             {
                 float val = start + (end - start) * float(y) / (cam.width - 1.0);
                 buffer->set(val, y, x, lvl);
@@ -371,12 +370,11 @@ private:
         }
     }
 
-
-    void renderRandomWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float max = 1.0, float min = 0.0)
+    void renderRandomWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float min = 1.0, float max = 2.0)
     {
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y <= win.max_y; y++)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x <= win.max_x; x++)
             {
                 if (buffer->get(y, x, lvl) == buffer->nodata)
                 {
@@ -387,11 +385,11 @@ private:
         }
     }
 
-    void renderInterpolateWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float max = 1.0, float min = 0.0)
+    void renderInterpolateWindow(camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y <= win.max_y; y++)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x <= win.max_x; x++)
             {
                 if (buffer->get(y, x, lvl) == buffer->nodata)
                 {
@@ -438,9 +436,9 @@ private:
 
         int size = 5;
 
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y <= win.max_y; y++)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x <= win.max_x; x++)
             {
                 auto f_i = frame->image.get(y, x, lvl);
                 if (f_i == frame->image.nodata)
@@ -518,8 +516,8 @@ private:
 
         std::vector<int> ids = scene->getShapesIds();
 
-        auto kf_pol = kscene->getShape(ids[0]);
-        auto f_pol = scene->getShape(ids[0]);
+        auto kf_pol = kscene->getShape(cam, ids[0]);
+        auto f_pol = scene->getShape(cam, ids[0]);
 
         // for each triangle
         for (auto t_id : ids)
@@ -538,8 +536,8 @@ private:
 
             // auto kf_pol = kscene->getShape(t_id);
             // auto f_pol = scene->getShape(t_id);
-            kscene->getShape(kf_pol.get(), t_id);
-            scene->getShape(f_pol.get(), t_id);
+            kscene->getShape(kf_pol.get(), cam, t_id);
+            scene->getShape(f_pol.get(), cam, t_id);
 
             // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
@@ -551,9 +549,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
                     // if (!cam.isPixVisible(f_pix))
@@ -563,12 +561,15 @@ private:
 
                     // f_pol->prepareForRay(f_ray);
                     f_pol->prepareForPix(f_pix);
-
                     if (!f_pol->hitsShape())
                         continue;
 
                     float f_depth = f_pol->getDepth();
                     if (f_depth <= 0.0)
+                        continue;
+
+                    float z_depth = z_buffer.get(y, x, lvl);
+                    if (z_depth < f_depth && z_depth != z_buffer.nodata)
                         continue;
 
                     // vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
@@ -592,12 +593,66 @@ private:
                     if (kf_i == kframe->image.nodata)
                         continue;
 
-                    float z_depth = z_buffer.get(y, x, lvl);
-                    if (z_depth < f_depth && z_depth != z_buffer.nodata)
+                    buffer->set(kf_i, y, x, lvl);
+                    z_buffer.set(f_depth, y, x, lvl);
+                }
+            }
+        }
+    }
+
+    void renderIdepthWindow(SceneBase *scene, camera cam, window win, dataCPU<float> *buffer, int lvl)
+    {
+        std::vector<int> shapesIds = scene->getShapesIds();
+
+        auto f_pol = scene->getShape(cam, shapesIds[0]);
+
+        // for each triangle
+        for (auto t_id : shapesIds)
+        {
+            // Triangle kf_tri = keyframeMesh.triangles[t_id];
+            // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
+            //     continue;
+            // if (kf_tri.isBackFace())
+            //     continue;
+
+            if (!scene->isShapeInWindow(win, t_id))
+                continue;
+
+            // auto f_pol = scene->getShape(t_id);
+            scene->getShape(f_pol.get(), cam, t_id);
+
+            // if (f_tri2d.vertices[0](2) <= 0.0 || f_tri2d.vertices[1](2) <= 0.0 || f_tri2d.vertices[2](2) <= 0.0)
+            //      continue;
+            if (f_pol->getArea() < 0.0)
+                continue;
+
+            window pol_win = f_pol->getScreenBounds();
+
+            pol_win.intersect(win);
+
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            {
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                {
+                    vec2<float> f_pix(x, y);
+                    //if (!cam.isPixVisible(f_pix))
+                    //    continue;
+                    //vec3<float> f_ray = cam.pixToRay(f_pix);
+
+                    f_pol->prepareForPix(f_pix);
+                    if (!f_pol->hitsShape())
                         continue;
 
-                    buffer->set(kf_i, y, x, lvl);
+                    float f_depth = f_pol->getDepth();
 
+                    if (f_depth <= 0.0)
+                        continue;
+
+                    float z_depth = z_buffer.get(y, x, lvl);
+                    if (z_depth <= f_depth && z_depth != z_buffer.nodata)
+                        continue;
+
+                    buffer->set(1.0 / f_depth, y, x, lvl);
                     z_buffer.set(f_depth, y, x, lvl);
                 }
             }
@@ -616,8 +671,8 @@ private:
         // for each triangle
         std::vector<int> t_ids = scene->getShapesIds();
 
-        auto kf_pol = kscene->getShape(t_ids[0]);
-        auto f_pol = scene->getShape(t_ids[0]);
+        auto kf_pol = kscene->getShape(cam, t_ids[0]);
+        auto f_pol = scene->getShape(cam, t_ids[0]);
 
         for (auto t_id : t_ids)
         {
@@ -630,8 +685,8 @@ private:
             // auto kf_pol = kscene->getShape(t_id);
             // auto f_pol = scene->getShape(t_id);
 
-            kscene->getShape(kf_pol.get(), t_id);
-            scene->getShape(f_pol.get(), t_id);
+            kscene->getShape(kf_pol.get(), cam, t_id);
+            scene->getShape(f_pol.get(), cam, t_id);
 
             if (f_pol->getArea() < min_area)
                 continue;
@@ -804,7 +859,7 @@ private:
 
             std::vector<int> p_ids = scene->getShapeParamsIds(t_id);
 
-            auto kf_pol = kscene->getShape(t_id);
+            auto kf_pol = kscene->getShape(cam, t_id);
 
             // if (kf_tri_3d.vertices[0](2) <= 0.0 || kf_tri_3d.vertices[1](2) <= 0.0 || kf_tri_3d.vertices[2](2) <= 0.0)
             //     continue;
@@ -814,7 +869,7 @@ private:
             // if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
             //     continue;
 
-            auto f_pol = scene->getShape(t_id);
+            auto f_pol = scene->getShape(cam, t_id);
 
             // if (f_tri_3d.vertices[0](2) <= 0.0 || f_tri_3d.vertices[1](2) <= 0.0 || f_tri_3d.vertices[2](2) <= 0.0)
             //     continue;
@@ -948,7 +1003,7 @@ private:
 
             std::vector<int> p_ids = kscene->getShapeParamsIds(t_id);
 
-            auto kf_pol = kscene->getShape(t_id);
+            auto kf_pol = kscene->getShape(cam, t_id);
             // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
             if (kf_pol->getArea() < min_area)
@@ -957,7 +1012,7 @@ private:
             // if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
             //    continue;
 
-            auto f_pol = scene->getShape(t_id);
+            auto f_pol = scene->getShape(cam, t_id);
             // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
             if (f_pol->getArea() < min_area)
@@ -1061,71 +1116,11 @@ private:
         }
     }
 
-    void renderIdepthWindow(SceneBase *scene, camera cam, window win, dataCPU<float> *buffer, int lvl)
-    {
-        std::vector<int> shapesIds = scene->getShapesIds();
-
-        auto f_pol = scene->getShape(shapesIds[0]);
-
-        // for each triangle
-        for (auto t_id : shapesIds)
-        {
-            // Triangle kf_tri = keyframeMesh.triangles[t_id];
-            // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
-            //     continue;
-            // if (kf_tri.isBackFace())
-            //     continue;
-
-            if (!scene->isShapeInWindow(win, t_id))
-                continue;
-
-            // auto f_pol = scene->getShape(t_id);
-            scene->getShape(f_pol.get(), t_id);
-
-            // if (f_tri2d.vertices[0](2) <= 0.0 || f_tri2d.vertices[1](2) <= 0.0 || f_tri2d.vertices[2](2) <= 0.0)
-            //      continue;
-            if (f_pol->getArea() < 0.0)
-                continue;
-
-            window pol_win = f_pol->getScreenBounds(cam);
-
-            pol_win.intersect(win);
-
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
-            {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
-                {
-                    vec2<float> f_pix(x, y);
-                    if (!cam.isPixVisible(f_pix))
-                        continue;
-                    vec3<float> f_ray = cam.pixToRay(f_pix);
-
-                    f_pol->prepareForRay(f_ray);
-                    if (!f_pol->hitsShape())
-                        continue;
-
-                    float f_depth = f_pol->getDepth();
-
-                    if (f_depth <= 0.0)
-                        continue;
-
-                    float z_depth = z_buffer.get(y, x, lvl);
-                    if (z_depth <= f_depth && z_depth != z_buffer.nodata)
-                        continue;
-
-                    buffer->set(1.0 / f_depth, y, x, lvl);
-
-                    z_buffer.set(f_depth, y, x, lvl);
-                }
-            }
-        }
-    }
-
     void renderDebugWindow(SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
         std::vector<int> ids = scene->getShapesIds();
 
-        auto f_pol = scene->getShape(ids[0]);
+        auto f_pol = scene->getShape(cam, ids[0]);
 
         // for each triangle
         for (auto t_id : ids)
@@ -1140,7 +1135,7 @@ private:
             if (!scene->isShapeInWindow(win, t_id))
                 continue;
 
-            scene->getShape(f_pol.get(), t_id);
+            scene->getShape(f_pol.get(), cam, t_id);
             // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
             if (f_pol->getArea() < 0.0)
