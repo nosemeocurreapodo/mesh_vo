@@ -8,10 +8,10 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
       idepth_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
       jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
-      //jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
-      //pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
-      jmap_buffer(_cam.width, _cam.height, 0.0),
-      pId_buffer(_cam.width, _cam.height, -1),
+      jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
+      pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
+      // jmap_buffer(_cam.width, _cam.height, 0.0),
+      // pId_buffer(_cam.width, _cam.height, -1),
       debug(_cam.width, _cam.height, -1.0),
       idepthVar(_cam.width, _cam.height, -1.0),
       renderer(_cam.width, _cam.height)
@@ -24,14 +24,14 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 100.0;
+    meshRegularization = 10.0;
     meshInitial = 0.0;
 }
 
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, int lvl)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
-    //renderer.renderRandom(cam[lvl], &idepth_buffer, lvl);
+    // renderer.renderRandom(cam[lvl], &idepth_buffer, lvl);
     renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl);
     kscene.init(frame, cam[lvl], idepth_buffer, lvl);
     kframe = frame;
@@ -223,14 +223,15 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
                     best_pose = frame.pose;
                     float p = error / last_error;
 
-                    if (lambda < 0.2f)
-                        lambda = 0.0f;
-                    else
-                        lambda *= 0.5;
+                    // if (lambda < 0.2f)
+                    //     lambda = 0.0f;
+                    // else
+                    //lambda *= 0.5;
+                    lambda = 0.0;
 
                     last_error = error;
 
-                    if (p > 0.99f)
+                    if (p > 0.999f)
                     {
                         // if converged, do next level
                         it = maxIterations[lvl];
@@ -246,16 +247,15 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
                     n_try++;
 
-                    if (lambda < 0.2f)
+                    if (lambda == 0.0)
                         lambda = 0.2f;
                     else
-                        lambda *= std::pow(2.0, n_try);
+                        lambda *= 2.0;//std::pow(2.0, n_try);
 
                     // reject update, increase lambda, use un-updated data
                     // std::cout << "update rejected " << std::endl;
 
-                    if (!(inc.dot(inc) > 1e-8))
-                    // if(!(inc.dot(inc) > 1e-6))
+                    if (!(inc.dot(inc) > 1e-16))
                     {
                         // std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations and " << t_try << " total tries, with lambda " << lambda << std::endl;
                         // if too small, do next level!
@@ -319,9 +319,9 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 hg += _hg;
             }
 
-            //saveH(hg, "H.png");
+            // saveH(hg, "H.png");
 
-            //std::map<int, int> paramIds = hg.getObservedParamIds();
+            // std::map<int, int> paramIds = hg.getObservedParamIds();
             std::map<int, int> paramIds = hg.getParamIds();
 
             Eigen::VectorXf G = hg.getG(paramIds);
@@ -359,9 +359,9 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 H_lambda.makeCompressed();
                 // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
                 Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-                //Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
-                // Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
-                // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+                // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+                //  Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+                //  Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
 
                 solver.compute(H_lambda);
                 // solver.analyzePattern(H_lambda);
@@ -377,10 +377,10 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 // std::cout << solver.lastErrorMessage() << std::endl;
 
                 Eigen::VectorXf inc = solver.solve(G);
-                //Eigen::VectorXf inc = G / (1.0 + lambda);
-                // inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
-                // inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
-                // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
+                // Eigen::VectorXf inc = G / (1.0 + lambda);
+                //  inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
+                //  inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
+                //  inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
 
                 if (solver.info() != Eigen::Success)
                 {
@@ -428,10 +428,11 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                     // accept update, decrease lambda
                     float p = error / last_error;
 
-                    if (lambda < 0.2f)
-                        lambda = 0.0f;
-                    else
-                        lambda *= 0.5;
+                    //if (lambda < 0.2f)
+                    //    lambda = 0.0f;
+                    //else
+                    //    lambda *= 0.5;
+                    lambda = 0.0;
 
                     last_error = error;
 
@@ -453,14 +454,14 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                     n_try++;
 
-                    if (lambda < 0.2f)
+                    if (lambda == 0.0f)
                         lambda = 0.2f;
                     else
-                        lambda *= 2.0; // std::pow(2.0, n_try);
+                        lambda *= 2.0;//std::pow(2.0, n_try);
 
                     // reject update, increase lambda, use un-updated data
 
-                    if (inc.dot(inc) < 1e-8)
+                    if (inc.dot(inc) < 1e-16)
                     {
                         // if too small, do next level!
                         it = maxIterations;
@@ -629,10 +630,11 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     // accept update, decrease lambda
                     float p = error / last_error;
 
-                    if (lambda < 0.2f)
-                        lambda = 0.0f;
-                    else
-                        lambda *= 0.5;
+                    // if (lambda < 0.001f)
+                    //     lambda = 0.0f;
+                    // else
+                    //lambda *= 0.5;
+                    lambda = 0.0;
 
                     last_error = error;
 
@@ -663,10 +665,10 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                     n_try++;
 
-                    if (lambda < 0.2f)
+                    if (lambda == 0.0f)
                         lambda = 0.2f;
                     else
-                        lambda *= 2.0; // std::pow(2.0, n_try);
+                        lambda *= 2.0;//std::pow(2.0, n_try);
 
                     // reject update, increase lambda, use un-updated data
 

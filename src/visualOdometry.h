@@ -33,6 +33,7 @@ private:
     int lastId;
     camera cam;
     Sophus::SE3f lastMovement;
+    Sophus::SE3f lastPose;
     std::vector<frameCPU> lastFrames;
     std::vector<frameCPU> keyFrames;
 
