@@ -57,7 +57,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         if (lastFrames.size() == NUM_FRAMES)
         {
             float meanViewAngle = meshOptimizer.meanViewAngle(&lastFrames[lastFrames.size() - 1], &newFrame);
-            if (meanViewAngle > M_PI / 16.0)
+            if (meanViewAngle > M_PI / 64.0)
             {
                 lastFrames.erase(lastFrames.begin());
                 lastFrames.push_back(newFrame);
