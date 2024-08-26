@@ -61,8 +61,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
             {
                 lastFrames.erase(lastFrames.begin());
                 lastFrames.push_back(newFrame);
-                keyFrames = lastFrames;
-                optimize = true;
+                //keyFrames = lastFrames;
+                //optimize = true;
             }
         }
         else
