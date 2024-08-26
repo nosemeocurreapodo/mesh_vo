@@ -279,25 +279,26 @@ public:
     }
 
 private:
-    void reduceErrorWindow(window win, dataCPU<float> *frame1, dataCPU<float> *frame2, Error *err, int lvl)
+    void reduceErrorWindow(window win, dataCPU<float> *frame1, dataCPU<float> *frame2, dataCPU<float> *weights, Error *err, int lvl)
     {
         for (int y = win.min_y; y < win.max_y; y++)
             for (int x = win.min_x; x < win.max_x; x++)
             {
                 float p1 = frame1->get(y, x, lvl);
                 float p2 = frame2->get(y, x, lvl);
-                if (p1 == frame1->nodata || p2 == frame2->nodata)
+                float w = weights->get(y, x, lvl);
+                if (p1 == frame1->nodata || p2 == frame2->nodata || w == weights->nodata)
                     continue;
                 float residual = p1 - p2;
                 float absresidual = std::fabs(residual);
                 float hw = 1.0;
                 if (absresidual > HUBER_THRESH)
                     hw = HUBER_THRESH / absresidual;
-                *err += hw * std::pow(residual, 2);
+                *err += w * hw * std::pow(residual, 2);
             }
     }
 
-    void reduceHGPoseWindow(window win, dataCPU<vec6<float>> *jpose_buffer, dataCPU<float> *res_buffer, HGEigenDense *hg, int lvl)
+    void reduceHGPoseWindow(window win, dataCPU<vec6<float>> *jpose_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense *hg, int lvl)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
@@ -305,14 +306,15 @@ private:
             {
                 vec6<float> J = jpose_buffer->get(y, x, lvl);
                 float res = res_buffer->get(y, x, lvl);
-                if (J == jpose_buffer->nodata || res == res_buffer->nodata || J == vec6<float>::zero())
+                float w = weights_buffer->get(y, x, lvl);
+                if (J == jpose_buffer->nodata || res == res_buffer->nodata || w == weights_buffer->nodata || J == vec6<float>::zero())
                     continue;
                 float absres = std::fabs(res);
                 float hw = 1.0;
                 if (absres > HUBER_THRESH)
                     hw = HUBER_THRESH / absres;
 
-                hg->add(J, res, hw);
+                hg->add(J, res, w * hw);
             }
         }
     }

@@ -31,7 +31,7 @@ public:
     virtual std::unique_ptr<SceneBase> clone() const = 0;
     virtual void clear() = 0;
 
-    virtual void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) = 0;
+    virtual void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) = 0;
     virtual void complete(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) = 0;
     virtual void transform(Sophus::SE3f newGlobalPose) = 0;
     virtual void project(camera cam) = 0;
@@ -47,6 +47,7 @@ public:
     virtual std::vector<int> getShapeParamsIds(int polId) = 0;
     virtual void setParam(float param, int paramId) = 0;
     virtual float getParam(int paramId) = 0;
+    virtual void setParamWeight(float weight, int paramId) = 0;
 
     virtual Error errorRegu(camera cam) = 0;
     virtual HGEigenSparse HGRegu(camera cam, int numFrames) = 0;

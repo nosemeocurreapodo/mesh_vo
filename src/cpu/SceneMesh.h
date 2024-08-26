@@ -14,7 +14,6 @@ class SceneMesh : public SceneVerticesBase
 public:
     SceneMesh() : SceneVerticesBase()
     {
-        setDepthJackMethod(logDepthJacobian);
     };
 
     SceneMesh(const SceneMesh &other) : SceneVerticesBase(other)
@@ -45,10 +44,10 @@ public:
         triangles.clear();
     }
 
-    void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) override
+    void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) override
     {
         clear();
-        SceneVerticesBase::init(frame, cam, idepth, lvl);
+        SceneVerticesBase::init(frame, cam, idepth, ivar, lvl);
         buildTriangles();
     }
 
@@ -87,7 +86,7 @@ public:
         return std::make_unique<ShapeTriangleFlat>(getRay(tri(0)), getRay(tri(1)), getRay(tri(2)),
                                                    getPix(tri(0)), getPix(tri(1)), getPix(tri(2)),
                                                    getDepth(tri(0)), getDepth(tri(1)), getDepth(tri(2)),
-                                                   getDepthJacMethod());
+                                                   getWeight(tri(0)), getWeight(tri(1)), getWeight(tri(2)));
         // return std::make_unique<ShapeTriangleFlat>(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
         //                                            getPix(tri[0]), getPix(tri[1]), getPix(tri[2]),
         //                                            getDepth(tri[0]), getDepth(tri[1]), getDepth(tri[2]),
@@ -102,7 +101,7 @@ public:
         _shape->set(getRay(tri(0)), getRay(tri(1)), getRay(tri(2)),
                     getPix(tri(0)), getPix(tri(1)), getPix(tri(2)),
                     getDepth(tri(0)), getDepth(tri(1)), getDepth(tri(2)),
-                    getDepthJacMethod());
+                    getWeight(tri(0)), getWeight(tri(1)), getWeight(tri(2)));
     }
 
     std::vector<int> getShapesIds() const override
@@ -124,6 +123,11 @@ public:
     void setParam(float param, int paramId) override
     {
         setDepthParam(param, paramId);
+    }
+
+    void setParamWeight(float weight, int paramId) override
+    {
+        setWeight(weight, paramId);
     }
 
     float getParam(int paramId) override

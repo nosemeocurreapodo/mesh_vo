@@ -27,3 +27,45 @@ bool isEdgeEqual(vec2<int> edge_indices_1, vec2<int> edge_indices_2)
         return true;
     return false;
 }
+
+float fromParamToDepth(float param)
+{
+    // depth
+    // return param;
+    // idepth
+    // return 1.0 / param;
+    // logdepth
+    return std::exp(param);
+    // logidepth
+    // return 1.0 / std::exp(param);
+}
+
+float fromDepthToParam(float depth)
+{
+    // return depth;
+    //  idepth
+    // return 1.0 / depth;
+    //  logdepth
+    return std::log(depth);
+    // logidepth
+    // return -std::log(depth);
+}
+
+float d_depth_d_param(float depth)
+{
+    // depth
+    //return 1.0;
+    // idepth
+    //return -(depth * depth);
+    // logdepth
+    return depth;
+    // logidepth
+    //return -depth;
+}
+
+float initialIvar()
+{
+    float depthSTD = 10.0;
+    float param = fromDepthToParam(depthSTD);
+    return param * param;
+}

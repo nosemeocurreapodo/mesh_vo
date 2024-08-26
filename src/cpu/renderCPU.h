@@ -42,11 +42,11 @@ public:
         renderRandomWindow(cam, win, buffer, lvl);
     }
 
-    void renderSmooth(camera &cam, dataCPU<float> *buffer, int lvl)
+    void renderSmooth(camera &cam, dataCPU<float> *buffer, int lvl, float start = 1.0, float end = 2.0)
     {
         window win(0, cam.width, 0, cam.height);
 
-        renderSmoothWindow(cam, win, buffer, lvl);
+        renderSmoothWindow(cam, win, buffer, lvl, start, end);
     }
 
     void renderInterpolate(camera &cam, dataCPU<float> *buffer, int lvl)
@@ -357,6 +357,45 @@ public:
         pool.waitUntilDone();
     }
 
+    void renderWeight(SceneBase *scene, camera cam, dataCPU<float> *buffer, int lvl)
+    {
+        z_buffer.set(z_buffer.nodata, lvl);
+
+        window win(0, cam.width, 0, cam.height);
+
+        renderWeightWindow(scene, cam, win, buffer, lvl);
+    }
+
+    void renderWeightParallel(SceneBase *scene, camera cam, dataCPU<float> *buffer, int lvl)
+    {
+        z_buffer.set(z_buffer.nodata, lvl);
+
+        int divi_y = pool.getNumThreads();
+        int divi_x = 1;
+
+        std::array<int, 2> windowSize;
+        windowSize[0] = cam.width / divi_x;
+        windowSize[1] = cam.height / divi_y;
+
+        for (int ty = 0; ty < divi_y; ty++)
+        {
+            for (int tx = 0; tx < divi_x; tx++)
+            {
+                int min_x = tx * windowSize[0];
+                int max_x = (tx + 1) * windowSize[0];
+                int min_y = ty * windowSize[1];
+                int max_y = (ty + 1) * windowSize[1];
+
+                window win(min_x, max_x, min_y, max_y);
+
+                // renderIdepthWindow(scene, cam, win, buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderWeightWindow, this, scene, cam, win, buffer, lvl));
+            }
+        }
+
+        pool.waitUntilDone();
+    }
+
 private:
     void renderSmoothWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float start = 1.0, float end = 2.0)
     {
@@ -653,6 +692,67 @@ private:
                         continue;
 
                     buffer->set(1.0 / f_depth, y, x, lvl);
+                    z_buffer.set(f_depth, y, x, lvl);
+                }
+            }
+        }
+    }
+
+    void renderWeightWindow(SceneBase *scene, camera cam, window win, dataCPU<float> *buffer, int lvl)
+    {
+        std::vector<int> shapesIds = scene->getShapesIds();
+
+        auto f_pol = scene->getShape(cam, shapesIds[0]);
+
+        // for each triangle
+        for (auto t_id : shapesIds)
+        {
+            // Triangle kf_tri = keyframeMesh.triangles[t_id];
+            // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
+            //     continue;
+            // if (kf_tri.isBackFace())
+            //     continue;
+
+            if (!scene->isShapeInWindow(win, t_id))
+                continue;
+
+            // auto f_pol = scene->getShape(t_id);
+            scene->getShape(f_pol.get(), cam, t_id);
+
+            // if (f_tri2d.vertices[0](2) <= 0.0 || f_tri2d.vertices[1](2) <= 0.0 || f_tri2d.vertices[2](2) <= 0.0)
+            //      continue;
+            if (f_pol->getArea() < 0.0)
+                continue;
+
+            window pol_win = f_pol->getScreenBounds();
+
+            pol_win.intersect(win);
+
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            {
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                {
+                    vec2<float> f_pix(x, y);
+                    //if (!cam.isPixVisible(f_pix))
+                    //    continue;
+                    //vec3<float> f_ray = cam.pixToRay(f_pix);
+
+                    f_pol->prepareForPix(f_pix);
+                    if (!f_pol->hitsShape())
+                        continue;
+
+                    float f_depth = f_pol->getDepth();
+
+                    if (f_depth <= 0.0)
+                        continue;
+
+                    float z_depth = z_buffer.get(y, x, lvl);
+                    if (z_depth <= f_depth && z_depth != z_buffer.nodata)
+                        continue;
+
+                    float f_weight = f_pol->getWeight();
+
+                    buffer->set(f_weight, y, x, lvl);
                     z_buffer.set(f_depth, y, x, lvl);
                 }
             }

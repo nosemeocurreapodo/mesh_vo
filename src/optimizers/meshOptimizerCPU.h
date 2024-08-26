@@ -28,7 +28,7 @@ public:
     meshOptimizerCPU(camera &cam);
 
     void initKeyframe(frameCPU &frame, int lvl);
-    void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, int lvl);
+    void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl);
 
     void optPose(frameCPU &frame);
     void optMap(std::vector<frameCPU> &frames);
@@ -206,13 +206,17 @@ public:
         int lvl = 1;
 
         idepth_buffer.set(idepth_buffer.nodata, lvl);
+        ivar_buffer.set(ivar_buffer.nodata, lvl);
 
         scene->transform(frame.pose);
         scene->project(cam[lvl]);
         renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth_buffer, lvl);
+        renderer.renderWeightParallel(scene.get(), cam[lvl], &ivar_buffer, lvl);
         //renderer.renderRandom(cam[lvl], &idepth, lvl);
         renderer.renderInterpolate(cam[lvl], &idepth_buffer, lvl);
-        initKeyframe(frame, idepth_buffer, lvl);
+        renderer.renderInterpolate(cam[lvl], &ivar_buffer, lvl);
+
+        initKeyframe(frame, idepth_buffer, ivar_buffer, lvl);
 
         //kscene.transform(frame.pose);
         //kscene.project(cam[lvl]);
@@ -259,6 +263,7 @@ private:
 
     dataCPU<float> image_buffer;
     dataCPU<float> idepth_buffer;
+    dataCPU<float> ivar_buffer;
     dataCPU<float> error_buffer;
 
     dataCPU<vec6<float>> jpose_buffer;

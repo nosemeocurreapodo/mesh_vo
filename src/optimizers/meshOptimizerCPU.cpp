@@ -6,6 +6,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     : kframe(_cam.width, _cam.height),
       image_buffer(_cam.width, _cam.height, -1.0),
       idepth_buffer(_cam.width, _cam.height, -1.0),
+      ivar_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
       jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
       jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
@@ -33,14 +34,16 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, int lvl)
     idepth_buffer.set(idepth_buffer.nodata, lvl);
     // renderer.renderRandom(cam[lvl], &idepth_buffer, lvl);
     renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl);
-    kscene.init(frame, cam[lvl], idepth_buffer, lvl);
+    ivar_buffer.set(ivar_buffer.nodata, lvl);
+    renderer.renderSmooth(cam[lvl], &ivar_buffer, lvl, initialIvar(), initialIvar());
+    kscene.init(frame, cam[lvl], idepth_buffer, ivar_buffer, lvl);
     kframe = frame;
     scene = kscene.clone();
 }
 
-void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, int lvl)
+void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
 {
-    kscene.init(frame, cam[lvl], idepth, lvl);
+    kscene.init(frame, cam[lvl], idepth, ivar, lvl);
     kframe = frame;
     scene = kscene.clone();
 }

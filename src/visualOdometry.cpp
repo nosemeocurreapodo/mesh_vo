@@ -19,7 +19,7 @@ void visualOdometry::initScene(dataCPU<float> &image, Sophus::SE3f pose)
     meshOptimizer.initKeyframe(newFrame, 0);
 }
 
-void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, Sophus::SE3f pose)
+void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, dataCPU<float> &ivar, Sophus::SE3f pose)
 {
     lastFrames.clear();
     keyFrames.clear();
@@ -27,7 +27,7 @@ void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, So
     lastPose = pose;
     frameCPU newFrame(cam.width, cam.height);
     newFrame.set(image, pose);
-    meshOptimizer.initKeyframe(newFrame, idepth, 0);
+    meshOptimizer.initKeyframe(newFrame, idepth, ivar, 0);
 }
 
 void visualOdometry::locAndMap(dataCPU<float> &image)

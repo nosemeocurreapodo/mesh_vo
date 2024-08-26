@@ -15,6 +15,7 @@ public:
     virtual inline bool hitsShape() = 0;
     virtual inline bool isEdge() = 0;
     virtual inline float getDepth() = 0;
+    virtual inline float getWeight() = 0;
     virtual inline vec3<float> getRay(ShapeBase *shape) = 0;
     virtual inline vec2<float> getPix(ShapeBase *shape) = 0;
     virtual inline float getDepth(ShapeBase *shape) = 0;
@@ -24,24 +25,26 @@ public:
 class ShapePatch : public ShapeBase
 {
 public:
-    ShapePatch(vec3<float> r, vec2<float> pix, float d, float w, float h, DepthJacobianMethod jacMethod)
+    ShapePatch(vec3<float> r, vec2<float> pix, float d, float wg, float w, float h)
     {
         ray = r;
         pixel = pix;
         depth = d;
+        weight = wg;
         width = w;
         height = h;
-        prepareForMapJacobian(jacMethod);
+        d_z_d_param = d_depth_d_param(depth);
     };
 
-    void set(vec3<float> r, vec2<float> pix, float d, float w, float h, DepthJacobianMethod jacMethod)
+    void set(vec3<float> r, vec2<float> pix, float d, float wg, float w, float h)
     {
         ray = r;
         pixel = pix;
         depth = d;
+        weight = wg;
         width = w;
         height = h;
-        prepareForMapJacobian(jacMethod);
+        d_z_d_param = d_depth_d_param(depth);
     }
 
     float getArea() override
@@ -115,6 +118,11 @@ public:
         return depth;
     }
 
+    inline float getWeight()
+    {
+        return weight;
+    }
+
     inline float getDepth(ShapeBase *shape)
     {
         ShapePatch *sh = (ShapePatch *)shape;
@@ -130,30 +138,10 @@ public:
     }
 
 private:
-    void prepareForMapJacobian(DepthJacobianMethod jacMethod)
-    {
-        switch (jacMethod)
-        {
-        case DepthJacobianMethod::depthJacobian:
-            d_z_d_param = 1.0;
-            break;
-        case DepthJacobianMethod::idepthJacobian:
-            d_z_d_param = -(depth * depth);
-            break;
-        case DepthJacobianMethod::logDepthJacobian:
-            d_z_d_param = depth;
-            break;
-        case DepthJacobianMethod::logIdepthJacobian:
-            d_z_d_param = -depth;
-            break;
-        default:
-            d_z_d_param = 1.0;
-        }
-    }
-
     vec3<float> ray;
     vec2<float> pixel;
     float depth;
+    float weight;
 
     float width;
     float height;
@@ -167,7 +155,7 @@ private:
 class ShapeSurfel : public ShapeBase
 {
 public:
-    ShapeSurfel(vec3<float> &vert, vec3<float> &norm, float rad, DepthJacobianMethod jacMethod)
+    ShapeSurfel(vec3<float> &vert, vec3<float> &norm, float rad)
     {
         vertice = vert;
         normal = norm;
@@ -177,7 +165,7 @@ public:
         area = M_PI * radius * radius;
         vert_ray = vertice / vertice(2);
 
-        prepareForMapJacobian(jacMethod);
+        d_depth_d_theta = d_depth_d_param(vert(2));
     };
 
     float getArea() override
@@ -253,21 +241,6 @@ public:
     }
 
 private:
-    void prepareForMapJacobian(DepthJacobianMethod jacMethod)
-    {
-        // with respect to depth
-        if (jacMethod == DepthJacobianMethod::depthJacobian)
-            d_depth_d_theta = 1.0;
-        // with respecto to idepth (depth = 1/idepth)
-        if (jacMethod == DepthJacobianMethod::idepthJacobian)
-            d_depth_d_theta = -(vertice(2) * vertice(2));
-        // width respect to depth = exp(z)
-        if (jacMethod == DepthJacobianMethod::logDepthJacobian)
-            d_depth_d_theta = vertice(2);
-        if (jacMethod == DepthJacobianMethod::logIdepthJacobian)
-            d_depth_d_theta = -vertice(2);
-    }
-
     vec3<float> vertice;
     vec3<float> normal;
     float radius;
@@ -287,7 +260,8 @@ public:
 
     ShapeTriangleFlat(vec3<float> &ray0, vec3<float> &ray1, vec3<float> &ray2,
                       vec2<float> &pix0, vec2<float> &pix1, vec2<float> &pix2,
-                      float depth0, float depth1, float depth2, DepthJacobianMethod jacMethod)
+                      float depth0, float depth1, float depth2,
+                      float weight0, float weight1, float weight2)
     {
         m_ray0 = &ray0;
         m_ray1 = &ray1;
@@ -301,8 +275,14 @@ public:
         m_depth1 = depth1;
         m_depth2 = depth2;
 
+        m_weight0 = weight0;
+        m_weight1 = weight1;
+        m_weight2 = weight2;
+
         // computeNormal();
-        prepareForMapJacobian(jacMethod);
+        d_z_d_iz[0] = d_depth_d_param(depth0);
+        d_z_d_iz[1] = d_depth_d_param(depth1);
+        d_z_d_iz[2] = d_depth_d_param(depth2);
 
         r_m1(0) = (*m_ray1)(1) - (*m_ray2)(1);
         r_m1(1) = (*m_ray2)(0) - (*m_ray1)(0);
@@ -325,7 +305,8 @@ public:
 
     void set(vec3<float> &ray0, vec3<float> &ray1, vec3<float> &ray2,
              vec2<float> &pix0, vec2<float> &pix1, vec2<float> &pix2,
-             float depth0, float depth1, float depth2, DepthJacobianMethod jacMethod)
+             float depth0, float depth1, float depth2,
+             float weight0, float weight1, float weight2)
     {
         m_ray0 = &ray0;
         m_ray1 = &ray1;
@@ -338,8 +319,15 @@ public:
         m_depth0 = depth0;
         m_depth1 = depth1;
         m_depth2 = depth2;
+
+        m_weight0 = weight0;
+        m_weight1 = weight1;
+        m_weight2 = weight2;
+
         // computeNormal();
-        prepareForMapJacobian(jacMethod);
+        d_z_d_iz[0] = d_depth_d_param(depth0);
+        d_z_d_iz[1] = d_depth_d_param(depth1);
+        d_z_d_iz[2] = d_depth_d_param(depth2);
 
         r_m1(0) = (*m_ray1)(1) - (*m_ray2)(1);
         r_m1(1) = (*m_ray2)(0) - (*m_ray1)(0);
@@ -384,6 +372,16 @@ public:
                           barycentric(2) * m_depth2;
 
         return ray_depth;
+    }
+
+    inline float getWeight() override
+    {
+        // float ray_depth = vertices[0].dot(normal) / ray.dot(normal);
+        float weight = barycentric(0) * m_weight0 +
+                       barycentric(1) * m_weight1 +
+                       barycentric(2) * m_weight2;
+
+        return weight;
     }
 
     inline vec3<float> getRay(ShapeBase *shape)
@@ -503,41 +501,6 @@ public:
     }
 
 private:
-    inline void prepareForMapJacobian(DepthJacobianMethod &jacMethod)
-    {
-        // d_z_d_iz[0] = -(m_depth0 * m_depth0);
-        // d_z_d_iz[1] = -(m_depth1 * m_depth1);
-        // d_z_d_iz[2] = -(m_depth2 * m_depth2);
-
-        switch (jacMethod)
-        {
-        case DepthJacobianMethod::depthJacobian:
-            d_z_d_iz[0] = 1.0;
-            d_z_d_iz[1] = 1.0;
-            d_z_d_iz[2] = 1.0;
-            break;
-        case DepthJacobianMethod::idepthJacobian:
-            d_z_d_iz[0] = -(m_depth0 * m_depth0);
-            d_z_d_iz[1] = -(m_depth1 * m_depth1);
-            d_z_d_iz[2] = -(m_depth2 * m_depth2);
-            break;
-        case DepthJacobianMethod::logDepthJacobian:
-            d_z_d_iz[0] = m_depth0;
-            d_z_d_iz[1] = m_depth1;
-            d_z_d_iz[2] = m_depth2;
-            break;
-        case DepthJacobianMethod::logIdepthJacobian:
-            d_z_d_iz[0] = -m_depth0;
-            d_z_d_iz[1] = -m_depth1;
-            d_z_d_iz[2] = -m_depth2;
-            break;
-        default:
-            d_z_d_iz[0] = 1.0;
-            d_z_d_iz[1] = 1.0;
-            d_z_d_iz[2] = 1.0;
-        }
-    }
-
     void computeNormal()
     {
         // normal = ((vertices[0] - vertices[2]).cross(vertices[0] - vertices[1]));
@@ -584,6 +547,10 @@ private:
     float m_depth1;
     float m_depth2;
 
+    float m_weight0;
+    float m_weight1;
+    float m_weight2;
+
     vec3<float> *m_ray0;
     vec3<float> *m_ray1;
     vec3<float> *m_ray2;
@@ -613,8 +580,7 @@ class ShapeTriangleSmooth : public ShapeBase
 {
 public:
     ShapeTriangleSmooth(vec3<float> &vert1, vec3<float> &vert2, vec3<float> &vert3,
-                        vec3<float> &norm1, vec3<float> &norm2, vec3<float> &norm3,
-                        DepthJacobianMethod jacMethod)
+                        vec3<float> &norm1, vec3<float> &norm2, vec3<float> &norm3)
     {
         vertices[0] = vert1;
         vertices[1] = vert2;
@@ -629,7 +595,7 @@ public:
         rays[2] = vertices[2] / vertices[2](2);
 
         // computeNormal();
-        prepareForMapJacobian(jacMethod);
+        prepareForMapJacobian();
     };
 
     float getArea() override
@@ -761,7 +727,7 @@ public:
     }
 
 private:
-    void prepareForMapJacobian(DepthJacobianMethod jacMethod)
+    void prepareForMapJacobian()
     {
         vec3<float> P1 = vertices[0];
         vec3<float> P2 = vertices[1];
@@ -794,20 +760,9 @@ private:
 
         b111 = E + (E - V) / 2;
 
-        for (int i = 0; i < 3; i++)
-        {
-            // with respect to depth
-            if (jacMethod == DepthJacobianMethod::depthJacobian)
-                d_z_d_iz[i] = 1.0;
-            // with respecto to idepth (depth = 1/idepth)
-            if (jacMethod == DepthJacobianMethod::idepthJacobian)
-                d_z_d_iz[i] = -(vertices[i](2) * vertices[i](2));
-            // width respect to depth = exp(z)
-            if (jacMethod == DepthJacobianMethod::logDepthJacobian)
-                d_z_d_iz[i] = vertices[i](2);
-            if (jacMethod == DepthJacobianMethod::logIdepthJacobian)
-                d_z_d_iz[i] = -vertices[i](2);
-        }
+        d_z_d_iz[0] = d_depth_d_param(vertices[0](2));
+        d_z_d_iz[1] = d_depth_d_param(vertices[1](2));
+        d_z_d_iz[2] = d_depth_d_param(vertices[2](2));
     }
 
     float barfunc(float input)

@@ -13,7 +13,6 @@ class SceneVerticesBase : public SceneBase
 public:
     SceneVerticesBase() : SceneBase()
     {
-        dJacMethod = DepthJacobianMethod::depthJacobian;
     };
 
     SceneVerticesBase(const SceneVerticesBase &other) : SceneBase(other)
@@ -21,7 +20,7 @@ public:
         vertices = other.vertices;
         rays = other.rays;
         pixels = other.pixels;
-        dJacMethod = other.dJacMethod;
+        weights = other.weights;
     }
     /*
     PointSet &operator=(const PointSet &other)
@@ -48,9 +47,10 @@ public:
         vertices.clear();
         rays.clear();
         pixels.clear();
+        weights.clear();
     }
 
-    void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) override
+    void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) override
     {
         clear();
         setPose(frame.pose);
@@ -64,7 +64,8 @@ public:
                 pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
                 vec3<float> ray = cam.pixToRay(pix);
                 float idph = idepth.get(pix(1), pix(0), lvl);
-                if (idph == idepth.nodata)
+                float iv = ivar.get(pix(1), pix(0), lvl);
+                if (idph == idepth.nodata || iv == ivar.nodata)
                     continue;
 
                 if (idph <= 0.0)
@@ -78,6 +79,7 @@ public:
                 vertices.push_back(vertice);
                 rays.push_back(ray);
                 pixels.push_back(pix);
+                weights.push_back(iv);
             }
         }
     }
@@ -126,6 +128,7 @@ public:
                 vertices.push_back(vertice);
                 rays.push_back(ray);
                 pixels.push_back(pix);
+                weights.push_back(initialIvar());
 
                 for (int y_ = pix(1) - size; y_ <= pix(1) + size; y_++)
                 {
@@ -174,6 +177,15 @@ public:
             throw std::out_of_range("getDepth invalid id");
 #endif
         return vertices[id](2);
+    }
+
+    inline float &getWeight(unsigned int id)
+    {
+#ifdef DEBUG
+        if (id >= weights.size())
+            throw std::out_of_range("getDepth invalid id");
+#endif
+        return weights[id];
     }
 
     inline std::vector<vec3<float>> &getVertices()
@@ -231,6 +243,15 @@ public:
         vertices[id] = rays[id] * depth;
     }
 
+    void setWeight(float w, unsigned int id)
+    {
+#ifdef DEBUG
+        if (id >= weights.size())
+            throw std::out_of_range("setVerticeDepth invalid id");
+#endif
+        weights[id] = w;
+    }
+
     float getVerticeDepth(unsigned int id)
     {
 #ifdef DEBUG
@@ -271,47 +292,9 @@ public:
         }
     }
 
-    inline DepthJacobianMethod getDepthJacMethod()
-    {
-        return dJacMethod;
-    }
-
-    void setDepthJackMethod(DepthJacobianMethod method)
-    {
-        dJacMethod = method;
-    }
-
     void setDepthParam(float param, unsigned int v_id)
     {
-        float new_depth;
-        switch (getDepthJacMethod())
-        {
-        case DepthJacobianMethod::depthJacobian:
-            new_depth = param;
-            break;
-        case DepthJacobianMethod::idepthJacobian:
-            new_depth = 1.0 / param;
-            break;
-        case DepthJacobianMethod::logDepthJacobian:
-            new_depth = std::exp(param);
-            break;
-        case DepthJacobianMethod::logIdepthJacobian:
-            new_depth = 1.0 / std::exp(param);
-            break;
-        default:
-            new_depth = 0.0;
-        }
-
-        /*
-        if (getDepthJacMethod() == DepthJacobianMethod::depthJacobian)
-            new_depth = param;
-        if (getDepthJacMethod() == DepthJacobianMethod::idepthJacobian)
-            new_depth = 1.0 / param;
-        if (getDepthJacMethod() == DepthJacobianMethod::logDepthJacobian)
-            new_depth = std::exp(param);
-        if (getDepthJacMethod() == DepthJacobianMethod::logIdepthJacobian)
-            new_depth = 1.0 / std::exp(param);
-        */
+        float new_depth = fromParamToDepth(param);
         // set the param (the depth in this case)
         if (new_depth > 0.000000001 && new_depth < 1000000000.0)
             setVerticeDepth(new_depth, v_id);
@@ -319,43 +302,12 @@ public:
 
     float getDepthParam(unsigned int v_id)
     {
-        float param;
-        switch (getDepthJacMethod())
-        {
-        case DepthJacobianMethod::depthJacobian:
-            param = getVerticeDepth(v_id);
-            break;
-        case DepthJacobianMethod::idepthJacobian:
-            param = 1.0 / getVerticeDepth(v_id);
-            break;
-        case DepthJacobianMethod::logDepthJacobian:
-            param = std::log(getVerticeDepth(v_id));
-            break;
-        case DepthJacobianMethod::logIdepthJacobian:
-            param = -std::log(getVerticeDepth(v_id));
-            break;
-        default:
-            param = 0.0;
-        }
-
-        /*
-        float param;
-        if (getDepthJacMethod() == DepthJacobianMethod::depthJacobian)
-            param = getVerticeDepth(v_id);
-        if (getDepthJacMethod() == DepthJacobianMethod::idepthJacobian)
-            param = 1.0 / getVerticeDepth(v_id);
-        if (getDepthJacMethod() == DepthJacobianMethod::logDepthJacobian)
-            param = std::log(getVerticeDepth(v_id));
-        if (getDepthJacMethod() == DepthJacobianMethod::logIdepthJacobian)
-            param = -std::log(getVerticeDepth(v_id));
-        */
-        return param;
+        return fromDepthToParam(getVerticeDepth(v_id));
     }
 
 private:
     std::vector<vec3<float>> vertices;
     std::vector<vec3<float>> rays;
     std::vector<vec2<float>> pixels;
-
-    DepthJacobianMethod dJacMethod;
+    std::vector<float> weights;
 };

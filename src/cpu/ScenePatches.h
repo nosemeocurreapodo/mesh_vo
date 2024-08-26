@@ -12,7 +12,6 @@ class ScenePatches : public SceneVerticesBase
 public:
     ScenePatches() : SceneVerticesBase()
     {
-        setDepthJackMethod(logDepthJacobian);
     };
 
     ScenePatches(const ScenePatches &other) : SceneVerticesBase(other)
@@ -59,7 +58,7 @@ public:
         int patch_width = cam.width / MESH_WIDTH;
         int patch_height = cam.height / MESH_HEIGHT;
         // always return triangle in cartesian
-        ShapePatch pol(getRay(polId), getPix(polId), getDepth(polId), patch_width, patch_height, getDepthJacMethod());
+        ShapePatch pol(getRay(polId), getPix(polId), getDepth(polId), getWeight(polId), patch_width, patch_height);
         return std::make_unique<ShapePatch>(pol);
     }
 
@@ -68,7 +67,7 @@ public:
         int patch_width = cam.width / MESH_WIDTH;
         int patch_height = cam.height / MESH_HEIGHT;
         ShapePatch *_shape = (ShapePatch *)shape;
-        _shape->set(getRay(polId), getPix(polId), getDepth(polId), patch_width, patch_height, getDepthJacMethod());
+        _shape->set(getRay(polId), getPix(polId), getDepth(polId), getWeight(polId), patch_width, patch_height);
     }
 
     std::vector<int> getShapesIds() const override
@@ -86,6 +85,11 @@ public:
     void setParam(float param, int paramId) override
     {
         setDepthParam(param, paramId);
+    }
+
+    void setParamWeight(float weight, int paramId) override
+    {
+        setWeight(weight, paramId);
     }
 
     float getParam(int paramId) override

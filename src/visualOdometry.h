@@ -17,7 +17,7 @@ public:
     visualOdometry(camera &cam);
 
     void initScene(dataCPU<float> &image, Sophus::SE3f pose = Sophus::SE3f());
-    void initScene(dataCPU<float> &image, dataCPU<float> &idepth, Sophus::SE3f pose = Sophus::SE3f());
+    void initScene(dataCPU<float> &image, dataCPU<float> &idepth, dataCPU<float> &ivar, Sophus::SE3f pose = Sophus::SE3f());
 
     void locAndMap(dataCPU<float> &image);
     void localization(dataCPU<float> &image);
