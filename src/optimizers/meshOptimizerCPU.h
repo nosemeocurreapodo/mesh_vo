@@ -156,6 +156,7 @@ public:
         idepth_buffer.set(idepth_buffer.nodata, 1);
         image_buffer.set(image_buffer.nodata, 1);
         error_buffer.set(error_buffer.nodata, 1);
+        ivar_buffer.set(ivar_buffer.nodata, 1);
         debug.set(debug.nodata, 0);
 
         scene->transform(frame.pose);
@@ -163,6 +164,7 @@ public:
         kscene.project(cam[1]);
         // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
         renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
+        renderer.renderWeightParallel(scene.get(), cam[1], &ivar_buffer, 1);
         renderer.renderImageParallel(&kscene, &kframe, scene.get(), cam[1], &image_buffer, 1);
 
         error_buffer = frame.image.sub(image_buffer, 1);
@@ -174,6 +176,7 @@ public:
         show(error_buffer, "lastFrame error", 1);
         show(idepth_buffer, "lastFrame idepth", 1);
         show(image_buffer, "lastFrame scene", 1);
+        show(ivar_buffer, "ivar", 1);
 
         scene->project(cam[0]);
         kscene.project(cam[0]);
@@ -243,10 +246,10 @@ public:
     camera cam[MAX_LEVELS];
 
 private:
-    Error computeError(SceneBase *scene, frameCPU *frame, int lvl);
+    Error computeError(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
     // Error computeError(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
-    HGEigenDense computeHGPose(SceneBase *scene, frameCPU *frame, int lvl);
+    HGEigenDense computeHGPose(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
     // HGPose computeHGPose(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
     HGMapped computeHGMap(SceneBase *scene, frameCPU *frame, int lvl);

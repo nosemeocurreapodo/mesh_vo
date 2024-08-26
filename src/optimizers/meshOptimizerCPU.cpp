@@ -48,17 +48,20 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
     scene = kscene.clone();
 }
 
-Error meshOptimizerCPU::computeError(SceneBase *scene, frameCPU *frame, int lvl)
+Error meshOptimizerCPU::computeError(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights)
 {
     image_buffer.set(image_buffer.nodata, lvl);
     idepth_buffer.set(idepth_buffer.nodata, lvl);
+    ivar_buffer.set(ivar_buffer.nodata, lvl);
 
     renderer.renderImageParallel(&kscene, &kframe, scene, cam[lvl], &image_buffer, lvl);
+    if(useWeights)
+        renderer.renderWeightParallel(scene, cam[lvl], &ivar_buffer, lvl);
     // renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
 
     // renderer.renderIdepthParallel(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
     // renderer.renderImageParallel(idepth_buffer, cam[lvl], kframe, frame.pose, image_buffer, lvl);
-    Error e = reducer.reduceErrorParallel(cam[lvl], image_buffer, frame->image, lvl);
+    Error e = reducer.reduceErrorParallel(cam[lvl], image_buffer, frame->image, ivar_buffer, lvl);
 
     return e;
 }
@@ -75,19 +78,23 @@ Error meshOptimizerCPU::computeError(dataCPU<float> &fIdepth, frameCPU &kframe, 
 }
 */
 
-HGEigenDense meshOptimizerCPU::computeHGPose(SceneBase *scene, frameCPU *frame, int lvl)
+HGEigenDense meshOptimizerCPU::computeHGPose(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
     jpose_buffer.set(jpose_buffer.nodata, lvl);
     error_buffer.set(error_buffer.nodata, lvl);
+    ivar_buffer.set(ivar_buffer.nodata, lvl);
 
     renderer.renderJPoseParallel(&kscene, &kframe, scene, frame, cam[lvl], &jpose_buffer, &error_buffer, lvl);
+    if(useWeights)
+        renderer.renderWeightParallel(scene, cam[lvl], &ivar_buffer, lvl);
+
     // renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
     // renderer.renderIdepthParallel(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
     // renderer.renderJPose(idepth_buffer, cam[lvl], kframe, frame, jpose_buffer, error_buffer, lvl);
     //  renderer.renderJPoseParallel(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
 
-    HGEigenDense hg = reducer.reduceHGPoseParallel(cam[lvl], jpose_buffer, error_buffer, lvl);
+    HGEigenDense hg = reducer.reduceHGPoseParallel(cam[lvl], jpose_buffer, error_buffer, ivar_buffer, lvl);
 
     return hg;
 }
@@ -175,7 +182,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
         // std::cout << "*************************lvl " << lvl << std::endl;
         Sophus::SE3f best_pose = frame.pose;
         // Error e = computeError(idepth_buffer, keyframe, frame, lvl);
-        Error e = computeError(scene.get(), &frame, lvl);
+        Error e = computeError(scene.get(), &frame, lvl, true);
         float last_error = e.getError();
 
         std::cout << "initial error " << last_error << " " << lvl << std::endl;
@@ -183,7 +190,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             // HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
-            HGEigenDense hg = computeHGPose(scene.get(), &frame, lvl);
+            HGEigenDense hg = computeHGPose(scene.get(), &frame, lvl, true);
 
             // std::vector<int> pIds = hg.G.getParamIds();
             // Eigen::VectorXf G = hg.G.toEigen(pIds);
@@ -213,7 +220,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
                 // e.setZero();
                 // e = computeError(idepth_buffer, keyframe, frame, lvl);
-                e = computeError(scene.get(), &frame, lvl);
+                e = computeError(scene.get(), &frame, lvl, true);
                 float error = e.getError();
                 // std::cout << "new error " << error << " time " << t.toc() << std::endl;
 
@@ -398,10 +405,12 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 {
                     float best_param = kscene.getParam(id.first);
                     float new_param = best_param - inc(id.second);
+                    float weight = H_lambda.coeffRef(id.second, id.second);
                     best_params.push_back(best_param);
                     // the derivative is with respecto to the keyframe pose
                     // the update should take this into account
                     kscene.setParam(new_param, id.first);
+                    kscene.setParamWeight(weight, id.first);
                 }
                 scene = kscene.clone();
 

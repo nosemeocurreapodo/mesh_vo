@@ -22,15 +22,15 @@ public:
     {
     }
 
-    Error reduceError(camera cam, dataCPU<float> &image1, dataCPU<float> &image2, int lvl)
+    Error reduceError(camera cam, dataCPU<float> &image1, dataCPU<float> &image2, dataCPU<float> &weights, int lvl)
     {
         Error err;
         window win = {0, cam.width, 0, cam.height};
-        reduceErrorWindow(win, &image1, &image2, &err, lvl);
+        reduceErrorWindow(win, &image1, &image2, &weights, &err, lvl);
         return err;
     }
 
-    Error reduceErrorParallel(camera cam, dataCPU<float> &image1, dataCPU<float> &image2, int lvl)
+    Error reduceErrorParallel(camera cam, dataCPU<float> &image1, dataCPU<float> &image2, dataCPU<float> &weights, int lvl)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -52,7 +52,7 @@ public:
 
                 window win = {min_x, max_x, min_y, max_y};
 
-                reduceErrorWindow(win, &image1, &image2, &partialerr[tx + ty * divi_x], lvl);
+                reduceErrorWindow(win, &image1, &image2, &weights, &partialerr[tx + ty * divi_x], lvl);
                 // pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, window, &image1, &image2, &partialerr[tx + ty * divi_x], lvl));
             }
         }
@@ -69,16 +69,16 @@ public:
     }
 
     template <typename Type>
-    HGEigenDense reduceHGPose(camera cam, dataCPU<Type> &jpose_buffer, dataCPU<float> &err_buffer, int lvl)
+    HGEigenDense reduceHGPose(camera cam, dataCPU<Type> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
     {
         HGEigenDense hg;
         window win = {0, cam.width, 0, cam.height};
-        reduceHGPoseWindow(win, &jpose_buffer, &err_buffer, &hg, lvl);
+        reduceHGPoseWindow(win, &jpose_buffer, &err_buffer, &weights_buffer, &hg, lvl);
         return hg;
     }
 
     template <typename Type>
-    HGEigenDense reduceHGPoseParallel(camera cam, dataCPU<Type> &jpose_buffer, dataCPU<float> &err_buffer, int lvl)
+    HGEigenDense reduceHGPoseParallel(camera cam, dataCPU<Type> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -100,7 +100,7 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                reduceHGPoseWindow(win, &jpose_buffer, &err_buffer, &partialhg[tx + ty * divi_x], lvl);
+                reduceHGPoseWindow(win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x], lvl);
                 // pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, window, &jpose_buffer, &err_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
@@ -286,9 +286,11 @@ private:
             {
                 float p1 = frame1->get(y, x, lvl);
                 float p2 = frame2->get(y, x, lvl);
-                float w = weights->get(y, x, lvl);
-                if (p1 == frame1->nodata || p2 == frame2->nodata || w == weights->nodata)
+                if (p1 == frame1->nodata || p2 == frame2->nodata)
                     continue;
+                float w = weights->get(y, x, lvl);
+                if (w == weights->nodata)
+                    w = 1.0;
                 float residual = p1 - p2;
                 float absresidual = std::fabs(residual);
                 float hw = 1.0;
@@ -306,9 +308,11 @@ private:
             {
                 vec6<float> J = jpose_buffer->get(y, x, lvl);
                 float res = res_buffer->get(y, x, lvl);
-                float w = weights_buffer->get(y, x, lvl);
-                if (J == jpose_buffer->nodata || res == res_buffer->nodata || w == weights_buffer->nodata || J == vec6<float>::zero())
+                if (J == jpose_buffer->nodata || res == res_buffer->nodata || J == vec6<float>::zero())
                     continue;
+                float w = weights_buffer->get(y, x, lvl);
+                if (w == weights_buffer->nodata)
+                    w = 1.0;
                 float absres = std::fabs(res);
                 float hw = 1.0;
                 if (absres > HUBER_THRESH)
