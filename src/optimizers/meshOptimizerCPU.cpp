@@ -668,7 +668,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     if (lambda == 0.0f)
                         lambda = 0.2f;
                     else
-                        lambda *= 2.0;//std::pow(2.0, n_try);
+                        lambda *= std::pow(2.0, n_try);
 
                     // reject update, increase lambda, use un-updated data
 
