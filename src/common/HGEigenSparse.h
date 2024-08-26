@@ -41,34 +41,34 @@ public:
         count += a.count;
     }
 
-    void sparseAdd(float jac, float error, int ids)
+    void sparseAdd(float jac, float error, float weight, int ids)
     {
         count++;
 
-        G(ids) += jac * error;
-        tripletList.push_back(T(ids, ids, jac * jac));
+        G(ids) += jac * error * weight;
+        tripletList.push_back(T(ids, ids, jac * jac * weight));
     }
 
-    void sparseAdd(vec1<float> jac, float error, vec1<int> ids)
+    void sparseAdd(vec1<float> jac, float error, float weight, vec1<int> ids)
     {
         count++;
 
-        G(ids(0)) += jac(0) * error;
-        tripletList.push_back(T(ids(0), ids(0), jac(0) * jac(0)));
+        G(ids(0)) += jac(0) * error * weight;
+        tripletList.push_back(T(ids(0), ids(0), jac(0) * jac(0) * weight));
     }
 
-    void sparseAdd(vec3<float> jac, float error, vec3<int> ids)
+    void sparseAdd(vec3<float> jac, float error, float weight, vec3<int> ids)
     {
         count++;
 
         for (int j = 0; j < ids.size(); j++)
         {
-            G(ids(j)) += jac(j) * error;
-            tripletList.push_back(T(ids(j), ids(j), jac(j) * jac(j)));
+            G(ids(j)) += jac(j) * error * weight;
+            tripletList.push_back(T(ids(j), ids(j), jac(j) * jac(j) * weight));
 
             for (int k = j + 1; k < ids.size(); k++)
             {
-                float value = jac(j) * jac(k);
+                float value = jac(j) * jac(k) * weight;
                 tripletList.push_back(T(ids(j), ids(k), value));
                 tripletList.push_back(T(ids(k), ids(j), value));
                 // hg.H.coeffRef(v_ids[j],v_ids[k]) += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);
@@ -76,18 +76,18 @@ public:
         }
     }
 
-    void sparseAdd(vecx<float> jac, float error, vecx<int> ids)
+    void sparseAdd(vecx<float> jac, float error, float weight, vecx<int> ids)
     {
         count++;
 
         for (int j = 0; j < ids.size(); j++)
         {
-            G(ids(j)) += jac(j) * error;
-            tripletList.push_back(T(ids(j), ids(j), jac(j) * jac(j)));
+            G(ids(j)) += jac(j) * error * weight;
+            tripletList.push_back(T(ids(j), ids(j), jac(j) * jac(j) * weight));
 
             for (int k = j + 1; k < ids.size(); k++)
             {
-                float value = jac(j) * jac(k);
+                float value = jac(j) * jac(k) * weight;
                 tripletList.push_back(T(ids(j), ids(k), value));
                 tripletList.push_back(T(ids(k), ids(j), value));
                 // hg.H.coeffRef(v_ids[j],v_ids[k]) += (J1[j] * J1[k] + J2[j] * J2[k] + J3[j] * J3[k]);

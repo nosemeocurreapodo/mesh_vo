@@ -34,6 +34,11 @@ public:
     void optMap(std::vector<frameCPU> &frames);
     void optPoseMap(std::vector<frameCPU> &frame);
 
+    void setMeshRegu(float mr)
+    {
+        meshRegularization = mr;
+    }
+
     float meanViewAngle(frameCPU *kframe, frameCPU *frame)
     {
         int lvl = 1;

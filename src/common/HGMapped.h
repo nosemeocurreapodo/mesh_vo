@@ -181,19 +181,19 @@ public:
     }
 
     template <typename type1, typename type2>
-    void add(type1 jac, float error, type2 ids)
+    void add(type1 jac, float error, float weight, type2 ids)
     {
         count++;
         for (int j = 0; j < ids.size(); j++)
         {
             // G[ids(j)] += jac(j) * error;
-            G.add(jac(j) * error, ids(j));
-            
-            H.add(jac(j)*jac(j), ids(j), ids(j));
+            G.add(jac(j) * error * weight, ids(j));
 
-            for (int k = j+1; k < ids.size(); k++)
+            H.add(jac(j) * jac(j) * weight, ids(j), ids(j));
+
+            for (int k = j + 1; k < ids.size(); k++)
             {
-                float jj = jac(j) * jac(k);
+                float jj = jac(j) * jac(k) * weight;
                 H.add(jj, ids(k), ids(j));
                 // H[v_ids[i]][v_ids[j]] += jj;
                 // H[v_ids[j]][v_ids[i]] += jj;

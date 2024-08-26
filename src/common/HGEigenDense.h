@@ -21,21 +21,21 @@ public:
     }
 
     template <typename type>
-    void add(type J, float error)
+    void add(type J, float error, float weight)
     {
         count++;
 
-        //G += J * error;
-        //H += J * J.transpose();
+        // G += J * error;
+        // H += J * J.transpose();
 
         for (int i = 0; i < J.size(); i++)
         {
-            G(i) += J(i)*error;
-            H(i, i) += J(i)*J(i);
-            
-            for (int j = i+1; j < J.size(); j++)
+            G(i) += weight * J(i) * error;
+            H(i, i) += J(i) * J(i);
+
+            for (int j = i + 1; j < J.size(); j++)
             {
-                float jj = J(i) * J(j);
+                float jj = J(i) * J(j) * weight;
                 H(i, j) += jj;
                 H(j, i) += jj;
             }

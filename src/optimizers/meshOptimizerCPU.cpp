@@ -668,11 +668,11 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     if (lambda == 0.0f)
                         lambda = 0.2f;
                     else
-                        lambda *= std::pow(2.0, n_try);
+                        lambda *= 2.0;//std::pow(2.0, n_try);
 
                     // reject update, increase lambda, use un-updated data
 
-                    if (inc.dot(inc) < 1e-8)
+                    if (inc.dot(inc) < 1e-16)
                     {
                         // if too small, do next level!
                         it = maxIterations;

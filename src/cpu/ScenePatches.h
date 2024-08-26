@@ -136,7 +136,7 @@ public:
 
         int patch_width = cam.width / MESH_WIDTH;
         int patch_height = cam.height / MESH_HEIGHT;
-        
+
         for (auto polId : polIds)
         {
             vec2<float> pix = getPix(polId);
@@ -159,10 +159,10 @@ public:
             }
             float error = getDepthParam(polId) - meanParam / count;
 
-            hg.sparseAdd(1.0, error, polId);
+            hg.sparseAdd(1.0, error, 1.0, polId);
             for (auto polId2 : polIds2)
             {
-                hg.sparseAdd(-1.0 / count, error, polId2);
+                hg.sparseAdd(-1.0 / count, error, 1.0, polId2);
             }
         }
 

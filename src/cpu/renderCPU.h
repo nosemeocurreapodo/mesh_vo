@@ -17,7 +17,7 @@ class renderCPU
 public:
     renderCPU(unsigned int width, unsigned int height)
         : z_buffer(width, height, -1),
-          pool(4)
+          pool(RENDERER_NTHREADS)
     {
     }
 

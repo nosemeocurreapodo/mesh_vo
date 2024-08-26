@@ -184,9 +184,9 @@ public:
             vec3<float> J2(1.0, 0.0, -1.0);
             vec3<float> J3(0.0, 1.0, -1.0);
 
-            hg.sparseAdd(J1, diff1, v_ids);
-            hg.sparseAdd(J2, diff2, v_ids);
-            hg.sparseAdd(J3, diff3, v_ids);
+            hg.sparseAdd(J1, diff1, 1.0, v_ids);
+            hg.sparseAdd(J2, diff2, 1.0, v_ids);
+            hg.sparseAdd(J3, diff3, 1.0, v_ids);
         }
 
         hg.endSparseAdd();

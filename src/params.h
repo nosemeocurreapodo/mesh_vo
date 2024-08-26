@@ -4,6 +4,9 @@
 #define MESH_WIDTH 48
 #define MESH_HEIGHT 48
 #define NUM_FRAMES 3
+#define HUBER_THRESH 30.0
+#define RENDERER_NTHREADS 4
+#define REDUCER_NTHREADS 4
 //for depth
 //#define INITIAL_VAR (10.0 * 10.0)
 //for idepth = 1/depth

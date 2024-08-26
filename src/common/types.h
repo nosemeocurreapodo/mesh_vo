@@ -21,6 +21,11 @@ struct vec1
         return 1;
     }
 
+    static vec1 zero()
+    {
+        return vec1(0);
+    }
+
     template <typename type2>
     vec1<type> operator*(type2 c)
     {
@@ -91,6 +96,11 @@ struct vec2
     static int size()
     {
         return 2;
+    }
+
+    static vec2 zero()
+    {
+        return vec2(0, 0);
     }
 
     type norm()
@@ -184,6 +194,11 @@ struct vec3
     static int size()
     {
         return 3;
+    }
+
+    static vec3 zero()
+    {
+        return vec3(0, 0, 0);
     }
 
     type dot(vec3<type> a)
@@ -319,6 +334,12 @@ struct vec6
         return 6;
     }
 
+    static vec6 zero()
+    {
+        return vec6(0, 0, 0, 0, 0, 0);
+    }
+
+    /*
     void zero()
     {
         this->operator()(0) = type(0.0);
@@ -328,6 +349,7 @@ struct vec6
         this->operator()(4) = type(0.0);
         this->operator()(5) = type(0.0);
     }
+    */
 
     type dot(vec6<type> b)
     {
@@ -447,6 +469,11 @@ struct vecx
     int size()
     {
         return data.size();
+    }
+
+    static vecx zero()
+    {
+        return vecx(0);
     }
 
     void operator=(vecx<type> c)

@@ -18,7 +18,7 @@ class reduceCPU
 {
 public:
     reduceCPU()
-        : pool(4)
+        : pool(REDUCER_NTHREADS)
     {
     }
 
@@ -288,48 +288,61 @@ private:
                 float p2 = frame2->get(y, x, lvl);
                 if (p1 == frame1->nodata || p2 == frame2->nodata)
                     continue;
-                *err += std::pow(p1 - p2, 2);
+                float residual = p1 - p2;
+                float absresidual = std::fabs(residual);
+                float hw = 1.0;
+                if (absresidual > HUBER_THRESH)
+                    hw = HUBER_THRESH / absresidual;
+                *err += hw * std::pow(residual, 2);
             }
     }
 
-    template <typename Type>
-    void reduceHGPoseWindow(window win, dataCPU<Type> *jpose_buffer, dataCPU<float> *err_buffer, HGEigenDense *hg, int lvl)
+    void reduceHGPoseWindow(window win, dataCPU<vec6<float>> *jpose_buffer, dataCPU<float> *res_buffer, HGEigenDense *hg, int lvl)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
             for (int x = win.min_x; x < win.max_x; x++)
             {
-                Type J = jpose_buffer->get(y, x, lvl);
-                float err = err_buffer->get(y, x, lvl);
-                if (J == jpose_buffer->nodata || err == err_buffer->nodata)
+                vec6<float> J = jpose_buffer->get(y, x, lvl);
+                float res = res_buffer->get(y, x, lvl);
+                if (J == jpose_buffer->nodata || res == res_buffer->nodata || J == vec6<float>::zero())
                     continue;
+                float absres = std::fabs(res);
+                float hw = 1.0;
+                if (absres > HUBER_THRESH)
+                    hw = HUBER_THRESH / absres;
 
-                hg->add(J, err);
+                hg->add(J, res, hw);
             }
         }
     }
 
     template <typename Type1, typename Type2>
-    void reduceHGMapWindow(window win, dataCPU<Type1> *jmap_buffer, dataCPU<float> *err_buffer, dataCPU<Type2> *pId_buffer, HGMapped *hg, int lvl)
+    void reduceHGMapWindow(window win, dataCPU<Type1> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<Type2> *pId_buffer, HGMapped *hg, int lvl)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
             for (int x = win.min_x; x < win.max_x; x++)
             {
                 Type1 jac = jmap_buffer->get(y, x, lvl);
-                float err = err_buffer->get(y, x, lvl);
+                float res = res_buffer->get(y, x, lvl);
                 Type2 ids = pId_buffer->get(y, x, lvl);
 
-                if (jac == jmap_buffer->nodata || err == err_buffer->nodata || ids == pId_buffer->nodata)
+                if (jac == jmap_buffer->nodata || res == res_buffer->nodata || ids == pId_buffer->nodata || jac == Type1::zero())
                     continue;
 
-                hg->add(jac, err, ids);
+                float absres = std::fabs(res);
+                float hw = 1.0;
+                if (absres > HUBER_THRESH)
+                    hw = HUBER_THRESH / absres;
+
+                hg->add(jac, res, hw, ids);
             }
         }
     }
 
     template <typename Type1, typename Type2>
-    void reduceHGMapWindow(window win, dataCPU<Type1> *jmap_buffer, dataCPU<float> *err_buffer, dataCPU<Type2> *pId_buffer, HGEigenSparse *hg, int lvl)
+    void reduceHGMapWindow(window win, dataCPU<Type1> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<Type2> *pId_buffer, HGEigenSparse *hg, int lvl)
     {
         typedef Eigen::Triplet<double> T;
         std::vector<T> tripletList;
@@ -345,13 +358,18 @@ private:
             for (int x = win.min_x; x < win.max_x; x++)
             {
                 Type1 jac = jmap_buffer->get(y, x, lvl);
-                float err = err_buffer->get(y, x, lvl);
+                float res = res_buffer->get(y, x, lvl);
                 Type2 ids = pId_buffer->get(y, x, lvl);
 
-                if (jac == jmap_buffer->nodata || err == err_buffer->nodata || ids == pId_buffer->nodata)
+                if (jac == jmap_buffer->nodata || res == res_buffer->nodata || ids == pId_buffer->nodata || jac == Type1::zero())
                     continue;
 
-                hg->sparseAdd(jac, err, ids);
+                float absres = std::fabs(res);
+                float hw = 1.0;
+                if (absres > HUBER_THRESH)
+                    hw = HUBER_THRESH / absres;
+
+                hg->sparseAdd(jac, res, hw, ids);
             }
         }
 
@@ -359,7 +377,7 @@ private:
     }
 
     template <typename Type1, typename Type2>
-    void reduceHGPoseMapWindow(window win, int frameId, int numMapParams, dataCPU<vec6<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *error_buffer, dataCPU<Type2> *pId_buffer, HGMapped *hg, int lvl)
+    void reduceHGPoseMapWindow(window win, int frameId, int numMapParams, dataCPU<vec6<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<Type2> *pId_buffer, HGMapped *hg, int lvl)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
@@ -367,10 +385,10 @@ private:
             {
                 vec6<float> J_pose = jpose_buffer->get(y, x, lvl);
                 Type1 J_map = jmap_buffer->get(y, x, lvl);
-                float error = error_buffer->get(y, x, lvl);
+                float res = res_buffer->get(y, x, lvl);
                 Type2 map_ids = pId_buffer->get(y, x, lvl);
 
-                if (J_pose == jpose_buffer->nodata || J_map == jmap_buffer->nodata || error == error_buffer->nodata)
+                if (J_pose == jpose_buffer->nodata || J_map == jmap_buffer->nodata || res == res_buffer->nodata || J_pose == vec6<float>::zero() || J_map == Type1::zero())
                     continue;
 
                 vec6<int> pose_ids;
@@ -380,7 +398,12 @@ private:
                 vecx<float> J(J_pose, J_map);
                 vecx<int> idss(pose_ids, map_ids);
 
-                hg->add(J, error, idss);
+                float absres = std::fabs(res);
+                float hw = 1.0;
+                if (absres > HUBER_THRESH)
+                    hw = HUBER_THRESH / absres;
+
+                hg->add(J, res, hw, idss);
             }
         }
         /*
@@ -419,7 +442,7 @@ private:
     }
 
     template <typename Type1, typename Type2>
-    void reduceHGPoseMapWindow2(window win, int frameId, int numMapParams, dataCPU<vec6<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *error_buffer, dataCPU<Type2> *pId_buffer, HGEigenSparse *hg, int lvl)
+    void reduceHGPoseMapWindow2(window win, int frameId, int numMapParams, dataCPU<vec6<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<Type2> *pId_buffer, HGEigenSparse *hg, int lvl)
     {
         typedef Eigen::Triplet<double> T;
         std::vector<T> tripletList;
@@ -430,10 +453,10 @@ private:
             {
                 vec6<float> J_pose = jpose_buffer->get(y, x, lvl);
                 Type1 J_map = jmap_buffer->get(y, x, lvl);
-                float error = error_buffer->get(y, x, lvl);
+                float res = res_buffer->get(y, x, lvl);
                 Type2 map_ids = pId_buffer->get(y, x, lvl);
 
-                if (J_pose == jpose_buffer->nodata || J_map == jmap_buffer->nodata || error == error_buffer->nodata)
+                if (J_pose == jpose_buffer->nodata || J_map == jmap_buffer->nodata || res == res_buffer->nodata || J_pose == vec6<float>::zero() || J_map == Type1::zero())
                     continue;
 
                 vec6<int> pose_ids;
@@ -443,7 +466,12 @@ private:
                 vecx<float> J(J_pose, J_map);
                 vecx<int> idss(pose_ids, map_ids);
 
-                hg->sparseAdd(J, error, idss);
+                float absres = std::fabs(res);
+                float hw = 1.0;
+                if (absres > HUBER_THRESH)
+                    hw = HUBER_THRESH / absres;
+
+                hg->sparseAdd(J, res, hw, idss);
             }
         }
 
