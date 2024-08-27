@@ -27,18 +27,18 @@ inline void saveH(HGEigenSparse &data, std::string file_name)
             toShow.at<float>(y, x) = val;
         }
 
-    //toShow = cv::abs(toShow);
-    //double min, max;
-    //cv::minMaxLoc(toShow, &min, &max);
-    //toShow = toShow / min;
+    // toShow = cv::abs(toShow);
+    // double min, max;
+    // cv::minMaxLoc(toShow, &min, &max);
+    // toShow = toShow / min;
     cv::normalize(toShow, toShow, 255.0, 0.0, cv::NORM_MINMAX, CV_8UC1);
     cv::imwrite(file_name, toShow);
 
-    //cv::imshow(file_name, toShowLog);
-    //cv::waitKey(30);
+    // cv::imshow(file_name, toShowLog);
+    // cv::waitKey(30);
 }
 
-inline void show(dataCPU<float> &data, std::string window_name, int lvl)
+inline void show(dataCPU<float> &data, std::string window_name, bool colorize, int lvl)
 {
     std::array<int, 2> datasize = data.getSize(lvl);
 
@@ -62,6 +62,26 @@ inline void show(dataCPU<float> &data, std::string window_name, int lvl)
 
     // cv::Mat zeros = cv::Mat(texture[lvl].rows, texture[lvl].cols, CV_32FC1, cv::Scalar(0));
 
+    cv::normalize(toShow, toShow, 255.0, 0.0, cv::NORM_MINMAX, CV_8UC1, maskInv);
+    toShow.setTo(0, mask);
+
+    cv::Mat toShow2;
+    if (colorize)
+    {
+        cv::applyColorMap(toShow, toShow2, cv::COLORMAP_JET);
+    }
+    else
+    {
+        toShow2 = toShow;
+    }
+
+    std::array<int, 2> datasize0 = data.getSize(0);
+
+    cv::resize(toShow2, toShow2, cv::Size(datasize0[0], datasize0[1]));
+
+    cv::imshow(window_name, toShow2);
+    cv::waitKey(30);
+    /*
     cv::normalize(toShow, toShow, 1.0, 0.0, cv::NORM_MINMAX, CV_32F, maskInv);
 
     cv::Mat nodataImage;
@@ -80,6 +100,8 @@ inline void show(dataCPU<float> &data, std::string window_name, int lvl)
     std::array<int, 2> datasize0 = data.getSize(0);
 
     cv::resize(toShow, toShow, cv::Size(datasize0[0], datasize0[1]));
+
     cv::imshow(window_name, toShow);
     cv::waitKey(30);
+    */
 }

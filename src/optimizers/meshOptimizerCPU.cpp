@@ -182,7 +182,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
         // std::cout << "*************************lvl " << lvl << std::endl;
         Sophus::SE3f best_pose = frame.pose;
         // Error e = computeError(idepth_buffer, keyframe, frame, lvl);
-        Error e = computeError(scene.get(), &frame, lvl, true);
+        Error e = computeError(scene.get(), &frame, lvl, false);
         float last_error = e.getError();
 
         std::cout << "initial error " << last_error << " " << lvl << std::endl;
@@ -190,7 +190,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             // HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
-            HGEigenDense hg = computeHGPose(scene.get(), &frame, lvl, true);
+            HGEigenDense hg = computeHGPose(scene.get(), &frame, lvl, false);
 
             // std::vector<int> pIds = hg.G.getParamIds();
             // Eigen::VectorXf G = hg.G.toEigen(pIds);
@@ -220,7 +220,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
                 // e.setZero();
                 // e = computeError(idepth_buffer, keyframe, frame, lvl);
-                e = computeError(scene.get(), &frame, lvl, true);
+                e = computeError(scene.get(), &frame, lvl, false);
                 float error = e.getError();
                 // std::cout << "new error " << error << " time " << t.toc() << std::endl;
 

@@ -31,7 +31,7 @@ public:
         for (int i = 0; i < J.size(); i++)
         {
             G(i) += weight * J(i) * error;
-            H(i, i) += J(i) * J(i);
+            H(i, i) += J(i) * J(i) * weight;
 
             for (int j = i + 1; j < J.size(); j++)
             {

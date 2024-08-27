@@ -171,17 +171,17 @@ public:
         // renderer.renderIdepthLineSearch(&kframe, &frame, cam[1], &error_buffer, 1);
         // idepth_buffer = renderer.getzbuffer();
 
-        show(frame.image, "frame image", 1);
-        show(kframe.image, "keyframe image", 1);
-        show(error_buffer, "lastFrame error", 1);
-        show(idepth_buffer, "lastFrame idepth", 1);
-        show(image_buffer, "lastFrame scene", 1);
-        show(ivar_buffer, "ivar", 1);
+        show(frame.image, "frame image", false, 1);
+        show(kframe.image, "keyframe image", false, 1);
+        show(error_buffer, "lastFrame error", true, 1);
+        show(idepth_buffer, "lastFrame idepth", true, 1);
+        show(image_buffer, "lastFrame scene", false, 1);
+        show(ivar_buffer, "ivar", true, 1);
 
         scene->project(cam[0]);
         kscene.project(cam[0]);
         renderer.renderDebugParallel(scene.get(), &frame, cam[0], &debug, 0);
-        show(debug, "frame debug", 0);
+        show(debug, "frame debug", false, 0);
     }
 
     float getViewPercent(frameCPU &frame)
