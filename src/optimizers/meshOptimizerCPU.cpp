@@ -314,7 +314,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
         // e_init = keyframeScene.errorInitial(initialScene, initialInvVar);
         //  e_init.error /= e_init.count;
 
-        std::cout << "initial error " << last_error << " " << lvl << std::endl;
+        std::cout << "optMap initial error " << last_error << " " << lvl << std::endl;
 
         int maxIterations = 100;
         float lambda = 0.0;
@@ -368,8 +368,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
 
                 H_lambda.makeCompressed();
                 // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
-                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-                // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+                //Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
                 //  Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
                 //  Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
 
@@ -387,7 +387,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames)
                 // std::cout << solver.lastErrorMessage() << std::endl;
 
                 Eigen::VectorXf inc = solver.solve(G);
-                // Eigen::VectorXf inc = G / (1.0 + lambda);
+                //Eigen::VectorXf inc = G / (1.0 + lambda);
                 //  inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
                 //  inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
                 //  inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
@@ -511,7 +511,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
             last_error += meshRegularization * e_regu.getError();
         }
 
-        std::cout << "initial error " << last_error << std::endl;
+        std::cout << "optPoseMap initial error " << last_error << std::endl;
 
         int maxIterations = 100;
         float lambda = 0.0;
@@ -557,8 +557,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                 H_lambda.makeCompressed();
                 // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
-                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-                // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+                //Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
                 //  Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
                 //  Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
 

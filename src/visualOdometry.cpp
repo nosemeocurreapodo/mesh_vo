@@ -57,12 +57,12 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         if (lastFrames.size() == NUM_FRAMES)
         {
             float meanViewAngle = meshOptimizer.meanViewAngle(&lastFrames[lastFrames.size() - 1], &newFrame);
-            //if (meanViewAngle > M_PI / 32.0)
+            // if (meanViewAngle > M_PI / 32.0)
             {
                 lastFrames.erase(lastFrames.begin());
                 lastFrames.push_back(newFrame);
-                //keyFrames = lastFrames;
-                //optimize = true;
+                // keyFrames = lastFrames;
+                // optimize = true;
             }
         }
         else
@@ -83,12 +83,13 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     std::cout << "view percent " << viewPercent << std::endl;
     std::cout << "percent nodata " << percentNoData << std::endl;
 
-    if (viewPercent < 0.80 || percentNoData > 0.20)
+    if (viewPercent < 0.80 || percentNoData > 0.2)
     {
         keyFrames.clear();
         keyFrames = lastFrames;
 
         int newFrameIndex = int(keyFrames.size() / 2);
+        //int newFrameIndex = keyFrames.size() - 2;
         meshOptimizer.changeKeyframe(lastFrames[newFrameIndex]);
         keyFrames.erase(keyFrames.begin() + newFrameIndex);
         optimize = true;
@@ -97,9 +98,9 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     if (optimize)
     {
         t.tic();
-        meshOptimizer.setMeshRegu(200.0);
-        meshOptimizer.optMap(keyFrames);
-        meshOptimizer.setMeshRegu(200.0);
+        //meshOptimizer.setMeshRegu(50.0);
+        //meshOptimizer.optMap(keyFrames);
+        meshOptimizer.setMeshRegu(50.0);
         meshOptimizer.optPoseMap(keyFrames);
         std::cout << "optposemap time " << t.toc() << std::endl;
 
