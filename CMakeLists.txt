@@ -24,6 +24,8 @@ include_directories(
         ${EIGEN3_INCLUDE_DIR}
         )
 
+include_directories( ${CSPARSE_INCLUDE_DIR} ${CHOLMOD_INCLUDE_DIR}) 
+
 #file(GLOB VISUALODOMETRY_SRCS "src/*.cpp"
 #                              "src/common/*.cpp"
 #                              "src/cpu/*.cpp"

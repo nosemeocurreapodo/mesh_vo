@@ -558,13 +558,17 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 H_lambda.makeCompressed();
                 // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
                 //Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                //Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+                
                 Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
-                //  Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
-                //  Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+                //Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+
+                //Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
+                //Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
 
                 solver.compute(H_lambda);
-                // solver.analyzePattern(H_lambda);
-                // solver.factorize(H_lambda);
+                //solver.analyzePattern(H_lambda);
+                //solver.factorize(H_lambda);
                 if (solver.info() != Eigen::Success)
                 {
                     // some problem i have still to debug
