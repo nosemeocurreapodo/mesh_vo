@@ -11,8 +11,8 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
       jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
       jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
       pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
-      // jmap_buffer(_cam.width, _cam.height, 0.0),
-      // pId_buffer(_cam.width, _cam.height, -1),
+      //jmap_buffer(_cam.width, _cam.height, 0.0),
+      //pId_buffer(_cam.width, _cam.height, -1),
       debug(_cam.width, _cam.height, -1.0),
       idepthVar(_cam.width, _cam.height, -1.0),
       renderer(_cam.width, _cam.height)
