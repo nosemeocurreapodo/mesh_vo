@@ -126,11 +126,11 @@ public:
     }
 
     template <typename Type1, typename Type2>
-    HGEigenSparse reduceHGMap2(camera cam, int maxNumParams, dataCPU<Type1> &j_buffer, dataCPU<float> &err_buffer, dataCPU<Type2> &pId_buffer, int lvl)
+    HGEigenSparse reduceHGMap2(camera cam, int maxNumParams, dataCPU<Type1> &j_buffer, dataCPU<float> &err_buffer, dataCPU<Type2> &pId_buffer, dataCPU<float> &mask, int lvl)
     {
         HGEigenSparse hg(maxNumParams);
         window win(0, cam.width, 0, cam.height);
-        reduceHGMapWindow(win, &j_buffer, &err_buffer, &pId_buffer, &hg, lvl);
+        reduceHGMapWindow(win, &j_buffer, &err_buffer, &pId_buffer, &mask, &hg, lvl);
         return hg;
     }
 
@@ -348,7 +348,7 @@ private:
     }
 
     template <typename Type1, typename Type2>
-    void reduceHGMapWindow(window win, dataCPU<Type1> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<Type2> *pId_buffer, HGEigenSparse *hg, int lvl)
+    void reduceHGMapWindow(window win, dataCPU<Type1> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<Type2> *pId_buffer, dataCPU<float> *weights_buffer, HGEigenSparse *hg, int lvl)
     {
         typedef Eigen::Triplet<double> T;
         std::vector<T> tripletList;
@@ -370,12 +370,16 @@ private:
                 if (jac == jmap_buffer->nodata || res == res_buffer->nodata || ids == pId_buffer->nodata || jac == Type1::zero())
                     continue;
 
+                float w = weights_buffer->get(y, x, lvl);
+                if(w == weights_buffer->nodata)
+                    w = 1.0;
+
                 float absres = std::fabs(res);
                 float hw = 1.0;
                 if (absres > HUBER_THRESH)
                     hw = HUBER_THRESH / absres;
 
-                hg->sparseAdd(jac, res, hw, ids);
+                hg->sparseAdd(jac, res, w*hw, ids);
             }
         }
 

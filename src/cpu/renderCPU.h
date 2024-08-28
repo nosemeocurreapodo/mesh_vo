@@ -399,9 +399,9 @@ public:
 private:
     void renderSmoothWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float start = 1.0, float end = 2.0)
     {
-        for (int y = win.min_y; y <= win.max_y; y++)
+        for (int y = win.min_y; y < win.max_y; y++)
         {
-            for (int x = win.min_x; x <= win.max_x; x++)
+            for (int x = win.min_x; x < win.max_x; x++)
             {
                 float val = start + (end - start) * float(y) / (cam.width - 1.0);
                 buffer->set(val, y, x, lvl);
@@ -411,9 +411,9 @@ private:
 
     void renderRandomWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float min = 1.0, float max = 2.0)
     {
-        for (int y = win.min_y; y <= win.max_y; y++)
+        for (int y = win.min_y; y < win.max_y; y++)
         {
-            for (int x = win.min_x; x <= win.max_x; x++)
+            for (int x = win.min_x; x < win.max_x; x++)
             {
                 if (buffer->get(y, x, lvl) == buffer->nodata)
                 {
@@ -426,9 +426,9 @@ private:
 
     void renderInterpolateWindow(camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
-        for (int y = win.min_y; y <= win.max_y; y++)
+        for (int y = win.min_y; y < win.max_y; y++)
         {
-            for (int x = win.min_x; x <= win.max_x; x++)
+            for (int x = win.min_x; x < win.max_x; x++)
             {
                 if (buffer->get(y, x, lvl) == buffer->nodata)
                 {
@@ -588,9 +588,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
                     // if (!cam.isPixVisible(f_pix))

@@ -87,7 +87,7 @@ public:
     {
         int address = x + y * sizes[lvl][0];
 #ifdef DEBUG
-        if (address < 0 || address >= sizes[lvl][1] * sizes[lvl][0])
+        if (address < 0 || address >= sizes[lvl][1] * sizes[lvl][0] || x < 0 || x >= sizes[lvl][0] || y < 0 || y >= sizes[lvl][1])
             throw std::out_of_range("set invalid address");
 #endif
         texture[lvl][address] = value;
@@ -125,7 +125,7 @@ public:
     {
         int address = x + y * sizes[lvl][0];
 #ifdef DEBUG
-        if (address < 0 || address >= sizes[lvl][1] * sizes[lvl][0])
+        if (address < 0 || address >= sizes[lvl][1] * sizes[lvl][0] || x < 0 || x >= sizes[lvl][0] || y < 0 || y >= sizes[lvl][1])
             throw std::out_of_range("get invalid address");
 #endif
         return texture[lvl][address];

@@ -33,7 +33,7 @@ public:
     void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl);
 
     void optPose(frameCPU &frame);
-    void optMap(std::vector<frameCPU> &frames);
+    void optMap(std::vector<frameCPU> &frames, dataCPU<float> &mask);
     void optPoseMap(std::vector<frameCPU> &frame);
 
     void setMeshRegu(float mr)
@@ -96,7 +96,8 @@ public:
         scene->transform(frame.pose);
         scene->project(cam[lvl]);
         kscene.project(cam[lvl]);
-        HGEigenSparse hg = computeHGMap2(scene.get(), &frame, lvl);
+        dataCPU<float> mask(cam[0].width, cam[0].height, -1);
+        HGEigenSparse hg = computeHGMap2(scene.get(), &frame, &mask, lvl);
         std::map<int, int> ids = hg.getObservedParamIds();
         Eigen::SparseMatrix<float> H = hg.getH(ids);
         Eigen::VectorXf G = hg.getG(ids);
@@ -153,7 +154,7 @@ public:
     }
     */
 
-    void plotDebug(frameCPU &frame)
+    void plotDebug(frameCPU &frame, std::vector<frameCPU> frames = std::vector<frameCPU>())
     {
         idepth_buffer.set(idepth_buffer.nodata, 1);
         image_buffer.set(image_buffer.nodata, 1);
@@ -173,17 +174,40 @@ public:
         // renderer.renderIdepthLineSearch(&kframe, &frame, cam[1], &error_buffer, 1);
         // idepth_buffer = renderer.getzbuffer();
 
-        show(frame.image, "frame image", false, 1);
-        show(kframe.image, "keyframe image", false, 1);
-        show(error_buffer, "lastFrame error", true, 1);
-        show(idepth_buffer, "lastFrame idepth", true, 1);
-        show(image_buffer, "lastFrame scene", false, 1);
-        show(ivar_buffer, "ivar", true, 1);
+        show(frame.image, "frame image", false, false, 1);
+        show(kframe.image, "keyframe image", false, false, 1);
+        show(error_buffer, "lastFrame error", true, true, 1);
+        show(idepth_buffer, "lastFrame idepth", true, true, 1);
+        show(image_buffer, "lastFrame scene", false, true, 1);
+        show(ivar_buffer, "ivar", true, false, 1);
+
+        idepth_buffer.set(idepth_buffer.nodata, 1);
+        scene->transform(kframe.pose);
+        scene->project(cam[1]);
+        kscene.project(cam[1]);
+        // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
+        renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
+        show(idepth_buffer, "keyframe idepth", true, false, 1);
+
+        dataCPU<float> frames_buffer(cam[0].width*frames.size(), cam[0].height, -1);
+        for(int i = 0; i < frames.size(); i++)
+        {
+            for(int y = 0; y < cam[1].height; y++)
+            {
+                for(int x = 0; x < cam[1].width; x++)
+                {
+                    auto data = frames[i].image.get(y, x, 1);
+                    frames_buffer.set(data, y, x + i*cam[1].width, 1);
+                }
+            }
+        }
+
+        show(frames_buffer, "frames", false, false, 1);
 
         scene->project(cam[0]);
         kscene.project(cam[0]);
         renderer.renderDebugParallel(scene.get(), &frame, cam[0], &debug, 0);
-        show(debug, "frame debug", false, 0);
+        show(debug, "frame debug", false, false, 0);
     }
 
     float getViewPercent(frameCPU &frame)
@@ -240,9 +264,9 @@ public:
         */
     }
 
-    //ScenePatches kscene;
+    ScenePatches kscene;
     // SceneSurfels kscene;
-    SceneMesh kscene;
+    //SceneMesh kscene;
     frameCPU kframe;
 
     camera cam[MAX_LEVELS];
@@ -255,7 +279,7 @@ private:
     // HGPose computeHGPose(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
     HGMapped computeHGMap(SceneBase *scene, frameCPU *frame, int lvl);
-    HGEigenSparse computeHGMap2(SceneBase *scene, frameCPU *frame, int lvl);
+    HGEigenSparse computeHGMap2(SceneBase *scene, frameCPU *frame, dataCPU<float> *mask, int lvl);
 
     HGMapped computeHGPoseMap(SceneBase *scene, frameCPU *frame, int frameIndex, int numFrames, int lvl);
     HGEigenSparse computeHGPoseMap2(SceneBase *scene, frameCPU *frame, int frameIndex, int numFrames, int lvl);
@@ -273,11 +297,11 @@ private:
 
     dataCPU<vec6<float>> jpose_buffer;
 
-    //dataCPU<vec1<float>> jmap_buffer;
-    //dataCPU<vec1<int>> pId_buffer;
+    dataCPU<vec1<float>> jmap_buffer;
+    dataCPU<vec1<int>> pId_buffer;
 
-    dataCPU<vec3<float>> jmap_buffer;
-    dataCPU<vec3<int>> pId_buffer;
+    //dataCPU<vec3<float>> jmap_buffer;
+    //dataCPU<vec3<int>> pId_buffer;
 
     // debug
     dataCPU<float> debug;

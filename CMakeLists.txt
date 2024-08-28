@@ -13,8 +13,8 @@ find_package(OpenCV REQUIRED)
 set(CMAKE_CXX_FLAGS
 #    "-O3"
 #   "-O3 -ffast-math -fno-math-errno -DNDEBUG"
-"-O3 -ffast-math -march=native -fopenmp"
-#"-g -DEBUG -fno-omit-frame-pointer"
+"-O3 -ffast-math -march=native -fopenmp -DNDEBUG"
+#"-g -DEBUG -fno-omit-frame-pointer -DDEBUG"
 )
 
 include_directories("src")

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 
@@ -134,6 +135,12 @@ public:
             {
                 // ids.push_back(it);
                 ids[it] = ids.size();
+            }
+            else
+            {
+#ifdef DEBUG
+                std::cout << "getObservedParamIds " << it << " is zero" << std::endl;
+#endif
             }
         }
         return ids;

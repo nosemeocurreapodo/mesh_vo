@@ -38,7 +38,7 @@ inline void saveH(HGEigenSparse &data, std::string file_name)
     // cv::waitKey(30);
 }
 
-inline void show(dataCPU<float> &data, std::string window_name, bool colorize, int lvl)
+inline void show(dataCPU<float> &data, std::string window_name, bool colorize, bool upsample, int lvl)
 {
     std::array<int, 2> datasize = data.getSize(lvl);
 
@@ -75,10 +75,12 @@ inline void show(dataCPU<float> &data, std::string window_name, bool colorize, i
         toShow2 = toShow;
     }
 
-    std::array<int, 2> datasize0 = data.getSize(0);
-
-    cv::resize(toShow2, toShow2, cv::Size(datasize0[0], datasize0[1]));
-
+    if(upsample)
+    {
+        std::array<int, 2> datasize0 = data.getSize(0);
+        cv::resize(toShow2, toShow2, cv::Size(datasize0[0], datasize0[1]));
+    }
+    
     cv::imshow(window_name, toShow2);
     cv::waitKey(30);
     /*
