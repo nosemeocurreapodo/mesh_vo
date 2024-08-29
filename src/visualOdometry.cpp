@@ -74,8 +74,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
                 keyFrames = lastFrames;
                 optimize = true;
 
-                int newFrameIndex = int(keyFrames.size() / 2);
-                // int newFrameIndex = keyFrames.size() - 2;
+                //int newFrameIndex = int(keyFrames.size() / 2);
+                int newFrameIndex = keyFrames.size() - 1;
                 meshOptimizer.changeKeyframe(keyFrames[newFrameIndex]);
                 keyFrames.erase(keyFrames.begin() + newFrameIndex);
             }

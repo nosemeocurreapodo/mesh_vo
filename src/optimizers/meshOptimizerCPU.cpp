@@ -11,8 +11,8 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
       jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
       jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
       pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
-    //jmap_buffer(_cam.width, _cam.height, 0.0),
-      // pId_buffer(_cam.width, _cam.height, -1),
+      // jmap_buffer(_cam.width, _cam.height, 0.0),
+      //  pId_buffer(_cam.width, _cam.height, -1),
       debug(_cam.width, _cam.height, -1.0),
       idepthVar(_cam.width, _cam.height, -1.0),
       renderer(_cam.width, _cam.height)
@@ -367,11 +367,17 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
                 }
 
                 H_lambda.makeCompressed();
-                // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
-                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-                //Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+                Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
+                // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
                 //  Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
-                //  Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+
+                // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+                // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+
+                // Eigen::CholmodDecomposition<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
+                // solver.setMode(Eigen::CholmodSupernodalLLt);
+
+                // Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
 
                 solver.compute(H_lambda);
                 // solver.analyzePattern(H_lambda);
@@ -413,7 +419,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
                     // the update should take this into account
                     kscene.setParam(new_param, id.first);
                     kscene.setParamWeight(weight, id.first);
-                    map_inc_mag += inc(id.second)*inc(id.second);
+                    map_inc_mag += inc(id.second) * inc(id.second);
                     map_inc_mag_count += 1;
                 }
                 map_inc_mag /= map_inc_mag_count;
@@ -562,15 +568,15 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 }
 
                 H_lambda.makeCompressed();
-                // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
-                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-                // Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+                Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
+                // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                //  Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
 
                 // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
                 // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
 
                 // Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
-                //Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
+                // Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
 
                 solver.compute(H_lambda);
                 // solver.analyzePattern(H_lambda);
@@ -633,7 +639,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     best_params[id.first] = best_param;
                     kscene.setParam(new_param, id.first);
                     kscene.setParamWeight(weight, id.first);
-                    map_inc_mag += inc(id.second)*inc(id.second);
+                    map_inc_mag += inc(id.second) * inc(id.second);
                     map_inc_mag_count += 1;
                 }
                 map_inc_mag /= map_inc_mag_count;

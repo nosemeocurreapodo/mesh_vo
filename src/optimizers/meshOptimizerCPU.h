@@ -1,8 +1,8 @@
 #pragma once
 
 #include <Eigen/Core>
-//#include <Eigen/CholmodSupport>
-#include <Eigen/SPQRSupport>
+#include <Eigen/CholmodSupport>
+//#include <Eigen/SPQRSupport>
 #include <thread>
 
 #include "common/camera.h"
