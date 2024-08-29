@@ -9,10 +9,10 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
       ivar_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
       jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
-      //jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
-      //pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
-       jmap_buffer(_cam.width, _cam.height, 0.0),
-       pId_buffer(_cam.width, _cam.height, -1),
+      jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
+      pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
+    //jmap_buffer(_cam.width, _cam.height, 0.0),
+      // pId_buffer(_cam.width, _cam.height, -1),
       debug(_cam.width, _cam.height, -1.0),
       idepthVar(_cam.width, _cam.height, -1.0),
       renderer(_cam.width, _cam.height)
@@ -182,7 +182,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
         // std::cout << "*************************lvl " << lvl << std::endl;
         Sophus::SE3f best_pose = frame.pose;
         // Error e = computeError(idepth_buffer, keyframe, frame, lvl);
-        Error e = computeError(scene.get(), &frame, lvl, true);
+        Error e = computeError(scene.get(), &frame, lvl, false);
         float last_error = e.getError();
 
         std::cout << "initial error " << last_error << " " << lvl << std::endl;
@@ -190,7 +190,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             // HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
-            HGEigenDense hg = computeHGPose(scene.get(), &frame, lvl, true);
+            HGEigenDense hg = computeHGPose(scene.get(), &frame, lvl, false);
 
             // std::vector<int> pIds = hg.G.getParamIds();
             // Eigen::VectorXf G = hg.G.toEigen(pIds);
@@ -220,7 +220,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
                 // e.setZero();
                 // e = computeError(idepth_buffer, keyframe, frame, lvl);
-                e = computeError(scene.get(), &frame, lvl, true);
+                e = computeError(scene.get(), &frame, lvl, false);
                 float error = e.getError();
                 // std::cout << "new error " << error << " time " << t.toc() << std::endl;
 
@@ -368,8 +368,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
 
                 H_lambda.makeCompressed();
                 // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
-                // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-                Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                //Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
                 //  Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
                 //  Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
 
@@ -401,6 +401,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
                 }
 
                 std::vector<float> best_params;
+                float map_inc_mag = 0.0;
+                int map_inc_mag_count = 0;
                 for (auto id : paramIds)
                 {
                     float best_param = kscene.getParam(id.first);
@@ -411,7 +413,10 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
                     // the update should take this into account
                     kscene.setParam(new_param, id.first);
                     kscene.setParamWeight(weight, id.first);
+                    map_inc_mag += inc(id.second)*inc(id.second);
+                    map_inc_mag_count += 1;
                 }
+                map_inc_mag /= map_inc_mag_count;
                 scene = kscene.clone();
 
                 e.setZero();
@@ -473,7 +478,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
 
                     // reject update, increase lambda, use un-updated data
 
-                    if (inc.dot(inc) < 1e-16)
+                    if (map_inc_mag < 1e-2)
                     {
                         // if too small, do next level!
                         it = maxIterations;
@@ -565,7 +570,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
 
                 // Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
-                // Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
+                //Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
 
                 solver.compute(H_lambda);
                 // solver.analyzePattern(H_lambda);
@@ -593,6 +598,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                 // update pose
                 std::vector<Sophus::SE3f> best_poses;
+                float pose_inc_mag = 0.0;
                 for (size_t i = 0; i < frames.size(); i++)
                 {
                     Eigen::Matrix<float, 6, 1> pose_inc;
@@ -604,13 +610,17 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                         int index = paramIds[paramId];
                         pose_inc(j) = inc(index);
                     }
+                    pose_inc_mag += pose_inc.dot(pose_inc);
                     best_poses.push_back(frames[i].pose);
                     frames[i].pose = frames[i].pose * Sophus::SE3f::exp(pose_inc).inverse();
                     // frames[i].pose = Sophus::SE3f::exp(pose_inc).inverse() * frames[i].pose;
                 }
+                pose_inc_mag /= frames.size();
 
                 // update map
                 std::map<unsigned int, float> best_params;
+                float map_inc_mag = 0.0;
+                int map_inc_mag_count = 0;
                 for (auto id : paramIds)
                 {
                     // negative ids are for the poses
@@ -623,7 +633,11 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     best_params[id.first] = best_param;
                     kscene.setParam(new_param, id.first);
                     kscene.setParamWeight(weight, id.first);
+                    map_inc_mag += inc(id.second)*inc(id.second);
+                    map_inc_mag_count += 1;
                 }
+                map_inc_mag /= map_inc_mag_count;
+
                 scene = kscene.clone();
 
                 e.setZero();
@@ -691,7 +705,9 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                     // reject update, increase lambda, use un-updated data
 
-                    if (inc.dot(inc) < 1e-16)
+                    std::cout << "pose inc mag " << pose_inc_mag << " map inc mag " << map_inc_mag << std::endl;
+
+                    if (pose_inc_mag < 1e-16 || map_inc_mag < 1e-2)
                     {
                         // if too small, do next level!
                         it = maxIterations;
