@@ -35,8 +35,10 @@ int main(void)
     camera cam(fx, fy, cx, cy, width, height);
     cam.resize(512, 512);
 
-    cv::Mat imageMat = cv::imread("../../desktop_dataset/scene_000.png", cv::IMREAD_GRAYSCALE);
-    Sophus::SE3f initPose = readPose("../../desktop_dataset/scene_000.txt");
+    cv::Mat imageMat = cv::imread("../../desktop_dataset/images/scene_000.png", cv::IMREAD_GRAYSCALE);
+    cv::Mat idepthMat = cv::imread("../../desktop_dataset/images/scene_000.png", cv::IMREAD_GRAYSCALE);
+
+    Sophus::SE3f initPose = readPose("../../desktop_dataset/poses/scene_000.txt");
     
     imageMat.convertTo(imageMat, CV_32FC1);
     cv::resize(imageMat, imageMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
@@ -74,8 +76,8 @@ int main(void)
         char RT_filename[500];
 
         //file name
-        sprintf(image_filename,"../../desktop_dataset/scene_%03d.png", frameNumber);
-        sprintf(RT_filename,"../../desktop_dataset/scene_%03d.txt", frameNumber);
+        sprintf(image_filename,"../../desktop_dataset/images/scene_%03d.png", frameNumber);
+        sprintf(RT_filename,"../../desktop_dataset/pose/scene_%03d.txt", frameNumber);
 
         cv::Mat imageMat = cv::imread(image_filename, cv::IMREAD_GRAYSCALE);
         Sophus::SE3f realPose = readPose(RT_filename)*initPose.inverse();
@@ -85,9 +87,9 @@ int main(void)
 
         image.set((float*)imageMat.data);
 
-        //odometry.localization(image);
+        odometry.localization(image);
         //odometry.mapping(image, realPose);
-        odometry.locAndMap(image);
+        //odometry.locAndMap(image);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();
