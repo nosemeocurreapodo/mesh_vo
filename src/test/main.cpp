@@ -36,31 +36,29 @@ int main(void)
     cam.resize(512, 512);
 
     cv::Mat imageMat = cv::imread("../../desktop_dataset/images/scene_000.png", cv::IMREAD_GRAYSCALE);
-    cv::Mat idepthMat = cv::imread("../../desktop_dataset/images/scene_000.png", cv::IMREAD_GRAYSCALE);
-
+    cv::Mat idepthMat = cv::imread("../../desktop_dataset/depths/scene_000.png", cv::IMREAD_GRAYSCALE);
     Sophus::SE3f initPose = readPose("../../desktop_dataset/poses/scene_000.txt");
-    
+
     imageMat.convertTo(imageMat, CV_32FC1);
     cv::resize(imageMat, imageMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
     dataCPU<float> image(cam.width, cam.height, -1.0);
     image.set((float*)imageMat.data);
     
-    cv::Mat idepthMat;
-    cv::FileStorage fs("../../desktop_dataset/scene_depth_000.yml", cv::FileStorage::READ );
-    fs["idepth"] >> idepthMat;
-
     idepthMat.convertTo(idepthMat, CV_32FC1);
     cv::resize(idepthMat, idepthMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
-    //cv::blur(idepthMat, idepthMat, cv::Size(5, 5));
 
     dataCPU<float> idepth(cam.width, cam.height, -1.0);
     idepth.set((float*)idepthMat.data);
 
+    dataCPU<float> ivar(cam.width, cam.height, -1.0);
+    ivar.set(1.0, 0);
+    ivar.generateMipmaps();
+
     visualOdometry odometry(cam);
 
-    //odometry.initScene(image, idepth);
-    odometry.initScene(image);
+    odometry.initScene(image, idepth, ivar);
+    //odometry.initScene(image);
 
     while(1){
         framesTracked++;
@@ -77,7 +75,7 @@ int main(void)
 
         //file name
         sprintf(image_filename,"../../desktop_dataset/images/scene_%03d.png", frameNumber);
-        sprintf(RT_filename,"../../desktop_dataset/pose/scene_%03d.txt", frameNumber);
+        sprintf(RT_filename,"../../desktop_dataset/poses/scene_%03d.txt", frameNumber);
 
         cv::Mat imageMat = cv::imread(image_filename, cv::IMREAD_GRAYSCALE);
         Sophus::SE3f realPose = readPose(RT_filename)*initPose.inverse();
@@ -87,9 +85,9 @@ int main(void)
 
         image.set((float*)imageMat.data);
 
-        odometry.localization(image);
+        //odometry.localization(image);
         //odometry.mapping(image, realPose);
-        //odometry.locAndMap(image);
+        odometry.locAndMap(image);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();

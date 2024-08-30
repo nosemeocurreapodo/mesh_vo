@@ -2,7 +2,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/CholmodSupport>
-//#include <Eigen/SPQRSupport>
+// #include <Eigen/SPQRSupport>
 #include <thread>
 
 #include "common/camera.h"
@@ -189,20 +189,23 @@ public:
         renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
         show(idepth_buffer, "keyframe idepth", true, false, 1);
 
-        dataCPU<float> frames_buffer(cam[0].width*frames.size(), cam[0].height, -1);
-        for(int i = 0; i < frames.size(); i++)
+        if (frames.size() > 0)
         {
-            for(int y = 0; y < cam[1].height; y++)
+            dataCPU<float> frames_buffer(cam[0].width * frames.size(), cam[0].height, -1);
+            for (int i = 0; i < frames.size(); i++)
             {
-                for(int x = 0; x < cam[1].width; x++)
+                for (int y = 0; y < cam[1].height; y++)
                 {
-                    auto data = frames[i].image.get(y, x, 1);
-                    frames_buffer.set(data, y, x + i*cam[1].width, 1);
+                    for (int x = 0; x < cam[1].width; x++)
+                    {
+                        auto data = frames[i].image.get(y, x, 1);
+                        frames_buffer.set(data, y, x + i * cam[1].width, 1);
+                    }
                 }
             }
-        }
 
-        show(frames_buffer, "frames", false, false, 1);
+            show(frames_buffer, "frames", false, false, 1);
+        }
 
         scene->project(cam[0]);
         kscene.project(cam[0]);
@@ -219,15 +222,15 @@ public:
         std::vector<int> shapeIds = scene->getShapesIds();
 
         int numVisible = 0;
-        for(auto shapeId : shapeIds)
+        for (auto shapeId : shapeIds)
         {
             auto shape = scene->getShape(cam[lvl], shapeId);
             auto pix = shape->getCenterPix();
-            if(cam[lvl].isPixVisible(pix))
+            if (cam[lvl].isPixVisible(pix))
                 numVisible++;
         }
 
-        return float(numVisible)/shapeIds.size();
+        return float(numVisible) / shapeIds.size();
     }
 
     void changeKeyframe(frameCPU &frame)
@@ -241,16 +244,16 @@ public:
         scene->project(cam[lvl]);
         renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth_buffer, lvl);
         renderer.renderWeightParallel(scene.get(), cam[lvl], &ivar_buffer, lvl);
-        //renderer.renderRandom(cam[lvl], &idepth, lvl);
+        // renderer.renderRandom(cam[lvl], &idepth, lvl);
         renderer.renderInterpolate(cam[lvl], &idepth_buffer, lvl);
         renderer.renderInterpolate(cam[lvl], &ivar_buffer, lvl);
 
         initKeyframe(frame, idepth_buffer, ivar_buffer, lvl);
 
-        //kscene.transform(frame.pose);
-        //kscene.project(cam[lvl]);
-        //kscene.complete(frame, cam[lvl], idepth_buffer, lvl);
-        //scene = kscene.clone();
+        // kscene.transform(frame.pose);
+        // kscene.project(cam[lvl]);
+        // kscene.complete(frame, cam[lvl], idepth_buffer, lvl);
+        // scene = kscene.clone();
 
         /*
         //method 2
@@ -264,8 +267,8 @@ public:
         */
     }
 
-    //ScenePatches kscene;
-    // SceneSurfels kscene;
+    // ScenePatches kscene;
+    //  SceneSurfels kscene;
     SceneMesh kscene;
     frameCPU kframe;
 
@@ -297,8 +300,8 @@ private:
 
     dataCPU<vec6<float>> jpose_buffer;
 
-    //dataCPU<vec1<float>> jmap_buffer;
-    //dataCPU<vec1<int>> pId_buffer;
+    // dataCPU<vec1<float>> jmap_buffer;
+    // dataCPU<vec1<int>> pId_buffer;
 
     dataCPU<vec3<float>> jmap_buffer;
     dataCPU<vec3<int>> pId_buffer;

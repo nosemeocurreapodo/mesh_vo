@@ -669,9 +669,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
                     //if (!cam.isPixVisible(f_pix))
@@ -728,9 +728,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
                     //if (!cam.isPixVisible(f_pix))

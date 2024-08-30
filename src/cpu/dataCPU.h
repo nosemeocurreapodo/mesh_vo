@@ -163,6 +163,18 @@ public:
         }
     }
 
+    void invert(int lvl = 0)
+    {
+        for (int y = 0; y < sizes[lvl][1]; y++)
+        {
+            for (int x = 0; x < sizes[lvl][0]; x++)
+            {
+                Type pixel = get(y, x, lvl);
+                set(1.0 / pixel, y, x, lvl);
+            }
+        }
+    }
+
     float getPercentNoData(int lvl)
     {
         int nodatacount = 0;

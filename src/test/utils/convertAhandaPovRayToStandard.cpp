@@ -11,7 +11,7 @@
 //#include "util/SophusUtil.h"
 #include "sophus/se3.hpp"
 
-Sophus::SE3f readPose(const char * filename)
+Sophus::SE3f readPose(std::string filename)
 {
     std::ifstream cam_pars_file(filename);
     if(!cam_pars_file.is_open())
