@@ -66,7 +66,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
             std::cout << "view percent " << viewPercent << std::endl;
             std::cout << "percent nodata " << percentNoData << std::endl;
 
-            if (meanViewAngle > M_PI / 64.0 || viewPercent < 0.7 || percentNoData > 0.3)
+            if (meanViewAngle > M_PI / 32.0 || viewPercent < 0.7 || percentNoData > 0.3)
             {
                 lastFrames.erase(lastFrames.begin());
                 lastFrames.push_back(newFrame);
@@ -119,7 +119,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         //meshOptimizer.setMeshRegu(0.0);
         //dataCPU<float> mask(cam.width, cam.height, -1);
         //meshOptimizer.optMap(keyFrames, mask);
-        meshOptimizer.setMeshRegu(200.0);
+        meshOptimizer.setMeshRegu(0.0);
         meshOptimizer.optPoseMap(keyFrames);
         std::cout << "optposemap time " << t.toc() << std::endl;
 
@@ -231,7 +231,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     {
         t.tic();
         dataCPU<float> mask(cam.width, cam.height, -1);
-        meshOptimizer.setMeshRegu(100.0);
+        meshOptimizer.setMeshRegu(0.0);
         meshOptimizer.optMap(keyFrames, mask);
         std::cout << "optmap time " << t.toc() << std::endl;
     }

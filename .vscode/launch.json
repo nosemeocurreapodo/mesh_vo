@@ -33,10 +33,10 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/tum_dataset",
-            "args": [
-                "/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_50/camera.txt",
-                "/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_50/images/"
-            ],
+            //"args": [
+            //    "/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_50/camera.txt",
+            //    "/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_50/images/"
+            //],
             //"args": [
             //    "/mnt/nvme0n1p5/datasets/LSD_foodcourt/cameraCalibration.cfg",
             //    "/mnt/nvme0n1p5/datasets/LSD_foodcourt/images/"
@@ -45,10 +45,10 @@
             //    "/mnt/nvme0n1p5/datasets/LSD_machine/cameraCalibration.cfg",
             //    "/mnt/nvme0n1p5/datasets/LSD_machine/images/"
             //],
-            //"args": [
-            //    "/mnt/sda1/workspace/datasets/TUM_VO/sequence_50/camera.txt",
-            //    "/mnt/sda1/workspace/datasets/TUM_VO/sequence_50/images/"
-            //],
+            "args": [
+                "/mnt/sda1/workspace/datasets/TUM_VO/sequence_50/camera.txt",
+                "/mnt/sda1/workspace/datasets/TUM_VO/sequence_50/images/"
+            ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

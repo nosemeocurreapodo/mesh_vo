@@ -639,8 +639,11 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                         continue;
 
                     float best_param = kscene.getParam(id.first);
-                    float new_param = best_param - inc(id.second);
+                    float inc_param = inc(id.second);
+                    float new_param = best_param - inc_param;
                     float weight = H.coeffRef(id.second, id.second);
+                    if(std::fabs(inc_param/best_param) > 0.4)
+                        solverSucceded = false;
                     best_params[id.first] = best_param;
                     kscene.setParam(new_param, id.first);
                     kscene.setParamWeight(weight, id.first);
@@ -718,7 +721,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                     std::cout << "pose inc mag " << pose_inc_mag << " map inc mag " << map_inc_mag << std::endl;
 
-                    if (pose_inc_mag < 1e-16 || map_inc_mag < 1e-2)
+                    if (pose_inc_mag < 1e-16 || map_inc_mag < 1e-8)
                     {
                         // if too small, do next level!
                         it = maxIterations;
