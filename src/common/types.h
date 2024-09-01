@@ -453,6 +453,12 @@ struct vecx
     {
     }
 
+    vecx(int size)
+    {
+        for(int i = 0; i < size; i++)
+            data.push_back(type(0));
+    }
+
     template <typename type1, typename type2>
     vecx(type1 vec1, type2 vec2)
     {

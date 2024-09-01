@@ -136,12 +136,6 @@ public:
                 // ids.push_back(it);
                 ids[it] = ids.size();
             }
-            else
-            {
-#ifdef DEBUG
-                std::cout << "getObservedParamIds " << it << " is zero" << std::endl;
-#endif
-            }
         }
         return ids;
     }
@@ -153,7 +147,8 @@ public:
         {
             int dst = id.second;
             int src = id.first;
-            _G(dst) = G(src);
+            float val = G(src);
+            _G(dst) = val;
         }
         /*
         for (int id = 0; id < pIds.size(); id++)

@@ -12,9 +12,8 @@
 class SceneMesh : public SceneVerticesBase
 {
 public:
-    SceneMesh() : SceneVerticesBase()
-    {
-    };
+    SceneMesh() : SceneVerticesBase() {
+                  };
 
     SceneMesh(const SceneMesh &other) : SceneVerticesBase(other)
     {
@@ -134,7 +133,7 @@ public:
     {
         return getDepthParam(paramId);
     }
-
+    /*
     Error errorRegu(camera cam)
     {
         Error error;
@@ -155,9 +154,12 @@ public:
 
             float diff1 = theta[0] - theta[1];
             float diff2 = theta[0] - theta[2];
-            float diff3 = theta[1] - theta[2];
+            float diff3 = 0.0;//theta[1] - theta[0];
+            float diff4 = theta[1] - theta[2];
+            float diff5 = 0.0;//theta[2] - theta[0];
+            float diff6 = 0.0;//theta[2] - theta[1];
 
-            error += diff1 * diff1 + diff2 * diff2 + diff3 * diff3;
+            error += diff1 * diff1 + diff2 * diff2 + diff3 * diff3 + diff4 * diff4 + diff5 * diff5 + diff6 * diff6;
         }
 
         return error;
@@ -182,15 +184,126 @@ public:
 
             float diff1 = theta[0] - theta[1];
             float diff2 = theta[0] - theta[2];
-            float diff3 = theta[1] - theta[2];
+            float diff3 = theta[1] - theta[0];
+            float diff4 = theta[1] - theta[2];
+            float diff5 = theta[2] - theta[0];
+            float diff6 = theta[2] - theta[1];
 
             vec3<float> J1(1.0, -1.0, 0.0);
             vec3<float> J2(1.0, 0.0, -1.0);
-            vec3<float> J3(0.0, 1.0, -1.0);
+            vec3<float> J3(-1.0, 1.0, 0.0);
+            vec3<float> J4(0.0, 1.0, -1.0);
+            vec3<float> J5(-1.0, 0.0, 1.0);
+            vec3<float> J6(0.0, -1.0, 1.0);
 
             hg.sparseAdd(J1, diff1, 1.0, v_ids);
             hg.sparseAdd(J2, diff2, 1.0, v_ids);
-            hg.sparseAdd(J3, diff3, 1.0, v_ids);
+            //hg.sparseAdd(J3, diff3, 1.0, v_ids);
+            hg.sparseAdd(J4, diff4, 1.0, v_ids);
+            //hg.sparseAdd(J5, diff5, 1.0, v_ids);
+            //hg.sparseAdd(J6, diff6, 1.0, v_ids);
+        }
+
+        hg.endSparseAdd();
+
+        return hg;
+    }
+    */
+
+    Error errorRegu(camera cam)
+    {
+        Error error;
+
+        std::vector<int> vertIds = getVerticesIds();
+
+        int patch_width = cam.width / MESH_WIDTH;
+        int patch_height = cam.height / MESH_HEIGHT;
+
+        for (auto vertId : vertIds)
+        {
+            vec2<float> pix = getPix(vertId);
+
+            window win(pix(0) - patch_width * 1.5, pix(0) + patch_width * 1.5, pix(1) - patch_height * 1.5, pix(1) + patch_height * 1.5);
+
+            float meanParam = 0;
+            int count = 0;
+            for (auto vertId2 : vertIds)
+            {
+                if (vertId == vertId2)
+                    continue;
+                vec2<float> pix2 = getPix(vertId2);
+                if (win.isPixInWindow(pix2))
+                {
+                    meanParam += getDepthParam(vertId2);
+                    count++;
+                }
+            }
+            meanParam /= count;
+            float param = getDepthParam(vertId);
+            float res = param - meanParam;
+            float absres = std::fabs(res);
+            float hw = 1.0;
+            if (absres > HUBER_THRESH_PARM)
+                hw = HUBER_THRESH_PARM / absres;
+            error += hw * res * res;
+        }
+
+        return error;
+    }
+
+    HGEigenSparse HGRegu(camera cam, int numFrames = 0)
+    {
+        std::vector<int> vertIds = getVerticesIds();
+
+        HGEigenSparse hg(getNumParams() + numFrames * 6);
+
+        int patch_width = cam.width / MESH_WIDTH;
+        int patch_height = cam.height / MESH_HEIGHT;
+
+        for (auto vertId : vertIds)
+        {
+            vec2<float> pix = getPix(vertId);
+
+            window win(pix(0) - patch_width * 1.5, pix(0) + patch_width * 1.5, pix(1) - patch_height * 1.5, pix(1) + patch_height * 1.5);
+
+            float meanParam = 0;
+            int count = 0;
+            std::vector<float> vertIds2;
+            for (auto vertId2 : vertIds)
+            {
+                if (vertId == vertId2)
+                    continue;
+                vec2<float> pix2 = getPix(vertId2);
+                if (win.isPixInWindow(pix2))
+                {
+                    vertIds2.push_back(vertId2);
+                    float d = getDepthParam(vertId2);
+                    meanParam += d;
+                    count++;
+                }
+            }
+            meanParam /= count;
+            float param = getDepthParam(vertId);
+            float res = param - meanParam;
+
+            vecx<float> J(vertIds2.size() + 1);
+            vecx<int> ids(vertIds2.size() + 1);
+
+            J(0) = 1.0;
+            ids(0) = vertId;
+
+            for (int i = 0; i < vertIds2.size(); i++)
+            {
+                J(i + 1) = -1.0 / count;
+                ids(i + 1) = vertIds2[i];
+            }
+
+            float absres = std::fabs(res);
+            float hw = 1.0;
+            if (absres > HUBER_THRESH_PARM)
+                hw = HUBER_THRESH_PARM / absres;
+
+            hg.sparseAdd(J, res, hw, ids);
         }
 
         hg.endSparseAdd();

@@ -133,6 +133,8 @@ public:
 
     void renderDebug(SceneBase *scene, frameCPU *frame, camera &cam, dataCPU<float> *buffer, int lvl)
     {
+        z_buffer.set(z_buffer.nodata, lvl);
+
         window win(0, cam.width, 0, cam.height);
 
         renderDebugWindow(scene, frame, cam, win, buffer, lvl);
@@ -140,6 +142,8 @@ public:
 
     void renderDebugParallel(SceneBase *scene, frameCPU *frame, camera &cam, dataCPU<float> *buffer, int lvl)
     {
+        z_buffer.set(z_buffer.nodata, lvl);
+
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
@@ -179,6 +183,8 @@ public:
     template <typename Type1, typename Type2>
     void renderJMapParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera &cam, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
+        z_buffer.set(z_buffer.nodata, lvl);
+
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
@@ -218,6 +224,8 @@ public:
     template <typename Type1, typename Type2, typename Type3>
     void renderJPoseMapParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<Type1> *jpose_buffer, dataCPU<Type2> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type3> *pId_buffer, int lvl)
     {
+        z_buffer.set(z_buffer.nodata, lvl);
+
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
@@ -247,6 +255,8 @@ public:
     template <typename Type>
     void renderJPose(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<Type> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
+        z_buffer.set(z_buffer.nodata, lvl);
+
         window win(0, cam.width, 0, cam.height);
 
         renderJPoseWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl);
@@ -255,6 +265,8 @@ public:
     template <typename Type>
     void renderJPoseParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<Type> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
+        z_buffer.set(z_buffer.nodata, lvl);
+
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
@@ -674,9 +686,9 @@ private:
                 for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
-                    //if (!cam.isPixVisible(f_pix))
-                    //    continue;
-                    //vec3<float> f_ray = cam.pixToRay(f_pix);
+                    // if (!cam.isPixVisible(f_pix))
+                    //     continue;
+                    // vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForPix(f_pix);
                     if (!f_pol->hitsShape())
@@ -733,9 +745,9 @@ private:
                 for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
-                    //if (!cam.isPixVisible(f_pix))
-                    //    continue;
-                    //vec3<float> f_ray = cam.pixToRay(f_pix);
+                    // if (!cam.isPixVisible(f_pix))
+                    //     continue;
+                    // vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForPix(f_pix);
                     if (!f_pol->hitsShape())
@@ -1259,6 +1271,7 @@ private:
                     if (!f_pol->hitsShape())
                         continue;
 
+                    float f_depth = f_pol->getDepth();
                     bool isLine = f_pol->isEdge();
 
                     float f_i = frame->image.get(y, x, lvl);
@@ -1272,7 +1285,7 @@ private:
                     if (isLine)
                         buffer->set(1.0, y, x, lvl);
                     else
-                        buffer->set(f_i, y, x, lvl);
+                        buffer->set(1.0 / f_depth, y, x, lvl);
                 }
             }
         }

@@ -294,8 +294,8 @@ private:
                 float residual = p1 - p2;
                 float absresidual = std::fabs(residual);
                 float hw = 1.0;
-                if (absresidual > HUBER_THRESH)
-                    hw = HUBER_THRESH / absresidual;
+                if (absresidual > HUBER_THRESH_PIX)
+                    hw = HUBER_THRESH_PIX / absresidual;
                 *err += w * hw * std::pow(residual, 2);
             }
     }
@@ -315,8 +315,8 @@ private:
                     w = 1.0;
                 float absres = std::fabs(res);
                 float hw = 1.0;
-                if (absres > HUBER_THRESH)
-                    hw = HUBER_THRESH / absres;
+                if (absres > HUBER_THRESH_PIX)
+                    hw = HUBER_THRESH_PIX / absres;
 
                 hg->add(J, res, w * hw);
             }
@@ -339,8 +339,8 @@ private:
 
                 float absres = std::fabs(res);
                 float hw = 1.0;
-                if (absres > HUBER_THRESH)
-                    hw = HUBER_THRESH / absres;
+                if (absres > HUBER_THRESH_PIX)
+                    hw = HUBER_THRESH_PIX / absres;
 
                 hg->add(jac, res, hw, ids);
             }
@@ -376,8 +376,8 @@ private:
 
                 float absres = std::fabs(res);
                 float hw = 1.0;
-                if (absres > HUBER_THRESH)
-                    hw = HUBER_THRESH / absres;
+                if (absres > HUBER_THRESH_PIX)
+                    hw = HUBER_THRESH_PIX / absres;
 
                 hg->sparseAdd(jac, res, w*hw, ids);
             }
@@ -410,8 +410,8 @@ private:
 
                 float absres = std::fabs(res);
                 float hw = 1.0;
-                if (absres > HUBER_THRESH)
-                    hw = HUBER_THRESH / absres;
+                if (absres > HUBER_THRESH_PIX)
+                    hw = HUBER_THRESH_PIX / absres;
 
                 hg->add(J, res, hw, idss);
             }
@@ -478,8 +478,8 @@ private:
 
                 float absres = std::fabs(res);
                 float hw = 1.0;
-                if (absres > HUBER_THRESH)
-                    hw = HUBER_THRESH / absres;
+                if (absres > HUBER_THRESH_PIX)
+                    hw = HUBER_THRESH_PIX / absres;
 
                 hg->sparseAdd(J, res, hw, idss);
             }

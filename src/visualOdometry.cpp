@@ -116,10 +116,10 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     if (optimize)
     {
         t.tic();
-        //meshOptimizer.setMeshRegu(100.0);
+        //meshOptimizer.setMeshRegu(0.0);
         //dataCPU<float> mask(cam.width, cam.height, -1);
         //meshOptimizer.optMap(keyFrames, mask);
-        meshOptimizer.setMeshRegu(1.0);
+        meshOptimizer.setMeshRegu(200.0);
         meshOptimizer.optPoseMap(keyFrames);
         std::cout << "optposemap time " << t.toc() << std::endl;
 
@@ -231,12 +231,10 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     {
         t.tic();
         dataCPU<float> mask(cam.width, cam.height, -1);
+        meshOptimizer.setMeshRegu(100.0);
         meshOptimizer.optMap(keyFrames, mask);
         std::cout << "optmap time " << t.toc() << std::endl;
     }
-
-    if (lastFrames.size() >= 2)
-        lastMovement = lastFrames[lastFrames.size() - 1].pose * lastFrames[lastFrames.size() - 2].pose.inverse();
 
     meshOptimizer.plotDebug(newFrame);
 }

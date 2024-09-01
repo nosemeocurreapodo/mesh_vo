@@ -116,6 +116,8 @@ public:
             int count = 0;
             for (auto polId2 : polIds)
             {
+                //if(polId == polId2)
+                //    continue;
                 vec2<float> pix2 = getPix(polId2);
                 if (win.isPixInWindow(pix2))
                 {
@@ -152,6 +154,8 @@ public:
             std::vector<float> polIds2;
             for (auto polId2 : polIds)
             {
+                //if(polId == polId2)
+                //    continue;
                 vec2<float> pix2 = getPix(polId2);
                 if (win.isPixInWindow(pix2))
                 {

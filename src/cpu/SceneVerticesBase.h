@@ -11,9 +11,8 @@
 class SceneVerticesBase : public SceneBase
 {
 public:
-    SceneVerticesBase() : SceneBase()
-    {
-    };
+    SceneVerticesBase() : SceneBase() {
+                          };
 
     SceneVerticesBase(const SceneVerticesBase &other) : SceneBase(other)
     {
@@ -97,7 +96,7 @@ public:
                 pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
                 pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
 
-                int size = ((cam.width - 1) / (MESH_WIDTH - 1))/2;
+                int size = ((cam.width - 1) / (MESH_WIDTH - 1)) / 2;
 
                 bool isNoData = true;
                 for (int y_ = pix(1) - size; y_ <= pix(1) + size; y_++)
@@ -296,8 +295,13 @@ public:
     {
         float new_depth = fromParamToDepth(param);
         // set the param (the depth in this case)
-        if (new_depth > 0.000000001 && new_depth < 1000000000.0)
-            setVerticeDepth(new_depth, v_id);
+#ifdef DEBUG
+        if (new_depth <= 0.0)
+        {
+            std::cout << "setDepthParam new_depth " << new_depth << std::endl;
+        }
+#endif
+        setVerticeDepth(new_depth, v_id);
     }
 
     float getDepthParam(unsigned int v_id)

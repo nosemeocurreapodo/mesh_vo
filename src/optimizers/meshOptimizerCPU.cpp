@@ -33,7 +33,7 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, int lvl)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
     // renderer.renderRandom(cam[lvl], &idepth_buffer, lvl);
-    renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl);
+    renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl, 0.1, 1.0);
     ivar_buffer.set(ivar_buffer.nodata, lvl);
     renderer.renderSmooth(cam[lvl], &ivar_buffer, lvl, initialIvar(), initialIvar());
     kscene.init(frame, cam[lvl], idepth_buffer, ivar_buffer, lvl);
@@ -316,7 +316,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
 
         std::cout << "optMap initial error " << last_error << " " << lvl << std::endl;
 
-        int maxIterations = 100;
+        int maxIterations = 1000;
         float lambda = 0.0;
         for (int it = 0; it < maxIterations; it++)
         {
@@ -366,10 +366,12 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
                     H_lambda.coeffRef(j, j) *= (1.0 + lambda);
                 }
 
+                bool solverSucceded = true;
+
                 H_lambda.makeCompressed();
                 Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
                 // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-                //  Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+                //   Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
 
                 // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
                 // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
@@ -386,24 +388,20 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
                 if (solver.info() != Eigen::Success)
                 {
                     // some problem i have still to debug
-                    it = maxIterations;
-                    std::cout << "solver.compute not successfull " << solver.info() << std::endl;
-                    break;
+                    solverSucceded = false;
                 }
                 // std::cout << solver.lastErrorMessage() << std::endl;
 
                 Eigen::VectorXf inc = solver.solve(G);
                 // Eigen::VectorXf inc = G / (1.0 + lambda);
-                //   inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
-                //   inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
-                //   inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
+                //    inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
+                //    inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
+                //    inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
 
                 if (solver.info() != Eigen::Success)
                 {
                     // solving failed
-                    it = maxIterations;
-                    std::cout << "solver.solve not successfull " << solver.info() << std::endl;
-                    break;
+                    solverSucceded = false;
                 }
 
                 std::vector<float> best_params;
@@ -412,7 +410,17 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
                 for (auto id : paramIds)
                 {
                     float best_param = kscene.getParam(id.first);
-                    float new_param = best_param - inc(id.second);
+                    float inc_param = inc(id.second);
+                    float new_param = best_param - inc_param;
+
+                    //if (std::fabs(inc_param / best_param) > 0.1)
+                    //if(new_param <= 0.0)
+                    if(false)
+                    {
+                        solverSucceded = false;
+                        // break;
+                    }
+
                     float weight = H.coeffRef(id.second, id.second);
                     best_params.push_back(best_param);
                     // the derivative is with respecto to the keyframe pose
@@ -446,7 +454,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
 
                 std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
 
-                if (error < last_error)
+                if (error < last_error && solverSucceded)
                 {
                     // accept update, decrease lambda
                     float p = error / last_error;
@@ -454,8 +462,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
                     // if (lambda < 0.2f)
                     //     lambda = 0.0f;
                     // else
-                    //     lambda *= 0.5;
-                    lambda = 0.0;
+                    lambda *= 0.5;
+                    // lambda = 0.0;
 
                     last_error = error;
 
@@ -478,13 +486,13 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
                     n_try++;
 
                     if (lambda == 0.0f)
-                        lambda = 0.2f;
+                        lambda = 0.01f;
                     else
-                        lambda *= 2.0; // std::pow(2.0, n_try);
+                        lambda *= 4.0; // std::pow(2.0, n_try);
 
                     // reject update, increase lambda, use un-updated data
 
-                    if (map_inc_mag < 1e-2)
+                    if (map_inc_mag < 1e-8)
                     {
                         // if too small, do next level!
                         it = maxIterations;
@@ -524,7 +532,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
         std::cout << "optPoseMap initial error " << last_error << std::endl;
 
-        int maxIterations = 100;
+        int maxIterations = 1000;
         float lambda = 0.0;
         for (int it = 0; it < maxIterations; it++)
         {
@@ -540,8 +548,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
             // saveH(hg, "H.png");
 
             // map from param id to param index paramIndex = obsParamIds[paramId]
-            // std::map<int, int> paramIds = hg.getObservedParamIds();
-            std::map<int, int> paramIds = hg.getParamIds();
+            std::map<int, int> paramIds = hg.getObservedParamIds();
+            // std::map<int, int> paramIds = hg.getParamIds();
 
             Eigen::VectorXf G = hg.getG(paramIds);
             Eigen::SparseMatrix<float> H = hg.getH(paramIds);
@@ -567,10 +575,12 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     H_lambda.coeffRef(j, j) *= (1.0 + lambda);
                 }
 
+                bool solverSucceded = true;
+
                 H_lambda.makeCompressed();
                 Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
                 // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-                //  Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+                //   Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
 
                 // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
                 // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
@@ -583,23 +593,18 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 // solver.factorize(H_lambda);
                 if (solver.info() != Eigen::Success)
                 {
-                    // some problem i have still to debug
-                    it = maxIterations;
-                    std::cout << "solver.compute not successfull " << solver.info() << std::endl;
-                    break;
+                    solverSucceded = false;
                 }
                 // std::cout << solver.lastErrorMessage() << std::endl;
                 Eigen::VectorXf inc = solver.solve(G);
-                // inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
-                // inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
-                // inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
+                // Eigen::VectorXf inc = G / (1.0 + lambda);
+                //  inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
+                //  inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
+                //  inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
 
                 if (solver.info() != Eigen::Success)
                 {
-                    // solving failed
-                    it = maxIterations;
-                    std::cout << "solver.compute not successfull " << solver.info() << std::endl;
-                    break;
+                    solverSucceded = false;
                 }
 
                 // update pose
@@ -664,7 +669,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                 std::cout << "new error " << error << " " << it << " " << lambda << std::endl;
 
-                if (error < last_error)
+                if (error < last_error && solverSucceded)
                 {
                     // accept update, decrease lambda
                     float p = error / last_error;

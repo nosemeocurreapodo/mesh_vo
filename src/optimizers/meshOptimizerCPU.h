@@ -176,18 +176,12 @@ public:
 
         show(frame.image, "frame image", false, false, 1);
         show(kframe.image, "keyframe image", false, false, 1);
-        show(error_buffer, "lastFrame error", true, true, 1);
+        show(error_buffer, "lastFrame error", false, true, 1);
         show(idepth_buffer, "lastFrame idepth", true, true, 1);
         show(image_buffer, "lastFrame scene", false, true, 1);
         show(ivar_buffer, "ivar", true, false, 1);
 
-        idepth_buffer.set(idepth_buffer.nodata, 1);
-        scene->transform(kframe.pose);
-        scene->project(cam[1]);
-        kscene.project(cam[1]);
-        // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
-        renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
-        show(idepth_buffer, "keyframe idepth", true, false, 1);
+        show(jmap_buffer, "jmap image", false, true, 1);
 
         if (frames.size() > 0)
         {
@@ -211,6 +205,14 @@ public:
         kscene.project(cam[0]);
         renderer.renderDebugParallel(scene.get(), &frame, cam[0], &debug, 0);
         show(debug, "frame debug", false, false, 0);
+
+        idepth_buffer.set(idepth_buffer.nodata, 1);
+        scene->transform(kframe.pose);
+        scene->project(cam[1]);
+        kscene.project(cam[1]);
+        // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
+        renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
+        show(idepth_buffer, "keyframe idepth", true, false, 1);
     }
 
     float getViewPercent(frameCPU &frame)
@@ -267,7 +269,7 @@ public:
         */
     }
 
-    // ScenePatches kscene;
+    //ScenePatches kscene;
     //  SceneSurfels kscene;
     SceneMesh kscene;
     frameCPU kframe;
