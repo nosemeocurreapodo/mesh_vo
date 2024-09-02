@@ -774,7 +774,7 @@ private:
     template <typename Type>
     void renderJPoseWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<Type> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
-        float min_area = 0.0 * (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) / 16;
+        float min_area = (float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
         // float min_angle = M_PI / 64.0;
 
         Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
@@ -947,7 +947,7 @@ private:
     template <typename Type1, typename Type2>
     void renderJMapWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
-        float min_area = 0.0 * (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16;
+        float min_area = (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3 / 4;
         // float min_angle = M_PI / 64.0;
 
         // std::unique_ptr<SceneBase> kframeMesh = scene.clone();
@@ -1098,7 +1098,7 @@ private:
     template <typename Type1, typename Type2, typename Type3>
     void renderJPoseMapWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<Type1> *jpose_buffer, dataCPU<Type2> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type3> *pId_buffer, int lvl)
     {
-        float min_area = 0.0 * (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) / 16.0;
+        float min_area = (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3.0 / 4.0;
         // float min_angle = M_PI / 64.0;
 
         Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
@@ -1118,7 +1118,8 @@ private:
             auto kf_pol = kscene->getShape(cam, t_id);
             // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
-            if (kf_pol->getArea() < min_area)
+            float kf_pol_area = kf_pol->getArea();
+            if (kf_pol_area < min_area)
                 continue;
             // std::array<float, 3> kf_tri_angles = kf_tri_2d.getAngles();
             // if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
@@ -1127,7 +1128,8 @@ private:
             auto f_pol = scene->getShape(cam, t_id);
             // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
-            if (f_pol->getArea() < min_area)
+            float f_pol_area = f_pol->getArea();
+            if (f_pol_area < min_area)
                 continue;
             // std::array<float, 3> f_tri_angles = f_tri_2d.getAngles();
             // if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)

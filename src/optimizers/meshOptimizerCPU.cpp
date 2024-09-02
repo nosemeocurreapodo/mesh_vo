@@ -642,8 +642,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     float inc_param = inc(id.second);
                     float new_param = best_param - inc_param;
                     float weight = H.coeffRef(id.second, id.second);
-                    if(std::fabs(inc_param/best_param) > 0.4)
-                        solverSucceded = false;
+                    //if(std::fabs(inc_param/best_param) > 0.4)
+                    //    solverSucceded = false;
                     best_params[id.first] = best_param;
                     kscene.setParam(new_param, id.first);
                     kscene.setParamWeight(weight, id.first);

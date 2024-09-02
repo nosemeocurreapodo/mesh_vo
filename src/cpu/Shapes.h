@@ -350,8 +350,8 @@ public:
 
     float getArea() override
     {
-        return 1.0;
-        // return normal.norm() / 2.0;
+        return -p_denominator;
+        //return normal.norm() / 2.0;
     }
 
     inline void prepareForRay(vec3<float> r) override

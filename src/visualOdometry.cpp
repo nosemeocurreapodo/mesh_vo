@@ -119,7 +119,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         //meshOptimizer.setMeshRegu(0.0);
         //dataCPU<float> mask(cam.width, cam.height, -1);
         //meshOptimizer.optMap(keyFrames, mask);
-        meshOptimizer.setMeshRegu(0.0);
+        meshOptimizer.setMeshRegu(10.0);
         meshOptimizer.optPoseMap(keyFrames);
         std::cout << "optposemap time " << t.toc() << std::endl;
 

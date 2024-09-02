@@ -57,8 +57,8 @@ int main(void)
 
     visualOdometry odometry(cam);
 
-    //odometry.initScene(image, idepth, ivar);
-    odometry.initScene(image);
+    odometry.initScene(image, idepth, ivar);
+    //odometry.initScene(image);
 
     while(1){
         framesTracked++;
@@ -86,8 +86,8 @@ int main(void)
         image.set((float*)imageMat.data);
 
         //odometry.localization(image);
-        odometry.mapping(image, realPose);
-        //odometry.locAndMap(image);
+        //odometry.mapping(image, realPose);
+        odometry.locAndMap(image);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();
