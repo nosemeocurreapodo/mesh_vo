@@ -45,6 +45,8 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
 {
     kscene.init(frame, cam[lvl], idepth, ivar, lvl);
     kframe = frame;
+    kframe.contrast = 1.0;
+    kframe.brightness = 0.0;
     scene = kscene.clone();
 }
 
