@@ -447,6 +447,154 @@ private:
 };
 
 template <typename type>
+struct mat8;
+
+template <typename type>
+struct vec8
+{
+    vec8()
+    {
+    }
+
+    vec8(type x, type y, type z, type a, type b, type c, type d, type e)
+    {
+        this->operator()(0) = x;
+        this->operator()(1) = y;
+        this->operator()(2) = z;
+        this->operator()(3) = a;
+        this->operator()(4) = b;
+        this->operator()(5) = c;
+        this->operator()(6) = d;
+        this->operator()(7) = e;
+    }
+
+    static int size()
+    {
+        return 8;
+    }
+
+    static vec8 zero()
+    {
+        return vec8(0, 0, 0, 0, 0, 0, 0, 0);
+    }
+
+    /*
+    void zero()
+    {
+        this->operator()(0) = type(0.0);
+        this->operator()(1) = type(0.0);
+        this->operator()(2) = type(0.0);
+        this->operator()(3) = type(0.0);
+        this->operator()(4) = type(0.0);
+        this->operator()(5) = type(0.0);
+    }
+    */
+
+    type dot(vec8<type> b)
+    {
+        type result;
+        /*
+        for (int x = 0; x < 6; x++)
+        {
+          result += data[x] * b(x);
+        }
+        */
+        result = this->operator()(0) * b(0) + this->operator()(1) * b(1) + this->operator()(2) * b(2) + this->operator()(3) * b(3) + this->operator()(4) * b(4) + this->operator()(5) * b(5) + this->operator()(6) * b(6) + this->operator()(7) * b(7);
+        return result;
+    }
+
+    vec8<type> operator+(vec8<type> c)
+    {
+        vec8<type> result;
+        result(0) = this->operator()(0) + c(0);
+        result(1) = this->operator()(1) + c(1);
+        result(2) = this->operator()(2) + c(2);
+        result(3) = this->operator()(3) + c(3);
+        result(4) = this->operator()(4) + c(4);
+        result(5) = this->operator()(5) + c(5);
+        result(6) = this->operator()(6) + c(6);
+        result(7) = this->operator()(7) + c(7);
+        return result;
+    }
+
+    template <typename type2>
+    vec8 operator/(type2 c)
+    {
+        vec8 result;
+        result(0) = type(this->operator()(0) / c);
+        result(1) = type(this->operator()(1) / c);
+        result(2) = type(this->operator()(2) / c);
+        result(3) = type(this->operator()(3) / c);
+        result(4) = type(this->operator()(4) / c);
+        result(5) = type(this->operator()(5) / c);
+        result(6) = type(this->operator()(6) / c);
+        result(7) = type(this->operator()(7) / c);
+        return result;
+    }
+
+    template <typename type2>
+    vec8 operator*(type2 c)
+    {
+        vec8 result;
+        result(0) = this->operator()(0) * c;
+        result(1) = this->operator()(1) * c;
+        result(2) = this->operator()(2) * c;
+        result(3) = this->operator()(3) * c;
+        result(4) = this->operator()(4) * c;
+        result(5) = this->operator()(5) * c;
+        result(6) = this->operator()(6) * c;
+        result(7) = this->operator()(7) * c;
+        return result;
+    }
+
+    mat8<type> outer(mat8<type> a)
+    {
+        mat8<type> result;
+
+        for (int y = 0; y < 8; y++)
+        {
+            for (int x = 0; x < 8; x++)
+                result(y, x) = this->operator()(y) * a(x);
+        }
+        return result;
+    }
+
+    void operator=(vec8<type> c)
+    {
+        this->operator()(0) = c(0);
+        this->operator()(1) = c(1);
+        this->operator()(2) = c(2);
+        this->operator()(3) = c(3);
+        this->operator()(4) = c(4);
+        this->operator()(5) = c(5);
+        this->operator()(6) = c(6);
+        this->operator()(7) = c(7);
+    }
+
+    bool operator==(vec8<type> c)
+    {
+        if (this->operator()(0) == c(0) && this->operator()(1) == c(1) && this->operator()(2) == c(2) &&
+            this->operator()(3) == c(3) && this->operator()(4) == c(4) && this->operator()(5) == c(5) &&
+            this->operator()(6) == c(6) && this->operator()(7) == c(7))
+            return true;
+        return false;
+    }
+
+    inline type &operator()(int c)
+    {
+        return data[c];
+    }
+
+    inline type operator()(int c) const
+    {
+        return data[c];
+    }
+
+private:
+    type data[8];
+};
+
+template <typename type>
 struct vecx
 {
     vecx()
@@ -455,7 +603,7 @@ struct vecx
 
     vecx(int size)
     {
-        for(int i = 0; i < size; i++)
+        for (int i = 0; i < size; i++)
             data.push_back(type(0));
     }
 
@@ -898,6 +1046,207 @@ struct mat6
 
 private:
     type data[6][6];
+};
+
+template <typename type>
+struct mat8
+{
+    mat8()
+    {
+    }
+
+    mat8(type *data)
+    {
+        this->operator()(0, 0) = data[0];
+        this->operator()(0, 1) = data[1];
+        this->operator()(0, 2) = data[2];
+        this->operator()(0, 3) = data[3];
+        this->operator()(0, 4) = data[4];
+        this->operator()(0, 5) = data[5];
+        this->operator()(0, 6) = data[6];
+        this->operator()(0, 7) = data[7];
+
+        this->operator()(1, 0) = data[8];
+        this->operator()(1, 1) = data[9];
+        this->operator()(1, 2) = data[10];
+        this->operator()(1, 3) = data[11];
+        this->operator()(1, 4) = data[12];
+        this->operator()(1, 5) = data[13];
+        this->operator()(1, 6) = data[14];
+        this->operator()(1, 7) = data[15];
+
+        this->operator()(2, 0) = data[16];
+        this->operator()(2, 1) = data[17];
+        this->operator()(2, 2) = data[18];
+        this->operator()(2, 3) = data[19];
+        this->operator()(2, 4) = data[20];
+        this->operator()(2, 5) = data[21];
+        this->operator()(2, 6) = data[22];
+        this->operator()(2, 7) = data[23];
+
+        this->operator()(3, 0) = data[24];
+        this->operator()(3, 1) = data[25];
+        this->operator()(3, 2) = data[26];
+        this->operator()(3, 3) = data[27];
+        this->operator()(3, 4) = data[28];
+        this->operator()(3, 5) = data[29];
+        this->operator()(3, 6) = data[30];
+        this->operator()(3, 7) = data[31];
+
+        this->operator()(4, 0) = data[32];
+        this->operator()(4, 1) = data[33];
+        this->operator()(4, 2) = data[34];
+        this->operator()(4, 3) = data[35];
+        this->operator()(4, 4) = data[36];
+        this->operator()(4, 5) = data[37];
+        this->operator()(4, 6) = data[38];
+        this->operator()(4, 7) = data[39];
+
+        this->operator()(5, 0) = data[40];
+        this->operator()(5, 1) = data[41];
+        this->operator()(5, 2) = data[42];
+        this->operator()(5, 3) = data[43];
+        this->operator()(5, 4) = data[44];
+        this->operator()(5, 5) = data[45];
+        this->operator()(5, 6) = data[46];
+        this->operator()(5, 7) = data[47];
+
+        this->operator()(6, 0) = data[48];
+        this->operator()(6, 1) = data[49];
+        this->operator()(6, 2) = data[50];
+        this->operator()(6, 3) = data[51];
+        this->operator()(6, 4) = data[52];
+        this->operator()(6, 5) = data[53];
+        this->operator()(6, 6) = data[54];
+        this->operator()(6, 7) = data[55];
+
+        this->operator()(7, 0) = data[56];
+        this->operator()(7, 1) = data[57];
+        this->operator()(7, 2) = data[58];
+        this->operator()(7, 3) = data[59];
+        this->operator()(7, 4) = data[60];
+        this->operator()(7, 5) = data[61];
+        this->operator()(7, 6) = data[62];
+        this->operator()(7, 7) = data[63];
+    }
+
+    void zero()
+    {
+        for (int y = 0; y < 8; y++)
+        {
+            for (int x = 0; x < 8; x++)
+            {
+                this->operator()(y, x) = 0.0;
+            }
+        }
+    }
+
+    void identity()
+    {
+        for (int y = 0; y < 8; y++)
+        {
+            for (int x = 0; x < 8; x++)
+            {
+                if (x == y)
+                    this->operator()(y, x) = 1.0;
+                else
+                    this->operator()(y, x) = 0.0;
+            }
+        }
+    }
+
+    template <typename type2>
+    mat8 operator/(type2 c)
+    {
+        mat8<type> result;
+        for (int y = 0; y < 8; y++)
+            for (int x = 0; x < 8; x++)
+            {
+                result(y, x) = this->operator()(y, x) / c;
+            }
+        return result;
+    }
+
+    template <typename type2>
+    mat8 operator*(type2 c)
+    {
+        mat8<type> result;
+        for (int y = 0; y < 8; y++)
+            for (int x = 0; x < 8; x++)
+            {
+                result(y, x) = type(this->operator()(y, x) * c);
+            }
+        return result;
+    }
+
+    mat8 operator+(mat8 c)
+    {
+        mat8<type> result;
+
+        for (int y = 0; y < 8; y++)
+        {
+
+            for (int x = 0; x < 8; x++)
+            {
+                result(y, x) = this->operator()(y, x) + c(y, x);
+            }
+        }
+        return result;
+    }
+
+    mat8 dot(mat8 c)
+    {
+        mat8<type> result;
+        for (int y = 0; y < 8; y++)
+            for (int x = 0; x < 8; x++)
+            {
+                for (int z = 0; z < 8; z++)
+                    result(y, x) += this->operator()(y, z) * c(z, y);
+            }
+
+        return result;
+    }
+
+    vec8<type> dot(vec8<type> c)
+    {
+        vec8<type> result;
+
+        for (int y = 0; y < 8; y++)
+        {
+
+            for (int x = 0; x < 8; x++)
+            {
+                result(y) += this->operator()(y, x) * c(x);
+            }
+        }
+        return result;
+    }
+
+    void operator=(mat8<type> c)
+    {
+
+        for (int i = 0; i < 8; i++)
+        {
+
+            for (int j = 0; j < 8; j++)
+            {
+                this->operator()(i, j) = c(i, j);
+            }
+        }
+    }
+
+    inline type &operator()(int b, int c)
+    {
+        return data[b][c];
+    }
+
+    inline type operator()(int b, int c) const
+    {
+        return data[b][c];
+    }
+
+private:
+    type data[8][8];
 };
 
 template <typename type>

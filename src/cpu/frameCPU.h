@@ -15,6 +15,8 @@ public:
     {
         init = false;
         id = 0;
+        contrast = 1.0;
+        brightness = 0.0;
     };
 
     frameCPU(const frameCPU &other) : image(other.image),
@@ -24,6 +26,8 @@ public:
         init = other.init;
         id = other.id;
         pose = other.pose;
+        contrast = other.contrast;
+        brightness = other.brightness;
     }
 
     frameCPU &operator=(const frameCPU &other)
@@ -33,6 +37,8 @@ public:
             init = other.init;
             id = other.id;
             pose = other.pose;
+            contrast = other.contrast;
+            brightness = other.brightness;
 
             image = other.image;
             dx = other.dx;
@@ -70,6 +76,8 @@ public:
     dataCPU<float> dy;
 
     Sophus::SE3f pose;
+    float contrast;
+    float brightness;
 
     bool init;
     int id;

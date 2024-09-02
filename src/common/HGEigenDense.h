@@ -5,7 +5,7 @@
 class HGEigenDense
 {
 public:
-    HGEigenDense(int size = 6)
+    HGEigenDense(int size = 8)
     {
         H = Eigen::MatrixXf::Zero(size, size);
         G = Eigen::VectorXf::Zero(size);

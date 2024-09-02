@@ -8,7 +8,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
       idepth_buffer(_cam.width, _cam.height, -1.0),
       ivar_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
-      jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
+      jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
       jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
       pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
       // jmap_buffer(_cam.width, _cam.height, 0.0),
@@ -50,18 +50,14 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
 
 Error meshOptimizerCPU::computeError(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights)
 {
-    image_buffer.set(image_buffer.nodata, lvl);
-    idepth_buffer.set(idepth_buffer.nodata, lvl);
+    error_buffer.set(error_buffer.nodata, lvl);
     ivar_buffer.set(ivar_buffer.nodata, lvl);
 
-    renderer.renderImageParallel(&kscene, &kframe, scene, cam[lvl], &image_buffer, lvl);
+    renderer.renderResidualParallel(&kscene, &kframe, scene, frame, cam[lvl], &error_buffer, lvl);
     if (useWeights)
         renderer.renderWeightParallel(scene, cam[lvl], &ivar_buffer, lvl);
-    // renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
 
-    // renderer.renderIdepthParallel(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
-    // renderer.renderImageParallel(idepth_buffer, cam[lvl], kframe, frame.pose, image_buffer, lvl);
-    Error e = reducer.reduceErrorParallel(cam[lvl], image_buffer, frame->image, ivar_buffer, lvl);
+    Error e = reducer.reduceErrorParallel(cam[lvl], error_buffer, ivar_buffer, lvl);
 
     return e;
 }
@@ -88,11 +84,6 @@ HGEigenDense meshOptimizerCPU::computeHGPose(SceneBase *scene, frameCPU *frame, 
     renderer.renderJPoseParallel(&kscene, &kframe, scene, frame, cam[lvl], &jpose_buffer, &error_buffer, lvl);
     if (useWeights)
         renderer.renderWeightParallel(scene, cam[lvl], &ivar_buffer, lvl);
-
-    // renderer.renderIdepth(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
-    // renderer.renderIdepthParallel(scene, cam[lvl], frame.pose, idepth_buffer, lvl);
-    // renderer.renderJPose(idepth_buffer, cam[lvl], kframe, frame, jpose_buffer, error_buffer, lvl);
-    //  renderer.renderJPoseParallel(idepth_buffer, cam[lvl], kframe, frame, j1_buffer, j2_buffer, error_buffer, lvl);
 
     HGEigenDense hg = reducer.reduceHGPoseParallel(cam[lvl], jpose_buffer, error_buffer, ivar_buffer, lvl);
 
@@ -181,6 +172,8 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
         kscene.project(cam[lvl]);
         // std::cout << "*************************lvl " << lvl << std::endl;
         Sophus::SE3f best_pose = frame.pose;
+        float best_contrast = frame.contrast;
+        float best_brightness = frame.brightness;
         // Error e = computeError(idepth_buffer, keyframe, frame, lvl);
         Error e = computeError(scene.get(), &frame, lvl, false);
         float last_error = e.getError();
@@ -197,23 +190,26 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
             // Eigen::SparseMatrix<float> H = hg.H.toEigen(pIds);
 
             Eigen::VectorXf G = hg.getG();
-            Eigen::Matrix<float, 6, 6> H = hg.getH();
+            Eigen::Matrix<float, 8, 8> H = hg.getH();
 
             float lambda = 0.0;
             int n_try = 0;
             while (true)
             {
-                Eigen::Matrix<float, 6, 6> H_lambda;
+                Eigen::Matrix<float, 8, 8> H_lambda;
                 H_lambda = H;
 
-                for (int j = 0; j < 6; j++)
+                for (int j = 0; j < 8; j++)
                     H_lambda(j, j) *= 1.0 + lambda;
 
                 // Eigen::Matrix<float, 6, 1> inc = H_lambda.ldlt().solve(G);
-                Sophus::Vector6f inc = H_lambda.ldlt().solve(G);
+                Eigen::VectorXf inc = Eigen::VectorXf::Zero(8);
+                inc = H_lambda.ldlt().solve(G);
 
                 // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
-                frame.pose = best_pose * Sophus::SE3f::exp(inc).inverse();
+                frame.pose = best_pose * Sophus::SE3f::exp(inc.segment(0, 6)).inverse();
+                frame.contrast = frame.contrast - inc(6);
+                frame.brightness = frame.brightness - inc(7);
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
                 scene->transform(frame.pose);
                 scene->project(cam[lvl]);
@@ -252,6 +248,8 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
                 else
                 {
                     frame.pose = best_pose;
+                    frame.contrast = best_contrast;
+                    frame.brightness = best_brightness;
                     scene->transform(frame.pose);
                     scene->project(cam[lvl]);
 
@@ -508,8 +506,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 {
     Error e;
     Error e_regu;
-    HGEigenSparse hg(kscene.getNumParams() + frames.size() * 6);
-    HGEigenSparse hg_regu(kscene.getNumParams() + frames.size() * 6);
+    HGEigenSparse hg(kscene.getNumParams() + frames.size() * 8);
+    HGEigenSparse hg_regu(kscene.getNumParams() + frames.size() * 8);
 
     for (int lvl = 1; lvl >= 1; lvl--)
     {
@@ -548,8 +546,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
             // saveH(hg, "H.png");
 
             // map from param id to param index paramIndex = obsParamIds[paramId]
-            std::map<int, int> paramIds = hg.getObservedParamIds();
-            // std::map<int, int> paramIds = hg.getParamIds();
+            //std::map<int, int> paramIds = hg.getObservedParamIds();
+            std::map<int, int> paramIds = hg.getParamIds();
 
             Eigen::VectorXf G = hg.getG(paramIds);
             Eigen::SparseMatrix<float> H = hg.getH(paramIds);
@@ -609,21 +607,27 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                 // update pose
                 std::vector<Sophus::SE3f> best_poses;
+                std::vector<float> best_contrast;
+                std::vector<float> best_brightness;
                 float pose_inc_mag = 0.0;
                 for (size_t i = 0; i < frames.size(); i++)
                 {
-                    Eigen::Matrix<float, 6, 1> pose_inc;
+                    Eigen::Matrix<float, 8, 1> pose_inc;
                     // if ids are in order, like this I get the correct pose increment
                     // have to fix it some better way
-                    for (int j = 0; j < 6; j++)
+                    for (int j = 0; j < 8; j++)
                     {
-                        int paramId = kscene.getNumParams() + i * 6 + j;
+                        int paramId = kscene.getNumParams() + i * 8 + j;
                         int index = paramIds[paramId];
                         pose_inc(j) = inc(index);
                     }
                     pose_inc_mag += pose_inc.dot(pose_inc);
                     best_poses.push_back(frames[i].pose);
-                    frames[i].pose = frames[i].pose * Sophus::SE3f::exp(pose_inc).inverse();
+                    best_contrast.push_back(frames[i].contrast);
+                    best_brightness.push_back(frames[i].brightness);
+                    frames[i].pose = frames[i].pose * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
+                    frames[i].contrast = frames[i].contrast - pose_inc(6);
+                    frames[i].brightness = frames[i].brightness - pose_inc(7);
                     // frames[i].pose = Sophus::SE3f::exp(pose_inc).inverse() * frames[i].pose;
                 }
                 pose_inc_mag /= frames.size();
@@ -698,7 +702,11 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 else
                 {
                     for (size_t index = 0; index < frames.size(); index++)
+                    {
                         frames[index].pose = best_poses[index];
+                        frames[index].contrast = best_contrast[index];
+                        frames[index].brightness = best_brightness[index];
+                    }
 
                     for (auto id : paramIds)
                     {

@@ -168,11 +168,7 @@ public:
         // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
         renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
         renderer.renderWeightParallel(scene.get(), cam[1], &ivar_buffer, 1);
-        renderer.renderImageParallel(&kscene, &kframe, scene.get(), cam[1], &image_buffer, 1);
-
-        error_buffer = frame.image.sub(image_buffer, 1);
-        // renderer.renderIdepthLineSearch(&kframe, &frame, cam[1], &error_buffer, 1);
-        // idepth_buffer = renderer.getzbuffer();
+        renderer.renderResidualParallel(&kscene, &kframe, scene.get(), &frame, cam[1], &error_buffer, 1);
 
         show(frame.image, "frame image", false, false, 1);
         show(kframe.image, "keyframe image", false, false, 1);
@@ -300,7 +296,7 @@ private:
     dataCPU<float> ivar_buffer;
     dataCPU<float> error_buffer;
 
-    dataCPU<vec6<float>> jpose_buffer;
+    dataCPU<vec8<float>> jpose_buffer;
 
     // dataCPU<vec1<float>> jmap_buffer;
     // dataCPU<vec1<int>> pId_buffer;

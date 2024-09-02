@@ -133,7 +133,7 @@ public:
     {
         return getDepthParam(paramId);
     }
-    /*
+    
     Error errorRegu(camera cam)
     {
         Error error;
@@ -169,7 +169,7 @@ public:
     {
         std::vector<int> polIds = getTrianglesIds();
 
-        HGEigenSparse hg(getNumParams() + numFrames * 6);
+        HGEigenSparse hg(getNumParams() + numFrames * 8);
 
         for (size_t i = 0; i < polIds.size(); i++)
         {
@@ -208,8 +208,8 @@ public:
 
         return hg;
     }
-    */
 
+    /*
     Error errorRegu(camera cam)
     {
         Error error;
@@ -255,7 +255,7 @@ public:
     {
         std::vector<int> vertIds = getVerticesIds();
 
-        HGEigenSparse hg(getNumParams() + numFrames * 6);
+        HGEigenSparse hg(getNumParams() + numFrames * 8);
 
         int patch_width = cam.width / MESH_WIDTH;
         int patch_height = cam.height / MESH_HEIGHT;
@@ -310,6 +310,7 @@ public:
 
         return hg;
     }
+    */
 
     Error errorInitial(SceneMesh &initScene, MatrixMapped &initThetaVar)
     {
