@@ -1297,7 +1297,7 @@ private:
             else
                 p_area = kf_pol_area / f_pol_area;
 
-            if (p_area < 0.7)
+            if (p_area < 0.5)
                 continue;
 
             window pol_win = f_pol->getScreenBounds();
