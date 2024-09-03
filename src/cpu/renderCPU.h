@@ -607,8 +607,8 @@ private:
         auto kf_pol = kscene->getShape(cam, ids[0]);
         auto f_pol = scene->getShape(cam, ids[0]);
 
-        float kf_c = kframe->contrast;
-        float kf_b = kframe->brightness;
+        // float kf_a = kframe->a;
+        // float kf_b = kframe->b;
 
         // for each triangle
         for (auto t_id : ids)
@@ -684,7 +684,8 @@ private:
                     if (kf_i == kframe->image.nodata)
                         continue;
 
-                    buffer->set(kf_c * kf_i + kf_b, y, x, lvl);
+                    // buffer->set(std::exp(kf_a) * (kf_i - kf_b), y, x, lvl);
+                    buffer->set(kf_i, y, x, lvl);
                     z_buffer.set(f_depth, y, x, lvl);
                 }
             }
@@ -811,7 +812,7 @@ private:
         }
     }
 
-   void renderResidualWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<float> *e_buffer, int lvl)
+    void renderResidualWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<float> *e_buffer, int lvl)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
         // float min_angle = M_PI / 64.0;
@@ -825,10 +826,10 @@ private:
         auto kf_pol = kscene->getShape(cam, t_ids[0]);
         auto f_pol = scene->getShape(cam, t_ids[0]);
 
-        float kf_c = kframe->contrast;
-        float kf_b = kframe->brightness;
-        float f_c = frame->contrast;
-        float f_b = frame->brightness;
+        float kf_a = kframe->a;
+        float kf_b = kframe->b;
+        float f_a = frame->a;
+        float f_b = frame->b;
 
         for (auto t_id : t_ids)
         {
@@ -899,7 +900,7 @@ private:
                     if (kf_i == kframe->image.nodata || f_i == frame->image.nodata)
                         continue;
 
-                    float residual = (f_c * f_i + f_b - kf_c * kf_i - kf_b);
+                    float residual = ((f_i - f_b) - std::exp(kf_a - f_a) * (kf_i - kf_b));
 
                     e_buffer->set(residual, y, x, lvl);
                     z_buffer.set(f_depth, y, x, lvl);
@@ -922,10 +923,10 @@ private:
         auto kf_pol = kscene->getShape(cam, t_ids[0]);
         auto f_pol = scene->getShape(cam, t_ids[0]);
 
-        float kf_c = kframe->contrast;
-        float kf_b = kframe->brightness;
-        float f_c = frame->contrast;
-        float f_b = frame->brightness;
+        float kf_a = kframe->a;
+        float kf_b = kframe->b;
+        float f_a = frame->a;
+        float f_b = frame->b;
 
         for (auto t_id : t_ids)
         {
@@ -998,7 +999,7 @@ private:
                     if (kf_i == kframe->image.nodata || f_i == frame->image.nodata || dx == frame->dx.nodata || dy == frame->dy.nodata)
                         continue;
 
-                    vec2<float> d_f_i_d_pix(f_c * dx, f_c * dy);
+                    vec2<float> d_f_i_d_pix(dx, dy);
 
                     // Eigen::MatrixXf d_pix_d_f_ver = cam.dPixdPoint(f_ver);
 
@@ -1012,12 +1013,12 @@ private:
                     vec3<float> d_f_i_d_tra(v0, v1, v2);
                     vec3<float> d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-                    float d_f_i_d_f_c = f_i;
-                    float d_f_i_d_f_b = 1.0;
+                    float d_f_i_d_f_a = std::exp(kf_a - f_a) * (kf_i - kf_b);
+                    float d_f_i_d_f_b = -1.0;
 
-                    vec8<float> j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_f_c, d_f_i_d_f_b};
+                    vec8<float> j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_f_a, d_f_i_d_f_b};
 
-                    float residual = (f_c * f_i + f_b - kf_c * kf_i - kf_b);
+                    float residual = (f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b));
 
                     jpose_buffer->set(j_pose, y, x, lvl);
                     e_buffer->set(residual, y, x, lvl);
@@ -1108,10 +1109,10 @@ private:
 
         int shapeDoF = scene->getShapesDoF();
 
-        float kf_c = kframe->contrast;
-        float kf_b = kframe->brightness;
-        float f_c = frame->contrast;
-        float f_b = frame->brightness;
+        float kf_a = kframe->a;
+        float kf_b = kframe->b;
+        float f_a = frame->a;
+        float f_b = frame->b;
 
         for (auto t_id : t_ids)
         {
@@ -1204,9 +1205,9 @@ private:
                     if (kf_i == kframe->image.nodata || f_i == frame->image.nodata || dx == frame->dx.nodata || dy == frame->dy.nodata)
                         continue;
 
-                    vec2<float> d_f_i_d_pix(f_c * dx, f_c * dy);
+                    vec2<float> d_f_i_d_pix(dx, dy);
 
-                    float error = f_c * f_i + f_b - kf_c * kf_i - kf_b;
+                    float residual = f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b);
 
                     // vec3<float> d_f_i_d_f_ver = cam.d_f_i_d_f_ver(d_f_i_d_pix, f_ver);
 
@@ -1236,7 +1237,7 @@ private:
                         ids(i) = p_ids[i];
                     }
 
-                    e_buffer->set(error, y, x, lvl);
+                    e_buffer->set(residual, y, x, lvl);
                     jmap_buffer->set(jacs, y, x, lvl);
                     pId_buffer->set(ids, y, x, lvl);
                 }
@@ -1257,10 +1258,10 @@ private:
         std::vector<int> t_ids = kscene->getShapesIds();
         int shapeDoF = kscene->getShapesDoF();
 
-        float kf_c = kframe->contrast;
-        float kf_b = kframe->brightness;
-        float f_c = frame->contrast;
-        float f_b = frame->brightness;
+        float kf_a = kframe->a;
+        float kf_b = kframe->b;
+        float f_a = frame->a;
+        float f_b = frame->b;
 
         for (auto t_id : t_ids)
         {
@@ -1354,7 +1355,7 @@ private:
                     if (kf_i == kframe->image.nodata || f_i == frame->image.nodata || dx == frame->dx.nodata || dy == frame->dy.nodata)
                         continue;
 
-                    vec2<float> d_f_i_d_pix(f_c * dx, f_c * dy);
+                    vec2<float> d_f_i_d_pix(dx, dy);
 
                     vec3<float> d_f_i_d_f_ver;
                     d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
@@ -1364,8 +1365,8 @@ private:
                     vec3<float> d_f_i_d_tra(d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2));
                     vec3<float> d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
-                    float d_f_i_d_f_c = f_i;
-                    float d_f_i_d_f_b = 1.0;
+                    float d_f_i_d_f_c = std::exp(kf_a - f_a) * (kf_i - kf_b);
+                    float d_f_i_d_f_b = -1.0;
 
                     vec8<float> jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_f_c, d_f_i_d_f_b};
 
@@ -1378,7 +1379,7 @@ private:
 
                     std::vector<float> Jacobian = kf_pol->getJacobian(d_f_i_d_kf_depth);
 
-                    float error = f_c * f_i + f_b - kf_c * kf_i - kf_b;
+                    float error = f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b);
 
                     Type1 jacs = jmap_buffer->nodata;
                     Type2 ids = pId_buffer->nodata;

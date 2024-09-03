@@ -45,8 +45,8 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
 {
     kscene.init(frame, cam[lvl], idepth, ivar, lvl);
     kframe = frame;
-    kframe.contrast = 1.0;
-    kframe.brightness = 0.0;
+    //kframe.a = 0.0;
+    //kframe.b = 0.0;
     scene = kscene.clone();
 }
 
@@ -174,8 +174,8 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
         kscene.project(cam[lvl]);
         // std::cout << "*************************lvl " << lvl << std::endl;
         Sophus::SE3f best_pose = frame.pose;
-        float best_contrast = frame.contrast;
-        float best_brightness = frame.brightness;
+        float best_a = frame.a;
+        float best_b = frame.b;
         // Error e = computeError(idepth_buffer, keyframe, frame, lvl);
         Error e = computeError(scene.get(), &frame, lvl, false);
         float last_error = e.getError();
@@ -210,8 +210,8 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
                 // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
                 frame.pose = best_pose * Sophus::SE3f::exp(inc.segment(0, 6)).inverse();
-                frame.contrast = frame.contrast - inc(6);
-                frame.brightness = frame.brightness - inc(7);
+                frame.a = frame.a - inc(6);
+                frame.b = frame.b - inc(7);
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
                 scene->transform(frame.pose);
                 scene->project(cam[lvl]);
@@ -250,8 +250,8 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
                 else
                 {
                     frame.pose = best_pose;
-                    frame.contrast = best_contrast;
-                    frame.brightness = best_brightness;
+                    frame.a = best_a;
+                    frame.b = best_b;
                     scene->transform(frame.pose);
                     scene->project(cam[lvl]);
 
@@ -609,8 +609,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                 // update pose
                 std::vector<Sophus::SE3f> best_poses;
-                std::vector<float> best_contrast;
-                std::vector<float> best_brightness;
+                std::vector<float> best_a;
+                std::vector<float> best_b;
                 float pose_inc_mag = 0.0;
                 for (size_t i = 0; i < frames.size(); i++)
                 {
@@ -625,11 +625,11 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     }
                     pose_inc_mag += pose_inc.dot(pose_inc);
                     best_poses.push_back(frames[i].pose);
-                    best_contrast.push_back(frames[i].contrast);
-                    best_brightness.push_back(frames[i].brightness);
+                    best_a.push_back(frames[i].a);
+                    best_b.push_back(frames[i].b);
                     frames[i].pose = frames[i].pose * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
-                    frames[i].contrast = frames[i].contrast - pose_inc(6);
-                    frames[i].brightness = frames[i].brightness - pose_inc(7);
+                    frames[i].a = frames[i].a - pose_inc(6);
+                    frames[i].b = frames[i].b - pose_inc(7);
                     // frames[i].pose = Sophus::SE3f::exp(pose_inc).inverse() * frames[i].pose;
                 }
                 pose_inc_mag /= frames.size();
@@ -706,8 +706,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     for (size_t index = 0; index < frames.size(); index++)
                     {
                         frames[index].pose = best_poses[index];
-                        frames[index].contrast = best_contrast[index];
-                        frames[index].brightness = best_brightness[index];
+                        frames[index].a = best_a[index];
+                        frames[index].b = best_b[index];
                     }
 
                     for (auto id : paramIds)

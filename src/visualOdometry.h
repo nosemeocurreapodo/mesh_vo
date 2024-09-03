@@ -34,6 +34,8 @@ private:
     camera cam;
     Sophus::SE3f lastMovement;
     Sophus::SE3f lastPose;
+    float lasta;
+    float lastb;
     std::vector<frameCPU> lastFrames;
     std::vector<frameCPU> keyFrames;
 
