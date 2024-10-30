@@ -16,7 +16,7 @@ Sophus::SE3f readPose(std::string filename)
     std::ifstream cam_pars_file(filename);
     if(!cam_pars_file.is_open())
     {
-        std::cout<<"failed opening file!"<<std::endl;
+        std::cout<<"failed opening file! " + filename << std::endl;
         exit(1);
     }
 

@@ -19,8 +19,16 @@ inline bool fileExist(const std::string& name) {
     return f.good();
 }
 
-int main(void)
+int main(int argc, char * argv[])
 {
+    if(argc != 2)
+    {
+        std::cout << "usage: ./testapp /path/to/dataset" << std::endl;
+        return 0;
+    }
+
+    std::string dataset_path = argv[1];
+
     int frameNumber = 0;
     int frameCounterDirection = 1;
 
@@ -35,9 +43,9 @@ int main(void)
     camera cam(fx, fy, cx, cy, width, height);
     cam.resize(512, 512);
 
-    cv::Mat imageMat = cv::imread("../../desktop_dataset/images/scene_000.png", cv::IMREAD_GRAYSCALE);
-    cv::Mat idepthMat = cv::imread("../../desktop_dataset/depths/scene_000.png", cv::IMREAD_GRAYSCALE);
-    Sophus::SE3f initPose = readPose("../../desktop_dataset/poses/scene_000.txt");
+    cv::Mat imageMat = cv::imread(dataset_path + "images/scene_000.png", cv::IMREAD_GRAYSCALE);
+    cv::Mat idepthMat = cv::imread(dataset_path + "depths/scene_000.png", cv::IMREAD_GRAYSCALE);
+    Sophus::SE3f initPose = readPose(dataset_path + "poses/scene_000.txt");
 
     imageMat.convertTo(imageMat, CV_32FC1);
     cv::resize(imageMat, imageMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
@@ -74,20 +82,23 @@ int main(void)
         char RT_filename[500];
 
         //file name
-        sprintf(image_filename,"../../desktop_dataset/images/scene_%03d.png", frameNumber);
-        sprintf(RT_filename,"../../desktop_dataset/poses/scene_%03d.txt", frameNumber);
+        sprintf(image_filename, "images/scene_%03d.png", frameNumber);
+        sprintf(RT_filename, "poses/scene_%03d.txt", frameNumber);
 
-        cv::Mat imageMat = cv::imread(image_filename, cv::IMREAD_GRAYSCALE);
-        Sophus::SE3f realPose = readPose(RT_filename)*initPose.inverse();
+        std::string image_path = dataset_path + image_filename;
+        std::string pose_path = dataset_path + RT_filename;
+
+        cv::Mat imageMat = cv::imread(image_path, cv::IMREAD_GRAYSCALE);
+        Sophus::SE3f realPose = readPose(pose_path)*initPose.inverse();
 
         imageMat.convertTo(imageMat, CV_32FC1);
         cv::resize(imageMat, imageMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
         image.set((float*)imageMat.data);
 
-        //odometry.localization(image);
+        odometry.localization(image);
         //odometry.mapping(image, realPose);
-        odometry.locAndMap(image);
+        //odometry.locAndMap(image);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();

@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:22.04
 
 RUN apt-get update &&  DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
   build-essential \
@@ -6,4 +6,5 @@ RUN apt-get update &&  DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
   libsuitesparse-dev \
   libeigen3-dev \
   libboost-all-dev \
-  libopencv-dev
+  libopencv-dev \
+  libglfw3-dev
