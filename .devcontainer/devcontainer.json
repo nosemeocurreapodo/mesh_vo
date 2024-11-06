@@ -10,8 +10,8 @@
 		//"args": { "VARIANT": "3" }
 	},
 	"mounts": [
-		"source=/home/emanuel/workspace/datasets,target=/datasets,type=bind,consistency=cached",
-		//"source=/mnt/sda1,target=/mnt/sda1,type=bind,consistency=cached"
+		//"source=/home/emanuel/workspace/datasets,target=/datasets,type=bind,consistency=cached",
+		"source=/mnt/nvme0n1p5/datasets,target=/datasets,type=bind,consistency=cached"
 	  ]
 	// Set *default* container specific settings.json values on container create.
 	//"settings": { 

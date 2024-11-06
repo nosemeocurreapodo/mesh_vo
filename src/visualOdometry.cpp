@@ -219,6 +219,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
 
     // dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
     // float percentNoData = idepth.getPercentNoData(1);
+    /*
     float viewPercent = meshOptimizer.getViewPercent(newFrame);
 
     std::cout << "view percent " << viewPercent << std::endl;
@@ -242,6 +243,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
         meshOptimizer.optMap(keyFrames, mask);
         std::cout << "optmap time " << t.toc() << std::endl;
     }
+    */
 
     meshOptimizer.plotDebug(newFrame);
 }

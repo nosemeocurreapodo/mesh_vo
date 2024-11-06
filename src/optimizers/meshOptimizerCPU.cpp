@@ -33,7 +33,7 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, int lvl)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
     // renderer.renderRandom(cam[lvl], &idepth_buffer, lvl);
-    renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl, 0.1, 1.0);
+    renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl, 0.5, 1.5);
     ivar_buffer.set(ivar_buffer.nodata, lvl);
     renderer.renderSmooth(cam[lvl], &ivar_buffer, lvl, initialIvar(), initialIvar());
     kscene.init(frame, cam[lvl], idepth_buffer, ivar_buffer, lvl);

@@ -519,7 +519,7 @@ private:
 
     void renderIdepthLineSearchWindow(frameCPU *kframe, frameCPU *frame, camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
-        Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
+        Sophus::SE3f kfTofPose = frame->getPose() * kframe->getPose().inverse();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         int size = 5;
@@ -528,8 +528,8 @@ private:
         {
             for (int x = win.min_x; x <= win.max_x; x++)
             {
-                auto f_i = frame->image.get(y, x, lvl);
-                if (f_i == frame->image.nodata)
+                auto f_i = frame->getCorPixel(y, x, lvl);
+                if (f_i == frame->getCorNoData())
                     continue;
 
                 vec2<float> f_pix(x, y);
@@ -568,8 +568,8 @@ private:
                     // if (z_depth < f_depth && z_depth != z_buffer.nodata)
                     //     continue;
 
-                    auto kf_i = kframe->image.get(kf_pix(1), kf_pix(0), lvl);
-                    if (kf_i == kframe->image.nodata)
+                    auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
+                    if (kf_i == kframe->getCorNoData())
                         continue;
 
                     float error = (f_i - kf_i) * (f_i - kf_i);
@@ -599,7 +599,7 @@ private:
 
     void renderImageWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
-        Sophus::SE3f kfTofPose = scene->getPose() * kframe->pose.inverse();
+        Sophus::SE3f kfTofPose = scene->getPose() * kframe->getPose().inverse();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         std::vector<int> ids = scene->getShapesIds();
@@ -680,8 +680,8 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kframe->image.get(kf_pix(1), kf_pix(0), lvl);
-                    if (kf_i == kframe->image.nodata)
+                    auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
+                    if (kf_i == kframe->getCorNoData())
                         continue;
 
                     // buffer->set(std::exp(kf_a) * (kf_i - kf_b), y, x, lvl);
@@ -817,7 +817,7 @@ private:
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
         // float min_angle = M_PI / 64.0;
 
-        Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
+        Sophus::SE3f kfTofPose = frame->getPose() * kframe->getPose().inverse();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         // for each triangle
@@ -825,11 +825,6 @@ private:
 
         auto kf_pol = kscene->getShape(cam, t_ids[0]);
         auto f_pol = scene->getShape(cam, t_ids[0]);
-
-        float kf_a = kframe->a;
-        float kf_b = kframe->b;
-        float f_a = frame->a;
-        float f_b = frame->b;
 
         for (auto t_id : t_ids)
         {
@@ -894,13 +889,14 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kframe->image.get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->image.get(y, x, lvl);
+                    auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
+                    auto f_i = frame->getCorPixel(y, x, lvl);
 
-                    if (kf_i == kframe->image.nodata || f_i == frame->image.nodata)
+                    if (kf_i == kframe->getCorNoData() || f_i == frame->getCorNoData())
                         continue;
 
-                    float residual = ((f_i - f_b) - std::exp(kf_a - f_a) * (kf_i - kf_b));
+                    //float residual = ((f_i - f_b) - std::exp(kf_a - f_a) * (kf_i - kf_b));
+                    float residual = f_i - kf_i;
 
                     e_buffer->set(residual, y, x, lvl);
                     z_buffer.set(f_depth, y, x, lvl);
@@ -914,14 +910,14 @@ private:
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
         // float min_angle = M_PI / 64.0;
 
-        Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
+        Sophus::SE3f kfTofPose = frame->getPose() * kframe->getPose().inverse();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         // for each triangle
         std::vector<int> t_ids = scene->getShapesIds();
 
-        auto kf_pol = kscene->getShape(cam, t_ids[0]);
-        auto f_pol = scene->getShape(cam, t_ids[0]);
+        //auto kf_pol = kscene->getShape(cam, t_ids[0]);
+        //auto f_pol = scene->getShape(cam, t_ids[0]);
 
         float kf_a = kframe->a;
         float kf_b = kframe->b;
@@ -936,11 +932,11 @@ private:
             if (!scene->isShapeInWindow(win, t_id))
                 continue;
 
-            // auto kf_pol = kscene->getShape(t_id);
-            // auto f_pol = scene->getShape(t_id);
+            auto kf_pol = kscene->getShape(cam, t_id);
+            auto f_pol = scene->getShape(cam, t_id);
 
-            kscene->getShape(kf_pol.get(), cam, t_id);
-            scene->getShape(f_pol.get(), cam, t_id);
+            //kscene->getShape(kf_pol.get(), cam, t_id);
+            //scene->getShape(f_pol.get(), cam, t_id);
 
             if (f_pol->getArea() <= min_area)
                 continue;
@@ -991,12 +987,12 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kframe->image.get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->image.get(y, x, lvl);
-                    float dx = frame->dx.get(y, x, lvl);
-                    float dy = frame->dy.get(y, x, lvl);
+                    auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
+                    auto f_i = frame->getCorPixel(y, x, lvl);
+                    float dx = frame->getDx(y, x, lvl);
+                    float dy = frame->getDy(y, x, lvl);
 
-                    if (kf_i == kframe->image.nodata || f_i == frame->image.nodata || dx == frame->dx.nodata || dy == frame->dy.nodata)
+                    if (kf_i == kframe->getCorNoData() || f_i == frame->getCorNoData() || dx == frame->getDxNoData() || dy == frame->getDyNoData())
                         continue;
 
                     vec2<float> d_f_i_d_pix(dx, dy);
@@ -1018,7 +1014,8 @@ private:
 
                     vec8<float> j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_f_a, d_f_i_d_f_b};
 
-                    float residual = (f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b));
+                    //float residual = (f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b));
+                    float residual = f_i - kf_i;
 
                     jpose_buffer->set(j_pose, y, x, lvl);
                     e_buffer->set(residual, y, x, lvl);
@@ -1101,18 +1098,13 @@ private:
         // kframeMesh->transform(kframe.pose);
         // frameMesh->transform(frame.pose);
 
-        Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
+        Sophus::SE3f kfTofPose = frame->getPose() * kframe->getPose().inverse();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         // for each triangle
         std::vector<int> t_ids = scene->getShapesIds();
 
         int shapeDoF = scene->getShapesDoF();
-
-        float kf_a = kframe->a;
-        float kf_b = kframe->b;
-        float f_a = frame->a;
-        float f_b = frame->b;
 
         for (auto t_id : t_ids)
         {
@@ -1197,17 +1189,18 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kframe->image.get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->image.get(y, x, lvl);
-                    float dx = frame->dx.get(y, x, lvl);
-                    float dy = frame->dy.get(y, x, lvl);
+                    auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
+                    auto f_i = frame->getCorPixel(y, x, lvl);
+                    float dx = frame->getDxPixel(y, x, lvl);
+                    float dy = frame->getDyPixel(y, x, lvl);
 
-                    if (kf_i == kframe->image.nodata || f_i == frame->image.nodata || dx == frame->dx.nodata || dy == frame->dy.nodata)
+                    if (kf_i == kframe->getCorNoData() || f_i == frame->getCorNoData() || dx == frame->getDxNoData() || dy == frame->getDyNoData())
                         continue;
 
                     vec2<float> d_f_i_d_pix(dx, dy);
 
-                    float residual = f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b);
+                    //float residual = f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b);
+                    float residual = f_i - kf_i;
 
                     // vec3<float> d_f_i_d_f_ver = cam.d_f_i_d_f_ver(d_f_i_d_pix, f_ver);
 

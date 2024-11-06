@@ -314,4 +314,6 @@ private:
     std::vector<vec3<float>> rays;
     std::vector<vec2<float>> pixels;
     std::vector<float> weights;
+    float scale;
+    float bias;
 };

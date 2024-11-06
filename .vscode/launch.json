@@ -5,38 +5,41 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(gdb) Launch",
+            "name": "testapp Debug",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/testapp",
-            "args": [],
+            "args": ["/datasets/desktop_dataset/"],
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
+            "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                },
-                {
-                    "description": "Set Disassembly Flavor to Intel",
-                    "text": "-gdb-set disassembly-flavor intel",
-                    "ignoreFailures": true
-                }
-            ]
+            "linux": {
+                "MIMode": "gdb",
+                "miDebuggerPath": "gdb",
+                //"program": "${workspaceFolder}/build/testapp"
+            },
+            "osx": {
+                "MIMode": "lldb",
+                "miDebuggerPath": "lldb-mi",
+                //"program": "${workspaceFolder}/bin/main"
+            },
+            "windows": {
+                "MIMode": "gdb",
+                "miDebuggerPath": "gdb.exe",
+                //"program": "${workspaceFolder}/bin/main.exe"
+            },
+            "preLaunchTask": "build"
         },
         {
             "name": "(gdb) Launch tum",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/tum_dataset",
-            //"args": [
-            //    "/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_50/camera.txt",
-            //    "/mnt/nvme0n1p5/datasets/tum_vo/all_sequences/sequence_50/images/"
-            //],
+            "args": [
+                "/datasets/tum_vo/all_sequences/sequence_50/camera.txt",
+                "/datasets/tum_vo/all_sequences/sequence_50/images/"
+            ],
             //"args": [
             //    "/mnt/nvme0n1p5/datasets/LSD_foodcourt/cameraCalibration.cfg",
             //    "/mnt/nvme0n1p5/datasets/LSD_foodcourt/images/"
@@ -45,10 +48,10 @@
             //    "/mnt/nvme0n1p5/datasets/LSD_machine/cameraCalibration.cfg",
             //    "/mnt/nvme0n1p5/datasets/LSD_machine/images/"
             //],
-            "args": [
-                "/mnt/sda1/workspace/datasets/TUM_VO/sequence_50/camera.txt",
-                "/mnt/sda1/workspace/datasets/TUM_VO/sequence_50/images/"
-            ],
+            //"args": [
+            //    "/datasets/TUM_VO/sequence_50/camera.txt",
+            //    "/datasets/TUM_VO/sequence_50/images/"
+            //],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
