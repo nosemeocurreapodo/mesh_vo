@@ -529,7 +529,7 @@ private:
             for (int x = win.min_x; x <= win.max_x; x++)
             {
                 auto f_i = frame->getCorPixel(y, x, lvl);
-                if (f_i == frame->getCorNoData())
+                if (f_i == frame->getImageNoData())
                     continue;
 
                 vec2<float> f_pix(x, y);
@@ -569,7 +569,7 @@ private:
                     //     continue;
 
                     auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
-                    if (kf_i == kframe->getCorNoData())
+                    if (kf_i == kframe->getImageNoData())
                         continue;
 
                     float error = (f_i - kf_i) * (f_i - kf_i);
@@ -681,7 +681,7 @@ private:
                         continue;
 
                     auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
-                    if (kf_i == kframe->getCorNoData())
+                    if (kf_i == kframe->getImageNoData())
                         continue;
 
                     // buffer->set(std::exp(kf_a) * (kf_i - kf_b), y, x, lvl);
@@ -892,7 +892,7 @@ private:
                     auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
                     auto f_i = frame->getCorPixel(y, x, lvl);
 
-                    if (kf_i == kframe->getCorNoData() || f_i == frame->getCorNoData())
+                    if (kf_i == kframe->getImageNoData() || f_i == frame->getImageNoData())
                         continue;
 
                     //float residual = ((f_i - f_b) - std::exp(kf_a - f_a) * (kf_i - kf_b));
@@ -919,10 +919,7 @@ private:
         //auto kf_pol = kscene->getShape(cam, t_ids[0]);
         //auto f_pol = scene->getShape(cam, t_ids[0]);
 
-        float kf_a = kframe->a;
-        float kf_b = kframe->b;
-        float f_a = frame->a;
-        float f_b = frame->b;
+        std::array<float, 2> affine = frame->getAffine();
 
         for (auto t_id : t_ids)
         {
@@ -989,13 +986,10 @@ private:
 
                     auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
                     auto f_i = frame->getCorPixel(y, x, lvl);
-                    float dx = frame->getDx(y, x, lvl);
-                    float dy = frame->getDy(y, x, lvl);
+                    vec2<float> d_f_i_d_pix = frame->getdIdp(y, x, lvl);
 
-                    if (kf_i == kframe->getCorNoData() || f_i == frame->getCorNoData() || dx == frame->getDxNoData() || dy == frame->getDyNoData())
+                    if (kf_i == kframe->getImageNoData() || f_i == frame->getImageNoData() || d_f_i_d_pix(0) == frame->getDxNoData() || d_f_i_d_pix(1) == frame->getDxNoData())
                         continue;
-
-                    vec2<float> d_f_i_d_pix(dx, dy);
 
                     // Eigen::MatrixXf d_pix_d_f_ver = cam.dPixdPoint(f_ver);
 
@@ -1009,12 +1003,10 @@ private:
                     vec3<float> d_f_i_d_tra(v0, v1, v2);
                     vec3<float> d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-                    float d_f_i_d_f_a = std::exp(kf_a - f_a) * (kf_i - kf_b);
-                    float d_f_i_d_f_b = -1.0;
+                    vec2<float> d_f_i_d_affine(-std::exp(-affine[0])*f_i, -1.0f);
 
-                    vec8<float> j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_f_a, d_f_i_d_f_b};
+                    vec8<float> j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_affine(0), d_f_i_d_affine(1)};
 
-                    //float residual = (f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b));
                     float residual = f_i - kf_i;
 
                     jpose_buffer->set(j_pose, y, x, lvl);
@@ -1191,13 +1183,10 @@ private:
 
                     auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
                     auto f_i = frame->getCorPixel(y, x, lvl);
-                    float dx = frame->getDxPixel(y, x, lvl);
-                    float dy = frame->getDyPixel(y, x, lvl);
+                    vec2<float> d_f_i_d_pix = frame->getdIdp(y, x, lvl);
 
-                    if (kf_i == kframe->getCorNoData() || f_i == frame->getCorNoData() || dx == frame->getDxNoData() || dy == frame->getDyNoData())
+                    if (kf_i == kframe->getImageNoData() || f_i == frame->getImageNoData() || d_f_i_d_pix(0) == frame->getDxNoData() || d_f_i_d_pix(1) == frame->getDxNoData())
                         continue;
-
-                    vec2<float> d_f_i_d_pix(dx, dy);
 
                     //float residual = f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b);
                     float residual = f_i - kf_i;
@@ -1244,17 +1233,14 @@ private:
         float min_area = (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3.0 / 4.0;
         // float min_angle = M_PI / 64.0;
 
-        Sophus::SE3f kfTofPose = frame->pose * kframe->pose.inverse();
+        Sophus::SE3f kfTofPose = frame->getPose() * kframe->getPose().inverse();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         // for each triangle
         std::vector<int> t_ids = kscene->getShapesIds();
         int shapeDoF = kscene->getShapesDoF();
 
-        float kf_a = kframe->a;
-        float kf_b = kframe->b;
-        float f_a = frame->a;
-        float f_b = frame->b;
+        std::array<float, 2> affine = frame->getAffine();
 
         for (auto t_id : t_ids)
         {
@@ -1340,15 +1326,12 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kframe->image.get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->image.get(y, x, lvl);
-                    float dx = frame->dx.get(y, x, lvl);
-                    float dy = frame->dy.get(y, x, lvl);
+                    auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
+                    auto f_i = frame->getCorPixel(y, x, lvl);
+                    vec2<float> d_f_i_d_pix = frame->getdIdp(y, x, lvl);
 
-                    if (kf_i == kframe->image.nodata || f_i == frame->image.nodata || dx == frame->dx.nodata || dy == frame->dy.nodata)
+                    if (kf_i == kframe->getImageNoData() || f_i == frame->getImageNoData() || d_f_i_d_pix(0) == frame->getDxNoData() || d_f_i_d_pix(1) == frame->getDxNoData())
                         continue;
-
-                    vec2<float> d_f_i_d_pix(dx, dy);
 
                     vec3<float> d_f_i_d_f_ver;
                     d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
@@ -1358,10 +1341,9 @@ private:
                     vec3<float> d_f_i_d_tra(d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2));
                     vec3<float> d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
-                    float d_f_i_d_f_c = std::exp(kf_a - f_a) * (kf_i - kf_b);
-                    float d_f_i_d_f_b = -1.0;
+                    vec2<float> frame->getdIdaffine();
 
-                    vec8<float> jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_f_c, d_f_i_d_f_b};
+                    vec8<float> jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_f_affine(0), d_f_i_d_f_affine(1)};
 
                     jpose_buffer->set(jpose, y, x, lvl);
 
@@ -1372,7 +1354,7 @@ private:
 
                     std::vector<float> Jacobian = kf_pol->getJacobian(d_f_i_d_kf_depth);
 
-                    float error = f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b);
+                    float error = f_i - kf_i;
 
                     Type1 jacs = jmap_buffer->nodata;
                     Type2 ids = pId_buffer->nodata;
@@ -1438,7 +1420,7 @@ private:
                     float f_depth = f_pol->getDepth();
                     bool isLine = f_pol->isEdge();
 
-                    float f_i = frame->image.get(y, x, lvl);
+                    float f_i = frame->getCorPixel(y, x, lvl);
                     f_i /= 255.0;
 
                     // z buffer
