@@ -50,6 +50,13 @@ public:
         buildTriangles();
     }
 
+    void init(frameCPU &frame, camera &cam, std::vector<vec2<float>> &pixels, std::vector<float> &idepths, int lvl) override
+    {
+        clear();
+        SceneVerticesBase::init(frame, cam, pixels, idepths, lvl);
+        buildTriangles();
+    }
+
     int getShapesDoF() override
     {
         return 3;

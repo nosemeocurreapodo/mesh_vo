@@ -49,6 +49,34 @@ public:
         weights.clear();
     }
 
+    void init(frameCPU &frame, camera &cam, std::vector<vec2<float>> &pixels, std::vector<float> &idepths, int lvl) override
+    {
+        clear();
+        setPose(frame.getPose());
+
+        for (int i = 0; i < pixels.size(); i++)
+        {
+            vec2<float> pix = pixels[i];
+            float idph = idepths[i];
+
+            vec3<float> ray = cam.pixToRay(pix);
+            float iv = 0.1;
+
+            if (idph <= 0.0)
+                continue;
+
+            vec3<float> vertice = ray / idph;
+
+            // vertices[id] = vertice;
+            // rays[id] = ray;
+            // pixels[id] = pix;
+            vertices.push_back(vertice);
+            rays.push_back(ray);
+            pixels.push_back(pix);
+            weights.push_back(iv);
+        }
+    }
+
     void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) override
     {
         clear();

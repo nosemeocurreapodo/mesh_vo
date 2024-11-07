@@ -36,6 +36,20 @@ void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, da
     meshOptimizer.initKeyframe(newFrame, idepth, ivar, 0);
 }
 
+void visualOdometry::initScene(dataCPU<float> &image, std::vector<vec2<float>> &pixels, std::vector<float> &idepths, Sophus::SE3f pose)
+{
+    lastFrames.clear();
+    keyFrames.clear();
+    lastMovement = Sophus::SE3f();
+    lastPose = pose;
+    lastAffine = vec2<float>(0.0f, 0.0f);
+    frameCPU newFrame(cam.width, cam.height);
+    newFrame.setImage(image, 0);
+    newFrame.setPose(pose);
+    newFrame.setAffine(lastAffine);
+    meshOptimizer.initKeyframe(newFrame, pixels, idepths, 0);
+}
+
 void visualOdometry::locAndMap(dataCPU<float> &image)
 {
     tic_toc t;
@@ -154,35 +168,29 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     meshOptimizer.plotDebug(newFrame, keyFrames);
 }
 
-vec2<float> visualOdometry::lightaffine(dataCPU<float> &image, Sophus::SE3f pose)
+void visualOdometry::lightaffine(dataCPU<float> &image, Sophus::SE3f pose)
 {
     tic_toc t;
 
     frameCPU newFrame(cam.width, cam.height);
-    newFrame.setImage(image, lastId);
+    newFrame.setImage(image, 0);
     newFrame.setPose(pose);
-    lastId++;
 
     t.tic();
     meshOptimizer.optLightAffine(newFrame);
     std::cout << "optmap time " << t.toc() << std::endl;
 
     meshOptimizer.plotDebug(newFrame);
-    return newFrame.getAffine();
+
+    lastAffine = newFrame.getAffine();
 }
 
-Sophus::SE3f visualOdometry::localization(dataCPU<float> &image)
+void visualOdometry::localization(dataCPU<float> &image)
 {
     tic_toc t;
 
     frameCPU newFrame(cam.width, cam.height);
-    newFrame.setImage(image, lastId);
-    newFrame.setAffine(lastAffine);
-    lastId++;
-    if (lastFrames.size() == 0)
-        newFrame.setPose(meshOptimizer.kscene.getPose());
-    else
-        newFrame.setPose(lastMovement * lastFrames[lastFrames.size() - 1].getPose());
+    newFrame.setImage(image, 0);
 
     t.tic();
     meshOptimizer.optPose(newFrame);
@@ -190,22 +198,13 @@ Sophus::SE3f visualOdometry::localization(dataCPU<float> &image)
     std::cout << newFrame.getPose().matrix() << std::endl;
     std::cout << newFrame.getAffine()(0) << " " << newFrame.getAffine()(1) << std::endl;
 
-    lastFrames.push_back(newFrame);
-    if (lastFrames.size() > NUM_FRAMES)
-    {
-        lastFrames.erase(lastFrames.begin());
-    }
-
-    if (lastFrames.size() >= 2)
-        lastMovement = lastFrames[lastFrames.size() - 1].getPose() * lastFrames[lastFrames.size() - 2].getPose().inverse();
-    lastAffine = lastFrames[lastFrames.size() - 1].getAffine();
-
     meshOptimizer.plotDebug(newFrame);
 
-    return newFrame.getPose();
+    lastPose = newFrame.getPose();
+    lastAffine = newFrame.getAffine();
 }
 
-void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
+void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose, vec2<float> affine)
 {
     tic_toc t;
     bool optimize = false;
@@ -213,6 +212,7 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     frameCPU newFrame(cam.width, cam.height);
     newFrame.setImage(image, lastId); //*keyframeData.pose.inverse();
     newFrame.setPose(pose);
+    newFrame.setAffine(affine);
     lastId++;
 
     lastFrames.push_back(newFrame);
@@ -240,7 +240,6 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
 
     // dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
     // float percentNoData = idepth.getPercentNoData(1);
-    /*
     float viewPercent = meshOptimizer.getViewPercent(newFrame);
 
     std::cout << "view percent " << viewPercent << std::endl;
@@ -260,11 +259,10 @@ void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose)
     {
         t.tic();
         dataCPU<float> mask(cam.width, cam.height, -1);
-        meshOptimizer.setMeshRegu(0.0);
+        meshOptimizer.setMeshRegu(10.0);
         meshOptimizer.optMap(keyFrames, mask);
         std::cout << "optmap time " << t.toc() << std::endl;
     }
-    */
 
     meshOptimizer.plotDebug(newFrame);
 }

@@ -31,6 +31,7 @@ public:
 
     void initKeyframe(frameCPU &frame, int lvl);
     void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl);
+    void initKeyframe(frameCPU &frame, std::vector<vec2<float>> &pixels, std::vector<float> &idepths, int lvl);
 
     void optLightAffine(frameCPU &frame);
     void optPose(frameCPU &frame);
@@ -277,9 +278,9 @@ private:
     Error computeError(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
     // Error computeError(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
-    HGEigenDense computeHGLightAffine(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
+    HGEigenDense<2> computeHGLightAffine(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
 
-    HGEigenDense computeHGPose(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
+    HGEigenDense<8> computeHGPose(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
     // HGPose computeHGPose(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
     HGMapped computeHGMap(SceneBase *scene, frameCPU *frame, int lvl);

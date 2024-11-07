@@ -51,6 +51,15 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
     scene = kscene.clone();
 }
 
+void meshOptimizerCPU::initKeyframe(frameCPU &frame, std::vector<vec2<float>> &pixels, std::vector<float> &idepths, int lvl)
+{
+    kscene.init(frame, cam[lvl], pixels, idepths, lvl);
+    kframe = frame;
+    //kframe.a = 0.0;
+    //kframe.b = 0.0;
+    scene = kscene.clone();
+}
+
 Error meshOptimizerCPU::computeError(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights)
 {
     error_buffer.set(error_buffer.nodata, lvl);
@@ -77,7 +86,7 @@ Error meshOptimizerCPU::computeError(dataCPU<float> &fIdepth, frameCPU &kframe, 
 }
 */
 
-HGEigenDense meshOptimizerCPU::computeHGLightAffine(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights)
+HGEigenDense<2> meshOptimizerCPU::computeHGLightAffine(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
     jlightaffine_buffer.set(jlightaffine_buffer.nodata, lvl);
@@ -88,12 +97,12 @@ HGEigenDense meshOptimizerCPU::computeHGLightAffine(SceneBase *scene, frameCPU *
     if (useWeights)
         renderer.renderWeightParallel(scene, cam[lvl], &ivar_buffer, lvl);
 
-    HGEigenDense hg = reducer.reduceHGPoseParallel(cam[lvl], jpose_buffer, error_buffer, ivar_buffer, lvl);
+    HGEigenDense<2> hg = reducer.reduceHGLightAffineParallel(cam[lvl], jlightaffine_buffer, error_buffer, ivar_buffer, lvl);
 
     return hg;
 }
 
-HGEigenDense meshOptimizerCPU::computeHGPose(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights)
+HGEigenDense<8> meshOptimizerCPU::computeHGPose(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
     jpose_buffer.set(jpose_buffer.nodata, lvl);
@@ -104,7 +113,7 @@ HGEigenDense meshOptimizerCPU::computeHGPose(SceneBase *scene, frameCPU *frame, 
     if (useWeights)
         renderer.renderWeightParallel(scene, cam[lvl], &ivar_buffer, lvl);
 
-    HGEigenDense hg = reducer.reduceHGPoseParallel(cam[lvl], jpose_buffer, error_buffer, ivar_buffer, lvl);
+    HGEigenDense<8> hg = reducer.reduceHGPoseParallel(cam[lvl], jpose_buffer, error_buffer, ivar_buffer, lvl);
 
     return hg;
 }
@@ -199,7 +208,7 @@ void meshOptimizerCPU::optLightAffine(frameCPU &frame)
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             // HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
-            HGEigenDense hg = computeHGLightAffine(scene.get(), &frame, lvl, false);
+            HGEigenDense<2> hg = computeHGLightAffine(scene.get(), &frame, lvl, false);
 
             Eigen::VectorXf G = hg.getG();
             Eigen::Matrix<float, 2, 2> H = hg.getH();
@@ -258,8 +267,6 @@ void meshOptimizerCPU::optLightAffine(frameCPU &frame)
                 else
                 {
                     frame.setAffine(new_affine);
-                    scene->transform(best_pose);
-                    scene->project(cam[lvl]);
 
                     n_try++;
 

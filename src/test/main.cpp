@@ -50,6 +50,33 @@ int main(int argc, char * argv[])
     imageMat.convertTo(imageMat, CV_32FC1);
     cv::resize(imageMat, imageMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
+    //get corner from image
+    int maxCorners = 100;
+    std::vector<cv::Point2f> corners;
+    double qualityLevel = 0.01;
+    double minDistance = 10;
+    int blockSize = 3, gradientSize = 3;
+    bool useHarrisDetector = false;
+    double k = 0.04;
+  
+    cv::goodFeaturesToTrack( imageMat,
+                         corners,
+                         maxCorners,
+                         qualityLevel,
+                         minDistance,
+                         cv::Mat(),
+                         blockSize,
+                         gradientSize,
+                         useHarrisDetector,
+                         k );
+
+    std::vector<vec2<float>> pixels;
+
+    for(auto corner : corners)
+    {
+        pixels.push_back(vec2<float>(corner.x, corner.y));
+    }
+
     dataCPU<float> image(cam.width, cam.height, -1.0);
     image.set((float*)imageMat.data);
     
@@ -68,8 +95,6 @@ int main(int argc, char * argv[])
     float beta = 0.3f/stddev[0];
     idepthMat = (idepthMat - alpha)*beta;
 
-    cv::meanStdDev(idepthMat, mean, stddev);
-
     dataCPU<float> idepth(cam.width, cam.height, -1.0);
     idepth.set((float*)idepthMat.data);
 
@@ -77,9 +102,16 @@ int main(int argc, char * argv[])
     ivar.set(1.0, 0);
     ivar.generateMipmaps();
 
+    std::vector<float> idepths;
+    for(auto pixel : pixels)
+    {
+        idepths.push_back(idepth.get(pixel(1), pixel(0), 0));
+    }
+
     visualOdometry odometry(cam);
 
-    odometry.initScene(image, idepth, ivar);
+    odometry.initScene(image, pixels, idepths);
+    //odometry.initScene(image, idepth, ivar);
     //odometry.initScene(image);
 
     while(1){
@@ -111,8 +143,9 @@ int main(int argc, char * argv[])
 
         image.set((float*)imageMat.data);
 
-        Sophus::SE3f estPose = odometry.localization(image);
-        odometry.mapping(image, estPose);
+        odometry.localization(image);
+        //odometry.lightaffine(image, estPose);
+        odometry.mapping(image, odometry.lastPose, odometry.lastAffine);
         //odometry.locAndMap(image);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);

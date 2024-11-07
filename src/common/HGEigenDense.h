@@ -2,10 +2,11 @@
 
 #include <Eigen/Core>
 
+template <int size>
 class HGEigenDense
 {
 public:
-    HGEigenDense(int size = 8)
+    HGEigenDense()
     {
         H = Eigen::MatrixXf::Zero(size, size);
         G = Eigen::VectorXf::Zero(size);

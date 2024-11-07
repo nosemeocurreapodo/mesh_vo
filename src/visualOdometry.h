@@ -18,11 +18,15 @@ public:
 
     void initScene(dataCPU<float> &image, Sophus::SE3f pose = Sophus::SE3f());
     void initScene(dataCPU<float> &image, dataCPU<float> &idepth, dataCPU<float> &ivar, Sophus::SE3f pose = Sophus::SE3f());
+    void initScene(dataCPU<float> &image, std::vector<vec2<float>> &pixels, std::vector<float> &idepths, Sophus::SE3f pose = Sophus::SE3f());
 
     void locAndMap(dataCPU<float> &image);
-    vec2<float> lightaffine(dataCPU<float> &image, Sophus::SE3f pose);
-    Sophus::SE3f localization(dataCPU<float> &image);
-    void mapping(dataCPU<float> &image, Sophus::SE3f pose);
+    void lightaffine(dataCPU<float> &image, Sophus::SE3f pose);
+    void localization(dataCPU<float> &image);
+    void mapping(dataCPU<float> &image, Sophus::SE3f pose, vec2<float> affine);
+
+    Sophus::SE3f lastPose;
+    vec2<float> lastAffine;
 
 private:
 
@@ -34,8 +38,6 @@ private:
     int lastId;
     camera cam;
     Sophus::SE3f lastMovement;
-    Sophus::SE3f lastPose;
-    vec2<float> lastAffine;
     std::vector<frameCPU> lastFrames;
     std::vector<frameCPU> keyFrames;
 

@@ -68,20 +68,20 @@ public:
         return err;
     }
 
-    HGEigenDense reduceHGPose(camera cam, dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
+    HGEigenDense<8> reduceHGPose(camera cam, dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
     {
-        HGEigenDense hg;
+        HGEigenDense<8> hg;
         window win = {0, cam.width, 0, cam.height};
         reduceHGPoseWindow(win, &jpose_buffer, &err_buffer, &weights_buffer, &hg, lvl);
         return hg;
     }
 
-    HGEigenDense reduceHGLightAffineParallel(camera cam, dataCPU<vec8<float>> &jlightaffine_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
+    HGEigenDense<2> reduceHGLightAffineParallel(camera cam, dataCPU<vec2<float>> &jlightaffine_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        HGEigenDense partialhg[divi_x * divi_y];
+        HGEigenDense<2> partialhg[divi_x * divi_y];
 
         std::array<int, 2> windowSize;
         windowSize[0] = cam.width / divi_x;
@@ -98,14 +98,14 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                //reduceHGPoseWindow(win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x], lvl);
+                //reduceHGLightAffineWindow(win, &jlightaffine_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x], lvl);
                 pool.enqueue(std::bind(&reduceCPU::reduceHGLightAffineWindow, this, win, &jlightaffine_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
 
         pool.waitUntilDone();
 
-        HGEigenDense hg;
+        HGEigenDense<2> hg;
         for (int i = 0; i < divi_y * divi_x; i++)
         {
             hg += partialhg[i];
@@ -114,12 +114,12 @@ public:
         return hg;
     }
 
-    HGEigenDense reduceHGPoseParallel(camera cam, dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
+    HGEigenDense<8> reduceHGPoseParallel(camera cam, dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        HGEigenDense partialhg[divi_x * divi_y];
+        HGEigenDense<8> partialhg[divi_x * divi_y];
 
         std::array<int, 2> windowSize;
         windowSize[0] = cam.width / divi_x;
@@ -143,7 +143,7 @@ public:
 
         pool.waitUntilDone();
 
-        HGEigenDense hg;
+        HGEigenDense<8> hg;
         for (int i = 0; i < divi_y * divi_x; i++)
         {
             hg += partialhg[i];
@@ -334,7 +334,7 @@ private:
             }
     }
 
-    void reduceHGLightAffineWindow(window win, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense *hg, int lvl)
+    void reduceHGLightAffineWindow(window win, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense<2> *hg, int lvl)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
@@ -357,7 +357,7 @@ private:
         }
     }
 
-    void reduceHGPoseWindow(window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense *hg, int lvl)
+    void reduceHGPoseWindow(window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense<8> *hg, int lvl)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
