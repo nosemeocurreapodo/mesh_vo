@@ -76,6 +76,44 @@ public:
         return hg;
     }
 
+    HGEigenDense reduceHGLightAffineParallel(camera cam, dataCPU<vec8<float>> &jlightaffine_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
+    {
+        int divi_y = pool.getNumThreads();
+        int divi_x = 1;
+
+        HGEigenDense partialhg[divi_x * divi_y];
+
+        std::array<int, 2> windowSize;
+        windowSize[0] = cam.width / divi_x;
+        windowSize[1] = cam.height / divi_y;
+
+        for (int ty = 0; ty < divi_y; ty++)
+        {
+            for (int tx = 0; tx < divi_x; tx++)
+            {
+                int min_x = tx * windowSize[0];
+                int max_x = (tx + 1) * windowSize[0];
+                int min_y = ty * windowSize[1];
+                int max_y = (ty + 1) * windowSize[1];
+
+                window win(min_x, max_x, min_y, max_y);
+
+                //reduceHGPoseWindow(win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x], lvl);
+                pool.enqueue(std::bind(&reduceCPU::reduceHGLightAffineWindow, this, win, &jlightaffine_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x], lvl));
+            }
+        }
+
+        pool.waitUntilDone();
+
+        HGEigenDense hg;
+        for (int i = 0; i < divi_y * divi_x; i++)
+        {
+            hg += partialhg[i];
+        }
+
+        return hg;
+    }
+
     HGEigenDense reduceHGPoseParallel(camera cam, dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
     {
         int divi_y = pool.getNumThreads();
@@ -294,6 +332,29 @@ private:
                     hw = HUBER_THRESH_PIX / absresidual;
                 *err += w * hw * res * res;
             }
+    }
+
+    void reduceHGLightAffineWindow(window win, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense *hg, int lvl)
+    {
+        for (int y = win.min_y; y < win.max_y; y++)
+        {
+            for (int x = win.min_x; x < win.max_x; x++)
+            {
+                vec2<float> J = jlightaffine_buffer->get(y, x, lvl);
+                float res = res_buffer->get(y, x, lvl);
+                if (J == jlightaffine_buffer->nodata || res == res_buffer->nodata || J == vec2<float>::zero())
+                    continue;
+                float w = weights_buffer->get(y, x, lvl);
+                if (w == weights_buffer->nodata)
+                    w = 1.0;
+                float absres = std::fabs(res);
+                float hw = 1.0;
+                if (absres > HUBER_THRESH_PIX)
+                    hw = HUBER_THRESH_PIX / absres;
+
+                hg->add(J, res, w * hw);
+            }
+        }
     }
 
     void reduceHGPoseWindow(window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense *hg, int lvl)

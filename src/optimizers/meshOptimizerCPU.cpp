@@ -8,6 +8,7 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
       idepth_buffer(_cam.width, _cam.height, -1.0),
       ivar_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
+      jlightaffine_buffer(_cam.width, _cam.height, {0.0, 0.0}),
       jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
       jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
       pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
@@ -75,6 +76,22 @@ Error meshOptimizerCPU::computeError(dataCPU<float> &fIdepth, frameCPU &kframe, 
     return e;
 }
 */
+
+HGEigenDense meshOptimizerCPU::computeHGLightAffine(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights)
+{
+    idepth_buffer.set(idepth_buffer.nodata, lvl);
+    jlightaffine_buffer.set(jlightaffine_buffer.nodata, lvl);
+    error_buffer.set(error_buffer.nodata, lvl);
+    ivar_buffer.set(ivar_buffer.nodata, lvl);
+
+    renderer.renderJLightAffineParallel(&kscene, &kframe, scene, frame, cam[lvl], &jlightaffine_buffer, &error_buffer, lvl);
+    if (useWeights)
+        renderer.renderWeightParallel(scene, cam[lvl], &ivar_buffer, lvl);
+
+    HGEigenDense hg = reducer.reduceHGPoseParallel(cam[lvl], jpose_buffer, error_buffer, ivar_buffer, lvl);
+
+    return hg;
+}
 
 HGEigenDense meshOptimizerCPU::computeHGPose(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights)
 {
@@ -162,20 +179,124 @@ HGEigenSparse meshOptimizerCPU::computeHGPoseMap2(SceneBase *scene, frameCPU *fr
     return hg;
 }
 
+void meshOptimizerCPU::optLightAffine(frameCPU &frame)
+{
+    int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
+
+    scene->transform(frame.getPose());
+
+    for (int lvl = 3; lvl >= 1; lvl--)
+    {
+        scene->project(cam[lvl]);
+        kscene.project(cam[lvl]);
+
+        vec2<float> best_affine = frame.getAffine();
+        Error e = computeError(scene.get(), &frame, lvl, false);
+        float last_error = e.getError();
+
+        std::cout << "initial error " << last_error << " " << lvl << std::endl;
+
+        for (int it = 0; it < maxIterations[lvl]; it++)
+        {
+            // HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
+            HGEigenDense hg = computeHGLightAffine(scene.get(), &frame, lvl, false);
+
+            Eigen::VectorXf G = hg.getG();
+            Eigen::Matrix<float, 2, 2> H = hg.getH();
+
+            float lambda = 0.0;
+            int n_try = 0;
+            while (true)
+            {
+                Eigen::Matrix<float, 2, 2> H_lambda;
+                H_lambda = H;
+
+                for (int j = 0; j < 2; j++)
+                    H_lambda(j, j) *= 1.0 + lambda;
+
+                // Eigen::Matrix<float, 6, 1> inc = H_lambda.ldlt().solve(G);
+                Eigen::VectorXf inc = Eigen::VectorXf::Zero(2);
+                inc = H_lambda.ldlt().solve(G);
+
+                // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
+                vec2<float> new_affine = best_affine - vec2<float>(inc(0), inc(1));
+                frame.setAffine(new_affine);
+                // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
+                scene->project(cam[lvl]);
+
+                // e.setZero();
+                // e = computeError(idepth_buffer, keyframe, frame, lvl);
+                e = computeError(scene.get(), &frame, lvl, false);
+                float error = e.getError();
+                // std::cout << "new error " << error << " time " << t.toc() << std::endl;
+
+                std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
+
+                if (error < last_error)
+                {
+                    // accept update, decrease lambda
+
+                    best_affine = new_affine;
+                    float p = error / last_error;
+
+                    // if (lambda < 0.2f)
+                    //     lambda = 0.0f;
+                    // else
+                    // lambda *= 0.5;
+                    lambda = 0.0;
+
+                    last_error = error;
+
+                    if (p > 0.999f)
+                    {
+                        // if converged, do next level
+                        it = maxIterations[lvl];
+                    }
+                    // if update accepted, do next iteration
+                    break;
+                }
+                else
+                {
+                    frame.setAffine(new_affine);
+                    scene->transform(best_pose);
+                    scene->project(cam[lvl]);
+
+                    n_try++;
+
+                    if (lambda == 0.0)
+                        lambda = 0.2f;
+                    else
+                        lambda *= 2.0; // std::pow(2.0, n_try);
+
+                    // reject update, increase lambda, use un-updated data
+                    // std::cout << "update rejected " << std::endl;
+
+                    if (!(inc.dot(inc) > 1e-16))
+                    {
+                        // std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations and " << t_try << " total tries, with lambda " << lambda << std::endl;
+                        // if too small, do next level!
+                        it = maxIterations[lvl];
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
 void meshOptimizerCPU::optPose(frameCPU &frame)
 {
     int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
 
-    scene->transform(frame.pose);
+    scene->transform(frame.getPose());
 
     for (int lvl = 3; lvl >= 1; lvl--)
     {
         scene->project(cam[lvl]);
         kscene.project(cam[lvl]);
         // std::cout << "*************************lvl " << lvl << std::endl;
-        Sophus::SE3f best_pose = frame.pose;
-        float best_a = frame.a;
-        float best_b = frame.b;
+        Sophus::SE3f best_pose = frame.getPose();
+        vec2<float> best_affine = frame.getAffine();
         // Error e = computeError(idepth_buffer, keyframe, frame, lvl);
         Error e = computeError(scene.get(), &frame, lvl, false);
         float last_error = e.getError();
@@ -209,11 +330,12 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
                 inc = H_lambda.ldlt().solve(G);
 
                 // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
-                frame.pose = best_pose * Sophus::SE3f::exp(inc.segment(0, 6)).inverse();
-                frame.a = frame.a - inc(6);
-                frame.b = frame.b - inc(7);
+                Sophus::SE3f new_pose = best_pose * Sophus::SE3f::exp(inc.segment(0, 6)).inverse();
+                vec2<float> new_affine = best_affine - vec2<float>(inc(6), inc(7));
+                frame.setPose(new_pose);
+                frame.setAffine(new_affine);
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
-                scene->transform(frame.pose);
+                scene->transform(new_pose);
                 scene->project(cam[lvl]);
 
                 // e.setZero();
@@ -228,7 +350,8 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
                 {
                     // accept update, decrease lambda
 
-                    best_pose = frame.pose;
+                    best_pose = new_pose;
+                    best_affine = new_affine;
                     float p = error / last_error;
 
                     // if (lambda < 0.2f)
@@ -249,10 +372,9 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
                 }
                 else
                 {
-                    frame.pose = best_pose;
-                    frame.a = best_a;
-                    frame.b = best_b;
-                    scene->transform(frame.pose);
+                    frame.setPose(best_pose);
+                    frame.setAffine(new_affine);
+                    scene->transform(best_pose);
                     scene->project(cam[lvl]);
 
                     n_try++;
@@ -298,7 +420,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            scene->transform(frames[i].pose);
+            scene->transform(frames[i].getPose());
             scene->project(cam[lvl]);
             e += computeError(scene.get(), &frames[i], lvl);
         }
@@ -323,7 +445,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
             hg.setZero();
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                scene->transform(frames[i].pose);
+                scene->transform(frames[i].getPose());
                 scene->project(cam[lvl]);
                 HGEigenSparse _hg = computeHGMap2(scene.get(), &frames[i], &mask, lvl);
                 hg += _hg;
@@ -436,7 +558,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
                 e.setZero();
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
-                    scene->transform(frames[i].pose);
+                    scene->transform(frames[i].getPose());
                     scene->project(cam[lvl]);
                     e += computeError(scene.get(), &frames[i], lvl);
                 }
@@ -517,7 +639,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            scene->transform(frames[i].pose);
+            scene->transform(frames[i].getPose());
             scene->project(cam[lvl]);
             e += computeError(scene.get(), &frames[i], lvl);
         }
@@ -539,7 +661,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
             hg.setZero();
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                scene->transform(frames[i].pose);
+                scene->transform(frames[i].getPose());
                 scene->project(cam[lvl]);
                 HGEigenSparse _hg = computeHGPoseMap2(scene.get(), &frames[i], i, frames.size(), lvl);
                 hg += _hg;
@@ -609,8 +731,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                 // update pose
                 std::vector<Sophus::SE3f> best_poses;
-                std::vector<float> best_a;
-                std::vector<float> best_b;
+                std::vector<vec2<float>> best_affines;
                 float pose_inc_mag = 0.0;
                 for (size_t i = 0; i < frames.size(); i++)
                 {
@@ -624,12 +745,12 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                         pose_inc(j) = inc(index);
                     }
                     pose_inc_mag += pose_inc.dot(pose_inc);
-                    best_poses.push_back(frames[i].pose);
-                    best_a.push_back(frames[i].a);
-                    best_b.push_back(frames[i].b);
-                    frames[i].pose = frames[i].pose * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
-                    frames[i].a = frames[i].a - pose_inc(6);
-                    frames[i].b = frames[i].b - pose_inc(7);
+                    best_poses.push_back(frames[i].getPose());
+                    best_affines.push_back(frames[i].getAffine());
+                    Sophus::SE3f new_pose = frames[i].getPose() * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
+                    vec2<float> new_affine = frames[i].getAffine() - vec2<float>(pose_inc(6), pose_inc(7));
+                    frames[i].setPose(new_pose);
+                    frames[i].setAffine(new_affine);
                     // frames[i].pose = Sophus::SE3f::exp(pose_inc).inverse() * frames[i].pose;
                 }
                 pose_inc_mag /= frames.size();
@@ -663,7 +784,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 e.setZero();
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
-                    scene->transform(frames[i].pose);
+                    scene->transform(frames[i].getPose());
                     scene->project(cam[lvl]);
                     e += computeError(scene.get(), &frames[i], lvl);
                 }
@@ -705,9 +826,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 {
                     for (size_t index = 0; index < frames.size(); index++)
                     {
-                        frames[index].pose = best_poses[index];
-                        frames[index].a = best_a[index];
-                        frames[index].b = best_b[index];
+                        frames[index].setPose(best_poses[index]);
+                        frames[index].setAffine(best_affines[index]);
                     }
 
                     for (auto id : paramIds)

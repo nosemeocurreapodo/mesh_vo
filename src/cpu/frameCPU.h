@@ -11,8 +11,8 @@ public:
     frameCPU(int width, int height)
         : raw_image(width, height, -1.0f),
           cor_image(width, height, -1.0f),
-          dx(width, height, 0.0f),
-          dy(width, height, 0.0f)
+          dIdAffine_image(width, height, {0.0f, 0.0f}),
+          dIdpix_image(width, height, {0.0f, 0.0f})
     {
         init = false;
         id = 0;
@@ -21,8 +21,8 @@ public:
 
     frameCPU(const frameCPU &other) : raw_image(other.raw_image),
                                       cor_image(other.cor_image),
-                                      dx(other.dx),
-                                      dy(other.dy)
+                                      dIdAffine_image(other.dIdAffine_image),
+                                      dIdpix_image(other.dIdpix_image)
     {
         init = other.init;
         id = other.id;
@@ -41,13 +41,13 @@ public:
 
             raw_image = other.raw_image;
             cor_image = other.cor_image;
-            dx = other.dx;
-            dy = other.dy;
+            dIdAffine_image = other.dIdAffine_image;
+            dIdpix_image = other.dIdpix_image;
         }
         return *this;
     }
 
-    void set(const dataCPU<float> &im)
+    void setImage(const dataCPU<float> &im, int _id)
     {
         raw_image = im;
 
@@ -55,9 +55,27 @@ public:
         {
             computeFrameDerivative(lvl);
             computeCorrImage(lvl);
+            computedIdAffineImage(lvl);
         }
 
+        id = _id;
         init = true;
+    }
+
+    void setAffine(vec2<float> _affine)
+    {
+        affine = _affine;
+        
+        for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
+        {
+            computeCorrImage(lvl);
+            computedIdAffineImage(lvl);
+        }
+    }
+    
+    vec2<float> getAffine()
+    {
+        return affine;
     }
 
     void setPose(Sophus::SE3f p)
@@ -70,72 +88,48 @@ public:
         return pose;
     }
 
+    dataCPU<float>& getRawImage()
+    {
+        return raw_image;
+    }
+
+    dataCPU<float>& getCorImage()
+    {
+        return cor_image;
+    }
+
+    dataCPU<vec2<float>>& getdIdpixImage()
+    {
+        return dIdpix_image;
+    }
+
+    dataCPU<vec2<float>>& getdIdAffineImage()
+    {
+        return dIdAffine_image;
+    }
+
+    bool isInit()
+    {
+        return init;
+    }
+
+    int getId()
+    {
+        return id;
+    }
+
+private:
+
     float applyAffine(float f)
     {
-        return std::exp(-affine[0])*f - affine[1];
+        return std::exp(-affine(0))*f - affine(1);
     }
 
     vec2<float> getdIdaffine(float f)
     {
-        return vec2<float>(-std::exp(-affine[0])*f, -1.0f);
+        return vec2<float>(-std::exp(-affine(0))*f, -1.0f);
     }
 
-    void setAffine(std::array<float, 2> _affine)
-    {
-        affine = _affine;
-        
-        for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
-        {
-            computeCorrImage(lvl);
-        }
-    }
-
-    std::array<float, 2> getAffine()
-    {
-        return affine;
-    }
-
-    float getRawPixel(int y, int x, int lvl)
-    {
-        return raw_image.get(y, x, lvl);
-    }
-
-    float getRawPixel(float y, float x, int lvl)
-    {
-        return raw_image.get(y, x, lvl);
-    }
-
-    float getCorPixel(int y, int x, int lvl)
-    {
-        return cor_image.get(y, x, lvl);
-    }
-
-    float getCorPixel(float y, float x, int lvl)
-    {
-        return cor_image.get(y, x, lvl);
-    }
-
-    vec2<float> getdIdp(int y, int x, int lvl)
-    {
-        return vec2<float>(dx.get(y, x, lvl), dx.get(y, x, lvl));
-    }
-
-    vec2<float> getdIdp(float y, float x, int lvl)
-    {
-        return vec2<float>(dx.get(y, x, lvl), dx.get(y, x, lvl));
-    }
-
-    float getImageNoData()
-    {
-        return raw_image.nodata;
-    }
-
-    float getDxNoData()
-    {
-        return dx.nodata;
-    }
-
-private:
     void computeFrameDerivative(int lvl)
     {
         // dx.set(dx.nodata, lvl);
@@ -147,16 +141,18 @@ private:
             {
                 if (y == 0 || y == size[1] - 1 || x == 0 || x == size[0] - 1)
                 {
-                    dx.set(0.0, y, x, lvl);
-                    dy.set(0.0, y, x, lvl);
+                    //dx.set(0.0, y, x, lvl);
+                    //dy.set(0.0, y, x, lvl);
+                    dIdpix_image.set(vec2<float>(0.0f, 0.0f), y, x, lvl);
                     continue;
                 }
 
                 float _dx = (float(raw_image.get(y, x + 1, lvl)) - float(raw_image.get(y, x - 1, lvl))) / 2.0;
                 float _dy = (float(raw_image.get(y + 1, x, lvl)) - float(raw_image.get(y - 1, x, lvl))) / 2.0;
 
-                dx.set(_dx, y, x, lvl);
-                dy.set(_dy, y, x, lvl);
+                dIdpix_image.set(vec2<float>(_dx, _dy), y, x, lvl);
+                //dx.set(_dx, y, x, lvl);
+                //dy.set(_dy, y, x, lvl);
             }
     }
 
@@ -172,13 +168,25 @@ private:
             }
     }
 
+    void computedIdAffineImage(int lvl)
+    {
+        std::array<int, 2> size = raw_image.getSize(lvl);
+        for (int y = 0; y < size[1]; y++)
+            for (int x = 0; x < size[0]; x++)
+            {
+                float f = raw_image.get(y, x, lvl);
+                vec2<float> cf = getdIdaffine(f);
+                dIdAffine_image.set(cf, y, x, lvl);
+            }
+    }
+
     dataCPU<float> raw_image;
     dataCPU<float> cor_image;
-    dataCPU<float> dx;
-    dataCPU<float> dy;
+    dataCPU<vec2<float>> dIdAffine_image;
+    dataCPU<vec2<float>> dIdpix_image;
 
     Sophus::SE3f pose;
-    std::array<float, 2> affine;
+    vec2<float> affine;
 
     bool init;
     int id;

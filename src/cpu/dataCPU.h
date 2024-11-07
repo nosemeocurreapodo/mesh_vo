@@ -242,10 +242,10 @@ private:
         float weight_bl = (1.0 - dx) * (dy);
         float weight_br = (dx) * (dy);
 
-        Type pix = weight_tl * get(_y, _x, lvl) +
-                   weight_tr * get(_y, _x + 1, lvl) +
-                   weight_bl * get(_y + 1, _x, lvl) +
-                   weight_br * get(_y + 1, _x + 1, lvl);
+        Type pix = get(_y, _x, lvl) * weight_tl +
+                   get(_y, _x + 1, lvl) * weight_tr +
+                   get(_y + 1, _x, lvl) * weight_bl +
+                   get(_y + 1, _x + 1, lvl) * weight_br;
 
         return pix;
     }

@@ -20,22 +20,22 @@ public:
     void initScene(dataCPU<float> &image, dataCPU<float> &idepth, dataCPU<float> &ivar, Sophus::SE3f pose = Sophus::SE3f());
 
     void locAndMap(dataCPU<float> &image);
-    void localization(dataCPU<float> &image);
+    vec2<float> lightaffine(dataCPU<float> &image, Sophus::SE3f pose);
+    Sophus::SE3f localization(dataCPU<float> &image);
     void mapping(dataCPU<float> &image, Sophus::SE3f pose);
 
 private:
 
     void checkFrameAndAddToList(frameCPU &frame)
     {
-        dataCPU<float> kIdepth = meshOptimizer.getIdepth(meshOptimizer.kframe.pose, 1);
+        dataCPU<float> kIdepth = meshOptimizer.getIdepth(meshOptimizer.kframe.getPose(), 1);
     }
 
     int lastId;
     camera cam;
     Sophus::SE3f lastMovement;
     Sophus::SE3f lastPose;
-    float lasta;
-    float lastb;
+    vec2<float> lastAffine;
     std::vector<frameCPU> lastFrames;
     std::vector<frameCPU> keyFrames;
 

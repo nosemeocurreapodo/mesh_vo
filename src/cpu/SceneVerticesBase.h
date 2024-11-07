@@ -52,7 +52,7 @@ public:
     void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) override
     {
         clear();
-        setPose(frame.pose);
+        setPose(frame.getPose());
 
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {

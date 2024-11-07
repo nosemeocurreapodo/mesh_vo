@@ -60,9 +60,15 @@ int main(int argc, char * argv[])
     cv::Scalar mean, stddev;
     cv::meanStdDev(idepthMat, mean, stddev);
     //std::cout << "mean: " << mean << " std: " << stddev << std::endl;
-    idepthMat = (idepthMat - mean[0])/stddev[0];
+    //idepthMat = (idepthMat - mean[0])/stddev[0];
     //set new mean/std
-    idepthMat = idepthMat*0.3f + 1.0f;
+    //idepthMat = idepthMat*0.3f + 1.0f;
+    //equivalent to 
+    float alpha = (mean[0] - stddev[0]/0.3f);
+    float beta = 0.3f/stddev[0];
+    idepthMat = (idepthMat - alpha)*beta;
+
+    cv::meanStdDev(idepthMat, mean, stddev);
 
     dataCPU<float> idepth(cam.width, cam.height, -1.0);
     idepth.set((float*)idepthMat.data);
@@ -98,14 +104,15 @@ int main(int argc, char * argv[])
 
         cv::Mat imageMat = cv::imread(image_path, cv::IMREAD_GRAYSCALE);
         Sophus::SE3f realPose = readPose(pose_path)*initPose.inverse();
+        //realPose.translation() = (realPose.translation()/realPose.translation()(2))/(1.0/realPose.translation()(2) - alpha)*beta;
 
         imageMat.convertTo(imageMat, CV_32FC1);
         cv::resize(imageMat, imageMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
         image.set((float*)imageMat.data);
 
-        //odometry.localization(image);
-        odometry.mapping(image, realPose);
+        Sophus::SE3f estPose = odometry.localization(image);
+        odometry.mapping(image, estPose);
         //odometry.locAndMap(image);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);

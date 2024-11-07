@@ -32,6 +32,7 @@ public:
     void initKeyframe(frameCPU &frame, int lvl);
     void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl);
 
+    void optLightAffine(frameCPU &frame);
     void optPose(frameCPU &frame);
     void optMap(std::vector<frameCPU> &frames, dataCPU<float> &mask);
     void optPoseMap(std::vector<frameCPU> &frame);
@@ -45,12 +46,12 @@ public:
     {
         int lvl = 1;
 
-        scene->transform(kframe->pose);
+        scene->transform(kframe->getPose());
         scene->project(cam[lvl]);
 
         std::vector<int> sIds = scene->getShapesIds();
 
-        Sophus::SE3f fromkframeToframe = frame->pose * kframe->pose.inverse();
+        Sophus::SE3f fromkframeToframe = frame->getPose() * kframe->getPose().inverse();
         Sophus::SE3f fromframeTokframe = fromkframeToframe.inverse();
 
         float accAngle = 0;
@@ -93,7 +94,7 @@ public:
     float checkInfo(frameCPU &frame)
     {
         int lvl = 2;
-        scene->transform(frame.pose);
+        scene->transform(frame.getPose());
         scene->project(cam[lvl]);
         kscene.project(cam[lvl]);
         dataCPU<float> mask(cam[0].width, cam[0].height, -1);
@@ -132,7 +133,7 @@ public:
         return relative_error;
     }
 
-    dataCPU<float> getIdepth(Sophus::SE3f &pose, int lvl)
+    dataCPU<float> getIdepth(Sophus::SE3f pose, int lvl)
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
 
@@ -162,7 +163,7 @@ public:
         ivar_buffer.set(ivar_buffer.nodata, 1);
         debug.set(debug.nodata, 0);
 
-        scene->transform(frame.pose);
+        scene->transform(frame.getPose());
         scene->project(cam[1]);
         kscene.project(cam[1]);
         // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
@@ -170,8 +171,8 @@ public:
         renderer.renderWeightParallel(scene.get(), cam[1], &ivar_buffer, 1);
         renderer.renderResidualParallel(&kscene, &kframe, scene.get(), &frame, cam[1], &error_buffer, 1);
 
-        show(frame.image, "frame image", false, false, 1);
-        show(kframe.image, "keyframe image", false, false, 1);
+        show(frame.getCorImage(), "frame image", false, false, 1);
+        show(kframe.getCorImage(), "keyframe image", false, false, 1);
         show(error_buffer, "lastFrame error", false, true, 1);
         show(idepth_buffer, "lastFrame idepth", true, true, 1);
         show(image_buffer, "lastFrame scene", false, true, 1);
@@ -188,7 +189,7 @@ public:
                 {
                     for (int x = 0; x < cam[1].width; x++)
                     {
-                        auto data = frames[i].image.get(y, x, 1);
+                        auto data = frames[i].getCorImage().get(y, x, 1);
                         frames_buffer.set(data, y, x + i * cam[1].width, 1);
                     }
                 }
@@ -203,7 +204,7 @@ public:
         show(debug, "frame debug", false, false, 0);
 
         idepth_buffer.set(idepth_buffer.nodata, 1);
-        scene->transform(kframe.pose);
+        scene->transform(kframe.getPose());
         scene->project(cam[1]);
         kscene.project(cam[1]);
         // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
@@ -214,7 +215,7 @@ public:
     float getViewPercent(frameCPU &frame)
     {
         int lvl = 1;
-        scene->transform(frame.pose);
+        scene->transform(frame.getPose());
         scene->project(cam[lvl]);
 
         std::vector<int> shapeIds = scene->getShapesIds();
@@ -238,7 +239,7 @@ public:
         idepth_buffer.set(idepth_buffer.nodata, lvl);
         ivar_buffer.set(ivar_buffer.nodata, lvl);
 
-        scene->transform(frame.pose);
+        scene->transform(frame.getPose());
         scene->project(cam[lvl]);
         renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth_buffer, lvl);
         renderer.renderWeightParallel(scene.get(), cam[lvl], &ivar_buffer, lvl);
@@ -276,6 +277,8 @@ private:
     Error computeError(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
     // Error computeError(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
+    HGEigenDense computeHGLightAffine(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
+
     HGEigenDense computeHGPose(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
     // HGPose computeHGPose(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
@@ -296,6 +299,7 @@ private:
     dataCPU<float> ivar_buffer;
     dataCPU<float> error_buffer;
 
+    dataCPU<vec2<float>> jlightaffine_buffer;
     dataCPU<vec8<float>> jpose_buffer;
 
     // dataCPU<vec1<float>> jmap_buffer;

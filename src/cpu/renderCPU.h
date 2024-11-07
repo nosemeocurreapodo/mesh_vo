@@ -252,6 +252,36 @@ public:
         pool.waitUntilDone();
     }
 
+    void renderJLightAffineParallel(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *e_buffer, int lvl)
+    {
+        z_buffer.set(z_buffer.nodata, lvl);
+
+        int divi_y = pool.getNumThreads();
+        int divi_x = 1;
+
+        std::array<int, 2> windowSize;
+        windowSize[0] = cam.width / divi_x;
+        windowSize[1] = cam.height / divi_y;
+
+        for (int ty = 0; ty < divi_y; ty++)
+        {
+            for (int tx = 0; tx < divi_x; tx++)
+            {
+                int min_x = tx * windowSize[0];
+                int max_x = (tx + 1) * windowSize[0];
+                int min_y = ty * windowSize[1];
+                int max_y = (ty + 1) * windowSize[1];
+
+                window win(min_x, max_x, min_y, max_y);
+
+                // renderJPoseWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl);
+                pool.enqueue(std::bind(&renderCPU::renderJLightAffineWindow, this, kscene, kframe, scene, frame, cam, win, jlightaffine_buffer, e_buffer, lvl));
+            }
+        }
+
+        pool.waitUntilDone();
+    }
+
     void renderJPose(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
@@ -524,12 +554,15 @@ private:
 
         int size = 5;
 
+        dataCPU<float> corrFrame = frame->getCorImage();
+        dataCPU<float> corrKframe = kframe->getCorImage();
+
         for (int y = win.min_y; y <= win.max_y; y++)
         {
             for (int x = win.min_x; x <= win.max_x; x++)
             {
-                auto f_i = frame->getCorPixel(y, x, lvl);
-                if (f_i == frame->getImageNoData())
+                auto f_i = corrFrame.get(y, x, lvl);
+                if (f_i == corrFrame.nodata)
                     continue;
 
                 vec2<float> f_pix(x, y);
@@ -568,8 +601,8 @@ private:
                     // if (z_depth < f_depth && z_depth != z_buffer.nodata)
                     //     continue;
 
-                    auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
-                    if (kf_i == kframe->getImageNoData())
+                    auto kf_i = corrKframe.get(kf_pix(1), kf_pix(0), lvl);
+                    if (kf_i == corrKframe.nodata)
                         continue;
 
                     float error = (f_i - kf_i) * (f_i - kf_i);
@@ -604,11 +637,13 @@ private:
 
         std::vector<int> ids = scene->getShapesIds();
 
-        auto kf_pol = kscene->getShape(cam, ids[0]);
-        auto f_pol = scene->getShape(cam, ids[0]);
+        //auto kf_pol = kscene->getShape(cam, ids[0]);
+        //auto f_pol = scene->getShape(cam, ids[0]);
 
         // float kf_a = kframe->a;
         // float kf_b = kframe->b;
+
+        dataCPU<float> corrKframe = kframe->getCorImage();
 
         // for each triangle
         for (auto t_id : ids)
@@ -625,10 +660,10 @@ private:
             if (!scene->isShapeInWindow(win, t_id))
                 continue;
 
-            // auto kf_pol = kscene->getShape(t_id);
-            // auto f_pol = scene->getShape(t_id);
-            kscene->getShape(kf_pol.get(), cam, t_id);
-            scene->getShape(f_pol.get(), cam, t_id);
+            auto kf_pol = kscene->getShape(cam, t_id);
+            auto f_pol = scene->getShape(cam, t_id);
+            //kscene->getShape(kf_pol.get(), cam, t_id);
+            //scene->getShape(f_pol.get(), cam, t_id);
 
             // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
@@ -680,8 +715,8 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
-                    if (kf_i == kframe->getImageNoData())
+                    auto kf_i = corrKframe.get(kf_pix(1), kf_pix(0), lvl);
+                    if (kf_i == corrKframe.nodata)
                         continue;
 
                     // buffer->set(std::exp(kf_a) * (kf_i - kf_b), y, x, lvl);
@@ -889,10 +924,10 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getCorPixel(y, x, lvl);
+                    auto kf_i = kframe->getCorImage().get(kf_pix(1), kf_pix(0), lvl);
+                    auto f_i = frame->getCorImage().get(y, x, lvl);
 
-                    if (kf_i == kframe->getImageNoData() || f_i == frame->getImageNoData())
+                    if (kf_i == kframe->getCorImage().nodata || f_i == frame->getCorImage().nodata)
                         continue;
 
                     //float residual = ((f_i - f_b) - std::exp(kf_a - f_a) * (kf_i - kf_b));
@@ -918,8 +953,6 @@ private:
 
         //auto kf_pol = kscene->getShape(cam, t_ids[0]);
         //auto f_pol = scene->getShape(cam, t_ids[0]);
-
-        std::array<float, 2> affine = frame->getAffine();
 
         for (auto t_id : t_ids)
         {
@@ -984,11 +1017,12 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getCorPixel(y, x, lvl);
-                    vec2<float> d_f_i_d_pix = frame->getdIdp(y, x, lvl);
+                    auto kf_i = kframe->getCorImage().get(kf_pix(1), kf_pix(0), lvl);
+                    auto f_i = frame->getCorImage().get(y, x, lvl);
+                    vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x, lvl);
+                    vec2<float> d_f_i_d_affine = frame->getdIdAffineImage().get(y, x, lvl);
 
-                    if (kf_i == kframe->getImageNoData() || f_i == frame->getImageNoData() || d_f_i_d_pix(0) == frame->getDxNoData() || d_f_i_d_pix(1) == frame->getDxNoData())
+                    if (kf_i == kframe->getCorImage().nodata || f_i == frame->getCorImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
                         continue;
 
                     // Eigen::MatrixXf d_pix_d_f_ver = cam.dPixdPoint(f_ver);
@@ -1003,8 +1037,6 @@ private:
                     vec3<float> d_f_i_d_tra(v0, v1, v2);
                     vec3<float> d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-                    vec2<float> d_f_i_d_affine(-std::exp(-affine[0])*f_i, -1.0f);
-
                     vec8<float> j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_affine(0), d_f_i_d_affine(1)};
 
                     float residual = f_i - kf_i;
@@ -1016,6 +1048,103 @@ private:
             }
         }
     }
+
+    void renderJLightAffineWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *e_buffer, int lvl)
+    {
+        float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
+        // float min_angle = M_PI / 64.0;
+
+        Sophus::SE3f kfTofPose = frame->getPose() * kframe->getPose().inverse();
+        Sophus::SE3f fTokfPose = kfTofPose.inverse();
+
+        // for each triangle
+        std::vector<int> t_ids = scene->getShapesIds();
+
+        //auto kf_pol = kscene->getShape(cam, t_ids[0]);
+        //auto f_pol = scene->getShape(cam, t_ids[0]);
+
+        for (auto t_id : t_ids)
+        {
+            // if (t_id % 2 != 0)
+            //     continue;
+
+            if (!scene->isShapeInWindow(win, t_id))
+                continue;
+
+            auto kf_pol = kscene->getShape(cam, t_id);
+            auto f_pol = scene->getShape(cam, t_id);
+
+            //kscene->getShape(kf_pol.get(), cam, t_id);
+            //scene->getShape(f_pol.get(), cam, t_id);
+
+            if (f_pol->getArea() <= min_area)
+                continue;
+
+            // window pol_win = f_pol->getScreenBounds(cam);
+            window pol_win = f_pol->getScreenBounds();
+
+            pol_win.intersect(win);
+
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            {
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                {
+                    vec2<float> f_pix(x, y);
+                    if (!cam.isPixVisible(f_pix))
+                        continue;
+                    vec3<float> f_ray = cam.pixToRay(x, y);
+
+                    // f_pol->prepareForRay(f_ray);
+                    f_pol->prepareForPix(f_pix);
+                    if (!f_pol->hitsShape())
+                        continue;
+
+                    float f_depth = f_pol->getDepth();
+                    if (f_depth <= 0.0)
+                        continue;
+
+                    // z-buffer
+                    float l_depth = z_buffer.get(y, x, lvl);
+                    if (l_depth < f_depth && l_depth != z_buffer.nodata)
+                        continue;
+
+                    vec3<float> f_ver = f_ray * f_depth;
+
+                    // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
+                    // vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
+
+                    Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
+                    vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
+
+                    if (kf_ver(2) <= 0.0)
+                        continue;
+
+                    vec3<float> kf_ray = kf_ver / kf_ver(2);
+
+                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
+
+                    if (!cam.isPixVisible(kf_pix))
+                        continue;
+
+                    auto kf_i = kframe->getCorImage().get(kf_pix(1), kf_pix(0), lvl);
+                    auto f_i = frame->getCorImage().get(y, x, lvl);
+                    vec2<float> d_f_i_d_affine = frame->getdIdAffineImage().get(y, x, lvl);
+
+                    if (kf_i == kframe->getCorImage().nodata || f_i == frame->getCorImage().nodata || d_f_i_d_affine == frame->getdIdAffineImage().nodata)
+                        continue;
+
+                    vec2<float> j_lightaffine = {d_f_i_d_affine(0), d_f_i_d_affine(1)};
+
+                    float residual = f_i - kf_i;
+
+                    jlightaffine_buffer->set(j_lightaffine, y, x, lvl);
+                    e_buffer->set(residual, y, x, lvl);
+                    z_buffer.set(f_depth, y, x, lvl);
+                }
+            }
+        }
+    }
+
     /*
     void renderJPoseWindow(dataCPU<float> *frameIdepth, camera cam, frameCPU *kframe, frameCPU *frame, dataCPU<std::array<float, 6>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
@@ -1181,11 +1310,11 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getCorPixel(y, x, lvl);
-                    vec2<float> d_f_i_d_pix = frame->getdIdp(y, x, lvl);
+                    auto kf_i = kframe->getCorImage().get(kf_pix(1), kf_pix(0), lvl);
+                    auto f_i = frame->getCorImage().get(y, x, lvl);
+                    vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x, lvl);
 
-                    if (kf_i == kframe->getImageNoData() || f_i == frame->getImageNoData() || d_f_i_d_pix(0) == frame->getDxNoData() || d_f_i_d_pix(1) == frame->getDxNoData())
+                    if (kf_i == kframe->getCorImage().nodata || f_i == frame->getCorImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
                         continue;
 
                     //float residual = f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b);
@@ -1239,8 +1368,6 @@ private:
         // for each triangle
         std::vector<int> t_ids = kscene->getShapesIds();
         int shapeDoF = kscene->getShapesDoF();
-
-        std::array<float, 2> affine = frame->getAffine();
 
         for (auto t_id : t_ids)
         {
@@ -1326,11 +1453,12 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kframe->getCorPixel(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getCorPixel(y, x, lvl);
-                    vec2<float> d_f_i_d_pix = frame->getdIdp(y, x, lvl);
+                    auto kf_i = kframe->getCorImage().get(kf_pix(1), kf_pix(0), lvl);
+                    auto f_i = frame->getCorImage().get(y, x, lvl);
+                    vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x, lvl);
+                    vec2<float> d_f_i_d_f_affine = frame->getdIdAffineImage().get(y, x, lvl);
 
-                    if (kf_i == kframe->getImageNoData() || f_i == frame->getImageNoData() || d_f_i_d_pix(0) == frame->getDxNoData() || d_f_i_d_pix(1) == frame->getDxNoData())
+                    if (kf_i == kframe->getCorImage().nodata || f_i == frame->getCorImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
                         continue;
 
                     vec3<float> d_f_i_d_f_ver;
@@ -1340,8 +1468,6 @@ private:
 
                     vec3<float> d_f_i_d_tra(d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2));
                     vec3<float> d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
-
-                    vec2<float> frame->getdIdaffine();
 
                     vec8<float> jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_f_affine(0), d_f_i_d_f_affine(1)};
 
@@ -1420,7 +1546,7 @@ private:
                     float f_depth = f_pol->getDepth();
                     bool isLine = f_pol->isEdge();
 
-                    float f_i = frame->getCorPixel(y, x, lvl);
+                    float f_i = frame->getCorImage().get(y, x, lvl);
                     f_i /= 255.0;
 
                     // z buffer
