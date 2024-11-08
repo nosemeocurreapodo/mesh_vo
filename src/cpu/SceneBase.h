@@ -32,7 +32,8 @@ public:
     virtual void clear() = 0;
 
     virtual void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) = 0;
-    virtual void init(frameCPU &frame, camera &cam, std::vector<vec2<float>> &pixels, std::vector<float> &depths, int lvl) = 0;
+    virtual void init(frameCPU &frame, camera &cam, std::vector<vec3<float>> &vertices, int lvl) = 0;
+    virtual void init(frameCPU &frame, camera &cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl) = 0;
 
     virtual void complete(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) = 0;
     virtual void transform(Sophus::SE3f newGlobalPose) = 0;

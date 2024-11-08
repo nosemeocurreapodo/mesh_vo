@@ -49,14 +49,37 @@ public:
         weights.clear();
     }
 
-    void init(frameCPU &frame, camera &cam, std::vector<vec2<float>> &pixels, std::vector<float> &idepths, int lvl) override
+    void init(frameCPU &frame, camera &cam, std::vector<vec3<float>> &new_vertices, int lvl) override
     {
         clear();
         setPose(frame.getPose());
 
-        for (int i = 0; i < pixels.size(); i++)
+        for (int i = 0; i < new_vertices.size(); i++)
         {
-            vec2<float> pix = pixels[i];
+            vec3<float> vertice = new_vertices[i];
+            vec3<float> ray = vertice/vertice(2);
+            float idph = 1.0/vertice(2);
+            vec2<float> pix = cam.rayToPix(ray);
+            float iv = 0.1;
+
+            if (idph <= 0.0)
+                continue;
+
+            vertices.push_back(vertice);
+            rays.push_back(ray);
+            pixels.push_back(pix);
+            weights.push_back(iv);
+        }
+    }
+
+    void init(frameCPU &frame, camera &cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl) override
+    {
+        clear();
+        setPose(frame.getPose());
+
+        for (int i = 0; i < texcoords.size(); i++)
+        {
+            vec2<float> pix = texcoords[i];
             float idph = idepths[i];
 
             vec3<float> ray = cam.pixToRay(pix);
@@ -230,15 +253,15 @@ public:
         return pixels;
     }
 
-    /*
-    unsigned int addVertice(Eigen::Vector3f &vert)
+    unsigned int addVertice(vec3<float> vert)
     {
         int id = vertices.size();
         vertices.push_back(vert);
         rays.push_back(vert / vert(2));
+        pixels.push_back(vec2<float>(0.0, 0.0));
+        weights.push_back(1.0);
         return id;
     }
-    */
 
     /*
     void removeVertice(unsigned int id)

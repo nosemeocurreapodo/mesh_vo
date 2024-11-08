@@ -1210,7 +1210,7 @@ private:
     template <typename Type1, typename Type2>
     void renderJMapWindow(SceneBase *kscene, frameCPU *kframe, SceneBase *scene, frameCPU *frame, camera cam, window win, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
-        float min_area = (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3 / 4;
+        float min_area = 0.0;//(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3 / 4;
         // float min_angle = M_PI / 64.0;
 
         // std::unique_ptr<SceneBase> kframeMesh = scene.clone();
@@ -1557,7 +1557,8 @@ private:
                     if (isLine)
                         buffer->set(1.0, y, x, lvl);
                     else
-                        buffer->set(1.0 / f_depth, y, x, lvl);
+                        //buffer->set(1.0 / f_depth, y, x, lvl);
+                        buffer->set(f_i, y, x, lvl);
                 }
             }
         }

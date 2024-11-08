@@ -31,7 +31,7 @@ public:
 
     void initKeyframe(frameCPU &frame, int lvl);
     void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl);
-    void initKeyframe(frameCPU &frame, std::vector<vec2<float>> &pixels, std::vector<float> &idepths, int lvl);
+    void initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl);
 
     void optLightAffine(frameCPU &frame);
     void optPose(frameCPU &frame);
@@ -179,6 +179,8 @@ public:
         show(image_buffer, "lastFrame scene", false, true, 1);
         show(ivar_buffer, "ivar", true, false, 1);
 
+        show(frame.getdIdpixImage(), "dx image", false, true, 1);
+        show(jpose_buffer, "jpose image", false, true, 1);
         show(jmap_buffer, "jmap image", false, true, 1);
 
         if (frames.size() > 0)

@@ -50,11 +50,124 @@ public:
         buildTriangles();
     }
 
-    void init(frameCPU &frame, camera &cam, std::vector<vec2<float>> &pixels, std::vector<float> &idepths, int lvl) override
+    void init(frameCPU &frame, camera &cam, std::vector<vec3<float>> &vertices, int lvl) override
     {
         clear();
-        SceneVerticesBase::init(frame, cam, pixels, idepths, lvl);
+        SceneVerticesBase::init(frame, cam, vertices, lvl);
         buildTriangles();
+    }
+
+    void init(frameCPU &frame, camera &cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl) override
+    {
+        clear();
+        SceneVerticesBase::init(frame, cam, texcoords, idepths, lvl);
+        buildTriangles();
+    }
+
+    int updateMeshGivenErrorAndThresh(frameCPU &frame, camera &cam, dataCPU<float> &error, float thresh, int lvl)
+    {
+        // clear();
+        // SceneVerticesBase::init(frame, cam, idepth, ivar, lvl);
+
+        //std::vector<vec3<float>> new_vertices;
+        std::vector<vec3<int>> good_triangles;
+        //int new_vertices_count = 0;
+        std::vector<int> trianglesIds = getTrianglesIds();
+        for (int triangleId : trianglesIds)
+        {
+            vec3<int> triIn = triangles[triangleId];
+            //ShapeTriangleFlat triangle(getRay(triIn(0)), getRay(triIn(1)), getRay(triIn(2)),
+            //                           getPix(triIn(0)), getPix(triIn(1)), getPix(triIn(2)),
+            //                           getDepth(triIn(0)), getDepth(triIn(1)), getDepth(triIn(2)),
+            //                           getWeight(triIn(0)), getWeight(triIn(1)), getWeight(triIn(2)));
+            //vec2<float> centerPix = triangle.getCenterPix();
+
+            vec2<float> centerPix = (getPix(triIn(0)) + getPix(triIn(1)) + getPix(triIn(2)))/3.0;
+
+            float err = error.get(centerPix(1), centerPix(0), lvl);
+            if(err > thresh)
+            {
+                /*
+                vec2<float> new_pix01 = (getPix(triIn(0)) + getPix(triIn(1)))/2.0;
+                vec2<float> new_pix12 = (getPix(triIn(1)) + getPix(triIn(2)))/2.0;
+                vec2<float> new_pix20 = (getPix(triIn(2)) + getPix(triIn(0)))/2.0;
+
+                float new_idepth01 = 2.0/(getDepth(triIn(0)) + getDepth(triIn(1)));
+                float new_idepth12 = 2.0/(getDepth(triIn(1)) + getDepth(triIn(2)));
+                float new_idepth20 = 2.0/(getDepth(triIn(2)) + getDepth(triIn(0)));
+
+                float _new_idepth01 = new_idepth01 + error.get(new_pix01(1), new_pix01(0), lvl);
+                float _new_idepth12 = new_idepth12 + error.get(new_pix12(1), new_pix12(0), lvl);
+                float _new_idepth20 = new_idepth20 + error.get(new_pix20(1), new_pix20(0), lvl);
+
+                vec3<float> new_vertice01 = cam.pixToRay(new_pix01)/_new_idepth01;
+                vec3<float> new_vertice12 = cam.pixToRay(new_pix12)/_new_idepth12;
+                vec3<float> new_vertice20 = cam.pixToRay(new_pix20)/_new_idepth20;
+
+                new_vertices.push_back(new_vertice01);
+                new_vertices.push_back(new_vertice12);
+                new_vertices.push_back(new_vertice20);
+                */
+
+                /*
+                int new_id01 = addVertice(new_vertice01);
+                int new_id12 = addVertice(new_vertice12);
+                int new_id20 = addVertice(new_vertice20);
+                new_vertices_count+=3;
+                */
+
+                /*
+                vec3<int> new_triangle_1(new_id01, new_id20, triIn(0));
+                vec3<int> new_triangle_2(triIn(1), new_id12, new_id01);
+                vec3<int> new_triangle_3(new_id12, triIn(2), new_id20);
+                vec3<int> new_triangle_4(new_id20, new_id01, new_id12);
+
+                good_triangles.push_back(new_triangle_1);
+                good_triangles.push_back(new_triangle_2); 
+                good_triangles.push_back(new_triangle_3); 
+                good_triangles.push_back(new_triangle_4); 
+                */
+            }
+            else
+            {
+                good_triangles.push_back(triIn);
+            }
+        }
+
+        /*
+        std::vector<vec3<float>> good_vertices;
+
+        for(vec3<float> vec : new_vertices)
+        {
+            bool duplicated = false;
+            for(vec3<float> good : good_vertices)
+            {
+                if(vec == good)
+                    duplicated = true;
+            }
+            if(!duplicated)
+            {
+                good_vertices.push_back(vec);
+            }
+        }
+
+        std::vector<vec3<float>> vertices = getVertices();
+
+        for(vec3<float> vert : vertices)
+        {
+            good_vertices.push_back(vert);
+        }
+
+        init(frame, cam, good_vertices, lvl); 
+        */
+
+        triangles = good_triangles;
+        
+        //update pixs
+        //project(cam);
+        //buildTriangles();
+
+        return 0;//good_vertices.size();
     }
 
     int getShapesDoF() override
@@ -140,7 +253,7 @@ public:
     {
         return getDepthParam(paramId);
     }
-    
+
     Error errorRegu(camera cam)
     {
         Error error;
@@ -161,10 +274,10 @@ public:
 
             float diff1 = theta[0] - theta[1];
             float diff2 = theta[0] - theta[2];
-            float diff3 = 0.0;//theta[1] - theta[0];
+            float diff3 = 0.0; // theta[1] - theta[0];
             float diff4 = theta[1] - theta[2];
-            float diff5 = 0.0;//theta[2] - theta[0];
-            float diff6 = 0.0;//theta[2] - theta[1];
+            float diff5 = 0.0; // theta[2] - theta[0];
+            float diff6 = 0.0; // theta[2] - theta[1];
 
             error += diff1 * diff1 + diff2 * diff2 + diff3 * diff3 + diff4 * diff4 + diff5 * diff5 + diff6 * diff6;
         }
@@ -205,10 +318,10 @@ public:
 
             hg.sparseAdd(J1, diff1, 1.0, v_ids);
             hg.sparseAdd(J2, diff2, 1.0, v_ids);
-            //hg.sparseAdd(J3, diff3, 1.0, v_ids);
+            // hg.sparseAdd(J3, diff3, 1.0, v_ids);
             hg.sparseAdd(J4, diff4, 1.0, v_ids);
-            //hg.sparseAdd(J5, diff5, 1.0, v_ids);
-            //hg.sparseAdd(J6, diff6, 1.0, v_ids);
+            // hg.sparseAdd(J5, diff5, 1.0, v_ids);
+            // hg.sparseAdd(J6, diff6, 1.0, v_ids);
         }
 
         hg.endSparseAdd();
@@ -379,12 +492,10 @@ private:
         triangles = new_tris;
     }
 
-    /*
     void removeTriangle(unsigned int id)
     {
-        triangles.erase(id);
+        triangles.erase(triangles.begin()+id);
     }
-    */
 
     unsigned int addTriangle(vec3<int> &tri)
     {
@@ -522,6 +633,7 @@ private:
         // clearTriangles();
         setTriangles(triangulation.getTriangles());
     }
+
     /*
     void removeOcluded(camera &cam)
     {

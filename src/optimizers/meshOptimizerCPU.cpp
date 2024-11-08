@@ -45,18 +45,27 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, int lvl)
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
 {
     kscene.init(frame, cam[lvl], idepth, ivar, lvl);
+
+    /*
+    for(int i = 0; i < 3; i++)
+    {
+        renderer.renderIdepth(&kscene, cam[lvl], &idepth_buffer, lvl);
+        dataCPU<float> diff = idepth.sub(idepth_buffer, lvl);
+
+        int added_vertices = kscene.updateMeshGivenErrorAndThresh(frame, cam[lvl], diff, 0.1, lvl);
+        if(added_vertices == 0)
+            break;
+    }
+    */
+
     kframe = frame;
-    //kframe.a = 0.0;
-    //kframe.b = 0.0;
     scene = kscene.clone();
 }
 
-void meshOptimizerCPU::initKeyframe(frameCPU &frame, std::vector<vec2<float>> &pixels, std::vector<float> &idepths, int lvl)
+void meshOptimizerCPU::initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl)
 {
-    kscene.init(frame, cam[lvl], pixels, idepths, lvl);
+    kscene.init(frame, cam[lvl], texcoords, idepths, lvl);
     kframe = frame;
-    //kframe.a = 0.0;
-    //kframe.b = 0.0;
     scene = kscene.clone();
 }
 
