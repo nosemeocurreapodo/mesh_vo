@@ -47,10 +47,7 @@ public:
     {
         int lvl = 1;
 
-        scene->transform(kframe->getPose());
-        scene->project(cam[lvl]);
-
-        std::vector<int> sIds = scene->getShapesIds();
+        std::vector<int> sIds = kscene.getShapesIds();
 
         Sophus::SE3f fromkframeToframe = frame->getPose() * kframe->getPose().inverse();
         Sophus::SE3f fromframeTokframe = fromkframeToframe.inverse();
@@ -59,7 +56,7 @@ public:
         int count = 0;
         for (auto sId : sIds)
         {
-            auto shape = scene->getShape(cam[lvl], sId);
+            auto shape = kscene.getShape(cam[lvl], sId);
             vec2<float> centerPix = shape->getCenterPix();
             if (!cam[lvl].isPixVisible(centerPix))
                 continue;
@@ -95,11 +92,8 @@ public:
     float checkInfo(frameCPU &frame)
     {
         int lvl = 2;
-        scene->transform(frame.getPose());
-        scene->project(cam[lvl]);
-        kscene.project(cam[lvl]);
         dataCPU<float> mask(cam[0].width, cam[0].height, -1);
-        HGEigenSparse hg = computeHGMap2(scene.get(), &frame, &mask, lvl);
+        HGEigenSparse hg = computeHGMap2(&frame, &mask, lvl);
         std::map<int, int> ids = hg.getObservedParamIds();
         Eigen::SparseMatrix<float> H = hg.getH(ids);
         Eigen::VectorXf G = hg.getG(ids);
@@ -138,11 +132,7 @@ public:
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
 
-        scene->transform(pose);
-        scene->project(cam[lvl]);
-        kscene.project(cam[lvl]);
-
-        renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth_buffer, lvl);
+        renderer.renderIdepthParallel(&kscene, pose, cam[lvl], &idepth_buffer, lvl);
         // renderer.renderInterpolate(cam[lvl], &idepth_buffer, lvl);
         return idepth_buffer;
     }
@@ -164,22 +154,18 @@ public:
         ivar_buffer.set(ivar_buffer.nodata, 1);
         debug.set(debug.nodata, 0);
 
-        scene->transform(frame.getPose());
-        scene->project(cam[1]);
-        kscene.project(cam[1]);
         // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
-        renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
-        renderer.renderWeightParallel(scene.get(), cam[1], &ivar_buffer, 1);
-        renderer.renderResidualParallel(&kscene, &kframe, scene.get(), &frame, cam[1], &error_buffer, 1);
+        renderer.renderIdepthParallel(&kscene, frame.getPose(), cam[1], &idepth_buffer, 1);
+        renderer.renderWeightParallel(&kscene, frame.getPose(), cam[1], &ivar_buffer, 1);
+        renderer.renderResidualParallel(&kscene, &kframe, &frame, cam[1], &error_buffer, 1);
 
         show(frame.getCorImage(), "frame image", false, false, 1);
         show(kframe.getCorImage(), "keyframe image", false, false, 1);
-        show(error_buffer, "lastFrame error", false, true, 1);
-        show(idepth_buffer, "lastFrame idepth", true, true, 1);
-        show(image_buffer, "lastFrame scene", false, true, 1);
+        show(error_buffer, "frame error", false, true, 1);
+        show(idepth_buffer, "frame idepth", true, true, 1);
         show(ivar_buffer, "ivar", true, false, 1);
 
-        show(frame.getdIdpixImage(), "dx image", false, true, 1);
+        show(frame.getdIdpixImage(), "frame dx image", false, true, 1);
         show(jpose_buffer, "jpose image", false, true, 1);
         show(jmap_buffer, "jmap image", false, true, 1);
 
@@ -201,32 +187,24 @@ public:
             show(frames_buffer, "frames", false, false, 1);
         }
 
-        scene->project(cam[0]);
-        kscene.project(cam[0]);
-        renderer.renderDebugParallel(scene.get(), &frame, cam[0], &debug, 0);
+        renderer.renderDebugParallel(&kscene, &frame, cam[0], &debug, 0);
         show(debug, "frame debug", false, false, 0);
 
         idepth_buffer.set(idepth_buffer.nodata, 1);
-        scene->transform(kframe.getPose());
-        scene->project(cam[1]);
-        kscene.project(cam[1]);
         // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
-        renderer.renderIdepthParallel(scene.get(), cam[1], &idepth_buffer, 1);
+        renderer.renderIdepthParallel(&kscene, kscene.getPose(), cam[1], &idepth_buffer, 1);
         show(idepth_buffer, "keyframe idepth", true, false, 1);
     }
 
     float getViewPercent(frameCPU &frame)
     {
         int lvl = 1;
-        scene->transform(frame.getPose());
-        scene->project(cam[lvl]);
-
-        std::vector<int> shapeIds = scene->getShapesIds();
+        std::vector<int> shapeIds = kscene.getShapesIds();
 
         int numVisible = 0;
         for (auto shapeId : shapeIds)
         {
-            auto shape = scene->getShape(cam[lvl], shapeId);
+            auto shape = kscene.getShape(cam[lvl], shapeId);
             auto pix = shape->getCenterPix();
             if (cam[lvl].isPixVisible(pix))
                 numVisible++;
@@ -242,10 +220,8 @@ public:
         idepth_buffer.set(idepth_buffer.nodata, lvl);
         ivar_buffer.set(ivar_buffer.nodata, lvl);
 
-        scene->transform(frame.getPose());
-        scene->project(cam[lvl]);
-        renderer.renderIdepthParallel(scene.get(), cam[lvl], &idepth_buffer, lvl);
-        renderer.renderWeightParallel(scene.get(), cam[lvl], &ivar_buffer, lvl);
+        renderer.renderIdepthParallel(&kscene, frame.getPose(), cam[lvl], &idepth_buffer, lvl);
+        renderer.renderWeightParallel(&kscene, frame.getPose(), cam[lvl], &ivar_buffer, lvl);
         // renderer.renderRandom(cam[lvl], &idepth, lvl);
         renderer.renderInterpolate(cam[lvl], &idepth_buffer, lvl);
         renderer.renderInterpolate(cam[lvl], &ivar_buffer, lvl);
@@ -277,21 +253,20 @@ public:
     camera cam[MAX_LEVELS];
 
 private:
-    Error computeError(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
+    Error computeError(frameCPU *frame, int lvl, bool useWeights = false);
     // Error computeError(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
-    HGEigenDense<2> computeHGLightAffine(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
+    HGEigenDense<2> computeHGLightAffine(frameCPU *frame, int lvl, bool useWeights = false);
 
-    HGEigenDense<8> computeHGPose(SceneBase *scene, frameCPU *frame, int lvl, bool useWeights = false);
+    HGEigenDense<8> computeHGPose(frameCPU *frame, int lvl, bool useWeights = false);
     // HGPose computeHGPose(dataCPU<float> &kfIdepth, frameCPU &kframe, frameCPU &frame, int lvl);
 
-    HGMapped computeHGMap(SceneBase *scene, frameCPU *frame, int lvl);
-    HGEigenSparse computeHGMap2(SceneBase *scene, frameCPU *frame, dataCPU<float> *mask, int lvl);
+    HGMapped computeHGMap(frameCPU *frame, int lvl);
+    HGEigenSparse computeHGMap2(frameCPU *frame, dataCPU<float> *mask, int lvl);
 
-    HGMapped computeHGPoseMap(SceneBase *scene, frameCPU *frame, int frameIndex, int numFrames, int lvl);
-    HGEigenSparse computeHGPoseMap2(SceneBase *scene, frameCPU *frame, int frameIndex, int numFrames, int lvl);
+    HGMapped computeHGPoseMap(frameCPU *frame, int frameIndex, int numFrames, int lvl);
+    HGEigenSparse computeHGPoseMap2(frameCPU *frame, int frameIndex, int numFrames, int lvl);
 
-    std::unique_ptr<SceneBase> scene;
     // params
     bool multiThreading;
     float meshRegularization;

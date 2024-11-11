@@ -28,6 +28,7 @@ public:
         return globalPose;
     }
 
+    //virtual void copyTo(SceneBase* scene) = 0;
     virtual std::unique_ptr<SceneBase> clone() const = 0;
     virtual void clear() = 0;
 
