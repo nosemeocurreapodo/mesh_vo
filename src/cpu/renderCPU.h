@@ -1372,8 +1372,8 @@ private:
 
                     vec3<float> f_ray = cam.pixToRay(f_pix);
 
-                    // f_pol->prepareForRay(f_ray);
-                    f_pol->prepareForPix(f_pix);
+                    f_pol->prepareForRay(f_ray);
+                    //f_pol->prepareForPix(f_pix);
 
                     // if(f_pol->isEdge())
                     //     continue;
@@ -1391,8 +1391,10 @@ private:
                         continue;
 
                     vec3<float> f_ver = f_ray * f_depth;
-
+                
                     vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
+
+                    kf_pol->prepareForRay(kf_ray);
 
                     // Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
                     // vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
@@ -1410,8 +1412,6 @@ private:
 
                     // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
                     // vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
-
-                    kf_pol->prepareForPix(kf_pix);
 
                     // if(kf_pol->isEdge())
                     //     continue;
@@ -1485,7 +1485,7 @@ private:
 
             std::vector<int> p_ids = scene1->getShapeParamsIds(t_id);
 
-            auto kf_pol = scene1->getShape(cam, t_id);
+            std::unique_ptr<ShapeBase> kf_pol = scene1->getShape(cam, t_id);
             // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
             float kf_pol_area = kf_pol->getArea();
@@ -1496,7 +1496,7 @@ private:
             // if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
             //    continue;
 
-            auto f_pol = scene2->getShape(cam, t_id);
+            std::unique_ptr<ShapeBase> f_pol = scene2->getShape(cam, t_id);
             // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
             //     continue;
             float f_pol_area = f_pol->getArea();
@@ -1528,7 +1528,8 @@ private:
                     if (!cam.isPixVisible(f_pix))
                         continue;
 
-                    f_pol->prepareForPix(f_pix);
+                    vec3<float> f_ray = cam.pixToRay(f_pix);
+                    f_pol->prepareForRay(f_ray);
                     if (!f_pol->hitsShape())
                         continue;
 
@@ -1541,11 +1542,10 @@ private:
                     if (l_idepth < f_depth && l_idepth != z_buffer.nodata)
                         continue;
 
-                    vec3<float> f_ray = cam.pixToRay(f_pix);
                     vec3<float> f_ver = f_ray * f_depth;
 
                     vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
-                    vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
+                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
 
                     // Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
                     // vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));

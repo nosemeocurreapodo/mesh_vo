@@ -167,7 +167,7 @@ public:
 
         show(frame.getdIdpixImage(), "frame dx image", false, true, 1);
         show(jpose_buffer, "jpose image", false, true, 1);
-        show(jmap_buffer, "jmap image", false, true, 1);
+        //show(jmap_buffer, "jmap image", false, true, 1);
 
         if (frames.size() > 0)
         {
@@ -199,6 +199,7 @@ public:
     float getViewPercent(frameCPU &frame)
     {
         int lvl = 1;
+        kscene.project(cam[1]);
         std::vector<int> shapeIds = kscene.getShapesIds();
 
         int numVisible = 0;
@@ -245,9 +246,9 @@ public:
         */
     }
 
-    //ScenePatches kscene;
+    ScenePatches kscene;
     //  SceneSurfels kscene;
-    SceneMesh kscene;
+    //SceneMesh kscene;
     frameCPU kframe;
 
     camera cam[MAX_LEVELS];
@@ -280,11 +281,11 @@ private:
     dataCPU<vec2<float>> jlightaffine_buffer;
     dataCPU<vec8<float>> jpose_buffer;
 
-    // dataCPU<vec1<float>> jmap_buffer;
-    // dataCPU<vec1<int>> pId_buffer;
+    dataCPU<vec1<float>> jmap_buffer;
+    dataCPU<vec1<int>> pId_buffer;
 
-    dataCPU<vec3<float>> jmap_buffer;
-    dataCPU<vec3<int>> pId_buffer;
+    //dataCPU<vec3<float>> jmap_buffer;
+    //dataCPU<vec3<int>> pId_buffer;
 
     // debug
     dataCPU<float> debug;

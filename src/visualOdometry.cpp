@@ -70,7 +70,6 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
 
     meshOptimizer.plotDebug(newFrame, keyFrames);
 
-    /*
     if (lastFrames.size() < NUM_FRAMES)
     {
         optimize = true;
@@ -99,8 +98,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
                 keyFrames = lastFrames;
                 optimize = true;
 
-                int newFrameIndex = int(keyFrames.size() / 2);
-                //int newFrameIndex = keyFrames.size() - 1;
+                //int newFrameIndex = int(keyFrames.size() / 2);
+                int newFrameIndex = keyFrames.size() - 1;
                 meshOptimizer.changeKeyframe(keyFrames[newFrameIndex]);
                 keyFrames.erase(keyFrames.begin() + newFrameIndex);
             }
@@ -114,7 +113,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
             }
         }
     }
-    */
+
     /*
     dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
     float percentNoData = idepth.getPercentNoData(1);
@@ -137,19 +136,23 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         optimize = true;
     }
     */
-
+    /*
     // keyFrames.clear();
-    keyFrames.push_back(newFrame);
-    if (keyFrames.size() > NUM_FRAMES)
-        keyFrames.erase(keyFrames.begin());
-
-    // if (optimize)
+    if(newFrame.getId() % 10 == 0)
+    {
+        keyFrames.push_back(newFrame);
+        if (keyFrames.size() > NUM_FRAMES)
+            keyFrames.erase(keyFrames.begin());
+        optimize = true;
+    }
+    */
+    if (optimize)
     {
         t.tic();
         // meshOptimizer.setMeshRegu(0.0);
         // dataCPU<float> mask(cam.width, cam.height, -1);
         // meshOptimizer.optMap(keyFrames, mask);
-        meshOptimizer.setMeshRegu(10.0);
+        meshOptimizer.setMeshRegu(200.0);
         meshOptimizer.optPoseMap(keyFrames);
         std::cout << "optposemap time " << t.toc() << std::endl;
 
