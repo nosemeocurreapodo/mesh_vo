@@ -138,7 +138,7 @@ public:
     {
         std::vector<int> polIds = getShapesIds();
 
-        HGEigenSparse hg(getNumParams() + numFrames * 6);
+        HGEigenSparse hg(getNumParams() + numFrames * 8);
 
         int patch_width = cam.width / MESH_WIDTH;
         int patch_height = cam.height / MESH_HEIGHT;

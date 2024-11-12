@@ -657,8 +657,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
             // saveH(hg, "H.png");
 
             // map from param id to param index paramIndex = obsParamIds[paramId]
-            //std::map<int, int> paramIds = hg.getObservedParamIds();
-            std::map<int, int> paramIds = hg.getParamIds();
+            std::map<int, int> paramIds = hg.getObservedParamIds();
+            //std::map<int, int> paramIds = hg.getParamIds();
 
             Eigen::VectorXf G = hg.getG(paramIds);
             Eigen::SparseMatrix<float> H = hg.getH(paramIds);

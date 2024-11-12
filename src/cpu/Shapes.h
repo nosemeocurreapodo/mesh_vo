@@ -10,13 +10,13 @@ public:
     virtual inline window getScreenBounds(camera cam) = 0;
     virtual inline window getScreenBounds() = 0;
     virtual inline vec2<float> getCenterPix() = 0;
-    virtual inline void prepareForRay(vec3<float> r) = 0;
+    //virtual inline void prepareForRay(vec3<float> r) = 0;
     virtual inline void prepareForPix(vec2<float> p) = 0;
     virtual inline bool hitsShape() = 0;
     virtual inline bool isEdge() = 0;
     virtual inline float getDepth() = 0;
     virtual inline float getWeight() = 0;
-    virtual inline vec3<float> getRay(ShapeBase *shape) = 0;
+    //virtual inline vec3<float> getRay(ShapeBase *shape) = 0;
     virtual inline vec2<float> getPix(ShapeBase *shape) = 0;
     virtual inline float getDepth(ShapeBase *shape) = 0;
     virtual inline std::vector<float> getJacobian(float d_f_i_d_kf_depth) = 0;
@@ -81,10 +81,10 @@ public:
         return pixel;
     }
 
-    inline void prepareForRay(vec3<float> r) override
-    {
-        ray_diff = r - ray;
-    }
+    //inline void prepareForRay(vec3<float> r) override
+    //{
+    //    ray_diff = r - ray;
+    //}
 
     inline void prepareForPix(vec2<float> p) override
     {
@@ -173,10 +173,10 @@ public:
         return area;
     }
 
-    inline void prepareForRay(vec3<float> r) override
-    {
-        ray = r;
-    }
+    //inline void prepareForRay(vec3<float> r) override
+    //{
+    //    ray = r;
+    //}
 
     inline float getDepth() override
     {
@@ -354,10 +354,10 @@ public:
         //return normal.norm() / 2.0;
     }
 
-    inline void prepareForRay(vec3<float> r) override
-    {
-        computeBarycentric(r);
-    }
+    //inline void prepareForRay(vec3<float> r) override
+    //{
+    //    computeBarycentric(r);
+    //}
 
     inline void prepareForPix(vec2<float> p) override
     {
@@ -603,11 +603,11 @@ public:
         return ((vertices[1] - vertices[0]).cross(vertices[2] - vertices[0])).norm() / 2.0;
     }
 
-    inline void prepareForRay(vec3<float> r) override
-    {
-        ray = r;
-        computeBarycentric(ray);
-    }
+    //inline void prepareForRay(vec3<float> r) override
+    //{
+    //    ray = r;
+    //    computeBarycentric(ray);
+    //}
 
     inline float getDepth() override
     {
