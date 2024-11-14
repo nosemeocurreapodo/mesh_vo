@@ -49,17 +49,16 @@ public:
         weights.clear();
     }
 
-    void init(frameCPU &frame, camera &cam, std::vector<vec3<float>> &new_vertices, int lvl) override
+    void init(std::vector<vec3<float>> &new_vertices, int lvl) override
     {
         clear();
-        setPose(frame.getPose());
 
         for (int i = 0; i < new_vertices.size(); i++)
         {
             vec3<float> vertice = new_vertices[i];
             vec3<float> ray = vertice/vertice(2);
             float idph = 1.0/vertice(2);
-            vec2<float> pix = cam.rayToPix(ray);
+            vec2<float> pix = vec2<float>(0.0, 0.0);//cam.rayToPix(ray);
             float iv = 0.1;
 
             if (idph <= 0.0)
@@ -72,10 +71,9 @@ public:
         }
     }
 
-    void init(frameCPU &frame, camera &cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl) override
+    void init(camera cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl) override
     {
         clear();
-        setPose(frame.getPose());
 
         for (int i = 0; i < texcoords.size(); i++)
         {
@@ -100,10 +98,9 @@ public:
         }
     }
 
-    void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) override
+    void init(camera cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) override
     {
         clear();
-        setPose(frame.getPose());
 
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
@@ -321,9 +318,9 @@ public:
         return keys;
     }
 
-    void transform(Sophus::SE3f newGlobalPose) override
+    void transform(Sophus::SE3f relativePose) override
     {
-        Sophus::SE3f relativePose = newGlobalPose * getPose().inverse();
+        //Sophus::SE3f relativePose = newGlobalPose * getPose().inverse();
         for (size_t it = 0; it < vertices.size(); ++it)
         {
             Eigen::Vector3f vert(vertices[it](0), vertices[it](1), vertices[it](2));
@@ -331,7 +328,7 @@ public:
             vertices[it] = vec3<float>(vert(0), vert(1), vert(2));
             rays[it] = vertices[it] / vertices[it](2);
         }
-        setPose(newGlobalPose);
+        //setPose(newGlobalPose);
     }
 
     void project(camera cam) override

@@ -44,24 +44,24 @@ public:
         triangles.clear();
     }
 
-    void init(frameCPU &frame, camera &cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) override
+    void init(camera cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) override
     {
         clear();
-        SceneVerticesBase::init(frame, cam, idepth, ivar, lvl);
+        SceneVerticesBase::init(cam, idepth, ivar, lvl);
         buildTriangles();
     }
 
-    void init(frameCPU &frame, camera &cam, std::vector<vec3<float>> &vertices, int lvl) override
+    void init(std::vector<vec3<float>> &vertices, int lvl) override
     {
         clear();
-        SceneVerticesBase::init(frame, cam, vertices, lvl);
+        SceneVerticesBase::init(vertices, lvl);
         buildTriangles();
     }
 
-    void init(frameCPU &frame, camera &cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl) override
+    void init(camera cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl) override
     {
         clear();
-        SceneVerticesBase::init(frame, cam, texcoords, idepths, lvl);
+        SceneVerticesBase::init(cam, texcoords, idepths, lvl);
         buildTriangles();
     }
 

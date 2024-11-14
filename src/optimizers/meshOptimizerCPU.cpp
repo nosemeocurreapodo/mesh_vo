@@ -3,7 +3,7 @@
 #include "utils/tictoc.h"
 
 meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
-    : kframe(_cam.width, _cam.height),
+    : kimage(_cam.width, _cam.height, -1.0),
       image_buffer(_cam.width, _cam.height, -1.0),
       idepth_buffer(_cam.width, _cam.height, -1.0),
       ivar_buffer(_cam.width, _cam.height, -1.0),
@@ -33,17 +33,18 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, int lvl)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
-    // renderer.renderRandom(cam[lvl], &idepth_buffer, lvl);
-    renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl, 0.5, 1.5);
+    renderer.renderRandom(cam[lvl], &idepth_buffer, lvl);
+    //renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl, 0.5, 1.5);
     ivar_buffer.set(ivar_buffer.nodata, lvl);
     renderer.renderSmooth(cam[lvl], &ivar_buffer, lvl, initialIvar(), initialIvar());
-    kscene.init(frame, cam[lvl], idepth_buffer, ivar_buffer, lvl);
-    kframe = frame;
+    kscene.init(cam[lvl], idepth_buffer, ivar_buffer, lvl);
+    kimage = frame.getRawImage();
+    kpose = frame.getPose();
 }
 
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
 {
-    kscene.init(frame, cam[lvl], idepth, ivar, lvl);
+    kscene.init(cam[lvl], idepth, ivar, lvl);
 
     /*
     for(int i = 0; i < 1; i++)
@@ -57,14 +58,16 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
     }
     */
 
-    kframe = frame;
+    kimage = frame.getRawImage();
+    kpose = frame.getPose();
     //kframe.setAffine(vec2<float>(0.0, 0.0));
 }
 
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl)
 {
-    kscene.init(frame, cam[lvl], texcoords, idepths, lvl);
-    kframe = frame;
+    kscene.init(cam[lvl], texcoords, idepths, lvl);
+    kimage = frame.getRawImage();
+    kpose = frame.getPose();
 }
 
 Error meshOptimizerCPU::computeError(frameCPU *frame, int lvl, bool useWeights)
@@ -74,7 +77,7 @@ Error meshOptimizerCPU::computeError(frameCPU *frame, int lvl, bool useWeights)
     ivar_buffer.set(ivar_buffer.nodata, lvl);
 
     //renderer.renderResidualParallel(&kscene, &kframe, frame, cam[lvl], &error_buffer, lvl);
-    renderer.renderResidualParallel(&kscene, &kframe, frame, cam[lvl], &(frame->getResidualImage()), lvl);
+    renderer.renderResidualParallel(&kscene, &kimage, frame, cam[lvl], &(frame->getResidualImage()), lvl);
     if (useWeights)
         renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
 
@@ -102,7 +105,7 @@ HGEigenDense<2> meshOptimizerCPU::computeHGLightAffine(frameCPU *frame, int lvl,
     error_buffer.set(error_buffer.nodata, lvl);
     ivar_buffer.set(ivar_buffer.nodata, lvl);
 
-    renderer.renderJLightAffineParallel(&kscene, &kframe, frame, cam[lvl], &jlightaffine_buffer, &error_buffer, lvl);
+    renderer.renderJLightAffineParallel(&kscene, &kimage, frame, cam[lvl], &jlightaffine_buffer, &error_buffer, lvl);
     if (useWeights)
         renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
 
@@ -118,7 +121,7 @@ HGEigenDense<8> meshOptimizerCPU::computeHGPose(frameCPU *frame, int lvl, bool u
     error_buffer.set(error_buffer.nodata, lvl);
     ivar_buffer.set(ivar_buffer.nodata, lvl);
 
-    renderer.renderJPoseParallel(&kscene, &kframe, frame, cam[lvl], &jpose_buffer, &error_buffer, lvl);
+    renderer.renderJPoseParallel(&kscene, &kimage, frame, cam[lvl], &jpose_buffer, &error_buffer, lvl);
     if (useWeights)
         renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
 
@@ -148,7 +151,7 @@ HGMapped meshOptimizerCPU::computeHGMap(frameCPU *frame, int lvl)
     pId_buffer.set(pId_buffer.nodata, lvl);
 
     // renderer.renderJMap(scene, cam[lvl], kframe, frame, jmap_buffer, error_buffer, pId_buffer, lvl);
-    renderer.renderJMapParallel(&kscene, &kframe, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
+    renderer.renderJMapParallel(&kscene, &kimage, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
     // HGMapped hg = reducer.reduceHGMap(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
     HGMapped hg = reducer.reduceHGMapParallel(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
 
@@ -162,7 +165,7 @@ HGEigenSparse meshOptimizerCPU::computeHGMap2(frameCPU *frame, dataCPU<float> *m
     pId_buffer.set(pId_buffer.nodata, lvl);
 
     // renderer.renderJMap(scene, cam[lvl], kframe, frame, jmap_buffer, error_buffer, pId_buffer, lvl);
-    renderer.renderJMapParallel(&kscene, &kframe, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
+    renderer.renderJMapParallel(&kscene, &kimage, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
     // HGMapped hg = reducer.reduceHGMap(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
     // HGEigen hg = reducer.reduceHGMapParallel(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
     HGEigenSparse hg = reducer.reduceHGMap2(cam[lvl], kscene.getNumParams(), jmap_buffer, error_buffer, pId_buffer, *mask, lvl);
@@ -177,7 +180,7 @@ HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU *frame, int frameIndex, int
     error_buffer.set(error_buffer.nodata, lvl);
     pId_buffer.set(pId_buffer.nodata, lvl);
 
-    renderer.renderJPoseMapParallel(&kscene, &kframe, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
+    renderer.renderJPoseMapParallel(&kscene, &kimage, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
     HGMapped hg = reducer.reduceHGPoseMapParallel(cam[lvl], frameIndex, numFrames, kscene.getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
     return hg;
@@ -190,7 +193,7 @@ HGEigenSparse meshOptimizerCPU::computeHGPoseMap2(frameCPU *frame, int frameInde
     error_buffer.set(error_buffer.nodata, lvl);
     pId_buffer.set(pId_buffer.nodata, lvl);
 
-    renderer.renderJPoseMapParallel(&kscene, &kframe, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
+    renderer.renderJPoseMapParallel(&kscene, &kimage, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
     // HGEigenSparse hg = reducer.reduceHGPoseMap2(cam[lvl], frameIndex, numFrames, scene->getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
     HGEigenSparse hg = reducer.reduceHGPoseMapParallel2(cam[lvl], frameIndex, numFrames, kscene.getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
@@ -688,8 +691,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                 bool solverSucceded = true;
 
                 H_lambda.makeCompressed();
-                Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
-                // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                //Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
+                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
                 //   Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
 
                 // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;

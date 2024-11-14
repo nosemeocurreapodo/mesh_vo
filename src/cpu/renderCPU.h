@@ -56,12 +56,12 @@ public:
         renderInterpolateWindow(cam, win, buffer, lvl);
     }
 
-    void renderImage(SceneBase *kscene, frameCPU *kframe, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderImage(SceneBase *kscene, dataCPU<float> *kimage, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
     {
         scene1 = kscene->clone();
         scene2 = kscene->clone();
         // scene1->transform(pose);
-        scene2->transform(kframe->getPose());
+        scene2->transform(pose);
         scene1->project(cam);
         scene2->project(cam);
 
@@ -69,15 +69,15 @@ public:
 
         window win(0, cam.width, 0, cam.height);
 
-        renderImageWindow(&(kframe->getCorImage()), cam, win, buffer, lvl);
+        renderImageWindow(kimage, cam, win, buffer, lvl);
     }
 
-    void renderImageParallel(SceneBase *kscene, frameCPU *kframe, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderImageParallel(SceneBase *kscene, dataCPU<float> *kimage, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
     {
         scene1 = kscene->clone();
         scene2 = kscene->clone();
         // scene1->transform(kframe->getPose());
-        scene2->transform(kframe->getPose());
+        scene2->transform(pose);
         scene1->project(cam);
         scene2->project(cam);
 
@@ -102,7 +102,7 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 // renderImageWindow(kscene, kframe, scene, cam, window, buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, &(kframe->getCorImage()), cam, win, buffer, lvl));
+                pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kimage, cam, win, buffer, lvl));
             }
         }
 
@@ -145,12 +145,12 @@ public:
     }
     */
 
-    void renderDebug(SceneBase *scene, frameCPU *frame, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderDebug(SceneBase *scene, dataCPU<float> *image, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
     {
         scene1 = scene->clone();
         scene2 = scene->clone();
         // scene1->transform(frame->getPose());
-        scene2->transform(frame->getPose());
+        scene2->transform(pose);
         scene1->project(cam);
         scene2->project(cam);
 
@@ -158,15 +158,15 @@ public:
 
         window win(0, cam.width, 0, cam.height);
 
-        renderDebugWindow(&(frame->getCorImage()), cam, win, buffer, lvl);
+        renderDebugWindow(image, cam, win, buffer, lvl);
     }
 
-    void renderDebugParallel(SceneBase *scene, frameCPU *frame, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderDebugParallel(SceneBase *scene, dataCPU<float> *image, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
     {
         scene1 = scene->clone();
         scene2 = scene->clone();
         // scene1->transform(frame->getPose());
-        scene2->transform(frame->getPose());
+        scene2->transform(pose);
         scene1->project(cam);
         scene2->project(cam);
 
@@ -191,7 +191,7 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 // renderDebugWindow(scene, frame, cam, win, buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, &(frame->getCorImage()), cam, win, buffer, lvl));
+                pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, image, cam, win, buffer, lvl));
             }
         }
 
@@ -199,11 +199,11 @@ public:
     }
 
     template <typename Type1, typename Type2>
-    void renderJMap(SceneBase *kscene, frameCPU *kframe, frameCPU *frame, camera cam, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
+    void renderJMap(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
         scene1 = kscene->clone();
         scene2 = kscene->clone();
-        scene2->transform(kframe->getPose());
+        //scene1->transform(kframe->getPose());
         scene2->transform(frame->getPose());
         scene1->project(cam);
         scene2->project(cam);
@@ -212,15 +212,15 @@ public:
 
         window win(0, cam.width, 0, cam.height);
 
-        renderJMapWindow(kframe, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
+        renderJMapWindow(&kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
     }
 
     template <typename Type1, typename Type2>
-    void renderJMapParallel(SceneBase *kscene, frameCPU *kframe, frameCPU *frame, camera &cam, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
+    void renderJMapParallel(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera &cam, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
         scene1 = kscene->clone();
         scene2 = kscene->clone();
-        scene1->transform(kframe->getPose());
+        //scene1->transform(kframe->getPose());
         scene2->transform(frame->getPose());
         scene1->project(cam);
         scene2->project(cam);
@@ -246,7 +246,7 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 // renderJMapWindow(kscene, kframe, scene, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderJMapWindow<Type1, Type2>, this, kframe, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
+                pool.enqueue(std::bind(&renderCPU::renderJMapWindow<Type1, Type2>, this, kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
 
@@ -254,30 +254,30 @@ public:
     }
 
     template <typename Type1, typename Type2>
-    void renderJPoseMap(SceneBase *kscene, frameCPU *kframe, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
+    void renderJPoseMap(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
         scene1 = kscene->clone();
         scene2 = kscene->clone();
-        scene1->transform(kframe->getPose());
+        //scene1->transform(kframe->getPose());
         scene2->transform(frame->getPose());
         scene1->project(cam);
         scene2->project(cam);
 
         window win(0, cam.width, 0, cam.height);
 
-        renderJPoseMapWindow(kframe, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
+        renderJPoseMapWindow(&kimage, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
     }
 
     template <typename Type1, typename Type2>
-    void renderJPoseMapParallel(SceneBase *kscene, frameCPU *kframe, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
+    void renderJPoseMapParallel(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
         scene1 = kscene->clone();
         scene2 = kscene->clone();
-        scene1->transform(kframe->getPose());
+        //scene1->transform(kframe->getPose());
         scene2->transform(frame->getPose());
         scene1->project(cam);
         scene2->project(cam);
@@ -301,20 +301,20 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 // renderJPoseMapWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow<Type1, Type2>, this, kframe, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
+                pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow<Type1, Type2>, this, kimage, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
 
         pool.waitUntilDone();
     }
 
-    void renderJLightAffineParallel(SceneBase *kscene, frameCPU *kframe, frameCPU *frame, camera cam, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJLightAffineParallel(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
         scene1 = kscene->clone();
         scene2 = kscene->clone();
-        scene1->transform(kframe->getPose());
+        //scene1->transform(kframe->getPose());
         scene2->transform(frame->getPose());
         scene1->project(cam);
         scene2->project(cam);
@@ -338,36 +338,36 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 // renderJPoseWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderJLightAffineWindow, this, kframe, frame, cam, win, jlightaffine_buffer, e_buffer, lvl));
+                pool.enqueue(std::bind(&renderCPU::renderJLightAffineWindow, this, kimage, frame, cam, win, jlightaffine_buffer, e_buffer, lvl));
             }
         }
 
         pool.waitUntilDone();
     }
 
-    void renderJPose(SceneBase *kscene, frameCPU *kframe, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJPose(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
         scene1 = kscene->clone();
         scene2 = kscene->clone();
-        scene1->transform(kframe->getPose());
+        //scene1->transform(kframe->getPose());
         scene2->transform(frame->getPose());
         scene1->project(cam);
         scene2->project(cam);
 
         window win(0, cam.width, 0, cam.height);
 
-        renderJPoseWindow(kframe, frame, cam, win, jpose_buffer, e_buffer, lvl);
+        renderJPoseWindow(kimage, frame, cam, win, jpose_buffer, e_buffer, lvl);
     }
 
-    void renderJPoseParallel(SceneBase *kscene, frameCPU *kframe, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJPoseParallel(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
         scene1 = kscene->clone();
         scene2 = kscene->clone();
-        scene1->transform(kframe->getPose());
+        //scene1->transform(kframe->getPose());
         scene2->transform(frame->getPose());
         scene1->project(cam);
         scene2->project(cam);
@@ -391,36 +391,36 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 // renderJPoseWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kframe, frame, cam, win, jpose_buffer, e_buffer, lvl));
+                pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kimage, frame, cam, win, jpose_buffer, e_buffer, lvl));
             }
         }
 
         pool.waitUntilDone();
     }
 
-    void renderResidual(SceneBase *kscene, frameCPU *kframe, frameCPU *frame, camera cam, dataCPU<float> *e_buffer, int lvl)
+    void renderResidual(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<float> *e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
         scene1 = kscene->clone();
         scene2 = kscene->clone();
-        scene1->transform(kframe->getPose());
+        //scene1->transform(kframe->getPose());
         scene2->transform(frame->getPose());
         scene1->project(cam);
         scene2->project(cam);
 
         window win(0, cam.width, 0, cam.height);
 
-        renderResidualWindow(&(kframe->getCorImage()), &(frame->getCorImage()), cam, win, e_buffer, lvl);
+        renderResidualWindow(kimage, &(frame->getCorImage()), cam, win, e_buffer, lvl);
     }
 
-    void renderResidualParallel(SceneBase *kscene, frameCPU *kframe, frameCPU *frame, camera cam, dataCPU<float> *e_buffer, int lvl)
+    void renderResidualParallel(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<float> *e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
         scene1 = kscene->clone();
         scene2 = kscene->clone();
-        scene1->transform(kframe->getPose());
+        //scene1->transform(kframe->getPose());
         scene2->transform(frame->getPose());
         scene1->project(cam);
         scene2->project(cam);
@@ -444,7 +444,7 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 // renderJPoseWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderResidualWindow, this, &(kframe->getCorImage()), &(frame->getCorImage()), cam, win, e_buffer, lvl));
+                pool.enqueue(std::bind(&renderCPU::renderResidualWindow, this, kimage, &(frame->getCorImage()), cam, win, e_buffer, lvl));
             }
         }
 
@@ -656,7 +656,7 @@ private:
 
     void renderIdepthLineSearchWindow(frameCPU *kframe, frameCPU *frame, camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
-        Sophus::SE3f kfTofPose = frame->getPose() * kframe->getPose().inverse();
+        Sophus::SE3f kfTofPose = frame->getPose();// * kframe->getPose().inverse();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         int size = 5;
@@ -1038,7 +1038,7 @@ private:
         }
     }
 
-    void renderJPoseWindow(frameCPU *kframe, frameCPU *frame, camera cam, window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJPoseWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
         // float min_angle = M_PI / 64.0;
@@ -1116,12 +1116,12 @@ private:
 
                     vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
-                    auto kf_i = kframe->getCorImage().get(kf_pix(1), kf_pix(0), lvl);
+                    auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
                     auto f_i = frame->getCorImage().get(y, x, lvl);
                     vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x, lvl);
                     vec2<float> d_f_i_d_affine = frame->getdIdAffineImage().get(y, x, lvl);
 
-                    if (kf_i == kframe->getCorImage().nodata || f_i == frame->getCorImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage->nodata || f_i == frame->getCorImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
                         continue;
 
                     // Eigen::MatrixXf d_pix_d_f_ver = cam.dPixdPoint(f_ver);
@@ -1148,7 +1148,7 @@ private:
         }
     }
 
-    void renderJLightAffineWindow(frameCPU *kframe, frameCPU *frame, camera cam, window win, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJLightAffineWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
         // float min_angle = M_PI / 64.0;
@@ -1222,11 +1222,11 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kframe->getCorImage().get(kf_pix(1), kf_pix(0), lvl);
+                    auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
                     auto f_i = frame->getCorImage().get(y, x, lvl);
                     vec2<float> d_f_i_d_affine = frame->getdIdAffineImage().get(y, x, lvl);
 
-                    if (kf_i == kframe->getCorImage().nodata || f_i == frame->getCorImage().nodata || d_f_i_d_affine == frame->getdIdAffineImage().nodata)
+                    if (kf_i == kimage->nodata || f_i == frame->getCorImage().nodata || d_f_i_d_affine == frame->getdIdAffineImage().nodata)
                         continue;
 
                     vec2<float> j_lightaffine = {d_f_i_d_affine(0), d_f_i_d_affine(1)};
@@ -1304,7 +1304,7 @@ private:
     */
 
     template <typename Type1, typename Type2>
-    void renderJMapWindow(frameCPU *kframe, frameCPU *frame, camera cam, window win, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
+    void renderJMapWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
         float min_area = 0.0; //(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3 / 4;
         // float min_angle = M_PI / 64.0;
@@ -1315,7 +1315,7 @@ private:
         // kframeMesh->transform(kframe.pose);
         // frameMesh->transform(frame.pose);
 
-        Sophus::SE3f kfTofPose = frame->getPose() * kframe->getPose().inverse();
+        Sophus::SE3f kfTofPose = frame->getPose();// * kframe->getPose().inverse();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         // for each triangle
@@ -1411,11 +1411,11 @@ private:
                     vec3<float> f_ver = f_ray * f_depth;
                     vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
-                    auto kf_i = kframe->getCorImage().get(kf_pix(1), kf_pix(0), lvl);
+                    auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
                     auto f_i = frame->getCorImage().get(y, x, lvl);
                     vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x, lvl);
 
-                    if (kf_i == kframe->getCorImage().nodata || f_i == frame->getCorImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage->nodata || f_i == frame->getCorImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
                         continue;
 
                     // float residual = f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b);
@@ -1458,12 +1458,12 @@ private:
     }
 
     template <typename Type1, typename Type2>
-    void renderJPoseMapWindow(frameCPU *kframe, frameCPU *frame, camera cam, window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
+    void renderJPoseMapWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
         float min_area = (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3.0 / 4.0;
         // float min_angle = M_PI / 64.0;
 
-        Sophus::SE3f kfTofPose = frame->getPose() * kframe->getPose().inverse();
+        Sophus::SE3f kfTofPose = frame->getPose();// * kframe->getPose().inverse();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         // for each triangle
@@ -1550,12 +1550,12 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kframe->getCorImage().get(kf_pix(1), kf_pix(0), lvl);
+                    auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
                     auto f_i = frame->getCorImage().get(y, x, lvl);
                     vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x, lvl);
                     vec2<float> d_f_i_d_f_affine = frame->getdIdAffineImage().get(y, x, lvl);
 
-                    if (kf_i == kframe->getCorImage().nodata || f_i == frame->getCorImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage->nodata || f_i == frame->getCorImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
                         continue;
 
                     vec3<float> f_ray = cam.pixToRay(f_pix);

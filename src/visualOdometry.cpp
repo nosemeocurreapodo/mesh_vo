@@ -148,6 +148,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     */
     if (optimize)
     {
+        /*
         t.tic();
         for(frameCPU keyframe : keyFrames)
         {
@@ -163,14 +164,13 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         std::cout << "optmap time " << t.toc() << std::endl;
 
         meshOptimizer.plotDebug(newFrame, keyFrames);
+        */
 
-        /*
         t.tic();
         //meshOptimizer.setMeshRegu(200.0);
         meshOptimizer.optPoseMap(keyFrames);
         std::cout << "optposemap time " << t.toc() << std::endl;
         meshOptimizer.plotDebug(newFrame, keyFrames);
-        */
        
         // sync the updated keyframe poses present in lastframes
         for (auto keyframe : keyFrames)

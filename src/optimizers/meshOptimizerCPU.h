@@ -157,10 +157,10 @@ public:
         // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
         renderer.renderIdepthParallel(&kscene, frame.getPose(), cam[1], &idepth_buffer, 1);
         renderer.renderWeightParallel(&kscene, frame.getPose(), cam[1], &ivar_buffer, 1);
-        renderer.renderResidualParallel(&kscene, &kframe, &frame, cam[1], &error_buffer, 1);
+        renderer.renderResidualParallel(&kscene, &kimage, &frame, cam[1], &error_buffer, 1);
 
         show(frame.getCorImage(), "frame image", false, false, 1);
-        show(kframe.getCorImage(), "keyframe image", false, false, 1);
+        show(kimage, "keyframe image", false, false, 1);
         show(error_buffer, "frame error", false, true, 1);
         show(idepth_buffer, "frame idepth", true, true, 1);
         show(ivar_buffer, "ivar", true, false, 1);
@@ -191,12 +191,12 @@ public:
             show(residual_buffer, "residuals", false, false, 1);
         }
 
-        renderer.renderDebugParallel(&kscene, &frame, cam[0], &debug, 0);
+        renderer.renderDebugParallel(&kscene, &kimage, Sophus::SE3f(), cam[0], &debug, 0);
         show(debug, "frame debug", false, false, 0);
 
         idepth_buffer.set(idepth_buffer.nodata, 1);
         // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
-        renderer.renderIdepthParallel(&kscene, kscene.getPose(), cam[1], &idepth_buffer, 1);
+        renderer.renderIdepthParallel(&kscene, Sophus::SE3f(), cam[1], &idepth_buffer, 1);
         show(idepth_buffer, "keyframe idepth", true, false, 1);
     }
 
@@ -256,7 +256,9 @@ public:
     //SceneSurfels kscene;
     //SceneMesh kscene;
     //SceneMeshSmooth kscene;
-    frameCPU kframe;
+    //frameCPU kframe;
+    dataCPU<float> kimage;
+    Sophus::SE3f kpose;
 
     camera cam[MAX_LEVELS];
 

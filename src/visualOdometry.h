@@ -32,7 +32,7 @@ private:
 
     void checkFrameAndAddToList(frameCPU &frame)
     {
-        dataCPU<float> kIdepth = meshOptimizer.getIdepth(meshOptimizer.kframe.getPose(), 1);
+        //dataCPU<float> kIdepth = meshOptimizer.getIdepth(meshOptimizer.kframe.getPose(), 1);
     }
 
     int lastId;
