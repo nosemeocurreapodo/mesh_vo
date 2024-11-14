@@ -12,8 +12,9 @@
 class SceneMesh : public SceneVerticesBase
 {
 public:
-    SceneMesh() : SceneVerticesBase() {
-                  };
+    SceneMesh() : SceneVerticesBase() 
+    {
+    };
 
     SceneMesh(const SceneMesh &other) : SceneVerticesBase(other)
     {
@@ -69,23 +70,23 @@ public:
         // clear();
         // SceneVerticesBase::init(frame, cam, idepth, ivar, lvl);
 
-        //std::vector<vec3<float>> new_vertices;
+        // std::vector<vec3<float>> new_vertices;
         std::vector<vec3<int>> good_triangles;
-        //int new_vertices_count = 0;
+        // int new_vertices_count = 0;
         std::vector<int> trianglesIds = getTrianglesIds();
         for (int triangleId : trianglesIds)
         {
             vec3<int> triIn = triangles[triangleId];
-            //ShapeTriangleFlat triangle(getRay(triIn(0)), getRay(triIn(1)), getRay(triIn(2)),
-            //                           getPix(triIn(0)), getPix(triIn(1)), getPix(triIn(2)),
-            //                           getDepth(triIn(0)), getDepth(triIn(1)), getDepth(triIn(2)),
-            //                           getWeight(triIn(0)), getWeight(triIn(1)), getWeight(triIn(2)));
-            //vec2<float> centerPix = triangle.getCenterPix();
+            // ShapeTriangleFlat triangle(getRay(triIn(0)), getRay(triIn(1)), getRay(triIn(2)),
+            //                            getPix(triIn(0)), getPix(triIn(1)), getPix(triIn(2)),
+            //                            getDepth(triIn(0)), getDepth(triIn(1)), getDepth(triIn(2)),
+            //                            getWeight(triIn(0)), getWeight(triIn(1)), getWeight(triIn(2)));
+            // vec2<float> centerPix = triangle.getCenterPix();
 
-            vec2<float> centerPix = (getPix(triIn(0)) + getPix(triIn(1)) + getPix(triIn(2)))/3.0;
+            vec2<float> centerPix = (getPix(triIn(0)) + getPix(triIn(1)) + getPix(triIn(2))) / 3.0;
 
             float err = error.get(centerPix(1), centerPix(0), lvl);
-            if(err > thresh)
+            if (err > thresh)
             {
                 /*
                 vec2<float> new_pix01 = (getPix(triIn(0)) + getPix(triIn(1)))/2.0;
@@ -123,9 +124,9 @@ public:
                 vec3<int> new_triangle_4(new_id20, new_id01, new_id12);
 
                 good_triangles.push_back(new_triangle_1);
-                good_triangles.push_back(new_triangle_2); 
-                good_triangles.push_back(new_triangle_3); 
-                good_triangles.push_back(new_triangle_4); 
+                good_triangles.push_back(new_triangle_2);
+                good_triangles.push_back(new_triangle_3);
+                good_triangles.push_back(new_triangle_4);
                 */
             }
             else
@@ -158,16 +159,16 @@ public:
             good_vertices.push_back(vert);
         }
 
-        init(frame, cam, good_vertices, lvl); 
+        init(frame, cam, good_vertices, lvl);
         */
 
         triangles = good_triangles;
-        
-        //update pixs
-        //project(cam);
-        //buildTriangles();
 
-        return 0;//good_vertices.size();
+        // update pixs
+        // project(cam);
+        // buildTriangles();
+
+        return 0; // good_vertices.size();
     }
 
     int getShapesDoF() override
@@ -258,7 +259,7 @@ public:
     {
         Error error;
 
-        std::vector<int> polIds = getShapesIds();
+        std::vector<int> polIds = getTrianglesIds();
 
         for (size_t index = 0; index < polIds.size(); index++)
         {
@@ -494,7 +495,7 @@ private:
 
     void removeTriangle(unsigned int id)
     {
-        triangles.erase(triangles.begin()+id);
+        triangles.erase(triangles.begin() + id);
     }
 
     unsigned int addTriangle(vec3<int> &tri)

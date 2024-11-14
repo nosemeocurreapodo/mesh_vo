@@ -101,29 +101,29 @@ public:
         return false;
     }
 
-    inline vec3<float> getRay(ShapeBase *shape)
-    {
-        ShapePatch *sh = (ShapePatch *)shape;
-        return sh->ray + ray_diff;
-    }
+    //inline vec3<float> getRay(ShapeBase *shape) override
+    //{
+    //    ShapePatch *sh = (ShapePatch *)shape;
+    //    return sh->ray + ray_diff;
+    //}
 
-    inline vec2<float> getPix(ShapeBase *shape)
+    inline vec2<float> getPix(ShapeBase *shape) override
     {
         ShapePatch *sh = (ShapePatch *)shape;
         return sh->pixel + pix_diff;
     }
 
-    inline float getDepth()
+    inline float getDepth() override
     {
         return depth;
     }
 
-    inline float getWeight()
+    inline float getWeight() override
     {
         return weight;
     }
 
-    inline float getDepth(ShapeBase *shape)
+    inline float getDepth(ShapeBase *shape) override
     {
         ShapePatch *sh = (ShapePatch *)shape;
         return sh->depth;
@@ -384,19 +384,19 @@ public:
         return weight;
     }
 
-    inline vec3<float> getRay(ShapeBase *shape)
-    {
-        ShapeTriangleFlat *sh = (ShapeTriangleFlat *)shape;
-        return *sh->m_ray0 * barycentric(0) + *sh->m_ray1 * barycentric(1) + *sh->m_ray2 * barycentric(2);
-    }
+    //inline vec3<float> getRay(ShapeBase *shape) override
+    //{
+    //    ShapeTriangleFlat *sh = (ShapeTriangleFlat *)shape;
+    //    return *sh->m_ray0 * barycentric(0) + *sh->m_ray1 * barycentric(1) + *sh->m_ray2 * barycentric(2);
+    //}
 
-    inline vec2<float> getPix(ShapeBase *shape)
+    inline vec2<float> getPix(ShapeBase *shape) override
     {
         ShapeTriangleFlat *sh = (ShapeTriangleFlat *)shape;
         return *sh->m_pix0 * barycentric(0) + *sh->m_pix1 * barycentric(1) + *sh->m_pix2 * barycentric(2);
     }
 
-    inline float getDepth(ShapeBase *shape)
+    inline float getDepth(ShapeBase *shape) override
     {
         ShapeTriangleFlat *sh = (ShapeTriangleFlat *)shape;
         return sh->m_depth0 * barycentric(0) + sh->m_depth1 * barycentric(1) + sh->m_depth2 * barycentric(2);

@@ -110,8 +110,8 @@ int main(int argc, char * argv[])
     visualOdometry odometry(cam);
 
     //odometry.initScene(image, pixels, idepths);
-    //odometry.initScene(image, idepth, ivar);
-    odometry.initScene(image);
+    odometry.initScene(image, idepth, ivar);
+    //odometry.initScene(image);
 
     while(1){
         framesTracked++;

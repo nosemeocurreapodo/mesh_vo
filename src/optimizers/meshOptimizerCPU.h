@@ -19,8 +19,8 @@
 #include "cpu/SceneBase.h"
 #include "cpu/ScenePatches.h"
 #include "cpu/SceneMesh.h"
-// #include "cpu/SceneSurfels.h"
-//  #include "cpu/SceneMeshSmooth.h"
+//#include "cpu/SceneSurfels.h"
+//#include "cpu/SceneMeshSmooth.h"
 #include "cpu/OpenCVDebug.h"
 #include "params.h"
 
@@ -167,24 +167,28 @@ public:
 
         show(frame.getdIdpixImage(), "frame dx image", false, true, 1);
         show(jpose_buffer, "jpose image", false, true, 1);
-        //show(jmap_buffer, "jmap image", false, true, 1);
+        show(jmap_buffer, "jmap image", false, true, 1);
 
         if (frames.size() > 0)
         {
             dataCPU<float> frames_buffer(cam[0].width * frames.size(), cam[0].height, -1);
+            dataCPU<float> residual_buffer(cam[0].width * frames.size(), cam[0].height, -1);
             for (int i = 0; i < frames.size(); i++)
             {
                 for (int y = 0; y < cam[1].height; y++)
                 {
                     for (int x = 0; x < cam[1].width; x++)
                     {
-                        auto data = frames[i].getCorImage().get(y, x, 1);
-                        frames_buffer.set(data, y, x + i * cam[1].width, 1);
+                        float pix_val = frames[i].getCorImage().get(y, x, 1);
+                        float res_val = frames[i].getResidualImage().get(y, x, 1);
+                        frames_buffer.set(pix_val, y, x + i * cam[1].width, 1);
+                        residual_buffer.set(res_val, y, x + i * cam[1].width, 1);
                     }
                 }
             }
 
             show(frames_buffer, "frames", false, false, 1);
+            show(residual_buffer, "residuals", false, false, 1);
         }
 
         renderer.renderDebugParallel(&kscene, &frame, cam[0], &debug, 0);
@@ -199,14 +203,16 @@ public:
     float getViewPercent(frameCPU &frame)
     {
         int lvl = 1;
-        kscene.project(cam[1]);
-        std::vector<int> shapeIds = kscene.getShapesIds();
+        std::unique_ptr<SceneBase> scene = kscene.clone();
+        scene->transform(frame.getPose());
+        scene->project(cam[lvl]);
+        std::vector<int> shapeIds = scene->getShapesIds();
 
         int numVisible = 0;
         for (auto shapeId : shapeIds)
         {
-            auto shape = kscene.getShape(cam[lvl], shapeId);
-            auto pix = shape->getCenterPix();
+            std::unique_ptr<ShapeBase> shape = scene->getShape(cam[lvl], shapeId);
+            vec2<float> pix = shape->getCenterPix();
             if (cam[lvl].isPixVisible(pix))
                 numVisible++;
         }
@@ -247,8 +253,9 @@ public:
     }
 
     ScenePatches kscene;
-    //  SceneSurfels kscene;
+    //SceneSurfels kscene;
     //SceneMesh kscene;
+    //SceneMeshSmooth kscene;
     frameCPU kframe;
 
     camera cam[MAX_LEVELS];

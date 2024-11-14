@@ -623,9 +623,9 @@ private:
                     int count = 0;
                     while (true)
                     {
-                        for (int y_ = y - size; y_ <= y + size; y_ += size)
+                        for (int y_ = y - size; y_ <= y + size; y_ += 1)
                         {
-                            for (int x_ = x - size; x_ <= x + size; x_ += size)
+                            for (int x_ = x - size; x_ <= x + size; x_ += 1)
                             {
                                 if (!cam.isPixVisible(x_, y_))
                                     continue;

@@ -81,16 +81,16 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         if (lastFrames.size() == NUM_FRAMES)
         {
             float meanViewAngle = meshOptimizer.meanViewAngle(&lastFrames[lastFrames.size() - 1], &newFrame);
-            dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
-            float percentNoData = idepth.getPercentNoData(1);
+            //dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
+            //float percentNoData = idepth.getPercentNoData(1);
 
-            float viewPercent = meshOptimizer.getViewPercent(newFrame);
+            //float viewPercent = meshOptimizer.getViewPercent(newFrame);
 
-            std::cout << "mean viewAngle " << meanViewAngle << std::endl;
-            std::cout << "view percent " << viewPercent << std::endl;
-            std::cout << "percent nodata " << percentNoData << std::endl;
+            //std::cout << "mean viewAngle " << meanViewAngle << std::endl;
+            //std::cout << "view percent " << viewPercent << std::endl;
+            //std::cout << "percent nodata " << percentNoData << std::endl;
 
-            if (meanViewAngle > M_PI / 16.0 || viewPercent < 0.8 || percentNoData > 0.2)
+            if (meanViewAngle > M_PI / 16.0)// || percentNoData > 0.2) viewPercent < 0.8)
             {
                 lastFrames.erase(lastFrames.begin());
                 lastFrames.push_back(newFrame);
@@ -98,8 +98,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
                 keyFrames = lastFrames;
                 optimize = true;
 
-                //int newFrameIndex = int(keyFrames.size() / 2);
-                int newFrameIndex = keyFrames.size() - 1;
+                int newFrameIndex = int(keyFrames.size() / 2);
+                //int newFrameIndex = keyFrames.size() - 1;
                 meshOptimizer.changeKeyframe(keyFrames[newFrameIndex]);
                 keyFrames.erase(keyFrames.begin() + newFrameIndex);
             }
@@ -149,13 +149,29 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     if (optimize)
     {
         t.tic();
-        // meshOptimizer.setMeshRegu(0.0);
-        // dataCPU<float> mask(cam.width, cam.height, -1);
-        // meshOptimizer.optMap(keyFrames, mask);
-        meshOptimizer.setMeshRegu(200.0);
+        for(frameCPU keyframe : keyFrames)
+        {
+            meshOptimizer.optPose(keyframe);
+        }
+        std::cout << "opt poses time " << t.toc() << std::endl;
+
+        meshOptimizer.plotDebug(newFrame, keyFrames);
+
+        t.tic();
+        dataCPU<float> mask(cam.width, cam.height, -1);
+        meshOptimizer.optMap(keyFrames, mask);
+        std::cout << "optmap time " << t.toc() << std::endl;
+
+        meshOptimizer.plotDebug(newFrame, keyFrames);
+
+        /*
+        t.tic();
+        //meshOptimizer.setMeshRegu(200.0);
         meshOptimizer.optPoseMap(keyFrames);
         std::cout << "optposemap time " << t.toc() << std::endl;
-
+        meshOptimizer.plotDebug(newFrame, keyFrames);
+        */
+       
         // sync the updated keyframe poses present in lastframes
         for (auto keyframe : keyFrames)
         {

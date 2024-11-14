@@ -12,37 +12,43 @@ public:
         : raw_image(width, height, -1.0f),
           cor_image(width, height, -1.0f),
           dIdAffine_image(width, height, {0.0f, 0.0f}),
-          dIdpix_image(width, height, {0.0f, 0.0f})
+          dIdpix_image(width, height, {0.0f, 0.0f}),
+          idepth_image(width, height, -1.0f),
+          residual_image(width, height, -1.0f)
     {
-        init = false;
         id = 0;
         affine = {0.0f, 0.0f};
+        updatedAffine = false;
     };
 
     frameCPU(const frameCPU &other) : raw_image(other.raw_image),
                                       cor_image(other.cor_image),
                                       dIdAffine_image(other.dIdAffine_image),
-                                      dIdpix_image(other.dIdpix_image)
+                                      dIdpix_image(other.dIdpix_image),
+                                      idepth_image(other.idepth_image),
+                                      residual_image(other.residual_image)
     {
-        init = other.init;
         id = other.id;
         pose = other.pose;
         affine = other.affine;
+        updatedAffine = other.updatedAffine;
     }
 
     frameCPU &operator=(const frameCPU &other)
     {
         if (this != &other)
         {
-            init = other.init;
             id = other.id;
             pose = other.pose;
             affine = other.affine;
+            updatedAffine = other.updatedAffine;
 
             raw_image = other.raw_image;
             cor_image = other.cor_image;
             dIdAffine_image = other.dIdAffine_image;
             dIdpix_image = other.dIdpix_image;
+            idepth_image = other.idepth_image;
+            residual_image = other.residual_image;
         }
         return *this;
     }
@@ -59,17 +65,15 @@ public:
         }
 
         id = _id;
-        init = true;
+        updatedAffine = false;
     }
 
     void setAffine(vec2<float> _affine)
     {
-        affine = _affine;
-        
-        for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
+        if(!(affine == _affine))
         {
-            computeCorrImage(lvl);
-            computedIdAffineImage(lvl);
+            affine = _affine;
+            updatedAffine = true;
         }
     }
     
@@ -95,11 +99,30 @@ public:
 
     dataCPU<float>& getCorImage()
     {
+        if(updatedAffine)
+        {
+            for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
+            {
+                computeCorrImage(lvl);
+                computedIdAffineImage(lvl);
+            }
+            updatedAffine = false;
+        }
         return cor_image;
     }
 
     dataCPU<vec2<float>>& getdIdpixImage()
     {
+        if(updatedAffine)
+        {
+            for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
+            {
+                computeCorrImage(lvl);
+                computedIdAffineImage(lvl);
+            }
+            updatedAffine = false;
+        }
+
         return dIdpix_image;
     }
 
@@ -108,9 +131,14 @@ public:
         return dIdAffine_image;
     }
 
-    bool isInit()
+    dataCPU<float>& getIdepthImage()
     {
-        return init;
+        return idepth_image;
+    }
+
+    dataCPU<float>& getResidualImage()
+    {
+        return residual_image;
     }
 
     int getId()
@@ -120,14 +148,14 @@ public:
 
 private:
 
-    float applyAffine(float f)
+    float applyAffine(float raw_f)
     {
-        return std::exp(-affine(0))*f - affine(1);
+        return std::exp(-affine(0))*(raw_f - affine(1));
     }
 
-    vec2<float> getdIdaffine(float f)
+    vec2<float> getdIdaffine(float raw_f)
     {
-        return vec2<float>(-std::exp(-affine(0))*f, -1.0f);
+        return vec2<float>(-std::exp(-affine(0))*(raw_f - affine(1)), -std::exp(-affine(0)));
     }
 
     void computeFrameDerivative(int lvl)
@@ -184,10 +212,13 @@ private:
     dataCPU<float> cor_image;
     dataCPU<vec2<float>> dIdAffine_image;
     dataCPU<vec2<float>> dIdpix_image;
+    dataCPU<float> idepth_image;
+    dataCPU<float> residual_image;
 
     Sophus::SE3f pose;
     vec2<float> affine;
 
-    bool init;
     int id;
+
+    bool updatedAffine;
 };

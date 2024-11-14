@@ -55,8 +55,8 @@ public:
 
     std::unique_ptr<ShapeBase> getShape(camera cam, int polId) override
     {
-        int patch_width = cam.width / MESH_WIDTH;
-        int patch_height = cam.height / MESH_HEIGHT;
+        int patch_width = (cam.width / MESH_WIDTH);
+        int patch_height = (cam.height / MESH_HEIGHT);
         // always return triangle in cartesian
         ShapePatch pol(getRay(polId), getPix(polId), getDepth(polId), getWeight(polId), patch_width, patch_height);
         return std::make_unique<ShapePatch>(pol);
@@ -64,8 +64,8 @@ public:
 
     void getShape(ShapeBase *shape, camera cam, int polId) override
     {
-        int patch_width = cam.width / MESH_WIDTH;
-        int patch_height = cam.height / MESH_HEIGHT;
+        int patch_width = (cam.width / MESH_WIDTH);
+        int patch_height = (cam.height / MESH_HEIGHT);
         ShapePatch *_shape = (ShapePatch *)shape;
         _shape->set(getRay(polId), getPix(polId), getDepth(polId), getWeight(polId), patch_width, patch_height);
     }

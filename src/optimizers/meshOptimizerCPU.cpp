@@ -58,6 +58,7 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
     */
 
     kframe = frame;
+    //kframe.setAffine(vec2<float>(0.0, 0.0));
 }
 
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl)
@@ -68,14 +69,16 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, std::vector<vec2<float>> &t
 
 Error meshOptimizerCPU::computeError(frameCPU *frame, int lvl, bool useWeights)
 {
-    error_buffer.set(error_buffer.nodata, lvl);
+    //error_buffer.set(error_buffer.nodata, lvl);
+    frame->getResidualImage().set(frame->getResidualImage().nodata, lvl);
     ivar_buffer.set(ivar_buffer.nodata, lvl);
 
-    renderer.renderResidualParallel(&kscene, &kframe, frame, cam[lvl], &error_buffer, lvl);
+    //renderer.renderResidualParallel(&kscene, &kframe, frame, cam[lvl], &error_buffer, lvl);
+    renderer.renderResidualParallel(&kscene, &kframe, frame, cam[lvl], &(frame->getResidualImage()), lvl);
     if (useWeights)
         renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
 
-    Error e = reducer.reduceErrorParallel(cam[lvl], error_buffer, ivar_buffer, lvl);
+    Error e = reducer.reduceErrorParallel(cam[lvl], frame->getResidualImage(), ivar_buffer, lvl);
 
     return e;
 }
@@ -334,7 +337,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
                 // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
                 Sophus::SE3f new_pose = best_pose * Sophus::SE3f::exp(inc.segment(0, 6)).inverse();
-                vec2<float> new_affine = best_affine - vec2<float>(inc(6), inc(7));
+                vec2<float> new_affine = vec2<float>(0.0, 0.0); //best_affine - vec2<float>(inc(6), inc(7));
                 frame.setPose(new_pose);
                 frame.setAffine(new_affine);
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
@@ -413,9 +416,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
     // HGMapped hg_regu;
     // HGMapped hg_init;
 
-    for (int lvl = 1; lvl >= 1; lvl--)
+    for (int lvl = 3; lvl >= 1; lvl--)
     {
-        kscene.project(cam[lvl]);
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
         {
@@ -626,7 +628,6 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
     for (int lvl = 3; lvl >= 1; lvl--)
     {
-        kscene.project(cam[lvl]);
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
         {
@@ -735,7 +736,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     best_poses.push_back(frames[i].getPose());
                     best_affines.push_back(frames[i].getAffine());
                     Sophus::SE3f new_pose = frames[i].getPose() * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
-                    vec2<float> new_affine = frames[i].getAffine() - vec2<float>(pose_inc(6), pose_inc(7));
+                    vec2<float> new_affine = vec2<float>(0.0, 0.0);//frames[i].getAffine() - vec2<float>(pose_inc(6), pose_inc(7));
                     frames[i].setPose(new_pose);
                     frames[i].setAffine(new_affine);
                     // frames[i].pose = Sophus::SE3f::exp(pose_inc).inverse() * frames[i].pose;
