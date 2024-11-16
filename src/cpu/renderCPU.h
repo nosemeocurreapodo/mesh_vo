@@ -411,7 +411,7 @@ public:
 
         window win(0, cam.width, 0, cam.height);
 
-        renderResidualWindow(kimage, &(frame->getCorImage()), cam, win, e_buffer, lvl);
+        renderResidualWindow(kimage, frame, cam, win, e_buffer, lvl);
     }
 
     void renderResidualParallel(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<float> *e_buffer, int lvl)
@@ -444,7 +444,7 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 // renderJPoseWindow(kscene, kframe, scene, frame, cam, win, jpose_buffer, e_buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderResidualWindow, this, kimage, &(frame->getCorImage()), cam, win, e_buffer, lvl));
+                pool.enqueue(std::bind(&renderCPU::renderResidualWindow, this, kimage, frame, cam, win, e_buffer, lvl));
             }
         }
 
@@ -661,8 +661,8 @@ private:
 
         int size = 5;
 
-        dataCPU<float> corrFrame = frame->getCorImage();
-        dataCPU<float> corrKframe = kframe->getCorImage();
+        dataCPU<float> corrFrame = frame->getRawImage();
+        dataCPU<float> corrKframe = kframe->getRawImage();
 
         for (int y = win.min_y; y <= win.max_y; y++)
         {
@@ -741,38 +741,17 @@ private:
     {
         std::vector<int> ids = scene2->getShapesIds();
 
-        // auto kf_pol = kscene->getShape(cam, ids[0]);
-        // auto f_pol = scene->getShape(cam, ids[0]);
-
-        // float kf_a = kframe->a;
-        // float kf_b = kframe->b;
-
-        // for each triangle
         for (auto t_id : ids)
         {
-            // if (t_id % 2 != 0)
-            //     continue;
-
-            // Polygon kf_pol = mesh.getPolygon(t_id);
-            //  if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
-            //      continue;
-            // if (kf_tri.getArea() < 1.0)
-            //     continue;
-
             if (!scene2->isShapeInWindow(win, t_id))
                 continue;
 
             auto kf_pol = scene1->getShape(cam, t_id);
             auto f_pol = scene2->getShape(cam, t_id);
-            // kscene->getShape(kf_pol.get(), cam, t_id);
-            // scene->getShape(f_pol.get(), cam, t_id);
 
-            // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
-            //     continue;
             if (f_pol->getArea() < 0.0)
                 continue;
 
-            // window pol_win = f_pol->getScreenBounds(cam);
             window pol_win = f_pol->getScreenBounds();
 
             pol_win.intersect(win);
@@ -782,10 +761,7 @@ private:
                 for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
-                    // if (!cam.isPixVisible(f_pix))
-                    //     continue;
 
-                    // f_pol->prepareForRay(f_ray);
                     f_pol->prepareForPix(f_pix);
                     if (!f_pol->hitsShape())
                         continue;
@@ -799,18 +775,6 @@ private:
                         continue;
 
                     vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
-
-                    // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
-
-                    // vec3<float> f_ver = f_ray * f_depth;
-
-                    // Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
-                    // vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
-                    // if (kf_ver(2) <= 0.0)
-                    //     continue;
-
-                    // vec3<float> kf_ray = kf_ver / kf_ver(2);
-                    // vec2<float> kf_pix = cam.rayToPix(kf_ray);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -831,25 +795,12 @@ private:
     {
         std::vector<int> shapesIds = scene2->getShapesIds();
 
-        // auto f_pol = scene2->getShape(cam, shapesIds[0]);
-
-        // for each triangle
         for (auto t_id : shapesIds)
         {
-            // Triangle kf_tri = keyframeMesh.triangles[t_id];
-            // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
-            //     continue;
-            // if (kf_tri.isBackFace())
-            //     continue;
-
             if (!scene2->isShapeInWindow(win, t_id))
                 continue;
 
             auto f_pol = scene2->getShape(cam, t_id);
-            // scene->getShape(f_pol.get(), cam, t_id);
-
-            // if (f_tri2d.vertices[0](2) <= 0.0 || f_tri2d.vertices[1](2) <= 0.0 || f_tri2d.vertices[2](2) <= 0.0)
-            //      continue;
             if (f_pol->getArea() < 0.0)
                 continue;
 
@@ -862,9 +813,6 @@ private:
                 for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
-                    // if (!cam.isPixVisible(f_pix))
-                    //     continue;
-                    // vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForPix(f_pix);
                     if (!f_pol->hitsShape())
@@ -890,25 +838,13 @@ private:
     {
         std::vector<int> shapesIds = scene2->getShapesIds();
 
-        // auto f_pol = scene2->getShape(cam, shapesIds[0]);
-
-        // for each triangle
         for (auto t_id : shapesIds)
         {
-            // Triangle kf_tri = keyframeMesh.triangles[t_id];
-            // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
-            //     continue;
-            // if (kf_tri.isBackFace())
-            //     continue;
-
             if (!scene2->isShapeInWindow(win, t_id))
                 continue;
 
             auto f_pol = scene2->getShape(cam, t_id);
-            // scene->getShape(f_pol.get(), cam, t_id);
 
-            // if (f_tri2d.vertices[0](2) <= 0.0 || f_tri2d.vertices[1](2) <= 0.0 || f_tri2d.vertices[2](2) <= 0.0)
-            //      continue;
             if (f_pol->getArea() < 0.0)
                 continue;
 
@@ -921,9 +857,6 @@ private:
                 for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
-                    // if (!cam.isPixVisible(f_pix))
-                    //     continue;
-                    // vec3<float> f_ray = cam.pixToRay(f_pix);
 
                     f_pol->prepareForPix(f_pix);
                     if (!f_pol->hitsShape())
@@ -947,38 +880,27 @@ private:
         }
     }
 
-    void renderResidualWindow(dataCPU<float> *kimage, dataCPU<float> *image, camera cam, window win, dataCPU<float> *e_buffer, int lvl)
+    void renderResidualWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<float> *e_buffer, int lvl)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
-        // float min_angle = M_PI / 64.0;
 
-        // Sophus::SE3f kfTofPose = frame->getPose() * kframe->getPose().inverse();
-        // Sophus::SE3f fTokfPose = kfTofPose.inverse();
-
-        // for each triangle
         std::vector<int> t_ids = scene2->getShapesIds();
 
-        // auto kf_pol = kscene->getShape(cam, t_ids[0]);
-        // auto f_pol = scene->getShape(cam, t_ids[0]);
+        vec2<float> affine = frame->getAffine();
+        float alpha = std::exp(-affine(0));
+        float beta = affine(1);
 
         for (auto t_id : t_ids)
         {
-            // if (t_id % 2 != 0)
-            //     continue;
-
             if (!scene2->isShapeInWindow(win, t_id))
                 continue;
 
             auto kf_pol = scene1->getShape(cam, t_id);
             auto f_pol = scene2->getShape(cam, t_id);
 
-            // kscene->getShape(kf_pol.get(), cam, t_id);
-            // scene->getShape(f_pol.get(), cam, t_id);
-
             if (f_pol->getArea() <= min_area)
                 continue;
 
-            // window pol_win = f_pol->getScreenBounds(cam);
             window pol_win = f_pol->getScreenBounds();
 
             pol_win.intersect(win);
@@ -991,7 +913,6 @@ private:
                     if (!cam.isPixVisible(f_pix))
                         continue;
 
-                    // f_pol->prepareForRay(f_ray);
                     f_pol->prepareForPix(f_pix);
                     if (!f_pol->hitsShape())
                         continue;
@@ -1005,31 +926,20 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
                     vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
-
-                    /*
-                    Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
-                    vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
-
-                    if (kf_ver(2) <= 0.0)
-                        continue;
-
-                    vec3<float> kf_ray = kf_ver / kf_ver(2);
-                    vec2<float> kf_pix = cam.rayToPix(kf_ray);
-                    */
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
                     auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = image->get(y, x, lvl);
+                    auto f_i = frame->getRawImage().get(y, x, lvl);
 
-                    if (kf_i == kimage->nodata || f_i == image->nodata)
+                    if (kf_i == kimage->nodata || f_i == frame->getRawImage().nodata)
                         continue;
 
-                    // float residual = ((f_i - f_b) - std::exp(kf_a - f_a) * (kf_i - kf_b));
-                    float residual = f_i - kf_i;
+                    float f_i_cor = alpha*(f_i - beta);
+
+                    float residual = f_i_cor - kf_i;
 
                     e_buffer->set(residual, y, x, lvl);
                     z_buffer.set(f_depth, y, x, lvl);
@@ -1041,35 +951,24 @@ private:
     void renderJPoseWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
-        // float min_angle = M_PI / 64.0;
 
-        // Sophus::SE3f kfTofPose = frame->getPose() * kframe->getPose().inverse();
-        // Sophus::SE3f fTokfPose = kfTofPose.inverse();
+        vec2<float> affine = frame->getAffine();
+        float alpha = std::exp(-affine(0));
+        float beta = affine(1);
 
-        // for each triangle
         std::vector<int> t_ids = scene2->getShapesIds();
-
-        // auto kf_pol = kscene->getShape(cam, t_ids[0]);
-        // auto f_pol = scene->getShape(cam, t_ids[0]);
 
         for (auto t_id : t_ids)
         {
-            // if (t_id % 2 != 0)
-            //     continue;
-
             if (!scene2->isShapeInWindow(win, t_id))
                 continue;
 
             auto kf_pol = scene1->getShape(cam, t_id);
             auto f_pol = scene2->getShape(cam, t_id);
 
-            // kscene->getShape(kf_pol.get(), cam, t_id);
-            // scene->getShape(f_pol.get(), cam, t_id);
-
             if (f_pol->getArea() <= min_area)
                 continue;
 
-            // window pol_win = f_pol->getScreenBounds(cam);
             window pol_win = f_pol->getScreenBounds();
 
             pol_win.intersect(win);
@@ -1082,7 +981,6 @@ private:
                     if (!cam.isPixVisible(f_pix))
                         continue;
 
-                    // f_pol->prepareForRay(f_ray);
                     f_pol->prepareForPix(f_pix);
                     if (!f_pol->hitsShape())
                         continue;
@@ -1098,16 +996,6 @@ private:
 
                     vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
 
-                    // Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
-                    // vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
-
-                    // if (kf_ver(2) <= 0.0)
-                    //     continue;
-
-                    // vec3<float> kf_ray = kf_ver / kf_ver(2);
-
-                    // vec2<float> kf_pix = cam.rayToPix(kf_ray);
-
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
@@ -1117,18 +1005,11 @@ private:
                     vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
                     auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getCorImage().get(y, x, lvl);
+                    auto f_i = frame->getRawImage().get(y, x, lvl);
                     vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x, lvl);
-                    vec2<float> d_f_i_d_affine = frame->getdIdAffineImage().get(y, x, lvl);
 
-                    if (kf_i == kimage->nodata || f_i == frame->getCorImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage->nodata || f_i == frame->getRawImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
                         continue;
-
-                    // Eigen::MatrixXf d_pix_d_f_ver = cam.dPixdPoint(f_ver);
-
-                    // Eigen::Vector3f d_f_i_d_f_ver = d_f_i_d_pix * d_pix_d_f_ver;
-                    // Eigen::Vector3f d_f_i_d_tra = d_f_i_d_f_ver;
-                    // Eigen::Vector3f d_f_i_d_rot = Eigen::Vector3f(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
                     float v0 = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                     float v1 = d_f_i_d_pix(1) * cam.fy / f_ver(2);
@@ -1136,9 +1017,13 @@ private:
                     vec3<float> d_f_i_d_tra(v0, v1, v2);
                     vec3<float> d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
+                    float f_i_cor = alpha*(f_i - beta);
+
+                    vec2<float> d_f_i_d_affine(-f_i_cor, -alpha);
+
                     vec8<float> j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_affine(0), d_f_i_d_affine(1)};
 
-                    float residual = f_i - kf_i;
+                    float residual = f_i_cor - kf_i;
 
                     jpose_buffer->set(j_pose, y, x, lvl);
                     e_buffer->set(residual, y, x, lvl);
@@ -1151,35 +1036,24 @@ private:
     void renderJLightAffineWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
-        // float min_angle = M_PI / 64.0;
 
-        // Sophus::SE3f kfTofPose = frame->getPose() * kframe->getPose().inverse();
-        // Sophus::SE3f fTokfPose = kfTofPose.inverse();
-
-        // for each triangle
         std::vector<int> t_ids = scene2->getShapesIds();
 
-        // auto kf_pol = kscene->getShape(cam, t_ids[0]);
-        // auto f_pol = scene->getShape(cam, t_ids[0]);
+        vec2<float> affine = frame->getAffine();
+        float alpha = std::exp(-affine(0));
+        float beta = affine(1);
 
         for (auto t_id : t_ids)
         {
-            // if (t_id % 2 != 0)
-            //     continue;
-
             if (!scene2->isShapeInWindow(win, t_id))
                 continue;
 
             auto kf_pol = scene1->getShape(cam, t_id);
             auto f_pol = scene2->getShape(cam, t_id);
 
-            // kscene->getShape(kf_pol.get(), cam, t_id);
-            // scene->getShape(f_pol.get(), cam, t_id);
-
             if (f_pol->getArea() <= min_area)
                 continue;
 
-            // window pol_win = f_pol->getScreenBounds(cam);
             window pol_win = f_pol->getScreenBounds();
 
             pol_win.intersect(win);
@@ -1192,7 +1066,6 @@ private:
                     if (!cam.isPixVisible(f_pix))
                         continue;
 
-                    // f_pol->prepareForRay(f_ray);
                     f_pol->prepareForPix(f_pix);
                     if (!f_pol->hitsShape())
                         continue;
@@ -1206,32 +1079,22 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
                     vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
-
-                    // Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
-                    // vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
-
-                    // if (kf_ver(2) <= 0.0)
-                    //     continue;
-
-                    // vec3<float> kf_ray = kf_ver / kf_ver(2);
-
-                    // vec2<float> kf_pix = cam.rayToPix(kf_ray);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
                     auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getCorImage().get(y, x, lvl);
-                    vec2<float> d_f_i_d_affine = frame->getdIdAffineImage().get(y, x, lvl);
+                    auto f_i = frame->getRawImage().get(y, x, lvl);
 
-                    if (kf_i == kimage->nodata || f_i == frame->getCorImage().nodata || d_f_i_d_affine == frame->getdIdAffineImage().nodata)
+                    if (kf_i == kimage->nodata || f_i == frame->getRawImage().nodata)
                         continue;
 
-                    vec2<float> j_lightaffine = {d_f_i_d_affine(0), d_f_i_d_affine(1)};
+                    float f_i_cor = alpha*(f_i - beta);
 
-                    float residual = f_i - kf_i;
+                    vec2<float> j_lightaffine(-f_i_cor, -alpha);
+
+                    float residual = f_i_cor - kf_i;
 
                     jlightaffine_buffer->set(j_lightaffine, y, x, lvl);
                     e_buffer->set(residual, y, x, lvl);
@@ -1307,18 +1170,14 @@ private:
     void renderJMapWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
         float min_area = 0.0; //(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3 / 4;
-        // float min_angle = M_PI / 64.0;
 
-        // std::unique_ptr<SceneBase> kframeMesh = scene.clone();
-        // std::unique_ptr<SceneBase> frameMesh = scene.clone();
-
-        // kframeMesh->transform(kframe.pose);
-        // frameMesh->transform(frame.pose);
-
-        Sophus::SE3f kfTofPose = frame->getPose();// * kframe->getPose().inverse();
+        Sophus::SE3f kfTofPose = frame->getPose();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
-        // for each triangle
+        vec2<float> affine = frame->getAffine();
+        float alpha = std::exp(-affine(0));
+        float beta = affine(1);
+
         std::vector<int> t_ids = scene2->getShapesIds();
 
         int shapeDoF = scene2->getShapesDoF();
@@ -1332,25 +1191,14 @@ private:
 
             auto kf_pol = scene1->getShape(cam, t_id);
 
-            // if (kf_tri_3d.vertices[0](2) <= 0.0 || kf_tri_3d.vertices[1](2) <= 0.0 || kf_tri_3d.vertices[2](2) <= 0.0)
-            //     continue;
             if (kf_pol->getArea() < min_area)
                 continue;
-            // std::array<float, 3> kf_tri_angles = kf_tri_2d.getAngles();
-            // if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
-            //     continue;
 
             auto f_pol = scene2->getShape(cam, t_id);
 
-            // if (f_tri_3d.vertices[0](2) <= 0.0 || f_tri_3d.vertices[1](2) <= 0.0 || f_tri_3d.vertices[2](2) <= 0.0)
-            //     continue;
             if (f_pol->getArea() < min_area)
                 continue;
-            // std::array<float, 3> f_tri_angles = f_tri_2d.getAngles();
-            // if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
-            //     continue;
 
-            // window pol_win = f_pol->getScreenBounds(cam);
             window pol_win = f_pol->getScreenBounds();
 
             pol_win.intersect(win);
@@ -1364,9 +1212,6 @@ private:
                         continue;
 
                     f_pol->prepareForPix(f_pix);
-
-                    // if(f_pol->isEdge())
-                    //     continue;
 
                     if (!f_pol->hitsShape())
                         continue;
@@ -1384,26 +1229,6 @@ private:
 
                     kf_pol->prepareForPix(kf_pix);
 
-                    // Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
-                    // vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
-
-                    // if (kf_ver(2) <= 0.0)
-                    //     continue;
-
-                    // vec3<float> kf_ray = kf_ver / kf_ver(2);
-
-                    // kf_pol->prepareForRay(kf_ray);
-                    // if (!kf_pol->hitsShape())
-                    //     continue;
-
-                    //vec2<float> kf_pix = cam.rayToPix(kf_ray);
-
-                    // vec3<float> kf_ray = f_pol->getRay(kf_pol.get());
-                    // vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
-
-                    // if(kf_pol->isEdge())
-                    //     continue;
-
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
@@ -1412,16 +1237,15 @@ private:
                     vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
                     auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getCorImage().get(y, x, lvl);
+                    auto f_i = frame->getRawImage().get(y, x, lvl);
                     vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x, lvl);
 
-                    if (kf_i == kimage->nodata || f_i == frame->getCorImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage->nodata || f_i == frame->getRawImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
                         continue;
 
-                    // float residual = f_i - f_b - std::exp(kf_a - f_a) * (kf_i - kf_b);
-                    float residual = f_i - kf_i;
+                    float f_i_cor = alpha*(f_i - beta);
 
-                    // vec3<float> d_f_i_d_f_ver = cam.d_f_i_d_f_ver(d_f_i_d_pix, f_ver);
+                    float residual = f_i_cor - kf_i;
 
                     vec3<float> d_f_i_d_f_ver;
                     d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
@@ -1460,44 +1284,37 @@ private:
     template <typename Type1, typename Type2>
     void renderJPoseMapWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
     {
-        float min_area = (float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3.0 / 4.0;
-        // float min_angle = M_PI / 64.0;
+        float min_area = 0.0;//(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3.0 / 4.0;
 
-        Sophus::SE3f kfTofPose = frame->getPose();// * kframe->getPose().inverse();
+        Sophus::SE3f kfTofPose = frame->getPose();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
-        // for each triangle
-        std::vector<int> t_ids = scene1->getShapesIds();
-        int shapeDoF = scene1->getShapesDoF();
+        vec2<float> affine = frame->getAffine();
+        float alpha = std::exp(-affine(0));
+        float beta = affine(1);
+
+        std::vector<int> t_ids = scene2->getShapesIds();
+        int shapeDoF = scene2->getShapesDoF();
 
         for (auto t_id : t_ids)
         {
             if (!scene2->isShapeInWindow(win, t_id))
                 continue;
 
-            std::vector<int> p_ids = scene1->getShapeParamsIds(t_id);
+            std::vector<int> p_ids = scene2->getShapeParamsIds(t_id);
 
             std::unique_ptr<ShapeBase> kf_pol = scene1->getShape(cam, t_id);
-            // if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
-            //     continue;
+
             float kf_pol_area = kf_pol->getArea();
-            // if (kf_pol_area < min_area)
             if (kf_pol_area <= 0.0)
                 continue;
-            // std::array<float, 3> kf_tri_angles = kf_tri_2d.getAngles();
-            // if (fabs(kf_tri_angles[0]) < min_angle || fabs(kf_tri_angles[1]) < min_angle || fabs(kf_tri_angles[2]) < min_angle)
-            //    continue;
 
             std::unique_ptr<ShapeBase> f_pol = scene2->getShape(cam, t_id);
-            // if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
-            //     continue;
+
             float f_pol_area = f_pol->getArea();
-            // if (f_pol_area < min_area)
             if (f_pol_area <= 0.0)
                 continue;
-            // std::array<float, 3> f_tri_angles = f_tri_2d.getAngles();
-            // if (fabs(f_tri_angles[0]) < min_angle || fabs(f_tri_angles[1]) < min_angle || fabs(f_tri_angles[2]) < min_angle)
-            //    continue;
+
 
             float p_area;
             if (kf_pol_area > f_pol_area)
@@ -1535,27 +1352,16 @@ private:
 
                     vec2<float> kf_pix = f_pol->getPix(kf_pol.get());
 
-                    // Eigen::Vector3f kf_ver_e = fTokfPose * Eigen::Vector3f(f_ver(0), f_ver(1), f_ver(2));
-                    // vec3<float> kf_ver(kf_ver_e(0), kf_ver_e(1), kf_ver_e(2));
-                    // if (kf_ver(2) <= 0.0)
-                    //     continue;
-
-                    // vec3<float> kf_ray = kf_ver / kf_ver(2);
-                    // vec2<float> kf_pix = cam.rayToPix(kf_ray);
-
                     kf_pol->prepareForPix(kf_pix);
-                    // if (!kf_pol->hitsShape())
-                    //     continue;
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
                     auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getCorImage().get(y, x, lvl);
+                    auto f_i = frame->getRawImage().get(y, x, lvl);
                     vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x, lvl);
-                    vec2<float> d_f_i_d_f_affine = frame->getdIdAffineImage().get(y, x, lvl);
 
-                    if (kf_i == kimage->nodata || f_i == frame->getCorImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage->nodata || f_i == frame->getRawImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
                         continue;
 
                     vec3<float> f_ray = cam.pixToRay(f_pix);
@@ -1570,6 +1376,10 @@ private:
                     vec3<float> d_f_i_d_tra(d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2));
                     vec3<float> d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
+                    float f_i_cor = alpha*(f_i - beta);
+                    
+                    vec2<float> d_f_i_d_f_affine(-f_i_cor, -alpha);
+
                     vec8<float> jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_f_affine(0), d_f_i_d_f_affine(1)};
 
                     jpose_buffer->set(jpose, y, x, lvl);
@@ -1581,7 +1391,7 @@ private:
 
                     std::vector<float> Jacobian = kf_pol->getJacobian(d_f_i_d_kf_depth);
 
-                    float error = f_i - kf_i;
+                    float error = f_i_cor - kf_i;
 
                     Type1 jacs = jmap_buffer->nodata;
                     Type2 ids = pId_buffer->nodata;
@@ -1605,24 +1415,13 @@ private:
     {
         std::vector<int> ids = scene2->getShapesIds();
 
-        // auto f_pol = scene2->getShape(cam, ids[0]);
-
-        // for each triangle
         for (auto t_id : ids)
         {
-            // Triangle kf_tri = keyframeMesh.triangles[index];
-            //  if (kf_tri.vertices[0]->position(2) <= 0.0 || kf_tri.vertices[1]->position(2) <= 0.0 || kf_tri.vertices[2]->position(2) <= 0.0)
-            //      continue;
-            // if (kf_tri.isBackFace())
-            //     continue;
             auto f_pol = scene2->getShape(cam, t_id);
 
             if (!scene2->isShapeInWindow(win, t_id))
                 continue;
 
-            // scene2->getShape(f_pol.get(), cam, t_id);
-            //  if (f_tri.vertices[0]->position(2) <= 0.0 || f_tri.vertices[1]->position(2) <= 0.0 || f_tri.vertices[2]->position(2) <= 0.0)
-            //      continue;
             if (f_pol->getArea() < 0.0)
                 continue;
 

@@ -56,7 +56,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     bool optimize = false;
 
     frameCPU newFrame(cam.width, cam.height);
-    newFrame.setImage(image, lastId); //*keyframeData.pose.inverse();
+    newFrame.setImage(image, lastId);
     newFrame.setPose(lastMovement * lastPose);
     // newFrame.setPose(lastPose);
     newFrame.setAffine(lastAffine);
@@ -68,49 +68,64 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     std::cout << "estimated pose " << t.toc() << std::endl;
     std::cout << newFrame.getPose().matrix() << std::endl;
 
-    meshOptimizer.plotDebug(newFrame, keyFrames);
-
-    if (lastFrames.size() < NUM_FRAMES)
+    if (lastFrames.size() == 0)
     {
-        optimize = true;
         lastFrames.push_back(newFrame);
-        keyFrames = lastFrames;
     }
     else
     {
-        if (lastFrames.size() == NUM_FRAMES)
-        {
-            float meanViewAngle = meshOptimizer.meanViewAngle(&lastFrames[lastFrames.size() - 1], &newFrame);
-            //dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
-            //float percentNoData = idepth.getPercentNoData(1);
+        float meanViewAngle = meshOptimizer.meanViewAngle(&lastFrames[lastFrames.size() - 1], &newFrame);
+        //dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
+        //float percentNoData = idepth.getPercentNoData(1);
 
-            //float viewPercent = meshOptimizer.getViewPercent(newFrame);
+        float viewPercent = meshOptimizer.getViewPercent(newFrame);
 
-            //std::cout << "mean viewAngle " << meanViewAngle << std::endl;
-            //std::cout << "view percent " << viewPercent << std::endl;
-            //std::cout << "percent nodata " << percentNoData << std::endl;
+        //std::cout << "mean viewAngle " << meanViewAngle << std::endl;
+        //std::cout << "view percent " << viewPercent << std::endl;
+        //std::cout << "percent nodata " << percentNoData << std::endl;
 
-            if (meanViewAngle > M_PI / 16.0)// || percentNoData > 0.2) viewPercent < 0.8)
-            {
+        if (meanViewAngle > M_PI / 64.0) //(percentNoData > 0.2) //(viewPercent < 0.8)
+        {            
+            lastFrames.push_back(newFrame);
+            if(lastFrames.size() > NUM_FRAMES)
                 lastFrames.erase(lastFrames.begin());
-                lastFrames.push_back(newFrame);
-
-                keyFrames = lastFrames;
-                optimize = true;
-
-                int newFrameIndex = int(keyFrames.size() / 2);
-                //int newFrameIndex = keyFrames.size() - 1;
-                meshOptimizer.changeKeyframe(keyFrames[newFrameIndex]);
-                keyFrames.erase(keyFrames.begin() + newFrameIndex);
-            }
         }
-        else
+
+        if(viewPercent < 0.8 && lastFrames.size() > 1)
         {
-            // should not happen
-            if (lastFrames.size() > NUM_FRAMES)
+            int newKeyframeIndex = int(lastFrames.size() / 2);
+            frameCPU newKeyframe = lastFrames[newKeyframeIndex];
+
+            Sophus::SE3f newKeyframePoseInv = newKeyframe.getPose().inverse();
+            vec2<float> newKeyframeAffine = newKeyframe.getAffine();
+
+            Sophus::SE3f newPose = newFrame.getPose() * newKeyframePoseInv;
+            vec2<float> lastAffine = newFrame.getAffine();
+            float newAlpha = lastAffine(0) - newKeyframeAffine(0);
+            float newBeta = lastAffine(1) - newKeyframeAffine(1)/std::exp(-newAlpha);
+            vec2<float> newAffine(newAlpha, newBeta);
+
+            newFrame.setPose(newPose);
+            newFrame.setAffine(newAffine);
+
+            for(int i = 0; i < lastFrames.size(); i++)
             {
-                lastFrames.erase(lastFrames.begin());
+                newPose = lastFrames[i].getPose() * newKeyframePoseInv;
+                lastAffine = lastFrames[i].getAffine();
+                newAlpha = lastAffine(0) - newKeyframeAffine(0);
+                newBeta = lastAffine(1) - newKeyframeAffine(1)/std::exp(-newAlpha);
+                newAffine = vec2<float>(newAlpha, newBeta);
+
+                lastFrames[i].setPose(newPose);
+                lastFrames[i].setAffine(newAffine);
             }
+
+            keyFrames = lastFrames;
+            keyFrames.erase(keyFrames.begin() + newKeyframeIndex);
+
+            meshOptimizer.changeKeyframe(newKeyframe);
+
+            optimize = true;
         }
     }
 
@@ -170,7 +185,6 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         //meshOptimizer.setMeshRegu(200.0);
         meshOptimizer.optPoseMap(keyFrames);
         std::cout << "optposemap time " << t.toc() << std::endl;
-        meshOptimizer.plotDebug(newFrame, keyFrames);
        
         // sync the updated keyframe poses present in lastframes
         for (auto keyframe : keyFrames)

@@ -10,10 +10,10 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
       error_buffer(_cam.width, _cam.height, -1.0),
       jlightaffine_buffer(_cam.width, _cam.height, {0.0, 0.0}),
       jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
-      //jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
-      //pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
-      jmap_buffer(_cam.width, _cam.height, {0.0}),
-      pId_buffer(_cam.width, _cam.height, {-1}),
+      jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
+      pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
+      //jmap_buffer(_cam.width, _cam.height, {0.0}),
+      //pId_buffer(_cam.width, _cam.height, {-1}),
       debug(_cam.width, _cam.height, -1.0),
       idepthVar(_cam.width, _cam.height, -1.0),
       renderer(_cam.width, _cam.height)
@@ -340,7 +340,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
                 // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
                 Sophus::SE3f new_pose = best_pose * Sophus::SE3f::exp(inc.segment(0, 6)).inverse();
-                vec2<float> new_affine = vec2<float>(0.0, 0.0); //best_affine - vec2<float>(inc(6), inc(7));
+                vec2<float> new_affine = best_affine - vec2<float>(inc(6), inc(7));
                 frame.setPose(new_pose);
                 frame.setAffine(new_affine);
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
@@ -739,7 +739,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     best_poses.push_back(frames[i].getPose());
                     best_affines.push_back(frames[i].getAffine());
                     Sophus::SE3f new_pose = frames[i].getPose() * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
-                    vec2<float> new_affine = vec2<float>(0.0, 0.0);//frames[i].getAffine() - vec2<float>(pose_inc(6), pose_inc(7));
+                    vec2<float> new_affine = frames[i].getAffine() - vec2<float>(pose_inc(6), pose_inc(7));
                     frames[i].setPose(new_pose);
                     frames[i].setAffine(new_affine);
                     // frames[i].pose = Sophus::SE3f::exp(pose_inc).inverse() * frames[i].pose;

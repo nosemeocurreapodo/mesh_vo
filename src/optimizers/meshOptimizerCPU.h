@@ -43,43 +43,41 @@ public:
         meshRegularization = mr;
     }
 
-    float meanViewAngle(frameCPU *kframe, frameCPU *frame)
+    float meanViewAngle(frameCPU *frame1, frameCPU *frame2)
     {
         int lvl = 1;
 
-        std::vector<int> sIds = kscene.getShapesIds();
+        Sophus::SE3f frame1PoseInv = frame1->getPose().inverse();
+        Sophus::SE3f frame2PoseInv = frame2->getPose().inverse();
 
-        Sophus::SE3f fromkframeToframe = frame->getPose() * kframe->getPose().inverse();
-        Sophus::SE3f fromframeTokframe = fromkframeToframe.inverse();
+        Eigen::Vector3f frame1Tra = frame1PoseInv.translation();
+        Eigen::Vector3f frame2Tra = frame2PoseInv.translation();
+
+        vec3<float> frame1Translation(frame1Tra(0), frame1Tra(1), frame1Tra(2));
+        vec3<float> frame2Translation(frame2Tra(0), frame2Tra(1), frame2Tra(2));
+
+        std::vector<int> sIds = kscene.getShapesIds();
 
         float accAngle = 0;
         int count = 0;
         for (auto sId : sIds)
         {
-            auto shape = kscene.getShape(cam[lvl], sId);
+            std::unique_ptr<ShapeBase> shape = kscene.getShape(cam[lvl], sId);
             vec2<float> centerPix = shape->getCenterPix();
-            if (!cam[lvl].isPixVisible(centerPix))
-                continue;
-
-            vec3<float> centerRay = cam[lvl].pixToRay(centerPix);
-
             shape->prepareForPix(centerPix);
             float centerDepth = shape->getDepth();
+            //if (!cam[lvl].isPixVisible(centerPix1))
+            //    continue;
 
+            vec3<float> centerRay = cam[lvl].pixToRay(centerPix);
             vec3<float> centerPoint = centerRay * centerDepth;
 
-            Eigen::Vector3f lastPoint_e = fromkframeToframe * Eigen::Vector3f(centerPoint(0), centerPoint(1), centerPoint(2));
-            Eigen::Vector3f lastRay_e = lastPoint_e / lastPoint_e(2);
-            vec3<float> lastRay(lastRay_e(0), lastRay_e(1), lastRay_e(2));
-            vec2<float> lastPix = cam[lvl].rayToPix(lastRay);
-            if (!cam[lvl].isPixVisible(lastPix))
-                continue;
+            vec3<float> diff1 = frame1Translation - centerPoint;
+            vec3<float> diff2 = frame2Translation - centerPoint;
+            vec3<float> diff1Normalized = diff1 / diff1.norm();
+            vec3<float> diff2Normalized = diff2 / diff2.norm();
 
-            Eigen::Vector3f lastRotatedRay_e = fromframeTokframe.inverse().rotationMatrix() * lastRay_e;
-            vec3<float> lastRotatedRay = vec3<float>(lastRotatedRay_e(0), lastRotatedRay_e(1), lastRotatedRay_e(2));
-            vec3<float> centerRayNormalized = centerRay / centerRay.norm();
-            vec3<float> lastRoratedRayNormalized = lastRotatedRay / lastRotatedRay.norm();
-            float cos_angle = centerRayNormalized.dot(lastRoratedRayNormalized);
+            float cos_angle = diff1Normalized.dot(diff2Normalized);
             float angle = std::acos(cos_angle);
 
             accAngle += std::fabs(angle);
@@ -159,7 +157,7 @@ public:
         renderer.renderWeightParallel(&kscene, frame.getPose(), cam[1], &ivar_buffer, 1);
         renderer.renderResidualParallel(&kscene, &kimage, &frame, cam[1], &error_buffer, 1);
 
-        show(frame.getCorImage(), "frame image", false, false, 1);
+        show(frame.getRawImage(), "frame image", false, false, 1);
         show(kimage, "keyframe image", false, false, 1);
         show(error_buffer, "frame error", false, true, 1);
         show(idepth_buffer, "frame idepth", true, true, 1);
@@ -179,7 +177,7 @@ public:
                 {
                     for (int x = 0; x < cam[1].width; x++)
                     {
-                        float pix_val = frames[i].getCorImage().get(y, x, 1);
+                        float pix_val = frames[i].getRawImage().get(y, x, 1);
                         float res_val = frames[i].getResidualImage().get(y, x, 1);
                         frames_buffer.set(pix_val, y, x + i * cam[1].width, 1);
                         residual_buffer.set(res_val, y, x + i * cam[1].width, 1);
@@ -252,9 +250,9 @@ public:
         */
     }
 
-    ScenePatches kscene;
+    //ScenePatches kscene;
     //SceneSurfels kscene;
-    //SceneMesh kscene;
+    SceneMesh kscene;
     //SceneMeshSmooth kscene;
     //frameCPU kframe;
     dataCPU<float> kimage;
@@ -290,11 +288,11 @@ private:
     dataCPU<vec2<float>> jlightaffine_buffer;
     dataCPU<vec8<float>> jpose_buffer;
 
-    dataCPU<vec1<float>> jmap_buffer;
-    dataCPU<vec1<int>> pId_buffer;
+    //dataCPU<vec1<float>> jmap_buffer;
+    //dataCPU<vec1<int>> pId_buffer;
 
-    //dataCPU<vec3<float>> jmap_buffer;
-    //dataCPU<vec3<int>> pId_buffer;
+    dataCPU<vec3<float>> jmap_buffer;
+    dataCPU<vec3<int>> pId_buffer;
 
     // debug
     dataCPU<float> debug;

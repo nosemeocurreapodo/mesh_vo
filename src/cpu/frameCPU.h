@@ -10,20 +10,15 @@ class frameCPU
 public:
     frameCPU(int width, int height)
         : raw_image(width, height, -1.0f),
-          cor_image(width, height, -1.0f),
-          dIdAffine_image(width, height, {0.0f, 0.0f}),
           dIdpix_image(width, height, {0.0f, 0.0f}),
           idepth_image(width, height, -1.0f),
           residual_image(width, height, -1.0f)
     {
         id = 0;
         affine = {0.0f, 0.0f};
-        updatedAffine = false;
     };
 
     frameCPU(const frameCPU &other) : raw_image(other.raw_image),
-                                      cor_image(other.cor_image),
-                                      dIdAffine_image(other.dIdAffine_image),
                                       dIdpix_image(other.dIdpix_image),
                                       idepth_image(other.idepth_image),
                                       residual_image(other.residual_image)
@@ -31,7 +26,6 @@ public:
         id = other.id;
         pose = other.pose;
         affine = other.affine;
-        updatedAffine = other.updatedAffine;
     }
 
     frameCPU &operator=(const frameCPU &other)
@@ -41,11 +35,8 @@ public:
             id = other.id;
             pose = other.pose;
             affine = other.affine;
-            updatedAffine = other.updatedAffine;
 
             raw_image = other.raw_image;
-            cor_image = other.cor_image;
-            dIdAffine_image = other.dIdAffine_image;
             dIdpix_image = other.dIdpix_image;
             idepth_image = other.idepth_image;
             residual_image = other.residual_image;
@@ -60,21 +51,14 @@ public:
         for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
         {
             computeFrameDerivative(lvl);
-            computeCorrImage(lvl);
-            computedIdAffineImage(lvl);
         }
 
         id = _id;
-        updatedAffine = false;
     }
 
     void setAffine(vec2<float> _affine)
     {
-        if(!(affine == _affine))
-        {
-            affine = _affine;
-            updatedAffine = true;
-        }
+        affine = _affine;
     }
     
     vec2<float> getAffine()
@@ -97,38 +81,9 @@ public:
         return raw_image;
     }
 
-    dataCPU<float>& getCorImage()
-    {
-        if(updatedAffine)
-        {
-            for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
-            {
-                computeCorrImage(lvl);
-                computedIdAffineImage(lvl);
-            }
-            updatedAffine = false;
-        }
-        return cor_image;
-    }
-
     dataCPU<vec2<float>>& getdIdpixImage()
     {
-        if(updatedAffine)
-        {
-            for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
-            {
-                computeCorrImage(lvl);
-                computedIdAffineImage(lvl);
-            }
-            updatedAffine = false;
-        }
-
         return dIdpix_image;
-    }
-
-    dataCPU<vec2<float>>& getdIdAffineImage()
-    {
-        return dIdAffine_image;
     }
 
     dataCPU<float>& getIdepthImage()
@@ -147,16 +102,6 @@ public:
     }
 
 private:
-
-    float applyAffine(float raw_f)
-    {
-        return std::exp(-affine(0))*(raw_f - affine(1));
-    }
-
-    vec2<float> getdIdaffine(float raw_f)
-    {
-        return vec2<float>(-std::exp(-affine(0))*(raw_f - affine(1)), -std::exp(-affine(0)));
-    }
 
     void computeFrameDerivative(int lvl)
     {
@@ -184,33 +129,7 @@ private:
             }
     }
 
-    void computeCorrImage(int lvl)
-    {
-        std::array<int, 2> size = raw_image.getSize(lvl);
-        for (int y = 0; y < size[1]; y++)
-            for (int x = 0; x < size[0]; x++)
-            {
-                float f = raw_image.get(y, x, lvl);
-                float cf = applyAffine(f);
-                cor_image.set(cf, y, x, lvl);
-            }
-    }
-
-    void computedIdAffineImage(int lvl)
-    {
-        std::array<int, 2> size = raw_image.getSize(lvl);
-        for (int y = 0; y < size[1]; y++)
-            for (int x = 0; x < size[0]; x++)
-            {
-                float f = raw_image.get(y, x, lvl);
-                vec2<float> cf = getdIdaffine(f);
-                dIdAffine_image.set(cf, y, x, lvl);
-            }
-    }
-
     dataCPU<float> raw_image;
-    dataCPU<float> cor_image;
-    dataCPU<vec2<float>> dIdAffine_image;
     dataCPU<vec2<float>> dIdpix_image;
     dataCPU<float> idepth_image;
     dataCPU<float> residual_image;
@@ -219,6 +138,4 @@ private:
     vec2<float> affine;
 
     int id;
-
-    bool updatedAffine;
 };
