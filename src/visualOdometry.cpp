@@ -91,7 +91,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
                 lastFrames.erase(lastFrames.begin());
         }
 
-        if(viewPercent < 0.8 && lastFrames.size() > 1)
+        if(viewPercent < 0.7 && lastFrames.size() > 1)
         {
             int newKeyframeIndex = int(lastFrames.size() / 2);
             frameCPU newKeyframe = lastFrames[newKeyframeIndex];
@@ -172,13 +172,13 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         std::cout << "opt poses time " << t.toc() << std::endl;
 
         meshOptimizer.plotDebug(newFrame, keyFrames);
+        */
 
+        /*
         t.tic();
         dataCPU<float> mask(cam.width, cam.height, -1);
         meshOptimizer.optMap(keyFrames, mask);
         std::cout << "optmap time " << t.toc() << std::endl;
-
-        meshOptimizer.plotDebug(newFrame, keyFrames);
         */
 
         t.tic();
@@ -189,11 +189,13 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         // sync the updated keyframe poses present in lastframes
         for (auto keyframe : keyFrames)
         {
+            /*
             if (newFrame.getId() == keyframe.getId())
             {
                 newFrame.setPose(keyframe.getPose());
                 newFrame.setAffine(keyframe.getAffine());
             }
+            */
             for (int i = 0; i < lastFrames.size(); i++)
             {
                 if (keyframe.getId() == lastFrames[i].getId())

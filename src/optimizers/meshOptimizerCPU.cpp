@@ -301,7 +301,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 {
     int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
 
-    for (int lvl = 3; lvl >= 1; lvl--)
+    for (int lvl = 4; lvl >= 1; lvl--)
     {
         // std::cout << "*************************lvl " << lvl << std::endl;
         Sophus::SE3f best_pose = frame.getPose();
@@ -340,7 +340,7 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
 
                 // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
                 Sophus::SE3f new_pose = best_pose * Sophus::SE3f::exp(inc.segment(0, 6)).inverse();
-                vec2<float> new_affine = best_affine - vec2<float>(inc(6), inc(7));
+                vec2<float> new_affine = best_affine;// - vec2<float>(inc(6), inc(7));
                 frame.setPose(new_pose);
                 frame.setAffine(new_affine);
                 // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
@@ -419,7 +419,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
     // HGMapped hg_regu;
     // HGMapped hg_init;
 
-    for (int lvl = 3; lvl >= 1; lvl--)
+    for (int lvl = 4; lvl >= 1; lvl--)
     {
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
@@ -491,8 +491,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
                 bool solverSucceded = true;
 
                 H_lambda.makeCompressed();
-                Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
-                // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+                //Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
+                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
                 //   Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
 
                 // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
@@ -629,7 +629,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
     HGEigenSparse hg(kscene.getNumParams() + frames.size() * 8);
     HGEigenSparse hg_regu(kscene.getNumParams() + frames.size() * 8);
 
-    for (int lvl = 3; lvl >= 1; lvl--)
+    for (int lvl = 4; lvl >= 1; lvl--)
     {
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
@@ -739,7 +739,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     best_poses.push_back(frames[i].getPose());
                     best_affines.push_back(frames[i].getAffine());
                     Sophus::SE3f new_pose = frames[i].getPose() * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
-                    vec2<float> new_affine = frames[i].getAffine() - vec2<float>(pose_inc(6), pose_inc(7));
+                    vec2<float> new_affine = frames[i].getAffine();// - vec2<float>(pose_inc(6), pose_inc(7));
                     frames[i].setPose(new_pose);
                     frames[i].setAffine(new_affine);
                     // frames[i].pose = Sophus::SE3f::exp(pose_inc).inverse() * frames[i].pose;
