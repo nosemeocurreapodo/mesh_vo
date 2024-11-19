@@ -2,21 +2,20 @@
 #include <memory>
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
-#include "cpu/SceneVerticesBase.h"
+#include "cpu/SceneVertices.h"
 #include "cpu/Shapes.h"
 #include "common/common.h"
 #include "common/DelaunayTriangulation.h"
 #include "common/HGEigenSparse.h"
 #include "params.h"
 
-class SceneMesh : public SceneVerticesBase
+class SceneMesh : public SceneVertices
 {
 public:
-    SceneMesh() : SceneVerticesBase() 
-    {
-    };
+    SceneMesh() : SceneVertices() {
+                  };
 
-    SceneMesh(const SceneMesh &other) : SceneVerticesBase(other)
+    SceneMesh(const SceneMesh &other) : SceneVertices(other)
     {
         triangles = other.triangles;
     }
@@ -40,28 +39,28 @@ public:
 
     void clear() override
     {
-        SceneVerticesBase::clear();
+        SceneVertices::clear();
         triangles.clear();
     }
 
-    void init(camera cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) override
+    void init(camera cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
     {
         clear();
-        SceneVerticesBase::init(cam, idepth, ivar, lvl);
+        SceneVertices::init(cam, idepth, ivar, lvl);
         buildTriangles();
     }
 
-    void init(std::vector<vec3<float>> &vertices, int lvl) override
+    void init(camera cam, std::vector<vec3<float>> &vertices)
     {
         clear();
-        SceneVerticesBase::init(vertices, lvl);
+        SceneVertices::init(cam, vertices);
         buildTriangles();
     }
 
-    void init(camera cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl) override
+    void init(camera cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths)
     {
         clear();
-        SceneVerticesBase::init(cam, texcoords, idepths, lvl);
+        SceneVertices::init(cam, texcoords, idepths);
         buildTriangles();
     }
 
@@ -171,16 +170,18 @@ public:
         return 0; // good_vertices.size();
     }
 
-    int getShapesDoF() override
-    {
-        return 3;
-    }
-
     int getNumParams() override
     {
         // one depth for each vertice
         return getVerticesIds().size();
     }
+
+    /*
+    int getShapesDoF() override
+    {
+        return 3;
+    }
+    */
 
     /*
     std::unique_ptr<ShapeBase> getShape(unsigned int polId) override
@@ -191,6 +192,7 @@ public:
     }
     */
 
+    /*
     bool isShapeInWindow(window &win, int polId) override
     {
         auto tri = getTriangleIndices(polId);
@@ -198,37 +200,43 @@ public:
             return true;
         return false;
     }
+    */
 
-    std::unique_ptr<ShapeBase> getShape(camera cam, int polId) override
+    ShapeTriangleFlat getShape(int polId) override
     {
-        auto tri = getTriangleIndices(polId);
+        vec3<int> tri = getTriangleIndices(polId);
         // return std::make_unique<ShapeTriangleFlat>(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
-        return std::make_unique<ShapeTriangleFlat>(getRay(tri(0)), getRay(tri(1)), getRay(tri(2)),
-                                                   getPix(tri(0)), getPix(tri(1)), getPix(tri(2)),
-                                                   getDepth(tri(0)), getDepth(tri(1)), getDepth(tri(2)),
-                                                   getWeight(tri(0)), getWeight(tri(1)), getWeight(tri(2)));
+        return ShapeTriangleFlat(getRay(tri(0)), getRay(tri(1)), getRay(tri(2)),
+                                 getPix(tri(0)), getPix(tri(1)), getPix(tri(2)),
+                                 getDepth(tri(0)), getDepth(tri(1)), getDepth(tri(2)),
+                                 getWeight(tri(0)), getWeight(tri(1)), getWeight(tri(2)),
+                                 tri(0), tri(1), tri(2));
         // return std::make_unique<ShapeTriangleFlat>(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
         //                                            getPix(tri[0]), getPix(tri[1]), getPix(tri[2]),
         //                                            getDepth(tri[0]), getDepth(tri[1]), getDepth(tri[2]),
         //                                            getDepthJacMethod());
     }
 
-    void getShape(ShapeBase *shape, camera cam, int polId) override
+    /*
+    void getShape(ShapeBase *shape, int polId) override
     {
-        auto tri = getTriangleIndices(polId);
+        vec3<int> tri = getTriangleIndices(polId);
         // return std::make_unique<ShapeTriangleFlat>(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
         ShapeTriangleFlat *_shape = (ShapeTriangleFlat *)shape;
         _shape->set(getRay(tri(0)), getRay(tri(1)), getRay(tri(2)),
                     getPix(tri(0)), getPix(tri(1)), getPix(tri(2)),
                     getDepth(tri(0)), getDepth(tri(1)), getDepth(tri(2)),
-                    getWeight(tri(0)), getWeight(tri(1)), getWeight(tri(2)));
+                    getWeight(tri(0)), getWeight(tri(1)), getWeight(tri(2)),
+                    tri(0), tri(1), tri(2));
     }
+    */
 
     std::vector<int> getShapesIds() const override
     {
         return getTrianglesIds();
     }
 
+    /*
     std::vector<int> getShapeParamsIds(int polId) override
     {
         // the id of the param (the depth in this case) is just the id of the vertice
@@ -239,6 +247,7 @@ public:
         ids.push_back(i(2));
         return ids;
     }
+    */
 
     void setParam(float param, int paramId) override
     {

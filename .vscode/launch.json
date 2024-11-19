@@ -36,12 +36,12 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/tum_dataset",
             //"args": [
-            //    "/datasets/tum_datasets/sequence_50/camera.txt",
-            //    "/datasets/tum_datasets/sequence_50/images/"
+            //    "/datasets/tum_datasets/sequence_49/camera.txt",
+            //    "/datasets/tum_datasets/sequence_49/images/"
             //],
             "args": [
-                "/datasets/LSD_foodcourt/cameraCalibration.cfg",
-                "/datasets/LSD_foodcourt/images/"
+                "/datasets/LSD_eccv/cameraCalibration.cfg",
+                "/datasets/LSD_eccv/images/"
             ],
             //"args": [
             //    "/mnt/nvme0n1p5/datasets/LSD_machine/cameraCalibration.cfg",

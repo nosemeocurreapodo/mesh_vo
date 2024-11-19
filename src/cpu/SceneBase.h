@@ -15,49 +15,26 @@ public:
 
     SceneBase(const SceneBase &other)
     {
-        //globalPose = other.globalPose;
     }
 
-    //void setPose(Sophus::SE3f newGlobalPose)
-    //{
-    //    globalPose = newGlobalPose;
-    //}
-
-    //Sophus::SE3f getPose()
-    //{
-    //    return globalPose;
-    //}
-
-    //virtual void copyTo(SceneBase* scene) = 0;
     virtual std::unique_ptr<SceneBase> clone() const = 0;
     virtual void clear() = 0;
 
-    virtual void init(camera cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) = 0;
-    virtual void init(std::vector<vec3<float>> &vertices, int lvl) = 0;
-    virtual void init(camera cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl) = 0;
-
-    virtual void complete(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) = 0;
     virtual void transform(Sophus::SE3f relativePose) = 0;
     virtual void project(camera cam) = 0;
 
-    virtual bool isShapeInWindow(window &win, int polId) = 0;
-
     virtual std::vector<int> getShapesIds() const = 0;
-    virtual std::unique_ptr<ShapeBase> getShape(camera cam, int polId) = 0;
-    virtual void getShape(ShapeBase* shape, camera cam, int polId) = 0;
+    virtual std::unique_ptr<ShapeBase> getShape(int polId) = 0;
+    virtual void getShape(ShapeBase* shape, int polId) = 0;
     virtual int getNumParams() = 0;
-    virtual int getShapesDoF() = 0;
 
-    virtual std::vector<int> getShapeParamsIds(int polId) = 0;
     virtual void setParam(float param, int paramId) = 0;
     virtual float getParam(int paramId) = 0;
     virtual void setParamWeight(float weight, int paramId) = 0;
 
     virtual Error errorRegu(camera cam) = 0;
     virtual HGEigenSparse HGRegu(camera cam, int numFrames) = 0;
-    // virtual Error errorInitial(SceneBase &initScene, MatrixMapped &initThetaVar) = 0;
-    // virtual HGMapped HGInitial(SceneBase &initMesh, MatrixMapped &initThetaVar) = 0;
 
 private:
-    //Sophus::SE3f globalPose;
+
 };

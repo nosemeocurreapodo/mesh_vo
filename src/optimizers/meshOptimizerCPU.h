@@ -32,6 +32,7 @@ public:
     void initKeyframe(frameCPU &frame, int lvl);
     void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl);
     void initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl);
+    void normalizeDepth();
 
     void optLightAffine(frameCPU &frame);
     void optPose(frameCPU &frame);
@@ -46,6 +47,16 @@ public:
     float meanViewAngle(frameCPU *frame1, frameCPU *frame2)
     {
         int lvl = 1;
+
+        kscene.project(cam[lvl]);
+
+        std::unique_ptr<SceneBase> scene1 = kscene.clone();
+        scene1->transform(frame1->getPose());
+        scene1->project(cam[lvl]);
+
+        std::unique_ptr<SceneBase> scene2 = kscene.clone();
+        scene2->transform(frame2->getPose());
+        scene2->project(cam[lvl]);
 
         Sophus::SE3f frame1PoseInv = frame1->getPose().inverse();
         Sophus::SE3f frame2PoseInv = frame2->getPose().inverse();
@@ -62,12 +73,18 @@ public:
         int count = 0;
         for (auto sId : sIds)
         {
-            std::unique_ptr<ShapeBase> shape = kscene.getShape(cam[lvl], sId);
+            std::unique_ptr<ShapeBase> shape = kscene.getShape(sId);
             vec2<float> centerPix = shape->getCenterPix();
-            shape->prepareForPix(centerPix);
-            float centerDepth = shape->getDepth();
-            //if (!cam[lvl].isPixVisible(centerPix1))
-            //    continue;
+            float centerDepth = shape->getDepth(centerPix);
+
+            std::unique_ptr<ShapeBase> shape1 = scene1->getShape(sId);
+            std::unique_ptr<ShapeBase> shape2 = scene2->getShape(sId);
+
+            vec2<float> pix1 = shape1->getCenterPix();
+            vec2<float> pix2 = shape2->getCenterPix();
+
+            if (!cam[lvl].isPixVisible(pix1) || !cam[lvl].isPixVisible(pix2))
+                continue;
 
             vec3<float> centerRay = cam[lvl].pixToRay(centerPix);
             vec3<float> centerPoint = centerRay * centerDepth;
@@ -85,6 +102,29 @@ public:
         }
 
         return accAngle / count;
+    }
+
+    float getViewPercent(frameCPU &frame)
+    {
+        int lvl = 1;
+        std::unique_ptr<SceneBase> scene = kscene.clone();
+        scene->transform(frame.getPose());
+        scene->project(cam[lvl]);
+        std::vector<int> shapeIds = scene->getShapesIds();
+
+        int numVisible = 0;
+        for (auto shapeId : shapeIds)
+        {
+            std::unique_ptr<ShapeBase> shape = scene->getShape(shapeId);
+            vec2<float> pix = shape->getCenterPix();
+            float depth = shape->getDepth(pix);
+            if(depth <= 0.0)
+                continue;
+            if (cam[lvl].isPixVisible(pix))
+                numVisible++;
+        }
+
+        return float(numVisible) / shapeIds.size();
     }
 
     float checkInfo(frameCPU &frame)
@@ -198,26 +238,6 @@ public:
         show(idepth_buffer, "keyframe idepth", true, false, 1);
     }
 
-    float getViewPercent(frameCPU &frame)
-    {
-        int lvl = 1;
-        std::unique_ptr<SceneBase> scene = kscene.clone();
-        scene->transform(frame.getPose());
-        scene->project(cam[lvl]);
-        std::vector<int> shapeIds = scene->getShapesIds();
-
-        int numVisible = 0;
-        for (auto shapeId : shapeIds)
-        {
-            std::unique_ptr<ShapeBase> shape = scene->getShape(cam[lvl], shapeId);
-            vec2<float> pix = shape->getCenterPix();
-            if (cam[lvl].isPixVisible(pix))
-                numVisible++;
-        }
-
-        return float(numVisible) / shapeIds.size();
-    }
-
     void changeKeyframe(frameCPU &frame)
     {
         int lvl = 1;
@@ -257,6 +277,7 @@ public:
     //frameCPU kframe;
     dataCPU<float> kimage;
     Sophus::SE3f kpose;
+    vec2<float> kDepthAffine;
 
     camera cam[MAX_LEVELS];
 
@@ -288,11 +309,8 @@ private:
     dataCPU<vec2<float>> jlightaffine_buffer;
     dataCPU<vec8<float>> jpose_buffer;
 
-    //dataCPU<vec1<float>> jmap_buffer;
-    //dataCPU<vec1<int>> pId_buffer;
-
-    dataCPU<vec3<float>> jmap_buffer;
-    dataCPU<vec3<int>> pId_buffer;
+    dataCPU<vecx<float>> jmap_buffer;
+    dataCPU<vecx<int>> pId_buffer;
 
     // debug
     dataCPU<float> debug;

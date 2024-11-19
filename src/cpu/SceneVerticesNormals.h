@@ -5,15 +5,15 @@
 #include "common/common.h"
 #include "cpu/SceneVerticesBase.h"
 
-class SceneVerticesNormalsBase : public SceneVerticesBase
+class SceneVerticesNormals : public SceneVertices
 {
 public:
 
-    SceneVerticesNormalsBase() : SceneVerticesBase()
+    SceneVerticesNormals() : SceneVertices()
     {
     }
 
-    SceneVerticesNormalsBase(const SceneVerticesNormalsBase &other) : SceneVerticesBase(other)
+    SceneVerticesNormals(const SceneVerticesNormals &other) : SceneVerticesBase(other)
     {
         normals = other.normals;
     }
@@ -102,16 +102,15 @@ public:
         normals[id] = norm;
     }
 
-    void transform(Sophus::SE3f newGlobalPose)
+    void transform(Sophus::SE3f relativePose)
     {
-        Sophus::SE3f relativePose = newGlobalPose * getPose().inverse();
         for (size_t it = 0; it < normals.size(); ++it)
         {
             Eigen::Vector3f normal(normals[it](0), normals[it](1), normals[it](2));
             normal = relativePose * normal;
             normals[it] = vec3<float>(normal(0), normal(1), normal(2));
         }
-        SceneVerticesBase::transform(newGlobalPose);
+        SceneVerticesBase::transform(relativePose);
     }
 
 private:

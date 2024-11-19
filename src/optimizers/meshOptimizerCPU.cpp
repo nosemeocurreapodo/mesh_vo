@@ -8,12 +8,10 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
       idepth_buffer(_cam.width, _cam.height, -1.0),
       ivar_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
-      jlightaffine_buffer(_cam.width, _cam.height, {0.0, 0.0}),
-      jpose_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}),
-      jmap_buffer(_cam.width, _cam.height, {0.0, 0.0, 0.0}),
-      pId_buffer(_cam.width, _cam.height, {-1, -1, -1}),
-      //jmap_buffer(_cam.width, _cam.height, {0.0}),
-      //pId_buffer(_cam.width, _cam.height, {-1}),
+      jlightaffine_buffer(_cam.width, _cam.height, vec2<float>(0.0, 0.0)),
+      jpose_buffer(_cam.width, _cam.height, vec8<float>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
+      jmap_buffer(_cam.width, _cam.height, vecx<float>(3, 0.0)),
+      pId_buffer(_cam.width, _cam.height, vecx<int>(3, -1)),
       debug(_cam.width, _cam.height, -1.0),
       idepthVar(_cam.width, _cam.height, -1.0),
       renderer(_cam.width, _cam.height)
@@ -26,8 +24,9 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 10.0;
+    meshRegularization = 100.0;
     meshInitial = 0.0;
+    kDepthAffine = vec2<float>(1.0, 0.0);
 }
 
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, int lvl)
@@ -65,9 +64,17 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
 
 void meshOptimizerCPU::initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl)
 {
-    kscene.init(cam[lvl], texcoords, idepths, lvl);
+    kscene.init(cam[lvl], texcoords, idepths);
     kimage = frame.getRawImage();
     kpose = frame.getPose();
+}
+
+void meshOptimizerCPU::normalizeDepth()
+{
+    vec2<float> affine = kscene.meanStdDepth();
+    affine(1) = 0.0;
+    kscene.scaleDepth(affine);
+    kDepthAffine = affine;
 }
 
 Error meshOptimizerCPU::computeError(frameCPU *frame, int lvl, bool useWeights)
@@ -549,7 +556,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
                     // the update should take this into account
                     kscene.setParam(new_param, id.first);
                     kscene.setParamWeight(weight, id.first);
-                    map_inc_mag += inc(id.second) * inc(id.second);
+                    map_inc_mag += inc_param * inc_param;
                     map_inc_mag_count += 1;
                 }
                 map_inc_mag /= map_inc_mag_count;
@@ -610,7 +617,7 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
 
                     // reject update, increase lambda, use un-updated data
 
-                    if (map_inc_mag < 1e-8)
+                    if (map_inc_mag < 1e-16)
                     {
                         // if too small, do next level!
                         it = maxIterations;
@@ -739,6 +746,8 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     best_poses.push_back(frames[i].getPose());
                     best_affines.push_back(frames[i].getAffine());
                     Sophus::SE3f new_pose = frames[i].getPose() * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
+                    if(i == frames.size()-1)
+                        new_pose.translation() = frames[i].getPose().translation();
                     vec2<float> new_affine = frames[i].getAffine();// - vec2<float>(pose_inc(6), pose_inc(7));
                     frames[i].setPose(new_pose);
                     frames[i].setAffine(new_affine);
@@ -755,7 +764,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     // negative ids are for the poses
                     if (id.first >= kscene.getNumParams())
                         continue;
-
+                    
                     float best_param = kscene.getParam(id.first);
                     float inc_param = inc(id.second);
                     float new_param = best_param - inc_param;
@@ -765,7 +774,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
                     best_params[id.first] = best_param;
                     kscene.setParam(new_param, id.first);
                     kscene.setParamWeight(weight, id.first);
-                    map_inc_mag += inc(id.second) * inc(id.second);
+                    map_inc_mag += inc_param * inc_param;
                     map_inc_mag_count += 1;
                 }
                 map_inc_mag /= map_inc_mag_count;
@@ -837,7 +846,7 @@ void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
 
                     //std::cout << "pose inc mag " << pose_inc_mag << " map inc mag " << map_inc_mag << std::endl;
 
-                    if (pose_inc_mag < 1e-16 || map_inc_mag < 1e-8)
+                    if (pose_inc_mag < 1e-16 || map_inc_mag < 1e-16)
                     {
                         // if too small, do next level!
                         it = maxIterations;

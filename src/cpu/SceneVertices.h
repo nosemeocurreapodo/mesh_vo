@@ -8,19 +8,21 @@
 #include "cpu/Shapes.h"
 #include "cpu/frameCPU.h"
 
-class SceneVerticesBase : public SceneBase
+class SceneVertices : public SceneBase
 {
 public:
-    SceneVerticesBase() : SceneBase() {
+
+    SceneVertices() : SceneBase() {
                           };
 
-    SceneVerticesBase(const SceneVerticesBase &other) : SceneBase(other)
+    SceneVertices(const SceneVertices &other) : SceneBase(other)
     {
         vertices = other.vertices;
         rays = other.rays;
         pixels = other.pixels;
         weights = other.weights;
     }
+
     /*
     PointSet &operator=(const PointSet &other)
     {
@@ -41,7 +43,7 @@ public:
      }
      */
 
-    void clear() override
+    void clear()
     {
         vertices.clear();
         rays.clear();
@@ -49,16 +51,16 @@ public:
         weights.clear();
     }
 
-    void init(std::vector<vec3<float>> &new_vertices, int lvl) override
+    void init(camera cam, std::vector<vec3<float>> &new_vertices)
     {
         clear();
 
         for (int i = 0; i < new_vertices.size(); i++)
         {
             vec3<float> vertice = new_vertices[i];
-            vec3<float> ray = vertice/vertice(2);
-            float idph = 1.0/vertice(2);
-            vec2<float> pix = vec2<float>(0.0, 0.0);//cam.rayToPix(ray);
+            vec3<float> ray = vertice / vertice(2);
+            float idph = 1.0 / vertice(2);
+            vec2<float> pix = cam.rayToPix(ray);
             float iv = 0.1;
 
             if (idph <= 0.0)
@@ -71,7 +73,7 @@ public:
         }
     }
 
-    void init(camera cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl) override
+    void init(camera cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths)
     {
         clear();
 
@@ -98,7 +100,7 @@ public:
         }
     }
 
-    void init(camera cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl) override
+    void init(camera cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
     {
         clear();
 
@@ -131,7 +133,7 @@ public:
         }
     }
 
-    void complete(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl) override
+    void complete(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl)
     {
         float max = 1.0;
         float min = 0.0;
@@ -187,6 +189,58 @@ public:
                     }
                 }
             }
+        }
+    }
+
+    vec2<float> meanStdDepth()
+    {
+        float old_m = 0;
+        float new_m = 0;
+        float old_s = 0;
+        float new_s = 0;
+        int n = 0;
+
+        std::vector<int> vertsIds = getVerticesIds();
+
+        for (int vertId : vertsIds)
+        {
+            float depth = vertices[vertId](2);
+
+            n++;
+
+            if (n == 1)
+            {
+                old_m = depth;
+                new_m = depth;
+                old_s = 0;
+            }
+            else
+            {
+                new_m = old_m + (depth - old_m) / n;
+                new_s = old_s + (depth - old_m) * (depth - new_m);
+                old_m = new_m;
+                old_s = new_s;
+            }
+        }
+
+        vec2<float> results;
+        results(0) = new_m;
+        results(1) = new_s / (n - 1);
+
+        return results;
+    }
+
+    void scaleDepth(vec2<float> affine)
+    {
+        std::vector<int> vertsIds = getVerticesIds();
+
+        for (int vertId : vertsIds)
+        {
+            vec3<float> vertice = vertices[vertId];
+            float depth = vertice(2);
+            float new_depth = (depth - affine(1)) / affine(0);
+            vec3<float> new_vertice = vertice * (new_depth / depth);
+            vertices[vertId] = new_vertice;
         }
     }
 
@@ -318,9 +372,9 @@ public:
         return keys;
     }
 
-    void transform(Sophus::SE3f relativePose) override
+    void transform(Sophus::SE3f relativePose)
     {
-        //Sophus::SE3f relativePose = newGlobalPose * getPose().inverse();
+        // Sophus::SE3f relativePose = newGlobalPose * getPose().inverse();
         for (size_t it = 0; it < vertices.size(); ++it)
         {
             Eigen::Vector3f vert(vertices[it](0), vertices[it](1), vertices[it](2));
@@ -328,10 +382,10 @@ public:
             vertices[it] = vec3<float>(vert(0), vert(1), vert(2));
             rays[it] = vertices[it] / vertices[it](2);
         }
-        //setPose(newGlobalPose);
+        // setPose(newGlobalPose);
     }
 
-    void project(camera cam) override
+    void project(camera cam)
     {
         for (size_t it = 0; it < vertices.size(); ++it)
         {
@@ -355,6 +409,13 @@ public:
     float getDepthParam(unsigned int v_id)
     {
         return fromDepthToParam(getVerticeDepth(v_id));
+    }
+
+    bool isVertInWindow(window &win, int v_id)
+    {
+        if (win.isPixInWindow(getPix(v_id)))
+            return true;
+        return false;
     }
 
 private:

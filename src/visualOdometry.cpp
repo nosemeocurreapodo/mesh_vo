@@ -71,6 +71,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     if (lastFrames.size() == 0)
     {
         lastFrames.push_back(newFrame);
+        keyFrames = lastFrames;
+        optimize = true;
     }
     else
     {
@@ -91,7 +93,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
                 lastFrames.erase(lastFrames.begin());
         }
 
-        if(viewPercent < 0.7 && lastFrames.size() > 1)
+        if((viewPercent < 0.7 || meanViewAngle > M_PI / 32.0) && lastFrames.size() > 1)
         {
             int newKeyframeIndex = int(lastFrames.size() / 2);
             frameCPU newKeyframe = lastFrames[newKeyframeIndex];
@@ -108,6 +110,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
             newFrame.setPose(newPose);
             newFrame.setAffine(newAffine);
 
+            lastPose = lastPose * newKeyframePoseInv;
+            
             for(int i = 0; i < lastFrames.size(); i++)
             {
                 newPose = lastFrames[i].getPose() * newKeyframePoseInv;
@@ -181,9 +185,28 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         std::cout << "optmap time " << t.toc() << std::endl;
         */
 
+
         t.tic();
         //meshOptimizer.setMeshRegu(200.0);
+        //dataCPU<float> mask(cam.width, cam.height, -1);
+        //meshOptimizer.optMap(keyFrames, mask);
+        //meshOptimizer.normalizeDepth();
+
         meshOptimizer.optPoseMap(keyFrames);
+        //meshOptimizer.normalizeDepth();
+        //vec2<float> depthAffine = meshOptimizer.kDepthAffine;
+
+        //Sophus::SE3f pose = newFrame.getPose();
+        //pose.translation() = pose.translation()/depthAffine(0);
+        //newFrame.setPose(pose);
+
+        //for(int i = 0; i < keyFrames.size(); i++)
+        //{
+        //    Sophus::SE3f pose = keyFrames[i].getPose();
+        //    pose.translation() = pose.translation()/depthAffine(0);
+        //    keyFrames[i].setPose(pose);
+        //}
+
         std::cout << "optposemap time " << t.toc() << std::endl;
        
         // sync the updated keyframe poses present in lastframes

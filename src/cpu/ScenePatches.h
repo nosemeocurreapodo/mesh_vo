@@ -2,20 +2,24 @@
 #include <memory>
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
-#include "cpu/SceneVerticesBase.h"
+#include "cpu/SceneVertices.h"
 #include "cpu/Shapes.h"
 #include "common/common.h"
 #include "params.h"
 
-class ScenePatches : public SceneVerticesBase
+class ScenePatches : public SceneVertices
 {
 public:
-    ScenePatches() : SceneVerticesBase()
+    ScenePatches() : SceneVertices()
     {
+        patch_width = 10;
+        patch_height = 10;
     };
 
-    ScenePatches(const ScenePatches &other) : SceneVerticesBase(other)
+    ScenePatches(const ScenePatches &other) : SceneVertices(other)
     {
+        patch_width = other.patch_width;
+        patch_height = other.patch_height;
     }
     /*
     Mesh &operator=(const Mesh &other)
@@ -35,9 +39,11 @@ public:
         return std::make_unique<ScenePatches>(*this);
     }
 
-    int getShapesDoF() override
+    void project(camera cam) override
     {
-        return 1;
+        SceneVertices::project(cam);
+        patch_width = int(cam.fx*0.1);
+        patch_height = int(cam.fy*0.1);
     }
 
     int getNumParams() override
@@ -46,41 +52,47 @@ public:
         return getVerticesIds().size();
     }
 
+    /*
+    int getShapesDoF() override
+    {
+        return 1;
+    }
+
     bool isShapeInWindow(window &win, int polId) override
     {
         if (win.isPixInWindow(getPix(polId)))
             return true;
         return false;
     }
+    */
 
-    std::unique_ptr<ShapeBase> getShape(camera cam, int polId) override
+    ShapePatch getShape(int polId) override
     {
-        int patch_width = (cam.width / MESH_WIDTH);
-        int patch_height = (cam.height / MESH_HEIGHT);
         // always return triangle in cartesian
-        ShapePatch pol(getRay(polId), getPix(polId), getDepth(polId), getWeight(polId), patch_width, patch_height);
-        return std::make_unique<ShapePatch>(pol);
+        return ShapePatch(getRay(polId), getPix(polId), getDepth(polId), getWeight(polId), polId, patch_width, patch_height);
     }
 
-    void getShape(ShapeBase *shape, camera cam, int polId) override
+    /*
+    void getShape(ShapeBase *shape, int polId) override
     {
-        int patch_width = (cam.width / MESH_WIDTH);
-        int patch_height = (cam.height / MESH_HEIGHT);
         ShapePatch *_shape = (ShapePatch *)shape;
-        _shape->set(getRay(polId), getPix(polId), getDepth(polId), getWeight(polId), patch_width, patch_height);
+        _shape->set(getRay(polId), getPix(polId), getDepth(polId), getWeight(polId), polId, patch_width, patch_height);
     }
-
+    */
+   
     std::vector<int> getShapesIds() const override
     {
         return getVerticesIds();
     }
 
+    /*
     std::vector<int> getShapeParamsIds(int polId) override
     {
         std::vector<int> paramsIds;
         paramsIds.push_back(polId);
         return paramsIds;
     }
+    */
 
     void setParam(float param, int paramId) override
     {
@@ -230,4 +242,7 @@ public:
     }
 
 private:
+
+    int patch_width;
+    int patch_height;
 };

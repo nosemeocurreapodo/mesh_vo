@@ -56,18 +56,6 @@ int main(int argc, char * argv[])
     idepthMat.convertTo(idepthMat, CV_32FC1);
     cv::resize(idepthMat, idepthMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
-    //normalize idepth
-    cv::Scalar mean, stddev;
-    cv::meanStdDev(idepthMat, mean, stddev);
-    //std::cout << "mean: " << mean << " std: " << stddev << std::endl;
-    //idepthMat = (idepthMat - mean[0])/stddev[0];
-    //set new mean/std
-    //idepthMat = idepthMat*0.3f + 1.0f;
-    //equivalent to 
-    float alpha = (mean[0] - stddev[0]/0.3f);
-    float beta = 0.3f/stddev[0];
-    idepthMat = (idepthMat - alpha)*beta;
-
     dataCPU<float> idepth(cam.width, cam.height, -1.0);
     idepth.set((float*)idepthMat.data);
 
@@ -110,8 +98,8 @@ int main(int argc, char * argv[])
     visualOdometry odometry(cam);
 
     //odometry.initScene(image, pixels, idepths);
-    odometry.initScene(image, idepth, ivar);
-    //odometry.initScene(image);
+    //odometry.initScene(image, idepth, ivar);
+    odometry.initScene(image);
 
     while(1){
         framesTracked++;

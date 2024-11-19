@@ -601,12 +601,13 @@ struct vecx
     {
     }
 
-    vecx(int size)
+    vecx(int size, type a)
     {
         for (int i = 0; i < size; i++)
-            data.push_back(type(0));
+            data.push_back(type(a));
     }
 
+    /*
     template <typename type1, typename type2>
     vecx(type1 vec1, type2 vec2)
     {
@@ -619,32 +620,48 @@ struct vecx
             data.push_back(vec2(i));
         }
     }
+    */
 
     int size()
     {
         return data.size();
     }
 
-    static vecx zero()
-    {
-        return vecx(0);
-    }
+    //static vecx zero()
+    //{
+    //    return vecx(0);
+    //}
 
     void operator=(vecx<type> c)
     {
+        for (int i = 0; i < c.size(); i++)
+        {
+            data[i] = c(i);
+        }
+    }
+
+    template <typename type2>
+    vecx operator*(type2 c)
+    {
+        vecx result(data.size(), 0);
         for (int i = 0; i < data.size(); i++)
         {
-            this->operator()(i) = c(i);
+            result(i) = data[i]*c;
         }
+        return result;
     }
 
     inline type &operator()(int c)
     {
+        while(data.size() <= c)
+            data.push_back(0.0);
         return data[c];
     }
 
     inline type operator()(int c) const
     {
+        while(data.size() <= c)
+            data.push_back(0.0);
         return data[c];
     }
 
