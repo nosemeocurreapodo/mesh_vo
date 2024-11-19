@@ -24,11 +24,12 @@
 #include "cpu/OpenCVDebug.h"
 #include "params.h"
 
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
 class meshOptimizerCPU
 {
 public:
-    meshOptimizerCPU(camera &cam);
 
+    meshOptimizerCPU(camera &cam);
     void initKeyframe(frameCPU &frame, int lvl);
     void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl);
     void initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl);
@@ -50,13 +51,13 @@ public:
 
         kscene.project(cam[lvl]);
 
-        std::unique_ptr<SceneBase> scene1 = kscene.clone();
-        scene1->transform(frame1->getPose());
-        scene1->project(cam[lvl]);
+        sceneType scene1 = kscene.clone();
+        scene1.transform(frame1->getPose());
+        scene1.project(cam[lvl]);
 
-        std::unique_ptr<SceneBase> scene2 = kscene.clone();
-        scene2->transform(frame2->getPose());
-        scene2->project(cam[lvl]);
+        sceneType scene2 = kscene.clone();
+        scene2.transform(frame2->getPose());
+        scene2.project(cam[lvl]);
 
         Sophus::SE3f frame1PoseInv = frame1->getPose().inverse();
         Sophus::SE3f frame2PoseInv = frame2->getPose().inverse();
@@ -73,15 +74,15 @@ public:
         int count = 0;
         for (auto sId : sIds)
         {
-            std::unique_ptr<ShapeBase> shape = kscene.getShape(sId);
-            vec2<float> centerPix = shape->getCenterPix();
-            float centerDepth = shape->getDepth(centerPix);
+            shapeType shape = kscene.getShape(sId);
+            vec2<float> centerPix = shape.getCenterPix();
+            float centerDepth = shape.getDepth(centerPix);
 
-            std::unique_ptr<ShapeBase> shape1 = scene1->getShape(sId);
-            std::unique_ptr<ShapeBase> shape2 = scene2->getShape(sId);
+            shapeType shape1 = scene1.getShape(sId);
+            shapeType shape2 = scene2.getShape(sId);
 
-            vec2<float> pix1 = shape1->getCenterPix();
-            vec2<float> pix2 = shape2->getCenterPix();
+            vec2<float> pix1 = shape1.getCenterPix();
+            vec2<float> pix2 = shape2.getCenterPix();
 
             if (!cam[lvl].isPixVisible(pix1) || !cam[lvl].isPixVisible(pix2))
                 continue;
@@ -107,17 +108,17 @@ public:
     float getViewPercent(frameCPU &frame)
     {
         int lvl = 1;
-        std::unique_ptr<SceneBase> scene = kscene.clone();
-        scene->transform(frame.getPose());
-        scene->project(cam[lvl]);
-        std::vector<int> shapeIds = scene->getShapesIds();
+        sceneType scene = kscene.clone();
+        scene.transform(frame.getPose());
+        scene.project(cam[lvl]);
+        std::vector<int> shapeIds = scene.getShapesIds();
 
         int numVisible = 0;
         for (auto shapeId : shapeIds)
         {
-            std::unique_ptr<ShapeBase> shape = scene->getShape(shapeId);
-            vec2<float> pix = shape->getCenterPix();
-            float depth = shape->getDepth(pix);
+            shapeType shape = scene.getShape(shapeId);
+            vec2<float> pix = shape.getCenterPix();
+            float depth = shape.getDepth(pix);
             if(depth <= 0.0)
                 continue;
             if (cam[lvl].isPixVisible(pix))
@@ -270,10 +271,7 @@ public:
         */
     }
 
-    //ScenePatches kscene;
-    //SceneSurfels kscene;
-    SceneMesh kscene;
-    //SceneMeshSmooth kscene;
+    sceneType kscene;
     //frameCPU kframe;
     dataCPU<float> kimage;
     Sophus::SE3f kpose;
@@ -309,13 +307,13 @@ private:
     dataCPU<vec2<float>> jlightaffine_buffer;
     dataCPU<vec8<float>> jpose_buffer;
 
-    dataCPU<vecx<float>> jmap_buffer;
-    dataCPU<vecx<int>> pId_buffer;
+    dataCPU<jmapType> jmap_buffer;
+    dataCPU<idsType> pId_buffer;
 
     // debug
     dataCPU<float> debug;
     dataCPU<float> idepthVar;
 
-    renderCPU renderer;
-    reduceCPU reducer;
+    renderCPU<sceneType, shapeType, jmapType, idsType> renderer;
+    reduceCPU<jmapType, idsType> reducer;
 };

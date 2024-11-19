@@ -167,9 +167,9 @@ public:
         scene1 = scene->clone();
         scene2 = scene->clone();
         // scene1->transform(frame->getPose());
-        scene2->transform(pose);
-        scene1->project(cam);
-        scene2->project(cam);
+        scene2.transform(pose);
+        scene1.project(cam);
+        scene2.project(cam);
 
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -215,8 +215,7 @@ public:
         renderJMapWindow(&kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
     }
 
-    template <typename Type1, typename Type2>
-    void renderJMapParallel(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera &cam, dataCPU<Type1> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<Type2> *pId_buffer, int lvl)
+    void renderJMapParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera &cam, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
         scene1 = kscene->clone();
         scene2 = kscene->clone();
@@ -253,7 +252,7 @@ public:
         //pool.waitUntilDone();
     }
 
-    void renderJPoseMap(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<vecx<float>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<vecx<int>> *pId_buffer, int lvl)
+    void renderJPoseMap(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -269,7 +268,7 @@ public:
         renderJPoseMapWindow(kimage, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
     }
 
-    void renderJPoseMapParallel(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<vecx<float>> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<vecx<int>> *pId_buffer, int lvl)
+    void renderJPoseMapParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -306,7 +305,7 @@ public:
         //pool.waitUntilDone();
     }
 
-    void renderJLightAffineParallel(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJLightAffineParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -343,7 +342,7 @@ public:
         //pool.waitUntilDone();
     }
 
-    void renderJPose(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJPose(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -359,7 +358,7 @@ public:
         renderJPoseWindow(kimage, frame, cam, win, jpose_buffer, e_buffer, lvl);
     }
 
-    void renderJPoseParallel(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJPoseParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -396,7 +395,7 @@ public:
         //pool.waitUntilDone();
     }
 
-    void renderResidual(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<float> *e_buffer, int lvl)
+    void renderResidual(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<float> *e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -412,16 +411,16 @@ public:
         renderResidualWindow(kimage, frame, cam, win, e_buffer, lvl);
     }
 
-    void renderResidualParallel(SceneBase *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<float> *e_buffer, int lvl)
+    void renderResidualParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<float> *e_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
         scene1 = kscene->clone();
         scene2 = kscene->clone();
         //scene1->transform(kframe->getPose());
-        scene2->transform(frame->getPose());
-        scene1->project(cam);
-        scene2->project(cam);
+        scene2.transform(frame->getPose());
+        scene1.project(cam);
+        scene2.project(cam);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -486,7 +485,7 @@ public:
     }
     */
 
-    void renderIdepth(SceneBase *scene, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderIdepth(sceneType *scene, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -499,13 +498,13 @@ public:
         renderIdepthWindow(win, buffer, lvl);
     }
 
-    void renderIdepthParallel(SceneBase *scene, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderIdepthParallel(sceneType *scene, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
         scene2 = scene->clone();
-        scene2->transform(pose);
-        scene2->project(cam);
+        scene2.transform(pose);
+        scene2.project(cam);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -533,7 +532,7 @@ public:
         //pool.waitUntilDone();
     }
 
-    void renderWeight(SceneBase *scene, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderWeight(sceneType *scene, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -546,13 +545,13 @@ public:
         renderWeightWindow(win, buffer, lvl);
     }
 
-    void renderWeightParallel(SceneBase *scene, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderWeightParallel(sceneType *scene, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
         scene2 = scene->clone();
-        scene2->transform(pose);
-        scene2->project(cam);
+        scene2.transform(pose);
+        scene2.project(cam);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -791,19 +790,19 @@ private:
 
     void renderIdepthWindow(window win, dataCPU<float> *buffer, int lvl)
     {
-        std::vector<int> shapesIds = scene2->getShapesIds();
+        std::vector<int> shapesIds = scene2.getShapesIds();
 
         for (int t_id : shapesIds)
         {
-            shapeType f_pol = scene2->getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
-            if(!win.isPixInWindow(f_pol->getCenterPix()))
+            if(!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
 
-            if (f_pol->getScreenArea() < 0.0)
+            if (f_pol.getScreenArea() < 0.0)
                 continue;
 
-            window pol_win = f_pol->getScreenBounds();
+            window pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -813,10 +812,10 @@ private:
                 {
                     vec2<float> f_pix(x, y);
 
-                    if (!f_pol->isPixInShape(f_pix))
+                    if (!f_pol.isPixInShape(f_pix))
                         continue;
 
-                    float f_depth = f_pol->getDepth(f_pix);
+                    float f_depth = f_pol.getDepth(f_pix);
 
                     if (f_depth <= 0.0)
                         continue;
@@ -834,19 +833,19 @@ private:
 
     void renderWeightWindow(window win, dataCPU<float> *buffer, int lvl)
     {
-        std::vector<int> shapesIds = scene2->getShapesIds();
+        std::vector<int> shapesIds = scene2.getShapesIds();
 
         for (int t_id : shapesIds)
         {
-            shapeType f_pol = scene2->getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
-            if(!win.isPixInWindow(f_pol->getCenterPix()))
+            if(!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
 
             if (f_pol->getScreenArea() < 0.0)
                 continue;
 
-            window pol_win = f_pol->getScreenBounds();
+            window pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -856,10 +855,10 @@ private:
                 {
                     vec2<float> f_pix(x, y);
 
-                    if (!f_pol->isPixInShape(f_pix))
+                    if (!f_pol.isPixInShape(f_pix))
                         continue;
 
-                    float f_depth = f_pol->getDepth(f_pix);
+                    float f_depth = f_pol.getDepth(f_pix);
 
                     if (f_depth <= 0.0)
                         continue;
@@ -868,7 +867,7 @@ private:
                     if (z_depth <= f_depth && z_depth != z_buffer.nodata)
                         continue;
 
-                    float f_weight = f_pol->getWeight(f_pix);
+                    float f_weight = f_pol.getWeight(f_pix);
 
                     buffer->set(f_weight, y, x, lvl);
                     z_buffer.set(f_depth, y, x, lvl);
@@ -881,7 +880,7 @@ private:
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
 
-        std::vector<int> t_ids = scene2->getShapesIds();
+        std::vector<int> t_ids = scene2.getShapesIds();
 
         vec2<float> affine = frame->getAffine();
         float alpha = std::exp(-affine(0));
@@ -889,17 +888,17 @@ private:
 
         for (auto t_id : t_ids)
         {
-            shapeType f_pol = scene2->getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
-            if(!win.isPixInWindow(f_pol->getCenterPix()))
+            if(!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
 
-            if (f_pol->getScreenArea() <= min_area)
+            if (f_pol.getScreenArea() <= min_area)
                 continue;
 
-            shapeType kf_pol = scene1->getShape(t_id);
+            shapeType kf_pol = scene1.getShape(t_id);
 
-            window pol_win = f_pol->getScreenBounds();
+            window pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -909,10 +908,10 @@ private:
                 {
                     vec2<float> f_pix(x, y);
 
-                    if (!f_pol->isPixInShape(f_pix))
+                    if (!f_pol.isPixInShape(f_pix))
                         continue;
 
-                    float f_depth = f_pol->getDepth(f_pix);
+                    float f_depth = f_pol.getDepth(f_pix);
                     if (f_depth <= 0.0)
                         continue;
 
@@ -921,7 +920,7 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    vec2<float> kf_pix = f_pol->getPix(f_pix, kf_pol.get());
+                    vec2<float> kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -1368,19 +1367,19 @@ private:
 
     void renderDebugWindow(dataCPU<float> *image, window win, dataCPU<float> *buffer, int lvl)
     {
-        std::vector<int> ids = scene2->getShapesIds();
+        std::vector<int> ids = scene2.getShapesIds();
 
         for (auto t_id : ids)
         {
-            shapeType f_pol = scene2->getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
-            if (!win.isPixInWindow(f_pol->getCenterPix()))
+            if (!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
 
-            if (f_pol->getScreenArea() < 0.0)
+            if (f_pol.getScreenArea() < 0.0)
                 continue;
 
-            window pol_win = f_pol->getScreenBounds();
+            window pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -1390,11 +1389,11 @@ private:
                 {
                     vec2<float> f_pix(x, y);
 
-                    if (!f_pol->isPixInShape(f_pix))
+                    if (!f_pol.isPixInShape(f_pix))
                         continue;
 
-                    float f_depth = f_pol->getDepth(f_pix);
-                    bool isLine = f_pol->isEdge(f_pix);
+                    float f_depth = f_pol.getDepth(f_pix);
+                    bool isLine = f_pol.isEdge(f_pix);
 
                     float f_i = image->get(y, x, lvl);
                     f_i /= 255.0;

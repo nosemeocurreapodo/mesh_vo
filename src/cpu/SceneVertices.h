@@ -8,14 +8,19 @@
 #include "cpu/Shapes.h"
 #include "cpu/frameCPU.h"
 
-class SceneVertices : public SceneBase
+class SceneVertices// : public SceneBase
 {
 public:
 
-    SceneVertices() : SceneBase() {
-                          };
+    //SceneVertices() : SceneBase() {
+    //                      };
 
-    SceneVertices(const SceneVertices &other) : SceneBase(other)
+    SceneVertices()
+    {
+        
+    }
+
+    SceneVertices(const SceneVertices &other)// : SceneBase(other)
     {
         vertices = other.vertices;
         rays = other.rays;

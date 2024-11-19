@@ -34,19 +34,19 @@ public:
     }
     */
 
-    std::unique_ptr<SceneBase> clone() const override
+    ScenePatches clone() const
     {
-        return std::make_unique<ScenePatches>(*this);
+        return ScenePatches(*this);
     }
 
-    void project(camera cam) override
+    void project(camera cam)
     {
         SceneVertices::project(cam);
         patch_width = int(cam.fx*0.1);
         patch_height = int(cam.fy*0.1);
     }
 
-    int getNumParams() override
+    int getNumParams()
     {
         // one depth for each vertice
         return getVerticesIds().size();
@@ -66,7 +66,7 @@ public:
     }
     */
 
-    ShapePatch getShape(int polId) override
+    ShapePatch getShape(int polId)
     {
         // always return triangle in cartesian
         return ShapePatch(getRay(polId), getPix(polId), getDepth(polId), getWeight(polId), polId, patch_width, patch_height);
@@ -80,7 +80,7 @@ public:
     }
     */
    
-    std::vector<int> getShapesIds() const override
+    std::vector<int> getShapesIds() const
     {
         return getVerticesIds();
     }
@@ -94,17 +94,17 @@ public:
     }
     */
 
-    void setParam(float param, int paramId) override
+    void setParam(float param, int paramId)
     {
         setDepthParam(param, paramId);
     }
 
-    void setParamWeight(float weight, int paramId) override
+    void setParamWeight(float weight, int paramId)
     {
         setWeight(weight, paramId);
     }
 
-    float getParam(int paramId) override
+    float getParam(int paramId)
     {
         return getDepthParam(paramId);
     }

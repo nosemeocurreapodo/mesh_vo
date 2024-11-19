@@ -2,7 +2,8 @@
 #include <math.h>
 #include "utils/tictoc.h"
 
-meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::meshOptimizerCPU(camera& _cam)
     : kimage(_cam.width, _cam.height, -1.0),
       image_buffer(_cam.width, _cam.height, -1.0),
       idepth_buffer(_cam.width, _cam.height, -1.0),
@@ -29,7 +30,8 @@ meshOptimizerCPU::meshOptimizerCPU(camera &_cam)
     kDepthAffine = vec2<float>(1.0, 0.0);
 }
 
-void meshOptimizerCPU::initKeyframe(frameCPU &frame, int lvl)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+void meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::initKeyframe(frameCPU &frame, int lvl)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
     renderer.renderRandom(cam[lvl], &idepth_buffer, lvl);
@@ -41,7 +43,8 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, int lvl)
     kpose = frame.getPose();
 }
 
-void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+void meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
 {
     kscene.init(cam[lvl], idepth, ivar, lvl);
 
@@ -62,14 +65,16 @@ void meshOptimizerCPU::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dat
     //kframe.setAffine(vec2<float>(0.0, 0.0));
 }
 
-void meshOptimizerCPU::initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+void meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl)
 {
     kscene.init(cam[lvl], texcoords, idepths);
     kimage = frame.getRawImage();
     kpose = frame.getPose();
 }
 
-void meshOptimizerCPU::normalizeDepth()
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+void meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::normalizeDepth()
 {
     vec2<float> affine = kscene.meanStdDepth();
     affine(1) = 0.0;
@@ -77,7 +82,8 @@ void meshOptimizerCPU::normalizeDepth()
     kDepthAffine = affine;
 }
 
-Error meshOptimizerCPU::computeError(frameCPU *frame, int lvl, bool useWeights)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+Error meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::computeError(frameCPU *frame, int lvl, bool useWeights)
 {
     //error_buffer.set(error_buffer.nodata, lvl);
     frame->getResidualImage().set(frame->getResidualImage().nodata, lvl);
@@ -105,7 +111,8 @@ Error meshOptimizerCPU::computeError(dataCPU<float> &fIdepth, frameCPU &kframe, 
 }
 */
 
-HGEigenDense<2> meshOptimizerCPU::computeHGLightAffine(frameCPU *frame, int lvl, bool useWeights)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+HGEigenDense<2> meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::computeHGLightAffine(frameCPU *frame, int lvl, bool useWeights)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
     jlightaffine_buffer.set(jlightaffine_buffer.nodata, lvl);
@@ -121,7 +128,8 @@ HGEigenDense<2> meshOptimizerCPU::computeHGLightAffine(frameCPU *frame, int lvl,
     return hg;
 }
 
-HGEigenDense<8> meshOptimizerCPU::computeHGPose(frameCPU *frame, int lvl, bool useWeights)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+HGEigenDense<8> meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::computeHGPose(frameCPU *frame, int lvl, bool useWeights)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
     jpose_buffer.set(jpose_buffer.nodata, lvl);
@@ -151,7 +159,8 @@ HGPose meshOptimizerCPU::computeHGPose(dataCPU<float> &fIdepth, frameCPU &kframe
 }
 */
 
-HGMapped meshOptimizerCPU::computeHGMap(frameCPU *frame, int lvl)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+HGMapped meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::computeHGMap(frameCPU *frame, int lvl)
 {
     error_buffer.set(error_buffer.nodata, lvl);
     jmap_buffer.set(jmap_buffer.nodata, lvl);
@@ -165,7 +174,8 @@ HGMapped meshOptimizerCPU::computeHGMap(frameCPU *frame, int lvl)
     return hg;
 }
 
-HGEigenSparse meshOptimizerCPU::computeHGMap2(frameCPU *frame, dataCPU<float> *mask, int lvl)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+HGEigenSparse meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::computeHGMap2(frameCPU *frame, dataCPU<float> *mask, int lvl)
 {
     error_buffer.set(error_buffer.nodata, lvl);
     jmap_buffer.set(jmap_buffer.nodata, lvl);
@@ -180,7 +190,8 @@ HGEigenSparse meshOptimizerCPU::computeHGMap2(frameCPU *frame, dataCPU<float> *m
     return hg;
 }
 
-HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU *frame, int frameIndex, int numFrames, int lvl)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+HGMapped meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::computeHGPoseMap(frameCPU *frame, int frameIndex, int numFrames, int lvl)
 {
     jpose_buffer.set(jpose_buffer.nodata, lvl);
     jmap_buffer.set(jmap_buffer.nodata, lvl);
@@ -193,7 +204,8 @@ HGMapped meshOptimizerCPU::computeHGPoseMap(frameCPU *frame, int frameIndex, int
     return hg;
 }
 
-HGEigenSparse meshOptimizerCPU::computeHGPoseMap2(frameCPU *frame, int frameIndex, int numFrames, int lvl)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+HGEigenSparse meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::computeHGPoseMap2(frameCPU *frame, int frameIndex, int numFrames, int lvl)
 {
     jpose_buffer.set(jpose_buffer.nodata, lvl);
     jmap_buffer.set(jmap_buffer.nodata, lvl);
@@ -207,7 +219,8 @@ HGEigenSparse meshOptimizerCPU::computeHGPoseMap2(frameCPU *frame, int frameInde
     return hg;
 }
 
-void meshOptimizerCPU::optLightAffine(frameCPU &frame)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+void meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::optLightAffine(frameCPU &frame)
 {
     int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
 
@@ -304,7 +317,8 @@ void meshOptimizerCPU::optLightAffine(frameCPU &frame)
     }
 }
 
-void meshOptimizerCPU::optPose(frameCPU &frame)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+void meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::optPose(frameCPU &frame)
 {
     int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
 
@@ -412,7 +426,8 @@ void meshOptimizerCPU::optPose(frameCPU &frame)
     }
 }
 
-void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mask)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+void meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mask)
 {
     Error e;
     Error e_regu;
@@ -629,7 +644,8 @@ void meshOptimizerCPU::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mas
     }
 }
 
-void meshOptimizerCPU::optPoseMap(std::vector<frameCPU> &frames)
+template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
+void meshOptimizerCPU<sceneType, shapeType, jmapType, idsType>::optPoseMap(std::vector<frameCPU> &frames)
 {
     Error e;
     Error e_regu;

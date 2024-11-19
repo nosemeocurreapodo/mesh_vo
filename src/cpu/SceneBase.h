@@ -17,15 +17,15 @@ public:
     {
     }
 
-    virtual std::unique_ptr<SceneBase> clone() const = 0;
+    //virtual std::unique_ptr<SceneBase> clone() const = 0;
     virtual void clear() = 0;
 
     virtual void transform(Sophus::SE3f relativePose) = 0;
     virtual void project(camera cam) = 0;
 
     virtual std::vector<int> getShapesIds() const = 0;
-    virtual std::unique_ptr<ShapeBase> getShape(int polId) = 0;
-    virtual void getShape(ShapeBase* shape, int polId) = 0;
+    //virtual std::unique_ptr<ShapeBase> getShape(int polId) = 0;
+    //virtual void getShape(ShapeBase* shape, int polId) = 0;
     virtual int getNumParams() = 0;
 
     virtual void setParam(float param, int paramId) = 0;

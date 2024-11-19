@@ -14,6 +14,7 @@
 #include "cpu/SceneBase.h"
 #include "params.h"
 
+template <typename jmapType, typename idsType>
 class reduceCPU
 {
 public:
@@ -152,7 +153,7 @@ public:
         return hg;
     }
 
-    HGMapped reduceHGMap(camera cam, dataCPU<vecx<float>> &j_buffer, dataCPU<float> &err_buffer, dataCPU<vecx<int>> &pId_buffer, int lvl)
+    HGMapped reduceHGMap(camera cam, dataCPU<jmapType> &j_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
     {
         HGMapped hg;
         window win(0, cam.width, 0, cam.height);
@@ -168,7 +169,7 @@ public:
         return hg;
     }
 
-    HGMapped reduceHGMapParallel(camera cam, dataCPU<vecx<float>> &j_buffer, dataCPU<float> &err_buffer, dataCPU<vecx<int>> &pId_buffer, int lvl)
+    HGMapped reduceHGMapParallel(camera cam, dataCPU<jmapType> &j_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -206,8 +207,7 @@ public:
         return hg;
     }
 
-    template <typename Type1, typename Type2>
-    HGMapped reduceHGPoseMap(camera cam, int frameId, dataCPU<vec8<float>> &jpose_buffer, dataCPU<Type1> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<Type2> &pId_buffer, int lvl)
+    HGMapped reduceHGPoseMap(camera cam, int frameId, dataCPU<vec8<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
     {
         HGMapped hg;
         window win(0, cam.width, 0, cam.height);
@@ -215,8 +215,7 @@ public:
         return hg;
     }
 
-    template <typename Type1, typename Type2>
-    HGEigenSparse reduceHGPoseMap2(camera cam, int frameId, int numFrames, int numMapParams, dataCPU<vec8<float>> &jpose_buffer, dataCPU<Type1> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<Type2> &pId_buffer, int lvl)
+    HGEigenSparse reduceHGPoseMap2(camera cam, int frameId, int numFrames, int numMapParams, dataCPU<vec8<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
     {
         HGEigenSparse hg(numMapParams + numFrames * 6);
         window win(0, cam.width, 0, cam.height);
@@ -224,7 +223,7 @@ public:
         return hg;
     }
 
-    HGMapped reduceHGPoseMapParallel(camera cam, int frameId, int numFrames, int numMapParams, dataCPU<vec8<float>> &jpose_buffer, dataCPU<vecx<float>> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<vecx<int>> &pId_buffer, int lvl)
+    HGMapped reduceHGPoseMapParallel(camera cam, int frameId, int numFrames, int numMapParams, dataCPU<vec8<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -262,8 +261,7 @@ public:
         return hg;
     }
 
-    template <typename Type1, typename Type2>
-    HGEigenSparse reduceHGPoseMapParallel2(camera cam, int frameId, int numFrames, int numMapParams, dataCPU<vec8<float>> &jpose_buffer, dataCPU<Type1> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<Type2> &pId_buffer, int lvl)
+    HGEigenSparse reduceHGPoseMapParallel2(camera cam, int frameId, int numFrames, int numMapParams, dataCPU<vec8<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -376,7 +374,7 @@ private:
         }
     }
 
-    void reduceHGMapWindow(window win, dataCPU<vecx<float>> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<vecx<int>> *pId_buffer, HGMapped *hg, int lvl)
+    void reduceHGMapWindow(window win, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<idsType> *pId_buffer, HGMapped *hg, int lvl)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
@@ -399,7 +397,7 @@ private:
         }
     }
 
-    void reduceHGMapWindow(window win, dataCPU<vecx<float>> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<vecx<int>> *pId_buffer, dataCPU<float> *weights_buffer, HGEigenSparse *hg, int lvl)
+    void reduceHGMapWindow(window win, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<idsType> *pId_buffer, dataCPU<float> *weights_buffer, HGEigenSparse *hg, int lvl)
     {
         typedef Eigen::Triplet<double> T;
         std::vector<T> tripletList;
@@ -437,17 +435,16 @@ private:
         hg->endSparseAdd();
     }
 
-    template <typename jmap_type, typename ids_type>
-    void reduceHGPoseMapWindow(window win, int frameId, int numMapParams, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmap_type> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<ids_type> *pId_buffer, HGMapped *hg, int lvl)
+    void reduceHGPoseMapWindow(window win, int frameId, int numMapParams, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<idsType> *pId_buffer, HGMapped *hg, int lvl)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
             for (int x = win.min_x; x < win.max_x; x++)
             {
                 vec8<float> J_pose = jpose_buffer->get(y, x, lvl);
-                jmap_type J_map = jmap_buffer->get(y, x, lvl);
+                jmapType J_map = jmap_buffer->get(y, x, lvl);
                 float res = res_buffer->get(y, x, lvl);
-                ids_type map_ids = pId_buffer->get(y, x, lvl);
+                idsType map_ids = pId_buffer->get(y, x, lvl);
 
                 if (J_pose == jpose_buffer->nodata || res == res_buffer->nodata)// || J_map == jmap_buffer->nodata || J_pose == vec8<float>::zero() || J_map == Type1::zero())
                     continue;
@@ -513,7 +510,7 @@ private:
         */
     }
 
-    void reduceHGPoseMapWindow2(window win, int frameId, int numMapParams, dataCPU<vec8<float>> *jpose_buffer, dataCPU<vecx<float>> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<vecx<int>> *pId_buffer, HGEigenSparse *hg, int lvl)
+    void reduceHGPoseMapWindow2(window win, int frameId, int numMapParams, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<idsType> *pId_buffer, HGEigenSparse *hg, int lvl)
     {
         typedef Eigen::Triplet<double> T;
         std::vector<T> tripletList;
@@ -523,9 +520,9 @@ private:
             for (int x = win.min_x; x < win.max_x; x++)
             {
                 vec8<float> J_pose = jpose_buffer->get(y, x, lvl);
-                vecx<float> J_map = jmap_buffer->get(y, x, lvl);
+                jmapType J_map = jmap_buffer->get(y, x, lvl);
                 float res = res_buffer->get(y, x, lvl);
-                vecx<int> map_ids = pId_buffer->get(y, x, lvl);
+                idsType map_ids = pId_buffer->get(y, x, lvl);
 
                 if (res == res_buffer->nodata || J_pose == vec8<float>::zero())// J_pose == jpose_buffer->nodata || J_map == vecx<float>::zero())
                     continue;

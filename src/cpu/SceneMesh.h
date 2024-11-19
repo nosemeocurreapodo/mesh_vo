@@ -32,12 +32,12 @@ public:
     }
     */
 
-    std::unique_ptr<SceneBase> clone() const override
+    SceneMesh clone() const
     {
-        return std::make_unique<SceneMesh>(*this);
+        return SceneMesh(*this);
     }
 
-    void clear() override
+    void clear()
     {
         SceneVertices::clear();
         triangles.clear();
@@ -170,7 +170,7 @@ public:
         return 0; // good_vertices.size();
     }
 
-    int getNumParams() override
+    int getNumParams()
     {
         // one depth for each vertice
         return getVerticesIds().size();
@@ -202,7 +202,7 @@ public:
     }
     */
 
-    ShapeTriangleFlat getShape(int polId) override
+    ShapeTriangleFlat getShape(int polId)
     {
         vec3<int> tri = getTriangleIndices(polId);
         // return std::make_unique<ShapeTriangleFlat>(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
@@ -231,7 +231,7 @@ public:
     }
     */
 
-    std::vector<int> getShapesIds() const override
+    std::vector<int> getShapesIds() const
     {
         return getTrianglesIds();
     }
@@ -249,17 +249,17 @@ public:
     }
     */
 
-    void setParam(float param, int paramId) override
+    void setParam(float param, int paramId)
     {
         setDepthParam(param, paramId);
     }
 
-    void setParamWeight(float weight, int paramId) override
+    void setParamWeight(float weight, int paramId)
     {
         setWeight(weight, paramId);
     }
 
-    float getParam(int paramId) override
+    float getParam(int paramId)
     {
         return getDepthParam(paramId);
     }
