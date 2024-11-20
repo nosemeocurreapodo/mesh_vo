@@ -5,15 +5,14 @@
 #include "dataCPU.h"
 #include "params.h"
 
-template <int width, int height>
 class frameCPU
 {
 public:
-    frameCPU()
-        : raw_image(-1.0f),
-          dIdpix_image(vec2<float>(0.0f, 0.0f)),
-          idepth_image(-1.0f),
-          residual_image(-1.0f)
+    frameCPU(int width, int height)
+        : raw_image(width, height, -1.0f),
+          dIdpix_image(width, height, vec2<float>(0.0f, 0.0f)),
+          idepth_image(width, height, -1.0f),
+          residual_image(width, height, -1.0f)
     {
         id = 0;
         affine = {0.0f, 0.0f};
@@ -45,11 +44,11 @@ public:
         return *this;
     }
 
-    void setImage(const dataCPU<IMAGE_WIDTH, IMAGE_HEIGHT, float> &im, int _id)
+    void setImage(const dataCPU<float> &im, int _id)
     {
         raw_image = im;
 
-        for (int lvl = 0; lvl < MAX_LEVELS; lvl++)
+        for (int lvl = 0; lvl < raw_image.lvls; lvl++)
         {
             computeFrameDerivative(lvl);
         }
@@ -77,22 +76,22 @@ public:
         return pose;
     }
 
-    dataCPU<width, height, float>& getRawImage()
+    dataCPU<float>& getRawImage()
     {
         return raw_image;
     }
 
-    dataCPU<width, height, vec2<float>>& getdIdpixImage()
+    dataCPU<vec2<float>>& getdIdpixImage()
     {
         return dIdpix_image;
     }
 
-    dataCPU<width, height, float>& getIdepthImage()
+    dataCPU<float>& getIdepthImage()
     {
         return idepth_image;
     }
 
-    dataCPU<width, height, float>& getResidualImage()
+    dataCPU<float>& getResidualImage()
     {
         return residual_image;
     }
@@ -109,11 +108,13 @@ private:
         // dx.set(dx.nodata, lvl);
         // dy.set(dy.nodata, lvl);
 
-        std::array<int, 2> size = raw_image.getSize(lvl);
-        for (int y = 0; y < size[1]; y++)
-            for (int x = 0; x < size[0]; x++)
+        int width = raw_image.lvlWidths[lvl];
+        int height = raw_image.lvlHeights[lvl];
+
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
             {
-                if (y == 0 || y == size[1] - 1 || x == 0 || x == size[0] - 1)
+                if (y == 0 || y == height - 1 || x == 0 || x == width - 1)
                 {
                     //dx.set(0.0, y, x, lvl);
                     //dy.set(0.0, y, x, lvl);
@@ -130,13 +131,12 @@ private:
             }
     }
 
-    dataCPU<width, height, float> raw_image;
-    dataCPU<width, height, vec2<float>> dIdpix_image;
-    dataCPU<width, height, float> idepth_image;
-    dataCPU<width, height, float> residual_image;
+    dataCPU<float> raw_image;
+    dataCPU<vec2<float>> dIdpix_image;
+    dataCPU<float> idepth_image;
+    dataCPU<float> residual_image;
 
     Sophus::SE3f pose;
     vec2<float> affine;
-
     int id;
 };

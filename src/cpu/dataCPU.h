@@ -10,23 +10,25 @@ public:
 
         int _width = width;
         int _height = height;
+        lvls = 0;
 
         while (true)
         {
-            Type* texture = new (std::nothrow) Type[_width * _height];
-            if (!texture)
+            Type* tex = new (std::nothrow) Type[_width * _height];
+            if (!tex)
                 break;
 
-            std::fill_n(texture, _width * _height, nodata);
+            std::fill_n(tex, _width * _height, nodata);
 
             lvlWidths.push_back(_width);
             lvlHeights.push_back(_height);
-            textures.push_back(texture);
+            texture.push_back(tex);
+            lvls++;
 
             _width = int(_width / 2);
             _height = int(_height / 2);
 
-            if (_width <= 0 || _height <= 0)
+            if (_width == 0 || _height == 0)
                 break;
         }
     }
@@ -36,11 +38,13 @@ public:
         nodata = other.nodata;
         lvlWidths = other.lvlWidths;
         lvlHeights = other.lvlHeights;
+        lvls = other.lvls;
         // std::fill(std::begin(texture), std::end(texture), nullptr);
-        for (int lvl = 0; lvl < lvlWidths.size(); lvl++)
+        for (int lvl = 0; lvl < lvls; lvl++)
         {
-            texture[lvl] = new Type[sizes[lvl][0] * sizes[lvl][1]];
-            std::memcpy(texture[lvl], other.texture[lvl], sizeof(Type) * sizes[lvl][0] * sizes[lvl][1]);
+            Type* tex = new (std::nothrow) Type[lvlWidths[lvl] * lvlHeights[lvl]];
+            std::memcpy(tex, other.texture[lvl], sizeof(Type) * lvlWidths[lvl] * lvlHeights[lvl]);
+            texture.push_back(tex);
         }
     }
 
@@ -49,21 +53,23 @@ public:
         if (this != &other)
         {
             // Free existing resources
-            for (int lvl = 0; lvl < max_lvl; lvl++)
-            {
-                delete[] texture[lvl];
-                texture[lvl] = nullptr;
-            }
+            //for (int lvl = 0; lvl < lvlWidths.size(); lvl++)
+            //{
+            //    delete[] texture[lvl];
+            //    texture[lvl] = nullptr;
+            //}
 
             nodata = other.nodata;
-            max_lvl = other.max_lvl;
-            std::fill(std::begin(texture), std::end(texture), nullptr);
+            lvlWidths = other.lvlWidths;
+            lvlHeights = other.lvlHeights;
+            lvls = other.lvls;
 
-            for (int lvl = 0; lvl < max_lvl; lvl++)
+            //std::fill(std::begin(texture), std::end(texture), nullptr);
+
+            for (int lvl = 0; lvl < lvls; lvl++)
             {
-                sizes[lvl] = other.sizes[lvl];
-                texture[lvl] = new Type[sizes[lvl][0] * sizes[lvl][1]];
-                std::memcpy(texture[lvl], other.texture[lvl], sizeof(Type) * sizes[lvl][0] * sizes[lvl][1]);
+                //texture[lvl] = new Type[sizes[lvl][0] * sizes[lvl][1]];
+                std::memcpy(texture[lvl], other.texture[lvl], sizeof(Type) * lvlWidths[lvl] * lvlHeights[lvl]);
             }
         }
         return *this;
@@ -71,23 +77,18 @@ public:
 
     ~dataCPU()
     {
-        for (int lvl = 0; lvl < max_lvl; lvl++)
+        for (int lvl = 0; lvl < lvls; lvl++)
         {
             delete[] texture[lvl];
             // texture[lvl] = nullptr;
         }
     }
 
-    std::array<int, 2> getSize(int lvl)
-    {
-        return sizes[lvl];
-    }
-
     void set(Type value, int y, int x, int lvl)
     {
-        int address = x + y * sizes[lvl][0];
+        int address = x + y * lvlWidths[lvl];
 #ifdef DEBUG
-        if (address < 0 || address >= sizes[lvl][1] * sizes[lvl][0] || x < 0 || x >= sizes[lvl][0] || y < 0 || y >= sizes[lvl][1])
+        if (address < 0 || address >= lvlWidths[lvl] * lvlHeights[lvl] || x < 0 || x >= lvlWidths[lvl] || y < 0 || y >= lvlHeights[lvl])
             throw std::out_of_range("set invalid address");
 #endif
         texture[lvl][address] = value;
@@ -100,19 +101,19 @@ public:
 
     void setNormalized(Type value, float norm_y, float norm_x, int lvl)
     {
-        float y = norm_y * texture[lvl].rows;
-        float x = norm_x * texture[lvl].cols;
+        float y = norm_y * lvlHeights[lvl];
+        float x = norm_x * lvlWidths[lvl];
         set(value, int(y), int(x), lvl);
     }
 
     void set(Type value, int lvl)
     {
-        std::fill_n(texture[lvl], sizes[lvl][0] * sizes[lvl][1], value);
+        std::fill_n(texture[lvl], lvlWidths[lvl] * lvlHeights[lvl], value);
     }
 
     void set(Type *data, int lvl)
     {
-        std::memcpy(texture[lvl], data, sizeof(Type) * sizes[lvl][0] * sizes[lvl][1]);
+        std::memcpy(texture[lvl], data, sizeof(Type) * lvlWidths[lvl] * lvlHeights[lvl]);
     }
 
     void set(Type *data)
@@ -123,9 +124,9 @@ public:
 
     inline Type get(int y, int x, int lvl)
     {
-        int address = x + y * sizes[lvl][0];
+        int address = x + y * lvlWidths[lvl];
 #ifdef DEBUG
-        if (address < 0 || address >= sizes[lvl][1] * sizes[lvl][0] || x < 0 || x >= sizes[lvl][0] || y < 0 || y >= sizes[lvl][1])
+        if (address < 0 || address >= lvlWidths[lvl] * lvlHeights[lvl] || x < 0 || x >= lvlWidths[lvl] || y < 0 || y >= lvlHeights[lvl])
             throw std::out_of_range("get invalid address");
 #endif
         return texture[lvl][address];
@@ -138,8 +139,8 @@ public:
 
     Type getNormalized(float norm_y, float norm_x, int lvl)
     {
-        float x = norm_x * sizes[lvl][0];
-        float y = norm_y * sizes[lvl][1];
+        float x = norm_x * lvlWidths[lvl];
+        float y = norm_y * lvlHeights[lvl];
         return get(y, x, lvl);
     }
 
@@ -150,11 +151,11 @@ public:
 
     void generateMipmaps(int baselvl = 0)
     {
-        for (int lvl = baselvl + 1; lvl < max_lvl; lvl++)
+        for (int lvl = baselvl + 1; lvl < lvls; lvl++)
         {
-            for (int y = 0; y < sizes[lvl][1]; y++)
+            for (int y = 0; y < lvlHeights[lvl]; y++)
             {
-                for (int x = 0; x < sizes[lvl][0]; x++)
+                for (int x = 0; x < lvlWidths[lvl]; x++)
                 {
                     Type pixel = area(y * 2, x * 2, lvl - 1);
                     set(pixel, y, x, lvl);
@@ -163,6 +164,7 @@ public:
         }
     }
 
+    /*
     void invert(int lvl = 0)
     {
         for (int y = 0; y < sizes[lvl][1]; y++)
@@ -174,24 +176,26 @@ public:
             }
         }
     }
+    */
 
     float getPercentNoData(int lvl)
     {
         int nodatacount = 0;
-        for (int y = 0; y < sizes[lvl][1]; y++)
+        for (int y = 0; y < lvlHeights[lvl]; y++)
         {
-            for (int x = 0; x < sizes[lvl][0]; x++)
+            for (int x = 0; x < lvlWidths[lvl]; x++)
             {
                 if (get(y, x, lvl) == nodata)
                     nodatacount++;
             }
         }
-        return float(nodatacount) / (sizes[lvl][0] * sizes[lvl][1]);
+        return float(nodatacount) / (lvlWidths[lvl] * lvlHeights[lvl]);
     }
 
+    /*
     dataCPU add(dataCPU &other, int lvl)
     {
-        dataCPU<Type> result(sizes[0][0], sizes[0][1], nodata);
+        dataCPU<Type> result(lvlWidths[lvl], lvlHeights[lvl], nodata);
         for (int y = 0; y < sizes[lvl][1]; y++)
             for (int x = 0; x < sizes[lvl][0]; x++)
             {
@@ -220,8 +224,12 @@ public:
             }
         return result;
     }
+    */
 
     Type nodata;
+    int lvls;
+    std::vector<int> lvlWidths;
+    std::vector<int> lvlHeights;
 
 private:
     inline Type bilinear(float y, float x, int lvl)
@@ -229,7 +237,7 @@ private:
         // bilinear interpolation (-2 because the read the next pixel)
         // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
         // int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
-        if (y > sizes[lvl][1] - 2 || x > sizes[lvl][0] - 2)
+        if (y > lvlHeights[lvl] - 2 || x > lvlWidths[lvl] - 2)
             return get(int(y), int(x), lvl);
 
         int _x = int(x);
@@ -255,7 +263,7 @@ private:
         // bilinear interpolation (-2 because the read the next pixel)
         // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
         // int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
-        if (y > sizes[lvl][1] - 2 || x > sizes[lvl][0] - 2)
+        if (y > lvlHeights[lvl] - 2 || x > lvlWidths[lvl] - 2)
             return get(y, x, lvl);
 
         Type pix = (get(y, x, lvl) +
@@ -267,7 +275,5 @@ private:
         return pix;
     }
 
-    std::vector<Type*> textures;
-    std::vector<int> lvlWidths;
-    std::vector<int> lvlHeights;
+    std::vector<Type*> texture;
 };

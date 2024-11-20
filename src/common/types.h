@@ -15,7 +15,7 @@ struct vec1
         data = x;
     }
 
-    static int size()
+    static constexpr int size()
     {
         return 1;
     }
@@ -94,7 +94,7 @@ struct vec2
         data[1] = y;
     }
 
-    static int size()
+    static constexpr int size()
     {
         return 2;
     }
@@ -194,7 +194,7 @@ struct vec3
         data[2] = z;
     }
 
-    static int size()
+    static constexpr int size()
     {
         return 3;
     }
@@ -471,7 +471,7 @@ struct vec8
         data[7] = e;
     }
 
-    static int size()
+    static constexpr int size()
     {
         return 8;
     }

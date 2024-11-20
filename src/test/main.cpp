@@ -50,16 +50,16 @@ int main(int argc, char * argv[])
     imageMat.convertTo(imageMat, CV_32FC1);
     cv::resize(imageMat, imageMat, cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT), cv::INTER_AREA);
 
-    dataCPU<IMAGE_WIDTH, IMAGE_HEIGHT, float> image(-1.0);
-    image.set((float*)imageMat.data);
-    
     idepthMat.convertTo(idepthMat, CV_32FC1);
     cv::resize(idepthMat, idepthMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
-    dataCPU<IMAGE_WIDTH, IMAGE_HEIGHT, float> idepth(-1.0);
+    dataCPU<float> image(IMAGE_WIDTH, IMAGE_HEIGHT, -1.0);
+    dataCPU<float> idepth(IMAGE_WIDTH, IMAGE_HEIGHT, -1.0);
+    dataCPU<float> ivar(IMAGE_WIDTH, IMAGE_HEIGHT, -1.0);
+
+    image.set((float*)imageMat.data);
     idepth.set((float*)idepthMat.data);
 
-    dataCPU<IMAGE_WIDTH, IMAGE_HEIGHT, float> ivar(-1.0);
     ivar.set(1.0, 0);
     ivar.generateMipmaps();
 
@@ -98,8 +98,8 @@ int main(int argc, char * argv[])
     visualOdometry odometry(cam);
 
     //odometry.initScene(image, pixels, idepths);
-    //odometry.initScene(image, idepth, ivar);
-    odometry.initScene(image);
+    odometry.initScene(image, idepth, ivar);
+    //odometry.initScene(image);
 
     while(1){
         framesTracked++;

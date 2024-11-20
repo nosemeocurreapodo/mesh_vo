@@ -12,6 +12,7 @@
 #include "threadpoolCPU.h"
 #include "params.h"
 
+template <typename sceneType, typename shapeType>
 class renderCPU
 {
 public:
@@ -30,28 +31,28 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        window win(0, cam.width, 0, cam.height);
+        window win(0, cam.width-1, 0, cam.height-1);
 
         renderIdepthLineSearchWindow(kframe, frame, cam, win, buffer, lvl);
     }
 
     void renderRandom(camera cam, dataCPU<float> *buffer, int lvl)
     {
-        window win(0, cam.width, 0, cam.height);
+        window win(0, cam.width-1, 0, cam.height-1);
 
         renderRandomWindow(cam, win, buffer, lvl);
     }
 
     void renderSmooth(camera cam, dataCPU<float> *buffer, int lvl, float start = 1.0, float end = 2.0)
     {
-        window win(0, cam.width, 0, cam.height);
+        window win(0, cam.width-1, 0, cam.height-1);
 
         renderSmoothWindow(cam, win, buffer, lvl, start, end);
     }
 
     void renderInterpolate(camera cam, dataCPU<float> *buffer, int lvl)
     {
-        window win(0, cam.width, 0, cam.height);
+        window win(0, cam.width-1, 0, cam.height-1);
 
         renderInterpolateWindow(cam, win, buffer, lvl);
     }
@@ -67,7 +68,7 @@ public:
 
         z_buffer.set(z_buffer.nodata, lvl);
 
-        window win(0, cam.width, 0, cam.height);
+        window win(0, cam.width-1, 0, cam.height-1);
 
         renderImageWindow(kimage, cam, win, buffer, lvl);
     }
@@ -86,20 +87,19 @@ public:
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        int width = cam.width / divi_x;
+        int height = cam.height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
             for (int tx = 0; tx < divi_x; tx++)
             {
-                int min_x = tx * windowSize[0];
-                int max_x = (tx + 1) * windowSize[0];
-                int min_y = ty * windowSize[1];
-                int max_y = (ty + 1) * windowSize[1];
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window win(min_x, max_x-1, min_y, max_y-1);
 
                 renderImageWindow(kimage, cam, win, buffer, lvl);
                 //pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kimage, cam, win, buffer, lvl));
@@ -156,7 +156,7 @@ public:
 
         z_buffer.set(z_buffer.nodata, lvl);
 
-        window win(0, cam.width, 0, cam.height);
+        window win(0, cam.width-1, 0, cam.height-1);
 
         renderDebugWindow(image, win, buffer, lvl);
     }
@@ -175,20 +175,19 @@ public:
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        int width = cam.width / divi_x;
+        int height = cam.height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
             for (int tx = 0; tx < divi_x; tx++)
             {
-                int min_x = tx * windowSize[0];
-                int max_x = (tx + 1) * windowSize[0];
-                int min_y = ty * windowSize[1];
-                int max_y = (ty + 1) * windowSize[1];
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window win(min_x, max_x-1, min_y, max_y-1);
 
                 // renderDebugWindow(scene, frame, cam, win, buffer, lvl);
                 pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, image, win, buffer, lvl));
@@ -198,6 +197,7 @@ public:
         pool.waitUntilDone();
     }
 
+    template <typename jmapType, typename idsType>
     void renderJMap(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
         scene1 = kscene->clone();
@@ -209,11 +209,12 @@ public:
 
         z_buffer.set(z_buffer.nodata, lvl);
 
-        window win(0, cam.width, 0, cam.height);
+        window win(0, cam.width-1, 0, cam.height-1);
 
         renderJMapWindow(&kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
     }
 
+    template <typename jmapType, typename idsType>
     void renderJMapParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera &cam, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
         scene1 = kscene->clone();
@@ -228,20 +229,19 @@ public:
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        int width = cam.width / divi_x;
+        int height = cam.height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
             for (int tx = 0; tx < divi_x; tx++)
             {
-                int min_x = tx * windowSize[0];
-                int max_x = (tx + 1) * windowSize[0];
-                int min_y = ty * windowSize[1];
-                int max_y = (ty + 1) * windowSize[1];
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window win(min_x, max_x-1, min_y, max_y-1);
 
                 renderJMapWindow(kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
                 //pool.enqueue(std::bind(&renderCPU::renderJMapWindow, this, kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
@@ -251,6 +251,7 @@ public:
         //pool.waitUntilDone();
     }
 
+    template <typename jmapType, typename idsType>
     void renderJPoseMap(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
@@ -262,11 +263,12 @@ public:
         scene1->project(cam);
         scene2->project(cam);
 
-        window win(0, cam.width, 0, cam.height);
+        window win(0, cam.width-1, 0, cam.height-1);
 
         renderJPoseMapWindow(kimage, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
     }
 
+    template <typename jmapType, typename idsType>
     void renderJPoseMapParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
         z_buffer.set(z_buffer.nodata, lvl);
@@ -281,20 +283,19 @@ public:
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        int width = cam.width / divi_x;
+        int height = cam.height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
             for (int tx = 0; tx < divi_x; tx++)
             {
-                int min_x = tx * windowSize[0];
-                int max_x = (tx + 1) * windowSize[0];
-                int min_y = ty * windowSize[1];
-                int max_y = (ty + 1) * windowSize[1];
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window win(min_x, max_x-1, min_y, max_y-1);
 
                 renderJPoseMapWindow(kimage, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
                 //pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow, this, kimage, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
@@ -318,20 +319,19 @@ public:
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        int width = cam.width / divi_x;
+        int height = cam.height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
             for (int tx = 0; tx < divi_x; tx++)
             {
-                int min_x = tx * windowSize[0];
-                int max_x = (tx + 1) * windowSize[0];
-                int min_y = ty * windowSize[1];
-                int max_y = (ty + 1) * windowSize[1];
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window win(min_x, max_x-1, min_y, max_y-1);
 
                 renderJLightAffineWindow(kimage, frame, cam, win, jlightaffine_buffer, e_buffer, lvl);
                 //pool.enqueue(std::bind(&renderCPU::renderJLightAffineWindow, this, kimage, frame, cam, win, jlightaffine_buffer, e_buffer, lvl));
@@ -352,7 +352,7 @@ public:
         scene1->project(cam);
         scene2->project(cam);
 
-        window win(0, cam.width, 0, cam.height);
+        window win(0, cam.width-1, 0, cam.height-1);
 
         renderJPoseWindow(kimage, frame, cam, win, jpose_buffer, e_buffer, lvl);
     }
@@ -371,20 +371,19 @@ public:
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        int width = cam.width / divi_x;
+        int height = cam.height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
             for (int tx = 0; tx < divi_x; tx++)
             {
-                int min_x = tx * windowSize[0];
-                int max_x = (tx + 1) * windowSize[0];
-                int min_y = ty * windowSize[1];
-                int max_y = (ty + 1) * windowSize[1];
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window win(min_x, max_x-1, min_y, max_y-1);
 
                 renderJPoseWindow(kimage, frame, cam, win, jpose_buffer, e_buffer, lvl);
                 //pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kimage, frame, cam, win, jpose_buffer, e_buffer, lvl));
@@ -405,7 +404,7 @@ public:
         scene1->project(cam);
         scene2->project(cam);
 
-        window win(0, cam.width, 0, cam.height);
+        window win(0, cam.width-1, 0, cam.height-1);
 
         renderResidualWindow(kimage, frame, cam, win, e_buffer, lvl);
     }
@@ -424,20 +423,19 @@ public:
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        int width = cam.width / divi_x;
+        int height = cam.height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
             for (int tx = 0; tx < divi_x; tx++)
             {
-                int min_x = tx * windowSize[0];
-                int max_x = (tx + 1) * windowSize[0];
-                int min_y = ty * windowSize[1];
-                int max_y = (ty + 1) * windowSize[1];
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window win(min_x, max_x-1, min_y, max_y-1);
 
                 renderResidualWindow(kimage, frame, cam, win, e_buffer, lvl);
                 //pool.enqueue(std::bind(&renderCPU::renderResidualWindow, this, kimage, frame, cam, win, e_buffer, lvl));
@@ -489,10 +487,10 @@ public:
         z_buffer.set(z_buffer.nodata, lvl);
 
         scene2 = scene->clone();
-        scene2->transform(pose);
-        scene2->project(cam);
+        scene2.transform(pose);
+        scene2.project(cam);
 
-        window win(0, cam.width, 0, cam.height);
+        window win(0, cam.width-1, 0, cam.height-1);
 
         renderIdepthWindow(win, buffer, lvl);
     }
@@ -508,20 +506,19 @@ public:
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        int width = cam.width / divi_x;
+        int height = cam.height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
             for (int tx = 0; tx < divi_x; tx++)
             {
-                int min_x = tx * windowSize[0];
-                int max_x = (tx + 1) * windowSize[0];
-                int min_y = ty * windowSize[1];
-                int max_y = (ty + 1) * windowSize[1];
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window win(min_x, max_x-1, min_y, max_y-1);
 
                 renderIdepthWindow(win, buffer, lvl);
                 //pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, win, buffer, lvl));
@@ -536,10 +533,10 @@ public:
         z_buffer.set(z_buffer.nodata, lvl);
 
         scene2 = scene->clone();
-        scene2->transform(pose);
-        scene2->project(cam);
+        scene2.transform(pose);
+        scene2.project(cam);
 
-        window win(0, cam.width, 0, cam.height);
+        window win(0, cam.width-1, 0, cam.height-1);
 
         renderWeightWindow(win, buffer, lvl);
     }
@@ -555,20 +552,19 @@ public:
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        int width = cam.width / divi_x;
+        int height = cam.height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
             for (int tx = 0; tx < divi_x; tx++)
             {
-                int min_x = tx * windowSize[0];
-                int max_x = (tx + 1) * windowSize[0];
-                int min_y = ty * windowSize[1];
-                int max_y = (ty + 1) * windowSize[1];
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window win(min_x, max_x-1, min_y, max_y-1);
 
                 renderIdepthWindow(win, buffer, lvl);
                 //pool.enqueue(std::bind(&renderCPU::renderWeightWindow, this, win, buffer, lvl));
@@ -660,9 +656,9 @@ private:
         dataCPU<float> corrFrame = frame->getRawImage();
         dataCPU<float> corrKframe = kframe->getRawImage();
 
-        for (int y = win.min_y; y <= win.max_y; y++)
+        for (int y = win.min_y; y < win.max_y; y++)
         {
-            for (int x = win.min_x; x <= win.max_x; x++)
+            for (int x = win.min_x; x < win.max_x; x++)
             {
                 auto f_i = corrFrame.get(y, x, lvl);
                 if (f_i == corrFrame.nodata)
@@ -901,9 +897,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 
@@ -967,9 +963,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 
@@ -1049,9 +1045,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 
@@ -1154,6 +1150,7 @@ private:
     }
     */
 
+    template <typename jmapType, typename idsType>
     void renderJMapWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
         float min_area = 0.0; //(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3 / 4;
@@ -1190,9 +1187,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 
@@ -1252,6 +1249,7 @@ private:
         }
     }
 
+    template <typename jmapType, typename idsType>
     void renderJPoseMapWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
         float min_area = 0.0;//(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3.0 / 4.0;
@@ -1296,9 +1294,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 
@@ -1382,9 +1380,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 

@@ -38,11 +38,61 @@ inline void saveH(HGEigenSparse &data, std::string file_name)
     // cv::waitKey(30);
 }
 
-template <int width, int height, typename type>
-inline void show(dataCPU<width, height, type> &data, std::string window_name, bool colorize, bool upsample, int channel, int lvl)
+inline void show(dataCPU<float> &data, std::string window_name, bool colorize, bool upsample, int lvl)
 {
-    int lvlWidth = data.lvlWidth[lvl];
-    int lvlHeight = data.lvlHeight[lvl];
+    int width = data.lvlWidths[0];
+    int height = data.lvlHeights[0];
+    int lvlWidth = data.lvlWidths[lvl];
+    int lvlHeight = data.lvlHeights[lvl];
+
+    cv::Mat toShow(lvlHeight, lvlWidth, CV_32FC1); // (uchar*)data.get(lvl))
+
+    float nodata = data.nodata;
+
+    for (int y = 0; y < lvlHeight; y++)
+    {
+        for (int x = 0; x < lvlWidth; x++)
+        {
+            float in_val = data.get(y, x, lvl);
+            // cv::Vec3f out_val(in_val(0), in_val(1), in_val(2));
+            // toShow.at<cv::Vec3f>(y, x) = out_val;
+            toShow.at<float>(y, x) = in_val;
+        }
+    }
+
+    cv::Mat mask, maskInv;
+    cv::inRange(toShow, nodata, nodata, mask);
+    cv::bitwise_not(mask, maskInv);
+
+    cv::normalize(toShow, toShow, 255.0, 0.0, cv::NORM_MINMAX, CV_8UC1, maskInv);
+    toShow.setTo(0, mask);
+
+    cv::Mat toShow2;
+    if (colorize)
+    {
+        cv::applyColorMap(toShow, toShow2, cv::COLORMAP_JET);
+    }
+    else
+    {
+        toShow2 = toShow;
+    }
+
+    if (upsample)
+    {
+        cv::resize(toShow2, toShow2, cv::Size(width, height));
+    }
+
+    cv::imshow(window_name, toShow2);
+    cv::waitKey(30);
+}
+
+template <typename type>
+inline void show(dataCPU<type> &data, std::string window_name, bool colorize, bool upsample, int channel, int lvl)
+{
+    int width = data.lvlWidths[0];
+    int height = data.lvlHeights[0];
+    int lvlWidth = data.lvlWidths[lvl];
+    int lvlHeight = data.lvlHeights[lvl];
 
     cv::Mat toShow(lvlHeight, lvlWidth, CV_32FC1); // (uchar*)data.get(lvl))
 
@@ -84,3 +134,4 @@ inline void show(dataCPU<width, height, type> &data, std::string window_name, bo
     cv::imshow(window_name, toShow2);
     cv::waitKey(30);
 }
+

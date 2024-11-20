@@ -28,35 +28,8 @@ template <typename sceneType, typename shapeType, typename jmapType, typename id
 class meshOptimizerCPU
 {
 public:
-    meshOptimizerCPU(camera &_cam)
-        : kimage(-1.0),
-          image_buffer(-1.0),
-          idepth_buffer(-1.0),
-          ivar_buffer(-1.0),
-          error_buffer(-1.0),
-          jlightaffine_buffer(vec2<float>(0.0, 0.0)),
-          jpose_buffer(vec8<float>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
-          jmap_buffer(jmapType(0.0)),
-          pId_buffer(idsType(-1)),
-          debug( -1.0),
-          idepthVar(-1.0),
-          renderer()
-    {
-        cam[0] = _cam;
-        for (int i = 1; i < MAX_LEVELS; i++)
-        {
-            cam[i] = _cam;
-            cam[i].resize(1.0 / std::pow(2.0, i));
-        }
-
-        multiThreading = false;
-        meshRegularization = 100.0;
-        meshInitial = 0.0;
-        kDepthAffine = vec2<float>(1.0, 0.0);
-    }
-
+    meshOptimizerCPU(camera &_cam);
     void initKeyframe(frameCPU &frame, int lvl);
-
 
     void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
     {
@@ -903,15 +876,15 @@ public:
         renderer.renderWeightParallel(&kscene, frame.getPose(), cam[1], &ivar_buffer, 1);
         renderer.renderResidualParallel(&kscene, &kimage, &frame, cam[1], &error_buffer, 1);
 
-        show(frame.getRawImage(), "frame image", false, false, 1, 1);
-        show(kimage, "keyframe image", false, false, 1, 1);
-        show(error_buffer, "frame error", false, true, 1, 1);
-        show(idepth_buffer, "frame idepth", true, true, 1, 1);
-        show(ivar_buffer, "ivar", true, false, 1, 1);
+        show(frame.getRawImage(), "frame image", false, false, 1);
+        show(kimage, "keyframe image", false, false, 1);
+        show(error_buffer, "frame error", false, true, 1);
+        show(idepth_buffer, "frame idepth", true, true, 1);
+        show(ivar_buffer, "ivar", true, false, 1);
 
-        show(frame.getdIdpixImage(), "frame dx image", false, true, 1, 1);
-        show(jpose_buffer, "jpose image", false, true, 1, 1);
-        show(jmap_buffer, "jmap image", false, true, 1, 1);
+        show(frame.getdIdpixImage(), "frame dx image", false, true, 0, 1);
+        show(jpose_buffer, "jpose image", false, true, 0, 1);
+        show(jmap_buffer, "jmap image", false, true, 0, 1);
 
         if (frames.size() > 0)
         {
@@ -982,7 +955,7 @@ public:
     Sophus::SE3f kpose;
     vec2<float> kDepthAffine;
 
-    camera cam[MAX_LEVELS];
+    std::vector<camera> cam;
 
 private:
     Error computeError(frameCPU *frame, int lvl, bool useWeights=false)
@@ -996,7 +969,7 @@ private:
         if (useWeights)
             renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
 
-        Error e = reducer.reduceErrorParallel(cam[lvl], frame->getResidualImage(), ivar_buffer, lvl);
+        Error e = reducer.reduceErrorParallel(frame->getResidualImage(), ivar_buffer, lvl);
 
         return e;
     }
@@ -1012,7 +985,7 @@ private:
         if (useWeights)
             renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
 
-        HGEigenDense<2> hg = reducer.reduceHGLightAffineParallel(cam[lvl], jlightaffine_buffer, error_buffer, ivar_buffer, lvl);
+        HGEigenDense<2> hg = reducer.reduceHGLightAffineParallel(jlightaffine_buffer, error_buffer, ivar_buffer, lvl);
 
         return hg;
     }
@@ -1028,7 +1001,7 @@ private:
         if (useWeights)
             renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
 
-        HGEigenDense<8> hg = reducer.reduceHGPoseParallel(cam[lvl], jpose_buffer, error_buffer, ivar_buffer, lvl);
+        HGEigenDense<8> hg = reducer.reduceHGPoseParallel(jpose_buffer, error_buffer, ivar_buffer, lvl);
 
         return hg;
     }
@@ -1059,7 +1032,7 @@ private:
         renderer.renderJMapParallel(&kscene, &kimage, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
         // HGMapped hg = reducer.reduceHGMap(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
         // HGEigen hg = reducer.reduceHGMapParallel(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
-        HGEigenSparse hg = reducer.reduceHGMap2(cam[lvl], kscene.getNumParams(), jmap_buffer, error_buffer, pId_buffer, *mask, lvl);
+        HGEigenSparse hg = reducer.reduceHGMap2(kscene.getNumParams(), jmap_buffer, error_buffer, pId_buffer, *mask, lvl);
 
         return hg;
     }
@@ -1087,7 +1060,7 @@ private:
 
         renderer.renderJPoseMapParallel(&kscene, &kimage, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
         // HGEigenSparse hg = reducer.reduceHGPoseMap2(cam[lvl], frameIndex, numFrames, scene->getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
-        HGEigenSparse hg = reducer.reduceHGPoseMapParallel2(cam[lvl], frameIndex, numFrames, kscene.getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
+        HGEigenSparse hg = reducer.reduceHGPoseMapParallel2(frameIndex, numFrames, kscene.getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
         return hg;
     }
@@ -1112,6 +1085,6 @@ private:
     dataCPU<float> debug;
     dataCPU<float> idepthVar;
 
-    renderCPU<sceneType, shapeType, jmapType, idsType> renderer;
-    reduceCPU<jmapType, idsType> reducer;
+    renderCPU<sceneType, shapeType> renderer;
+    reduceCPU reducer;
 };

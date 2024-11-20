@@ -58,17 +58,16 @@ public:
         tripletList.push_back(T(ids(0), ids(0), jac(0) * jac(0) * weight));
     }
 
-    template <typename type>
     void sparseAdd(vec3<float> jac, float error, float weight, vec3<int> ids)
     {
         count++;
 
-        for (int j = 0; j < ids.size(); j++)
+        for (int j = 0; j < 3; j++)
         {
             G(ids(j)) += jac(j) * error * weight;
             tripletList.push_back(T(ids(j), ids(j), jac(j) * jac(j) * weight));
 
-            for (int k = j + 1; k < ids.size(); k++)
+            for (int k = j + 1; k < 3; k++)
             {
                 float value = jac(j) * jac(k) * weight;
                 tripletList.push_back(T(ids(j), ids(k), value));
@@ -78,16 +77,17 @@ public:
         }
     }
 
-    void sparseAdd(vecx<float> jac, float error, float weight, vecx<int> ids)
+    template <int size>
+    void sparseAdd(vecx<size, float> jac, float error, float weight, vecx<size, int> ids)
     {
         count++;
 
-        for (int j = 0; j < ids.size(); j++)
+        for (int j = 0; j < size; j++)
         {
             G(ids(j)) += jac(j) * error * weight;
             tripletList.push_back(T(ids(j), ids(j), jac(j) * jac(j) * weight));
 
-            for (int k = j + 1; k < ids.size(); k++)
+            for (int k = j + 1; k < size; k++)
             {
                 float value = jac(j) * jac(k) * weight;
                 tripletList.push_back(T(ids(j), ids(k), value));
