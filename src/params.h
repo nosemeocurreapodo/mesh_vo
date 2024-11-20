@@ -1,6 +1,7 @@
 #pragma once
 
-#define MAX_LEVELS 10 //max level for a 512x512 image
+#define IMAGE_WIDTH 512
+#define IMAGE_HEIGHT 512
 #define MESH_WIDTH 32
 #define MESH_HEIGHT 32
 #define NUM_FRAMES 5

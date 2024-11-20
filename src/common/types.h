@@ -1,7 +1,6 @@
 #pragma once
 
-#include <Eigen/Core>
-#include "sophus/se3.hpp"
+#include <vector>
 
 template <typename type>
 struct vec1
@@ -13,7 +12,7 @@ struct vec1
     template <typename type2>
     vec1(type2 x)
     {
-        this->operator()(0) = (type)x;
+        data = x;
     }
 
     static int size()
@@ -21,48 +20,43 @@ struct vec1
         return 1;
     }
 
-    static vec1 zero()
-    {
-        return vec1(0);
-    }
-
     template <typename type2>
     vec1<type> operator*(type2 c)
     {
         vec1<type> result;
-        result(0) = type(this->operator()(0) * c);
+        result(0) = data * c;
         return result;
     }
 
     vec1<type> operator+(vec1<type> c)
     {
         vec1<type> result;
-        result(0) = type(this->operator()(0) + c(0));
+        result(0) = data + c(0);
         return result;
     }
 
     vec1<type> operator-(vec1<type> c)
     {
         vec1<type> result;
-        result(0) = type(this->operator()(0) - c(0));
+        result(0) = data[0] - c(0);
         return result;
     }
 
     type dot(vec1<type> c)
     {
-        return this->operator()(0) * c(0);
+        return data * c(0);
     }
 
     bool operator==(vec1<type> c)
     {
-        if (this->operator()(0) == c(0))
+        if (data == c(0))
             return true;
         return false;
     }
 
     void operator=(vec1<type> c)
     {
-        this->operator()(0) = c(0);
+        data = c(0);
     }
 
     inline type &operator()(int c)
@@ -87,10 +81,17 @@ struct vec2
     }
 
     template <typename type2>
+    vec2(type2 x)
+    {
+        data[0] = x;
+        data[1] = x;
+    }
+
+    template <typename type2>
     vec2(type2 x, type2 y)
     {
-        this->operator()(0) = (type)x;
-        this->operator()(1) = (type)y;
+        data[0] = x;
+        data[1] = y;
     }
 
     static int size()
@@ -98,22 +99,17 @@ struct vec2
         return 2;
     }
 
-    static vec2 zero()
-    {
-        return vec2(0, 0);
-    }
-
     type norm()
     {
-        return sqrt(this->operator()(0) * this->operator()(0) + this->operator()(1) * this->operator()(1));
+        return sqrt(data[0] * data[0] + data[1] * data[1]);
     }
 
     template <typename type2>
     vec2<type> operator*(type2 c)
     {
         vec2<type> result;
-        result(0) = type(this->operator()(0) * c);
-        result(1) = type(this->operator()(1) * c);
+        result(0) = data[0] * c;
+        result(1) = data[1] * c;
         return result;
     }
 
@@ -121,43 +117,43 @@ struct vec2
     vec2<type> operator/(type2 c)
     {
         vec2<type> result;
-        result(0) = type(this->operator()(0) / c);
-        result(1) = type(this->operator()(1) / c);
+        result(0) = data[0] / c;
+        result(1) = data[1] / c;
         return result;
     }
 
     vec2<type> operator+(vec2<type> c)
     {
         vec2<type> result;
-        result(0) = type(this->operator()(0) + c(0));
-        result(1) = type(this->operator()(1) + c(1));
+        result(0) = data[0] + c(0);
+        result(1) = data[1] + c(1);
         return result;
     }
 
     vec2<type> operator-(vec2<type> c)
     {
         vec2<type> result;
-        result(0) = type(this->operator()(0) - c(0));
-        result(1) = type(this->operator()(1) - c(1));
+        result(0) = data[0] - c(0);
+        result(1) = data[1] - c(1);
         return result;
     }
 
     type dot(vec2<type> c)
     {
-        return this->operator()(0) * c(0) + this->operator()(1) * c(1);
+        return data[0] * c(0) + data[1] * c(1);
     }
 
     bool operator==(vec2<type> c)
     {
-        if (this->operator()(0) == c(0) && this->operator()(1) == c(1))
+        if (data[0] == c(0) && data[1] == c(1))
             return true;
         return false;
     }
 
     void operator=(vec2<type> c)
     {
-        this->operator()(0) = c(0);
-        this->operator()(1) = c(1);
+        data[0] = c(0);
+        data[1] = c(1);
     }
 
     inline type &operator()(int c)
@@ -184,11 +180,18 @@ struct vec3
     {
     }
 
+    vec3(type x)
+    {
+        data[0] = x;
+        data[1] = x;
+        data[2] = x;
+    }
+
     vec3(type x, type y, type z)
     {
-        this->operator()(0) = x;
-        this->operator()(1) = y;
-        this->operator()(2) = z;
+        data[0] = x;
+        data[1] = y;
+        data[2] = z;
     }
 
     static int size()
@@ -196,23 +199,18 @@ struct vec3
         return 3;
     }
 
-    static vec3 zero()
-    {
-        return vec3(0, 0, 0);
-    }
-
     type dot(vec3<type> a)
     {
-        type result = this->operator()(0) * a(0) + this->operator()(1) * a(1) + this->operator()(2) * a(2);
+        type result = data[0] * a(0) + data[1] * a(1) + data[2] * a(2);
         return result;
     }
 
     vec3<type> cross(vec3<type> a)
     {
         vec3<type> result;
-        result(0) = this->operator()(1) * a(2) - this->operator()(2) * a(1);
-        result(1) = this->operator()(2) * a(0) - this->operator()(0) * a(2);
-        result(2) = this->operator()(0) * a(1) - this->operator()(1) * a(0);
+        result(0) = data[1] * a(2) - data[2] * a(1);
+        result(1) = data[2] * a(0) - data[0] * a(2);
+        result(2) = data[0] * a(1) - data[1] * a(0);
         return result;
     }
 
@@ -223,33 +221,33 @@ struct vec3
         //   for (int x = 0; x < 3; x++)
         //     result(y, x) = data[y] * a(x);
 
-        result(0, 0) = this->operator()(0) * a(0);
-        result(0, 1) = this->operator()(0) * a(1);
-        result(0, 2) = this->operator()(0) * a(2);
+        result(0, 0) = data[0] * a(0);
+        result(0, 1) = data[0] * a(1);
+        result(0, 2) = data[0] * a(2);
 
-        result(1, 0) = this->operator()(1) * a(0);
-        result(1, 1) = this->operator()(1) * a(1);
-        result(1, 2) = this->operator()(1) * a(2);
+        result(1, 0) = data[1] * a(0);
+        result(1, 1) = data[1] * a(1);
+        result(1, 2) = data[1] * a(2);
 
-        result(2, 0) = this->operator()(2) * a(0);
-        result(2, 1) = this->operator()(2) * a(1);
-        result(2, 2) = this->operator()(2) * a(2);
+        result(2, 0) = data[2] * a(0);
+        result(2, 1) = data[2] * a(1);
+        result(2, 2) = data[2] * a(2);
 
         return result;
     }
 
     type norm()
     {
-        return sqrt(this->operator()(0) * this->operator()(0) + this->operator()(1) * this->operator()(1) + this->operator()(2) * this->operator()(2));
+        return sqrt(data[0] * data[0] + data[1] * data[1] + data[2] * data[2]);
     }
 
     template <typename type2>
     vec3<type> operator*(type2 c)
     {
         vec3<type> result;
-        result(0) = type(this->operator()(0) * c);
-        result(1) = type(this->operator()(1) * c);
-        result(2) = type(this->operator()(2) * c);
+        result(0) = type(data[0] * c);
+        result(1) = type(data[1] * c);
+        result(2) = type(data[2] * c);
         return result;
     }
 
@@ -257,40 +255,40 @@ struct vec3
     vec3<type> operator/(type2 c)
     {
         vec3<type> result;
-        result(0) = type(this->operator()(0) / c);
-        result(1) = type(this->operator()(1) / c);
-        result(2) = type(this->operator()(2) / c);
+        result(0) = type(data[0] / c);
+        result(1) = type(data[1] / c);
+        result(2) = type(data[2] / c);
         return result;
     }
 
     inline vec3<type> operator+(vec3<type> c)
     {
         vec3<type> result;
-        result(0) = type(this->operator()(0) + c(0));
-        result(1) = type(this->operator()(1) + c(1));
-        result(2) = type(this->operator()(2) + c(2));
+        result(0) = type(data[0] + c(0));
+        result(1) = type(data[1] + c(1));
+        result(2) = type(data[2] + c(2));
         return result;
     }
 
     vec3<type> operator-(vec3<type> c)
     {
         vec3<type> result;
-        result(0) = type(this->operator()(0) - c(0));
-        result(1) = type(this->operator()(1) - c(1));
-        result(2) = type(this->operator()(2) - c(2));
+        result(0) = type(data[0] - c(0));
+        result(1) = type(data[1] - c(1));
+        result(2) = type(data[2] - c(2));
         return result;
     }
 
     void operator=(vec3<type> c)
     {
-        this->operator()(0) = c(0);
-        this->operator()(1) = c(1);
-        this->operator()(2) = c(2);
+        data[0] = c(0);
+        data[1] = c(1);
+        data[2] = c(2);
     }
 
     bool operator==(vec3<type> c)
     {
-        if (this->operator()(0) == c(0) && this->operator()(1) == c(1) && this->operator()(2) == c(2))
+        if (data[0] == c(0) && data[1] == c(1) && data[2] == c(2))
             return true;
         return false;
     }
@@ -319,37 +317,30 @@ struct vec6
     {
     }
 
+    vec6(type x)
+    {
+        data[0] = x;
+        data[1] = x;
+        data[2] = x;
+        data[3] = x;
+        data[4] = x;
+        data[5] = x;
+    }
+
     vec6(type x, type y, type z, type a, type b, type c)
     {
-        this->operator()(0) = x;
-        this->operator()(1) = y;
-        this->operator()(2) = z;
-        this->operator()(3) = a;
-        this->operator()(4) = b;
-        this->operator()(5) = c;
+        data[0] = x;
+        data[1] = y;
+        data[2] = z;
+        data[3] = a;
+        data[4] = b;
+        data[5] = c;
     }
 
     static int size()
     {
         return 6;
     }
-
-    static vec6 zero()
-    {
-        return vec6(0, 0, 0, 0, 0, 0);
-    }
-
-    /*
-    void zero()
-    {
-        this->operator()(0) = type(0.0);
-        this->operator()(1) = type(0.0);
-        this->operator()(2) = type(0.0);
-        this->operator()(3) = type(0.0);
-        this->operator()(4) = type(0.0);
-        this->operator()(5) = type(0.0);
-    }
-    */
 
     type dot(vec6<type> b)
     {
@@ -360,19 +351,19 @@ struct vec6
           result += data[x] * b(x);
         }
         */
-        result = this->operator()(0) * b(0) + this->operator()(1) * b(1) + this->operator()(2) * b(2) + this->operator()(3) * b(3) + this->operator()(4) * b(4) + this->operator()(5) * b(5);
+        result = data[0] * b(0) + data[1] * b(1) + data[2] * b(2) + data[3] * b(3) + data[4] * b(4) + data[5] * b(5);
         return result;
     }
 
     vec6<type> operator+(vec6<type> c)
     {
         vec6<type> result;
-        result(0) = this->operator()(0) + c(0);
-        result(1) = this->operator()(1) + c(1);
-        result(2) = this->operator()(2) + c(2);
-        result(3) = this->operator()(3) + c(3);
-        result(4) = this->operator()(4) + c(4);
-        result(5) = this->operator()(5) + c(5);
+        result(0) = data[0] + c(0);
+        result(1) = data[1] + c(1);
+        result(2) = data[2] + c(2);
+        result(3) = data[3] + c(3);
+        result(4) = data[4] + c(4);
+        result(5) = data[5] + c(5);
         return result;
     }
 
@@ -380,12 +371,12 @@ struct vec6
     vec6 operator/(type2 c)
     {
         vec6 result;
-        result(0) = type(this->operator()(0) / c);
-        result(1) = type(this->operator()(1) / c);
-        result(2) = type(this->operator()(2) / c);
-        result(3) = type(this->operator()(3) / c);
-        result(4) = type(this->operator()(4) / c);
-        result(5) = type(this->operator()(5) / c);
+        result(0) = type(data[0] / c);
+        result(1) = type(data[1] / c);
+        result(2) = type(data[2] / c);
+        result(3) = type(data[3] / c);
+        result(4) = type(data[4] / c);
+        result(5) = type(data[5] / c);
         return result;
     }
 
@@ -393,12 +384,12 @@ struct vec6
     vec6 operator*(type2 c)
     {
         vec6 result;
-        result(0) = this->operator()(0) * c;
-        result(1) = this->operator()(1) * c;
-        result(2) = this->operator()(2) * c;
-        result(3) = this->operator()(3) * c;
-        result(4) = this->operator()(4) * c;
-        result(5) = this->operator()(5) * c;
+        result(0) = data[0] * c;
+        result(1) = data[1] * c;
+        result(2) = data[2] * c;
+        result(3) = data[3] * c;
+        result(4) = data[4] * c;
+        result(5) = data[5] * c;
         return result;
     }
 
@@ -416,18 +407,18 @@ struct vec6
 
     void operator=(vec6<type> c)
     {
-        this->operator()(0) = c(0);
-        this->operator()(1) = c(1);
-        this->operator()(2) = c(2);
-        this->operator()(3) = c(3);
-        this->operator()(4) = c(4);
-        this->operator()(5) = c(5);
+        data[0] = c(0);
+        data[1] = c(1);
+        data[2] = c(2);
+        data[3] = c(3);
+        data[4] = c(4);
+        data[5] = c(5);
     }
 
     bool operator==(vec6<type> c)
     {
-        if (this->operator()(0) == c(0) && this->operator()(1) == c(1) && this->operator()(2) == c(2) &&
-            this->operator()(3) == c(3) && this->operator()(4) == c(4) && this->operator()(5) == c(5))
+        if (data[0] == c(0) && data[1] == c(1) && data[2] == c(2) &&
+            data[3] == c(3) && data[4] == c(4) && data[5] == c(5))
             return true;
         return false;
     }
@@ -456,39 +447,34 @@ struct vec8
     {
     }
 
+    vec8(type x)
+    {
+        data[0] = x;
+        data[1] = x;
+        data[2] = x;
+        data[3] = x;
+        data[4] = x;
+        data[5] = x;
+        data[6] = x;
+        data[7] = x;
+    }
+
     vec8(type x, type y, type z, type a, type b, type c, type d, type e)
     {
-        this->operator()(0) = x;
-        this->operator()(1) = y;
-        this->operator()(2) = z;
-        this->operator()(3) = a;
-        this->operator()(4) = b;
-        this->operator()(5) = c;
-        this->operator()(6) = d;
-        this->operator()(7) = e;
+        data[0] = x;
+        data[1] = y;
+        data[2] = z;
+        data[3] = a;
+        data[4] = b;
+        data[5] = c;
+        data[6] = d;
+        data[7] = e;
     }
 
     static int size()
     {
         return 8;
     }
-
-    static vec8 zero()
-    {
-        return vec8(0, 0, 0, 0, 0, 0, 0, 0);
-    }
-
-    /*
-    void zero()
-    {
-        this->operator()(0) = type(0.0);
-        this->operator()(1) = type(0.0);
-        this->operator()(2) = type(0.0);
-        this->operator()(3) = type(0.0);
-        this->operator()(4) = type(0.0);
-        this->operator()(5) = type(0.0);
-    }
-    */
 
     type dot(vec8<type> b)
     {
@@ -499,21 +485,21 @@ struct vec8
           result += data[x] * b(x);
         }
         */
-        result = this->operator()(0) * b(0) + this->operator()(1) * b(1) + this->operator()(2) * b(2) + this->operator()(3) * b(3) + this->operator()(4) * b(4) + this->operator()(5) * b(5) + this->operator()(6) * b(6) + this->operator()(7) * b(7);
+        result = data[0] * b(0) + data[1] * b(1) + data[2] * b(2) + data[3] * b(3) + data[4] * b(4) + data[5] * b(5) + data[6] * b(6) + data[7] * b(7);
         return result;
     }
 
     vec8<type> operator+(vec8<type> c)
     {
         vec8<type> result;
-        result(0) = this->operator()(0) + c(0);
-        result(1) = this->operator()(1) + c(1);
-        result(2) = this->operator()(2) + c(2);
-        result(3) = this->operator()(3) + c(3);
-        result(4) = this->operator()(4) + c(4);
-        result(5) = this->operator()(5) + c(5);
-        result(6) = this->operator()(6) + c(6);
-        result(7) = this->operator()(7) + c(7);
+        result(0) = data[0] + c(0);
+        result(1) = data[1] + c(1);
+        result(2) = data[2] + c(2);
+        result(3) = data[3] + c(3);
+        result(4) = data[4] + c(4);
+        result(5) = data[5] + c(5);
+        result(6) = data[6] + c(6);
+        result(7) = data[7] + c(7);
         return result;
     }
 
@@ -521,14 +507,14 @@ struct vec8
     vec8 operator/(type2 c)
     {
         vec8 result;
-        result(0) = type(this->operator()(0) / c);
-        result(1) = type(this->operator()(1) / c);
-        result(2) = type(this->operator()(2) / c);
-        result(3) = type(this->operator()(3) / c);
-        result(4) = type(this->operator()(4) / c);
-        result(5) = type(this->operator()(5) / c);
-        result(6) = type(this->operator()(6) / c);
-        result(7) = type(this->operator()(7) / c);
+        result(0) = type(data[0] / c);
+        result(1) = type(data[1] / c);
+        result(2) = type(data[2] / c);
+        result(3) = type(data[3] / c);
+        result(4) = type(data[4] / c);
+        result(5) = type(data[5] / c);
+        result(6) = type(data[6] / c);
+        result(7) = type(data[7] / c);
         return result;
     }
 
@@ -536,14 +522,14 @@ struct vec8
     vec8 operator*(type2 c)
     {
         vec8 result;
-        result(0) = this->operator()(0) * c;
-        result(1) = this->operator()(1) * c;
-        result(2) = this->operator()(2) * c;
-        result(3) = this->operator()(3) * c;
-        result(4) = this->operator()(4) * c;
-        result(5) = this->operator()(5) * c;
-        result(6) = this->operator()(6) * c;
-        result(7) = this->operator()(7) * c;
+        result(0) = data[0] * c;
+        result(1) = data[1] * c;
+        result(2) = data[2] * c;
+        result(3) = data[3] * c;
+        result(4) = data[4] * c;
+        result(5) = data[5] * c;
+        result(6) = data[6] * c;
+        result(7) = data[7] * c;
         return result;
     }
 
@@ -561,21 +547,21 @@ struct vec8
 
     void operator=(vec8<type> c)
     {
-        this->operator()(0) = c(0);
-        this->operator()(1) = c(1);
-        this->operator()(2) = c(2);
-        this->operator()(3) = c(3);
-        this->operator()(4) = c(4);
-        this->operator()(5) = c(5);
-        this->operator()(6) = c(6);
-        this->operator()(7) = c(7);
+        data[0] = c(0);
+        data[1] = c(1);
+        data[2] = c(2);
+        data[3] = c(3);
+        data[4] = c(4);
+        data[5] = c(5);
+        data[6] = c(6);
+        data[7] = c(7);
     }
 
     bool operator==(vec8<type> c)
     {
-        if (this->operator()(0) == c(0) && this->operator()(1) == c(1) && this->operator()(2) == c(2) &&
-            this->operator()(3) == c(3) && this->operator()(4) == c(4) && this->operator()(5) == c(5) &&
-            this->operator()(6) == c(6) && this->operator()(7) == c(7))
+        if (data[0] == c(0) && data[1] == c(1) && data[2] == c(2) &&
+            data[3] == c(3) && data[4] == c(4) && data[5] == c(5) &&
+            data[6] == c(6) && data[7] == c(7))
             return true;
         return false;
     }
@@ -594,47 +580,27 @@ private:
     type data[8];
 };
 
-template <typename type>
+template <int s, typename type>
 struct vecx
 {
     vecx()
     {
     }
 
-    vecx(int size, type a)
+    vecx(type a)
     {
-        for (int i = 0; i < size; i++)
-            data.push_back(type(a));
+        for (int i = 0; i < s; i++)
+            data[i] = a;
     }
 
-    /*
-    template <typename type1, typename type2>
-    vecx(type1 vec1, type2 vec2)
+    static int size()
     {
-        for (int i = 0; i < vec1.size(); i++)
-        {
-            data.push_back(vec1(i));
-        }
-        for (int i = 0; i < vec2.size(); i++)
-        {
-            data.push_back(vec2(i));
-        }
-    }
-    */
-
-    int size()
-    {
-        return data.size();
+        return s;
     }
 
-    //static vecx zero()
-    //{
-    //    return vecx(0);
-    //}
-
-    void operator=(vecx<type> c)
+    void operator=(vecx<s, type> c)
     {
-        for (int i = 0; i < c.size(); i++)
+        for (int i = 0; i < s; i++)
         {
             data[i] = c(i);
         }
@@ -643,30 +609,26 @@ struct vecx
     template <typename type2>
     vecx operator*(type2 c)
     {
-        vecx result(data.size(), 0);
-        for (int i = 0; i < data.size(); i++)
+        vecx result;
+        for (int i = 0; i < s; i++)
         {
-            result(i) = data[i]*c;
+            result(i) = data[i] * c;
         }
         return result;
     }
 
     inline type &operator()(int c)
     {
-        while(data.size() <= c)
-            data.push_back(0.0);
         return data[c];
     }
 
     inline type operator()(int c) const
     {
-        while(data.size() <= c)
-            data.push_back(0.0);
         return data[c];
     }
 
 private:
-    std::vector<type> data;
+    type data[s];
 };
 
 template <typename type>
@@ -678,13 +640,13 @@ struct mat3
 
     mat3(type d00, type d01, type d02, type d10, type d11, type d12, type d20, type d21, type d22)
     {
-        this->operator()(0, 0) = d00;
-        this->operator()(0, 1) = d01;
-        this->operator()(0, 2) = d02;
-        this->operator()(1, 0) = d10;
-        this->operator()(1, 1) = d11;
-        this->operator()(1, 2) = d12;
-        this->operator()(2, 0) = d20;
+        data[0][0] = d00;
+        data[0][1] = d01;
+        data[0][2] = d02;
+        data[1][0] = d10;
+        data[1][1] = d11;
+        data[1][2] = d12;
+        data[2][0] = d20;
         this->operator()(2, 1) = d21;
         this->operator()(2, 2) = d22;
     }
@@ -699,15 +661,15 @@ struct mat3
           }
           */
 
-        this->operator()(0, 0) = 0.0;
-        this->operator()(0, 1) = 0.0;
-        this->operator()(0, 2) = 0.0;
+        data[0][0] = 0.0;
+        data[0][1] = 0.0;
+        data[0][2] = 0.0;
 
-        this->operator()(1, 0) = 0.0;
-        this->operator()(1, 1) = 0.0;
-        this->operator()(1, 2) = 0.0;
+        data[1][0] = 0.0;
+        data[1][1] = 0.0;
+        data[1][2] = 0.0;
 
-        this->operator()(2, 0) = 0.0;
+        data[2][0] = 0.0;
         this->operator()(2, 1) = 0.0;
         this->operator()(2, 2) = 0.0;
     }
@@ -725,15 +687,15 @@ struct mat3
           }
           */
 
-        this->operator()(0, 0) = 1.0;
-        this->operator()(0, 1) = 0.0;
-        this->operator()(0, 2) = 0.0;
+        data[0][0] = 1.0;
+        data[0][1] = 0.0;
+        data[0][2] = 0.0;
 
-        this->operator()(1, 0) = 0.0;
-        this->operator()(1, 1) = 1.0;
-        this->operator()(1, 2) = 0.0;
+        data[1][0] = 0.0;
+        data[1][1] = 1.0;
+        data[1][2] = 0.0;
 
-        this->operator()(2, 0) = 0.0;
+        data[2][0] = 0.0;
         this->operator()(2, 1) = 0.0;
         this->operator()(2, 2) = 1.0;
     }
@@ -741,14 +703,14 @@ struct mat3
     mat3 transpose()
     {
         mat3<type> result;
-        result(0, 0) = this->operator()(0, 0);
-        result(0, 1) = this->operator()(1, 0);
-        result(0, 2) = this->operator()(2, 0);
-        result(1, 0) = this->operator()(0, 1);
-        result(1, 1) = this->operator()(1, 1);
+        result(0, 0) = data[0][0];
+        result(0, 1) = data[1][0];
+        result(0, 2) = data[2][0];
+        result(1, 0) = data[0][1];
+        result(1, 1) = data[1][1];
         result(1, 2) = this->operator()(2, 1);
-        result(2, 0) = this->operator()(0, 2);
-        result(2, 1) = this->operator()(1, 2);
+        result(2, 0) = data[0][2];
+        result(2, 1) = data[1][2];
         result(2, 2) = this->operator()(2, 2);
         return result;
     }
@@ -783,15 +745,15 @@ struct mat3
             result.data[y][x] = data[y][x] / c;
           }
           */
-        result(0, 0) = this->operator()(0, 0) / c;
-        result(0, 1) = this->operator()(0, 1) / c;
-        result(0, 2) = this->operator()(0, 2) / c;
+        result(0, 0) = data[0][0] / c;
+        result(0, 1) = data[0][1] / c;
+        result(0, 2) = data[0][2] / c;
 
-        result(1, 0) = this->operator()(1, 0) / c;
-        result(1, 1) = this->operator()(1, 1) / c;
-        result(1, 2) = this->operator()(1, 2) / c;
+        result(1, 0) = data[1][0] / c;
+        result(1, 1) = data[1][1] / c;
+        result(1, 2) = data[1][2] / c;
 
-        result(2, 0) = this->operator()(2, 0) / c;
+        result(2, 0) = data[2][0] / c;
         result(2, 1) = this->operator()(2, 1) / c;
         result(2, 2) = this->operator()(2, 2) / c;
 
@@ -810,15 +772,15 @@ struct mat3
           }
           */
 
-        result(0, 0) = this->operator()(0, 0) * c;
-        result(0, 1) = this->operator()(0, 1) * c;
-        result(0, 2) = this->operator()(0, 2) * c;
+        result(0, 0) = data[0][0] * c;
+        result(0, 1) = data[0][1] * c;
+        result(0, 2) = data[0][2] * c;
 
-        result(1, 0) = this->operator()(1, 0) * c;
-        result(1, 1) = this->operator()(1, 1) * c;
-        result(1, 2) = this->operator()(1, 2) * c;
+        result(1, 0) = data[1][0] * c;
+        result(1, 1) = data[1][1] * c;
+        result(1, 2) = data[1][2] * c;
 
-        result(2, 0) = this->operator()(2, 0) * c;
+        result(2, 0) = data[2][0] * c;
         result(2, 1) = this->operator()(2, 1) * c;
         result(2, 2) = this->operator()(2, 2) * c;
 
@@ -836,17 +798,17 @@ struct mat3
           }
           */
 
-        result(0, 0) = this->operator()(0, 0) * c(0, 0) + this->operator()(0, 1) * c(1, 0) + this->operator()(0, 2) * c(2, 0);
-        result(0, 1) = this->operator()(0, 0) * c(0, 1) + this->operator()(0, 1) * c(1, 1) + this->operator()(0, 2) * c(2, 1);
-        result(0, 2) = this->operator()(0, 0) * c(0, 2) + this->operator()(0, 1) * c(1, 2) + this->operator()(0, 2) * c(2, 2);
+        result(0, 0) = data[0][0] * c(0, 0) + data[0][1] * c(1, 0) + data[0][2] * c(2, 0);
+        result(0, 1) = data[0][0] * c(0, 1) + data[0][1] * c(1, 1) + data[0][2] * c(2, 1);
+        result(0, 2) = data[0][0] * c(0, 2) + data[0][1] * c(1, 2) + data[0][2] * c(2, 2);
 
-        result(1, 0) = this->operator()(1, 0) * c(0, 0) + this->operator()(1, 1) * c(1, 0) + this->operator()(1, 2) * c(2, 0);
-        result(1, 1) = this->operator()(1, 0) * c(0, 1) + this->operator()(1, 1) * c(1, 1) + this->operator()(1, 2) * c(2, 1);
-        result(1, 2) = this->operator()(1, 0) * c(0, 2) + this->operator()(1, 1) * c(1, 2) + this->operator()(1, 2) * c(2, 2);
+        result(1, 0) = data[1][0] * c(0, 0) + data[1][1] * c(1, 0) + data[1][2] * c(2, 0);
+        result(1, 1) = data[1][0] * c(0, 1) + data[1][1] * c(1, 1) + data[1][2] * c(2, 1);
+        result(1, 2) = data[1][0] * c(0, 2) + data[1][1] * c(1, 2) + data[1][2] * c(2, 2);
 
-        result(2, 0) = this->operator()(2, 0) * c(0, 0) + this->operator()(2, 1) * c(1, 0) + this->operator()(2, 2) * c(2, 0);
-        result(2, 1) = this->operator()(2, 0) * c(0, 1) + this->operator()(2, 1) * c(1, 1) + this->operator()(2, 2) * c(2, 1);
-        result(2, 2) = this->operator()(2, 0) * c(0, 2) + this->operator()(2, 1) * c(1, 2) + this->operator()(2, 2) * c(2, 2);
+        result(2, 0) = data[2][0] * c(0, 0) + this->operator()(2, 1) * c(1, 0) + this->operator()(2, 2) * c(2, 0);
+        result(2, 1) = data[2][0] * c(0, 1) + this->operator()(2, 1) * c(1, 1) + this->operator()(2, 2) * c(2, 1);
+        result(2, 2) = data[2][0] * c(0, 2) + this->operator()(2, 1) * c(1, 2) + this->operator()(2, 2) * c(2, 2);
 
         return result;
     }
@@ -858,9 +820,9 @@ struct mat3
         for (int y = 0; y < 3; y++)
           result(y) = data[y][0] * c(0) + data[y][1] * c(1) + data[y][2] * c(2);
           */
-        result(0) = this->operator()(0, 0) * c(0) + this->operator()(0, 1) * c(1) + this->operator()(0, 2) * c(2);
-        result(1) = this->operator()(1, 0) * c(0) + this->operator()(1, 1) * c(1) + this->operator()(1, 2) * c(2);
-        result(2) = this->operator()(2, 0) * c(0) + this->operator()(2, 1) * c(1) + this->operator()(2, 2) * c(2);
+        result(0) = data[0][0] * c(0) + data[0][1] * c(1) + data[0][2] * c(2);
+        result(1) = data[1][0] * c(0) + data[1][1] * c(1) + data[1][2] * c(2);
+        result(2) = data[2][0] * c(0) + this->operator()(2, 1) * c(1) + this->operator()(2, 2) * c(2);
 
         return result;
     }
@@ -899,21 +861,21 @@ struct mat6
 
     mat6(type *data)
     {
-        this->operator()(0, 0) = data[0];
-        this->operator()(0, 1) = data[1];
-        this->operator()(0, 2) = data[2];
-        this->operator()(0, 3) = data[3];
-        this->operator()(0, 4) = data[4];
-        this->operator()(0, 5) = data[5];
+        data[0][0] = data[0];
+        data[0][1] = data[1];
+        data[0][2] = data[2];
+        data[0][3] = data[3];
+        data[0][4] = data[4];
+        data[0][5] = data[5];
 
-        this->operator()(1, 0) = data[6];
-        this->operator()(1, 1) = data[7];
-        this->operator()(1, 2) = data[8];
-        this->operator()(1, 3) = data[9];
-        this->operator()(1, 4) = data[10];
-        this->operator()(1, 5) = data[11];
+        data[1][0] = data[6];
+        data[1][1] = data[7];
+        data[1][2] = data[8];
+        data[1][3] = data[9];
+        data[1][4] = data[10];
+        data[1][5] = data[11];
 
-        this->operator()(2, 0) = data[12];
+        data[2][0] = data[12];
         this->operator()(2, 1) = data[13];
         this->operator()(2, 2) = data[14];
         this->operator()(2, 3) = data[15];
@@ -1072,88 +1034,13 @@ struct mat8
     {
     }
 
-    mat8(type *data)
-    {
-        this->operator()(0, 0) = data[0];
-        this->operator()(0, 1) = data[1];
-        this->operator()(0, 2) = data[2];
-        this->operator()(0, 3) = data[3];
-        this->operator()(0, 4) = data[4];
-        this->operator()(0, 5) = data[5];
-        this->operator()(0, 6) = data[6];
-        this->operator()(0, 7) = data[7];
-
-        this->operator()(1, 0) = data[8];
-        this->operator()(1, 1) = data[9];
-        this->operator()(1, 2) = data[10];
-        this->operator()(1, 3) = data[11];
-        this->operator()(1, 4) = data[12];
-        this->operator()(1, 5) = data[13];
-        this->operator()(1, 6) = data[14];
-        this->operator()(1, 7) = data[15];
-
-        this->operator()(2, 0) = data[16];
-        this->operator()(2, 1) = data[17];
-        this->operator()(2, 2) = data[18];
-        this->operator()(2, 3) = data[19];
-        this->operator()(2, 4) = data[20];
-        this->operator()(2, 5) = data[21];
-        this->operator()(2, 6) = data[22];
-        this->operator()(2, 7) = data[23];
-
-        this->operator()(3, 0) = data[24];
-        this->operator()(3, 1) = data[25];
-        this->operator()(3, 2) = data[26];
-        this->operator()(3, 3) = data[27];
-        this->operator()(3, 4) = data[28];
-        this->operator()(3, 5) = data[29];
-        this->operator()(3, 6) = data[30];
-        this->operator()(3, 7) = data[31];
-
-        this->operator()(4, 0) = data[32];
-        this->operator()(4, 1) = data[33];
-        this->operator()(4, 2) = data[34];
-        this->operator()(4, 3) = data[35];
-        this->operator()(4, 4) = data[36];
-        this->operator()(4, 5) = data[37];
-        this->operator()(4, 6) = data[38];
-        this->operator()(4, 7) = data[39];
-
-        this->operator()(5, 0) = data[40];
-        this->operator()(5, 1) = data[41];
-        this->operator()(5, 2) = data[42];
-        this->operator()(5, 3) = data[43];
-        this->operator()(5, 4) = data[44];
-        this->operator()(5, 5) = data[45];
-        this->operator()(5, 6) = data[46];
-        this->operator()(5, 7) = data[47];
-
-        this->operator()(6, 0) = data[48];
-        this->operator()(6, 1) = data[49];
-        this->operator()(6, 2) = data[50];
-        this->operator()(6, 3) = data[51];
-        this->operator()(6, 4) = data[52];
-        this->operator()(6, 5) = data[53];
-        this->operator()(6, 6) = data[54];
-        this->operator()(6, 7) = data[55];
-
-        this->operator()(7, 0) = data[56];
-        this->operator()(7, 1) = data[57];
-        this->operator()(7, 2) = data[58];
-        this->operator()(7, 3) = data[59];
-        this->operator()(7, 4) = data[60];
-        this->operator()(7, 5) = data[61];
-        this->operator()(7, 6) = data[62];
-        this->operator()(7, 7) = data[63];
-    }
-
     void zero()
     {
         for (int y = 0; y < 8; y++)
         {
             for (int x = 0; x < 8; x++)
             {
-                this->operator()(y, x) = 0.0;
+                data[y][x] = 0.0;
             }
         }
     }
@@ -1165,9 +1052,9 @@ struct mat8
             for (int x = 0; x < 8; x++)
             {
                 if (x == y)
-                    this->operator()(y, x) = 1.0;
+                    data[y][x] = 1.0;
                 else
-                    this->operator()(y, x) = 0.0;
+                    data[y][x] = 0.0;
             }
         }
     }
@@ -1179,7 +1066,7 @@ struct mat8
         for (int y = 0; y < 8; y++)
             for (int x = 0; x < 8; x++)
             {
-                result(y, x) = this->operator()(y, x) / c;
+                result(y, x) = data[y][x] / c;
             }
         return result;
     }
@@ -1191,7 +1078,7 @@ struct mat8
         for (int y = 0; y < 8; y++)
             for (int x = 0; x < 8; x++)
             {
-                result(y, x) = type(this->operator()(y, x) * c);
+                result(y, x) = data[y][x] * c;
             }
         return result;
     }
@@ -1205,7 +1092,7 @@ struct mat8
 
             for (int x = 0; x < 8; x++)
             {
-                result(y, x) = this->operator()(y, x) + c(y, x);
+                result(y, x) = data[y][x] + c(y, x);
             }
         }
         return result;
@@ -1218,7 +1105,7 @@ struct mat8
             for (int x = 0; x < 8; x++)
             {
                 for (int z = 0; z < 8; z++)
-                    result(y, x) += this->operator()(y, z) * c(z, y);
+                    result(y, x) += data[y][z] * c(z, y);
             }
 
         return result;
@@ -1233,7 +1120,7 @@ struct mat8
 
             for (int x = 0; x < 8; x++)
             {
-                result(y) += this->operator()(y, x) * c(x);
+                result(y) += data[y][x] * c(x);
             }
         }
         return result;
@@ -1247,7 +1134,7 @@ struct mat8
 
             for (int j = 0; j < 8; j++)
             {
-                this->operator()(i, j) = c(i, j);
+                data[i][j] = c(i, j);
             }
         }
     }

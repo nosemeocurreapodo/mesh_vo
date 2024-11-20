@@ -1,3 +1,4 @@
+#include <cmath>
 #include "common/DelaunayTriangulation.h"
 #include "common/common.h"
 

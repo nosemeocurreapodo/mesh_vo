@@ -38,29 +38,30 @@ inline void saveH(HGEigenSparse &data, std::string file_name)
     // cv::waitKey(30);
 }
 
-inline void show(dataCPU<float> &data, std::string window_name, bool colorize, bool upsample, int lvl)
+template <int width, int height, typename type>
+inline void show(dataCPU<width, height, type> &data, std::string window_name, bool colorize, bool upsample, int channel, int lvl)
 {
-    std::array<int, 2> datasize = data.getSize(lvl);
+    int lvlWidth = data.lvlWidth[lvl];
+    int lvlHeight = data.lvlHeight[lvl];
 
-    cv::Mat toShow(datasize[1], datasize[0], CV_32FC1); // (uchar*)data.get(lvl))
+    cv::Mat toShow(lvlHeight, lvlWidth, CV_32FC1); // (uchar*)data.get(lvl))
 
-    for (int y = 0; y < datasize[1]; y++)
+    type nodata = data.nodata;
+
+    for (int y = 0; y < lvlHeight; y++)
     {
-        for (int x = 0; x < datasize[0]; x++)
+        for (int x = 0; x < lvlWidth; x++)
         {
-            toShow.at<float>(y, x) = data.get(y, x, lvl);
+            type in_val = data.get(y, x, lvl);
+            // cv::Vec3f out_val(in_val(0), in_val(1), in_val(2));
+            // toShow.at<cv::Vec3f>(y, x) = out_val;
+            toShow.at<float>(y, x) = in_val(channel);
         }
     }
 
     cv::Mat mask, maskInv;
-    cv::inRange(toShow, data.nodata, data.nodata, mask);
+    cv::inRange(toShow, nodata(channel), nodata(channel), mask);
     cv::bitwise_not(mask, maskInv);
-
-    // float min, max;
-    // cv::minMaxIdx(toShow, min, max, maskInv);
-    // cv::threshold(toShow, toShow);
-
-    // cv::Mat zeros = cv::Mat(texture[lvl].rows, texture[lvl].cols, CV_32FC1, cv::Scalar(0));
 
     cv::normalize(toShow, toShow, 255.0, 0.0, cv::NORM_MINMAX, CV_8UC1, maskInv);
     toShow.setTo(0, mask);
@@ -75,212 +76,11 @@ inline void show(dataCPU<float> &data, std::string window_name, bool colorize, b
         toShow2 = toShow;
     }
 
-    if(upsample)
+    if (upsample)
     {
-        std::array<int, 2> datasize0 = data.getSize(0);
-        cv::resize(toShow2, toShow2, cv::Size(datasize0[0], datasize0[1]));
-    }
-    
-    cv::imshow(window_name, toShow2);
-    cv::waitKey(30);
-    /*
-    cv::normalize(toShow, toShow, 1.0, 0.0, cv::NORM_MINMAX, CV_32F, maskInv);
-
-    cv::Mat nodataImage;
-    toShow.copyTo(nodataImage);
-    nodataImage.setTo(1.0, mask);
-
-    if (toShow.channels() == 1)
-    {
-        std::vector<cv::Mat> tomerge;
-        tomerge.push_back(toShow);
-        tomerge.push_back(toShow);
-        tomerge.push_back(nodataImage);
-        cv::merge(tomerge, toShow);
+        cv::resize(toShow2, toShow2, cv::Size(width, height));
     }
 
-    std::array<int, 2> datasize0 = data.getSize(0);
-
-    cv::resize(toShow, toShow, cv::Size(datasize0[0], datasize0[1]));
-
-    cv::imshow(window_name, toShow);
-    cv::waitKey(30);
-    */
-}
-
-inline void show(dataCPU<vec1<float>> &data, std::string window_name, bool colorize, bool upsample, int lvl)
-{
-    std::array<int, 2> datasize = data.getSize(lvl);
-
-    cv::Mat toShow(datasize[1], datasize[0], CV_32FC1); // (uchar*)data.get(lvl))
-
-    for (int y = 0; y < datasize[1]; y++)
-    {
-        for (int x = 0; x < datasize[0]; x++)
-        {
-            vec1<float> in_val = data.get(y, x, lvl);
-            //cv::Vec3f out_val(in_val(0), in_val(1), in_val(2));
-            //toShow.at<cv::Vec3f>(y, x) = out_val;
-            toShow.at<float>(y, x) = in_val(0);
-        }
-    }
-
-    cv::Mat mask, maskInv;
-    cv::inRange(toShow, data.nodata(2), data.nodata(2), mask);
-    cv::bitwise_not(mask, maskInv);
-    
-    cv::normalize(toShow, toShow, 255.0, 0.0, cv::NORM_MINMAX, CV_8UC1, maskInv);
-    toShow.setTo(0, mask);
-
-    cv::Mat toShow2;
-    if (colorize)
-    {
-        cv::applyColorMap(toShow, toShow2, cv::COLORMAP_JET);
-    }
-    else
-    {
-        toShow2 = toShow;
-    }
-
-    if(upsample)
-    {
-        std::array<int, 2> datasize0 = data.getSize(0);
-        cv::resize(toShow2, toShow2, cv::Size(datasize0[0], datasize0[1]));
-    }
-    
-    cv::imshow(window_name, toShow2);
-    cv::waitKey(30);
-}
-
-
-inline void show(dataCPU<vec2<float>> &data, std::string window_name, bool colorize, bool upsample, int lvl)
-{
-    std::array<int, 2> datasize = data.getSize(lvl);
-
-    cv::Mat toShow(datasize[1], datasize[0], CV_32FC1); // (uchar*)data.get(lvl))
-
-    for (int y = 0; y < datasize[1]; y++)
-    {
-        for (int x = 0; x < datasize[0]; x++)
-        {
-            vec2<float> in_val = data.get(y, x, lvl);
-            //cv::Vec3f out_val(in_val(0), in_val(1), in_val(2));
-            //toShow.at<cv::Vec3f>(y, x) = out_val;
-            toShow.at<float>(y, x) = in_val(0);
-        }
-    }
-
-    cv::Mat mask, maskInv;
-    cv::inRange(toShow, data.nodata(2), data.nodata(2), mask);
-    cv::bitwise_not(mask, maskInv);
-    
-    cv::normalize(toShow, toShow, 255.0, 0.0, cv::NORM_MINMAX, CV_8UC1, maskInv);
-    toShow.setTo(0, mask);
-
-    cv::Mat toShow2;
-    if (colorize)
-    {
-        cv::applyColorMap(toShow, toShow2, cv::COLORMAP_JET);
-    }
-    else
-    {
-        toShow2 = toShow;
-    }
-
-    if(upsample)
-    {
-        std::array<int, 2> datasize0 = data.getSize(0);
-        cv::resize(toShow2, toShow2, cv::Size(datasize0[0], datasize0[1]));
-    }
-    
-    cv::imshow(window_name, toShow2);
-    cv::waitKey(30);
-}
-
-inline void show(dataCPU<vec3<float>> &data, std::string window_name, bool colorize, bool upsample, int lvl)
-{
-    std::array<int, 2> datasize = data.getSize(lvl);
-
-    cv::Mat toShow(datasize[1], datasize[0], CV_32FC1); // (uchar*)data.get(lvl))
-
-    for (int y = 0; y < datasize[1]; y++)
-    {
-        for (int x = 0; x < datasize[0]; x++)
-        {
-            vec3<float> in_val = data.get(y, x, lvl);
-            //cv::Vec3f out_val(in_val(0), in_val(1), in_val(2));
-            //toShow.at<cv::Vec3f>(y, x) = out_val;
-            toShow.at<float>(y, x) = in_val(2);
-        }
-    }
-
-    cv::Mat mask, maskInv;
-    cv::inRange(toShow, data.nodata(2), data.nodata(2), mask);
-    cv::bitwise_not(mask, maskInv);
-    
-    cv::normalize(toShow, toShow, 255.0, 0.0, cv::NORM_MINMAX, CV_8UC1, maskInv);
-    toShow.setTo(0, mask);
-
-    cv::Mat toShow2;
-    if (colorize)
-    {
-        cv::applyColorMap(toShow, toShow2, cv::COLORMAP_JET);
-    }
-    else
-    {
-        toShow2 = toShow;
-    }
-
-    if(upsample)
-    {
-        std::array<int, 2> datasize0 = data.getSize(0);
-        cv::resize(toShow2, toShow2, cv::Size(datasize0[0], datasize0[1]));
-    }
-    
-    cv::imshow(window_name, toShow2);
-    cv::waitKey(30);
-}
-
-inline void show(dataCPU<vec8<float>> &data, std::string window_name, bool colorize, bool upsample, int lvl)
-{
-    std::array<int, 2> datasize = data.getSize(lvl);
-
-    cv::Mat toShow(datasize[1], datasize[0], CV_32FC1); // (uchar*)data.get(lvl))
-
-    for (int y = 0; y < datasize[1]; y++)
-    {
-        for (int x = 0; x < datasize[0]; x++)
-        {
-            vec8<float> in_val = data.get(y, x, lvl);
-            //cv::Vec3f out_val(in_val(0), in_val(1), in_val(2));
-            //toShow.at<cv::Vec3f>(y, x) = out_val;
-            toShow.at<float>(y, x) = in_val(2);
-        }
-    }
-
-    cv::Mat mask, maskInv;
-    cv::inRange(toShow, data.nodata(2), data.nodata(2), mask);
-    cv::bitwise_not(mask, maskInv);
-    
-    cv::normalize(toShow, toShow, 255.0, 0.0, cv::NORM_MINMAX, CV_8UC1, maskInv);
-    toShow.setTo(0, mask);
-
-    cv::Mat toShow2;
-    if (colorize)
-    {
-        cv::applyColorMap(toShow, toShow2, cv::COLORMAP_JET);
-    }
-    else
-    {
-        toShow2 = toShow;
-    }
-
-    if(upsample)
-    {
-        std::array<int, 2> datasize0 = data.getSize(0);
-        cv::resize(toShow2, toShow2, cv::Size(datasize0[0], datasize0[1]));
-    }
-    
     cv::imshow(window_name, toShow2);
     cv::waitKey(30);
 }

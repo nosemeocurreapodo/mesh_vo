@@ -14,7 +14,6 @@
 #include "cpu/SceneBase.h"
 #include "params.h"
 
-template <typename jmapType, typename idsType>
 class reduceCPU
 {
 public:
@@ -23,15 +22,16 @@ public:
     {
     }
 
-    Error reduceError(camera cam, dataCPU<float> &residual, dataCPU<float> &weights, int lvl)
+    Error reduceError(dataCPU<float> &residual, dataCPU<float> &weights, int lvl)
     {
         Error err;
-        window win = {0, cam.width, 0, cam.height};
-        reduceErrorWindow(win, &residual, &weights, &err, lvl);
+        window win = {0, width, 0, height};
+        reduceErrorWindow(win, &residual, &weights, &err);
         return err;
     }
 
-    Error reduceErrorParallel(camera cam, dataCPU<float> &residual, dataCPU<float> &weights, int lvl)
+    template <int width, int height>
+    Error reduceErrorParallel(dataCPU<width, height, float> &residual, dataCPU<width, height, float> &weights, int lvl)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -39,8 +39,8 @@ public:
         Error partialerr[divi_y * divi_x];
 
         std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        windowSize[0] = width / divi_x;
+        windowSize[1] = height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -69,15 +69,17 @@ public:
         return err;
     }
 
-    HGEigenDense<8> reduceHGPose(camera cam, dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
+    template <int width, int height>
+    HGEigenDense<8> reduceHGPose(dataCPU<width, height, vec8<float>> &jpose_buffer, dataCPU<width, height, float> &err_buffer, dataCPU<width, height, float> &weights_buffer)
     {
         HGEigenDense<8> hg;
-        window win = {0, cam.width, 0, cam.height};
-        reduceHGPoseWindow(win, &jpose_buffer, &err_buffer, &weights_buffer, &hg, lvl);
+        window win = {0, width, 0, height};
+        reduceHGPoseWindow(win, &jpose_buffer, &err_buffer, &weights_buffer, &hg);
         return hg;
     }
 
-    HGEigenDense<2> reduceHGLightAffineParallel(camera cam, dataCPU<vec2<float>> &jlightaffine_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
+    template <int width, int height>
+    HGEigenDense<2> reduceHGLightAffineParallel(dataCPU<width, height, vec2<float>> &jlightaffine_buffer, dataCPU<width, height, float> &err_buffer, dataCPU<width, height, float> &weights_buffer)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -85,8 +87,8 @@ public:
         HGEigenDense<2> partialhg[divi_x * divi_y];
 
         std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        windowSize[0] = width / divi_x;
+        windowSize[1] = height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -100,7 +102,7 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 //reduceHGLightAffineWindow(win, &jlightaffine_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x], lvl);
-                pool.enqueue(std::bind(&reduceCPU::reduceHGLightAffineWindow, this, win, &jlightaffine_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x], lvl));
+                pool.enqueue(std::bind(&reduceCPU::reduceHGLightAffineWindow, this, win, &jlightaffine_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x]));
             }
         }
 
@@ -115,7 +117,8 @@ public:
         return hg;
     }
 
-    HGEigenDense<8> reduceHGPoseParallel(camera cam, dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
+    template <int width, int height>
+    HGEigenDense<8> reduceHGPoseParallel(dataCPU<width, height, vec8<float>> &jpose_buffer, dataCPU<width, height, float> &err_buffer, dataCPU<width, height, float> &weights_buffer)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -123,8 +126,8 @@ public:
         HGEigenDense<8> partialhg[divi_x * divi_y];
 
         std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        windowSize[0] = width / divi_x;
+        windowSize[1] = height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -138,7 +141,7 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 //reduceHGPoseWindow(win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x], lvl);
-                pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x], lvl));
+                pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x]));
             }
         }
 
@@ -153,23 +156,26 @@ public:
         return hg;
     }
 
-    HGMapped reduceHGMap(camera cam, dataCPU<jmapType> &j_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    HGMapped reduceHGMap(dataCPU<width, height, jmapType> &j_buffer, dataCPU<width, height, float> &err_buffer, dataCPU<width, height, idsType> &pId_buffer, int lvl)
     {
         HGMapped hg;
-        window win(0, cam.width, 0, cam.height);
-        reduceHGMapWindow(win, &j_buffer, &err_buffer, &pId_buffer, &hg, lvl);
+        window win(0, width, 0, height);
+        reduceHGMapWindow(win, &j_buffer, &err_buffer, &pId_buffer, &hg);
         return hg;
     }
 
-    HGEigenSparse reduceHGMap2(camera cam, int maxNumParams, dataCPU<vecx<float>> &j_buffer, dataCPU<float> &err_buffer, dataCPU<vecx<int>> &pId_buffer, dataCPU<float> &mask, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    HGEigenSparse reduceHGMap2(int maxNumParams, dataCPU<width, height, jmapType> &j_buffer, dataCPU<float> &err_buffer, dataCPU<width, height, idsType> &pId_buffer, dataCPU<float> &mask)
     {
         HGEigenSparse hg(maxNumParams);
-        window win(0, cam.width, 0, cam.height);
-        reduceHGMapWindow(win, &j_buffer, &err_buffer, &pId_buffer, &mask, &hg, lvl);
+        window win(0, width, 0, height);
+        reduceHGMapWindow(win, &j_buffer, &err_buffer, &pId_buffer, &mask, &hg);
         return hg;
     }
 
-    HGMapped reduceHGMapParallel(camera cam, dataCPU<jmapType> &j_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    HGMapped reduceHGMapParallel(dataCPU<width, height, jmapType> &j_buffer, dataCPU<width, height, float> &err_buffer, dataCPU<width, height, idsType> &pId_buffer)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -177,8 +183,8 @@ public:
         HGMapped partialhg[divi_x * divi_y];
 
         std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        windowSize[0] = width / divi_x;
+        windowSize[1] = height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -191,7 +197,7 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                reduceHGMapWindow(win, &j_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl);
+                reduceHGMapWindow(win, &j_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x]);
                 //pool.enqueue(std::bind(&reduceCPU::reduceHGMapWindow<Type1, Type2>, this, win, &j_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
@@ -207,23 +213,26 @@ public:
         return hg;
     }
 
-    HGMapped reduceHGPoseMap(camera cam, int frameId, dataCPU<vec8<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    HGMapped reduceHGPoseMap(int frameId, dataCPU<width, height, vec8<float>> &jpose_buffer, dataCPU<width, height, jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<width, height, idsType> &pId_buffer)
     {
         HGMapped hg;
-        window win(0, cam.width, 0, cam.height);
+        window win(0, width, 0, height);
         reduceHGPoseMapWindow(win, frameId, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &hg, lvl);
         return hg;
     }
 
-    HGEigenSparse reduceHGPoseMap2(camera cam, int frameId, int numFrames, int numMapParams, dataCPU<vec8<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    HGEigenSparse reduceHGPoseMap2(int frameId, int numFrames, int numMapParams, dataCPU<width, height, vec8<float>> &jpose_buffer, dataCPU<width, height, jmapType> &jmap_buffer, dataCPU<width, height, float> &err_buffer, dataCPU<width, height, idsType> &pId_buffer)
     {
         HGEigenSparse hg(numMapParams + numFrames * 6);
-        window win(0, cam.width, 0, cam.height);
-        reduceHGPoseMapWindow2(win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &hg, lvl);
+        window win(0, width, 0, height);
+        reduceHGPoseMapWindow2(win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &hg);
         return hg;
     }
 
-    HGMapped reduceHGPoseMapParallel(camera cam, int frameId, int numFrames, int numMapParams, dataCPU<vec8<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    HGMapped reduceHGPoseMapParallel(int frameId, int numFrames, int numMapParams, dataCPU<width, height, vec8<float>> &jpose_buffer, dataCPU<width, height, jmapType> &jmap_buffer, dataCPU<width, height, float> &err_buffer, dataCPU<width, height, idsType> &pId_buffer)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -231,8 +240,8 @@ public:
         HGMapped partialhg[divi_x * divi_y];
 
         std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        windowSize[0] = width / divi_x;
+        windowSize[1] = height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -261,7 +270,8 @@ public:
         return hg;
     }
 
-    HGEigenSparse reduceHGPoseMapParallel2(camera cam, int frameId, int numFrames, int numMapParams, dataCPU<vec8<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    HGEigenSparse reduceHGPoseMapParallel2(int frameId, int numFrames, int numMapParams, dataCPU<width, height, vec8<float>> &jpose_buffer, dataCPU<width, height, jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<width, height, idsType> &pId_buffer)
     {
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -278,8 +288,8 @@ public:
         }
 
         std::array<int, 2> windowSize;
-        windowSize[0] = cam.width / divi_x;
-        windowSize[1] = cam.height / divi_y;
+        windowSize[0] = width / divi_x;
+        windowSize[1] = height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -292,7 +302,7 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                reduceHGPoseMapWindow2(win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl);
+                reduceHGPoseMapWindow2(win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x]);
                 //pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow2<Type1, Type2>, this, win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
@@ -309,15 +319,16 @@ public:
     }
 
 private:
-    void reduceErrorWindow(window win, dataCPU<float> *residual, dataCPU<float> *weights, Error *err, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    void reduceErrorWindow(window win, dataCPU<width, height, float> *residual, dataCPU<width, height, float> *weights, Error *err)
     {
         for (int y = win.min_y; y < win.max_y; y++)
             for (int x = win.min_x; x < win.max_x; x++)
             {
-                float res = residual->get(y, x, lvl);
+                float res = residual->get(y, x);
                 if (res == residual->nodata)
                     continue;
-                float w = weights->get(y, x, lvl);
+                float w = weights->get(y, x);
                 if (w == weights->nodata)
                     w = 1.0;
                 float absresidual = std::fabs(res);
@@ -328,17 +339,17 @@ private:
             }
     }
 
-    void reduceHGLightAffineWindow(window win, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense<2> *hg, int lvl)
+    void reduceHGLightAffineWindow(window win, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense<2> *hg)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
             for (int x = win.min_x; x < win.max_x; x++)
             {
-                vec2<float> J = jlightaffine_buffer->get(y, x, lvl);
-                float res = res_buffer->get(y, x, lvl);
-                if (J == jlightaffine_buffer->nodata || res == res_buffer->nodata || J == vec2<float>::zero())
+                vec2<float> J = jlightaffine_buffer->get(y, x);
+                float res = res_buffer->get(y, x);
+                if (J == jlightaffine_buffer->nodata || res == res_buffer->nodata || J == vec2<float>(0.0, 0.0))
                     continue;
-                float w = weights_buffer->get(y, x, lvl);
+                float w = weights_buffer->get(y, x);
                 if (w == weights_buffer->nodata)
                     w = 1.0;
                 float absres = std::fabs(res);
@@ -351,17 +362,18 @@ private:
         }
     }
 
-    void reduceHGPoseWindow(window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense<8> *hg, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    void reduceHGPoseWindow(window win, dataCPU<width, height, vec8<float>> *jpose_buffer, dataCPU<width, height, float> *res_buffer, dataCPU<width, height, float> *weights_buffer, HGEigenDense<8> *hg)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
             for (int x = win.min_x; x < win.max_x; x++)
             {
-                vec8<float> J = jpose_buffer->get(y, x, lvl);
-                float res = res_buffer->get(y, x, lvl);
-                if (J == jpose_buffer->nodata || res == res_buffer->nodata || J == vec8<float>::zero())
+                vec8<float> J = jpose_buffer->get(y, x);
+                float res = res_buffer->get(y, x);
+                if (J == jpose_buffer->nodata || res == res_buffer->nodata || J == vec8<float>(0.0))
                     continue;
-                float w = weights_buffer->get(y, x, lvl);
+                float w = weights_buffer->get(y, x);
                 if (w == weights_buffer->nodata)
                     w = 1.0;
                 float absres = std::fabs(res);
@@ -374,15 +386,16 @@ private:
         }
     }
 
-    void reduceHGMapWindow(window win, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<idsType> *pId_buffer, HGMapped *hg, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    void reduceHGMapWindow(window win, dataCPU<width, height, jmapType> *jmap_buffer, dataCPU<width, height, float> *res_buffer, dataCPU<width, height, idsType> *pId_buffer, HGMapped *hg)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
             for (int x = win.min_x; x < win.max_x; x++)
             {
-                vecx<float> jac = jmap_buffer->get(y, x, lvl);
-                float res = res_buffer->get(y, x, lvl);
-                vecx<int> ids = pId_buffer->get(y, x, lvl);
+                jmapType jac = jmap_buffer->get(y, x);
+                float res = res_buffer->get(y, x);
+                idsType ids = pId_buffer->get(y, x);
 
                 if (res == res_buffer->nodata)// jac == jmap_buffer->nodata || ids == pId_buffer->nodata || jac == Type1::zero())
                     continue;
@@ -397,7 +410,8 @@ private:
         }
     }
 
-    void reduceHGMapWindow(window win, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<idsType> *pId_buffer, dataCPU<float> *weights_buffer, HGEigenSparse *hg, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    void reduceHGMapWindow(window win, dataCPU<width, height, jmapType> *jmap_buffer, dataCPU<width, height, float> *res_buffer, dataCPU<width, height, idsType> *pId_buffer, dataCPU<float> *weights_buffer, HGEigenSparse *hg)
     {
         typedef Eigen::Triplet<double> T;
         std::vector<T> tripletList;
@@ -412,9 +426,9 @@ private:
         {
             for (int x = win.min_x; x < win.max_x; x++)
             {
-                vecx<float> jac = jmap_buffer->get(y, x, lvl);
+                jmapType jac = jmap_buffer->get(y, x, lvl);
                 float res = res_buffer->get(y, x, lvl);
-                vecx<int> ids = pId_buffer->get(y, x, lvl);
+                idsType ids = pId_buffer->get(y, x, lvl);
 
                 if (res == res_buffer->nodata)// jac == jmap_buffer->nodata || || ids == pId_buffer->nodata || jac == Type1::zero())
                     continue;
@@ -435,7 +449,8 @@ private:
         hg->endSparseAdd();
     }
 
-    void reduceHGPoseMapWindow(window win, int frameId, int numMapParams, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<idsType> *pId_buffer, HGMapped *hg, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    void reduceHGPoseMapWindow(window win, int frameId, int numMapParams, dataCPU<width, height, vec8<float>> *jpose_buffer, dataCPU<width, height, jmapType> *jmap_buffer, dataCPU<width, height, float> *res_buffer, dataCPU<width, height, idsType> *pId_buffer, HGMapped *hg)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
@@ -453,7 +468,7 @@ private:
                 for (int i = 0; i < 8; i++)
                     pose_ids(i) = numMapParams + frameId * 8 + i;
 
-                vecx<float> J(J_pose.size() + J_map.size(), 0);
+                vecx<8 + , float> J(J_pose.size() + J_map.size(), 0);
                 vecx<int> ids(J_pose.size() + J_map.size(), 0);
 
                 for(int i = 0; i < J_pose.size(); i++)
@@ -510,7 +525,8 @@ private:
         */
     }
 
-    void reduceHGPoseMapWindow2(window win, int frameId, int numMapParams, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<idsType> *pId_buffer, HGEigenSparse *hg, int lvl)
+    template <int width, int height, typename jmapType, typename idsType>
+    void reduceHGPoseMapWindow2(window win, int frameId, int numMapParams, dataCPU<width, height, vec8<float>> *jpose_buffer, dataCPU<width, height, jmapType> *jmap_buffer, dataCPU<width, height, float> *res_buffer, dataCPU<width, height, idsType> *pId_buffer, HGEigenSparse *hg)
     {
         typedef Eigen::Triplet<double> T;
         std::vector<T> tripletList;
@@ -519,12 +535,12 @@ private:
         {
             for (int x = win.min_x; x < win.max_x; x++)
             {
-                vec8<float> J_pose = jpose_buffer->get(y, x, lvl);
-                jmapType J_map = jmap_buffer->get(y, x, lvl);
-                float res = res_buffer->get(y, x, lvl);
-                idsType map_ids = pId_buffer->get(y, x, lvl);
+                vec8<float> J_pose = jpose_buffer->get(y, x);
+                jmapType J_map = jmap_buffer->get(y, x);
+                float res = res_buffer->get(y, x);
+                idsType map_ids = pId_buffer->get(y, x);
 
-                if (res == res_buffer->nodata || J_pose == vec8<float>::zero())// J_pose == jpose_buffer->nodata || J_map == vecx<float>::zero())
+                if (res == res_buffer->nodata || J_pose == vec8<float>(0.0))// J_pose == jpose_buffer->nodata || J_map == vecx<float>::zero())
                     continue;
 
                 vec8<int> pose_ids;

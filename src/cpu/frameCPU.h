@@ -5,14 +5,15 @@
 #include "dataCPU.h"
 #include "params.h"
 
+template <int width, int height>
 class frameCPU
 {
 public:
-    frameCPU(int width, int height)
-        : raw_image(width, height, -1.0f),
-          dIdpix_image(width, height, {0.0f, 0.0f}),
-          idepth_image(width, height, -1.0f),
-          residual_image(width, height, -1.0f)
+    frameCPU()
+        : raw_image(-1.0f),
+          dIdpix_image(vec2<float>(0.0f, 0.0f)),
+          idepth_image(-1.0f),
+          residual_image(-1.0f)
     {
         id = 0;
         affine = {0.0f, 0.0f};
@@ -44,7 +45,7 @@ public:
         return *this;
     }
 
-    void setImage(const dataCPU<float> &im, int _id)
+    void setImage(const dataCPU<IMAGE_WIDTH, IMAGE_HEIGHT, float> &im, int _id)
     {
         raw_image = im;
 
@@ -76,22 +77,22 @@ public:
         return pose;
     }
 
-    dataCPU<float>& getRawImage()
+    dataCPU<width, height, float>& getRawImage()
     {
         return raw_image;
     }
 
-    dataCPU<vec2<float>>& getdIdpixImage()
+    dataCPU<width, height, vec2<float>>& getdIdpixImage()
     {
         return dIdpix_image;
     }
 
-    dataCPU<float>& getIdepthImage()
+    dataCPU<width, height, float>& getIdepthImage()
     {
         return idepth_image;
     }
 
-    dataCPU<float>& getResidualImage()
+    dataCPU<width, height, float>& getResidualImage()
     {
         return residual_image;
     }
@@ -129,10 +130,10 @@ private:
             }
     }
 
-    dataCPU<float> raw_image;
-    dataCPU<vec2<float>> dIdpix_image;
-    dataCPU<float> idepth_image;
-    dataCPU<float> residual_image;
+    dataCPU<width, height, float> raw_image;
+    dataCPU<width, height, vec2<float>> dIdpix_image;
+    dataCPU<width, height, float> idepth_image;
+    dataCPU<width, height, float> residual_image;
 
     Sophus::SE3f pose;
     vec2<float> affine;

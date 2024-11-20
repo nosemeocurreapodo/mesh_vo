@@ -1,3 +1,4 @@
+#include <cmath>
 #include "common/common.h"
 
 bool isTriangleEqual(vec3<int> tri_indices_1, vec3<int> tri_indices_2)

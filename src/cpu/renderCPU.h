@@ -12,7 +12,6 @@
 #include "threadpoolCPU.h"
 #include "params.h"
 
-template <typename sceneType, typename shapeType, typename jmapType, typename idsType>
 class renderCPU
 {
 public:
@@ -220,9 +219,9 @@ public:
         scene1 = kscene->clone();
         scene2 = kscene->clone();
         //scene1->transform(kframe->getPose());
-        scene2->transform(frame->getPose());
-        scene1->project(cam);
-        scene2->project(cam);
+        scene2.transform(frame->getPose());
+        scene1.project(cam);
+        scene2.project(cam);
 
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -275,9 +274,9 @@ public:
         scene1 = kscene->clone();
         scene2 = kscene->clone();
         //scene1->transform(kframe->getPose());
-        scene2->transform(frame->getPose());
-        scene1->project(cam);
-        scene2->project(cam);
+        scene2.transform(frame->getPose());
+        scene1.project(cam);
+        scene2.project(cam);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -312,9 +311,9 @@ public:
         scene1 = kscene->clone();
         scene2 = kscene->clone();
         //scene1->transform(kframe->getPose());
-        scene2->transform(frame->getPose());
-        scene1->project(cam);
-        scene2->project(cam);
+        scene2.transform(frame->getPose());
+        scene1.project(cam);
+        scene2.project(cam);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -365,9 +364,9 @@ public:
         scene1 = kscene->clone();
         scene2 = kscene->clone();
         //scene1->transform(kframe->getPose());
-        scene2->transform(frame->getPose());
-        scene1->project(cam);
-        scene2->project(cam);
+        scene2.transform(frame->getPose());
+        scene1.project(cam);
+        scene2.project(cam);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -950,21 +949,21 @@ private:
         float alpha = std::exp(-affine(0));
         float beta = affine(1);
 
-        std::vector<int> t_ids = scene2->getShapesIds();
+        std::vector<int> t_ids = scene2.getShapesIds();
 
         for (int t_id : t_ids)
         {
-            shapeType f_pol = scene2->getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
-            if (!win.isPixInWindow(f_pol->getCenterPix()))
+            if (!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
 
-            if (f_pol->getScreenArea() <= min_area)
+            if (f_pol.getScreenArea() <= min_area)
                 continue;
 
-            shapeType kf_pol = scene1->getShape(t_id);
+            shapeType kf_pol = scene1.getShape(t_id);
 
-            window pol_win = f_pol->getScreenBounds();
+            window pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -974,10 +973,10 @@ private:
                 {
                     vec2<float> f_pix(x, y);
 
-                    if (!f_pol->isPixInShape(f_pix))
+                    if (!f_pol.isPixInShape(f_pix))
                         continue;
 
-                    float f_depth = f_pol->getDepth(f_pix);
+                    float f_depth = f_pol.getDepth(f_pix);
                     if (f_depth <= 0.0)
                         continue;
 
@@ -986,7 +985,7 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    vec2<float> kf_pix = f_pol->getPix(f_pix, kf_pol.get());
+                    vec2<float> kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -1028,7 +1027,7 @@ private:
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
 
-        std::vector<int> t_ids = scene2->getShapesIds();
+        std::vector<int> t_ids = scene2.getShapesIds();
 
         vec2<float> affine = frame->getAffine();
         float alpha = std::exp(-affine(0));
@@ -1036,17 +1035,17 @@ private:
 
         for (int t_id : t_ids)
         {
-            shapeType f_pol = scene2->getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
-            if(!win.isPixInWindow(f_pol->getCenterPix()))
+            if(!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
 
-            if (f_pol->getScreenArea() <= min_area)
+            if (f_pol.getScreenArea() <= min_area)
                 continue;
 
-            shapeType kf_pol = scene1->getShape(t_id);
+            shapeType kf_pol = scene1.getShape(t_id);
 
-            window pol_win = f_pol->getScreenBounds();
+            window pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -1056,10 +1055,10 @@ private:
                 {
                     vec2<float> f_pix(x, y);
 
-                    if (!f_pol->isPixInShape(f_pix))
+                    if (!f_pol.isPixInShape(f_pix))
                         continue;
 
-                    float f_depth = f_pol->getDepth(f_pix);
+                    float f_depth = f_pol.getDepth(f_pix);
                     if (f_depth <= 0.0)
                         continue;
 
@@ -1068,7 +1067,7 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    vec2<float> kf_pix = f_pol->getPix(f_pix, kf_pol.get());
+                    vec2<float> kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -1166,7 +1165,7 @@ private:
         float alpha = std::exp(-affine(0));
         float beta = affine(1);
 
-        std::vector<int> t_ids = scene2->getShapesIds();
+        std::vector<int> t_ids = scene2.getShapesIds();
 
         //int shapeDoF = scene2->getShapesDoF();
 
@@ -1174,20 +1173,20 @@ private:
         {
             //std::vector<int> p_ids = scene2->getShapeParamsIds(t_id);
 
-            shapeType f_pol = scene2->getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
-            if(win.isPixInWindow(f_pol->getCenterPix()))
+            if(win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
 
-            if (f_pol->getScreenArea() < min_area)
+            if (f_pol.getScreenArea() < min_area)
                 continue;
 
-            shapeType kf_pol = scene1->getShape(t_id);
+            shapeType kf_pol = scene1.getShape(t_id);
 
-            if (kf_pol->getScreenArea() < min_area)
+            if (kf_pol.getScreenArea() < min_area)
                 continue;
 
-            window pol_win = f_pol->getScreenBounds();
+            window pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -1197,10 +1196,10 @@ private:
                 {
                     vec2<float> f_pix(x, y);
 
-                    if (!f_pol->isPixInShape(f_pix))
+                    if (!f_pol.isPixInShape(f_pix))
                         continue;
 
-                    float f_depth = f_pol->getDepth(f_pix);
+                    float f_depth = f_pol.getDepth(f_pix);
                     if (f_depth <= 0.0)
                         continue;
 
@@ -1209,7 +1208,7 @@ private:
                     if (l_idepth < f_depth && l_idepth != z_buffer.nodata)
                         continue;
                 
-                    vec2<float> kf_pix = f_pol->getPix(f_pix, kf_pol.get());
+                    vec2<float> kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -1242,8 +1241,8 @@ private:
 
                     // this could be the jacobian of the depth of the 3 vertices in a triangle
                     // or the jacobian of the normal + depth of a surfel
-                    jmapType jacs = kf_pol->getParamJacobian(kf_pix)*d_f_i_d_kf_depth;
-                    idsType ids = kf_pol->getParamIds();
+                    jmapType jacs = kf_pol.getParamJacobian(kf_pix)*d_f_i_d_kf_depth;
+                    idsType ids = kf_pol.getParamIds();
 
                     e_buffer->set(residual, y, x, lvl);
                     jmap_buffer->set(jacs, y, x, lvl);
@@ -1264,23 +1263,23 @@ private:
         float alpha = std::exp(-affine(0));
         float beta = affine(1);
 
-        std::vector<int> t_ids = scene2->getShapesIds();
+        std::vector<int> t_ids = scene2.getShapesIds();
         //int shapeDoF = scene2->getShapesDoF();
 
         for (auto t_id : t_ids)
         {
-            shapeType f_pol = scene2->getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
-            if(!win.isPixInWindow(f_pol->getCenterPix()))
+            if(!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
 
-            float f_pol_area = f_pol->getScreenArea();
+            float f_pol_area = f_pol.getScreenArea();
             if (f_pol_area <= 0.0)
                 continue;
 
-            shapeType kf_pol = scene1->getShape(t_id);
+            shapeType kf_pol = scene1.getShape(t_id);
 
-            float kf_pol_area = kf_pol->getScreenArea();
+            float kf_pol_area = kf_pol.getScreenArea();
             if (kf_pol_area <= 0.0)
                 continue;
 
@@ -1293,7 +1292,7 @@ private:
             if (p_area < 0.5)
                 continue;
 
-            window pol_win = f_pol->getScreenBounds();
+            window pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -1303,10 +1302,10 @@ private:
                 {
                     vec2<float> f_pix(x, y);
 
-                    if (!f_pol->isPixInShape(f_pix))
+                    if (!f_pol.isPixInShape(f_pix))
                         continue;
 
-                    float f_depth = f_pol->getDepth(f_pix);
+                    float f_depth = f_pol.getDepth(f_pix);
                     if (f_depth <= 0.0)
                         continue;
 
@@ -1315,7 +1314,7 @@ private:
                     if (l_idepth < f_depth && l_idepth != z_buffer.nodata)
                         continue;
 
-                    vec2<float> kf_pix = f_pol->getPix(f_pix, kf_pol.get());
+                    vec2<float> kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -1352,8 +1351,8 @@ private:
                     vec3<float> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_e(0), d_f_ver_d_kf_depth_e(1), d_f_ver_d_kf_depth_e(2));
                     float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
-                    jmapType jacs = kf_pol->getParamJacobian();
-                    idsType ids = kf_pol->getParamIds();
+                    jmapType jacs = kf_pol.getParamJacobian(kf_pix);
+                    idsType ids = kf_pol.getParamIds();
 
                     float error = f_i_cor - kf_i;
 

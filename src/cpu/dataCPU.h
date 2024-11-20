@@ -8,37 +8,37 @@ public:
     {
         nodata = nodata_value;
 
-        int lvl = 0;
+        int _width = width;
+        int _height = height;
+
         while (true)
         {
-            float scale = std::pow(2.0f, float(lvl));
-
-            int width_s = int(width / scale);
-            int height_s = int(height / scale);
-
-            if (width_s <= 0 || height_s <= 0)
+            Type* texture = new (std::nothrow) Type[_width * _height];
+            if (!texture)
                 break;
 
-            texture[lvl] = new (std::nothrow) Type[width_s * height_s];
-            if (!texture[lvl])
-                break;
+            std::fill_n(texture, _width * _height, nodata);
 
-            sizes[lvl] = {width_s, height_s};
-            std::fill_n(texture[lvl], width_s * height_s, nodata);
-            lvl++;
+            lvlWidths.push_back(_width);
+            lvlHeights.push_back(_height);
+            textures.push_back(texture);
+
+            _width = int(_width / 2);
+            _height = int(_height / 2);
+
+            if (_width <= 0 || _height <= 0)
+                break;
         }
-
-        max_lvl = lvl;
     }
 
     dataCPU(const dataCPU &other)
     {
         nodata = other.nodata;
-        max_lvl = other.max_lvl;
+        lvlWidths = other.lvlWidths;
+        lvlHeights = other.lvlHeights;
         // std::fill(std::begin(texture), std::end(texture), nullptr);
-        for (int lvl = 0; lvl < max_lvl; lvl++)
+        for (int lvl = 0; lvl < lvlWidths.size(); lvl++)
         {
-            sizes[lvl] = other.sizes[lvl];
             texture[lvl] = new Type[sizes[lvl][0] * sizes[lvl][1]];
             std::memcpy(texture[lvl], other.texture[lvl], sizeof(Type) * sizes[lvl][0] * sizes[lvl][1]);
         }
@@ -267,7 +267,7 @@ private:
         return pix;
     }
 
-    Type *texture[MAX_LEVELS];
-    int max_lvl;
-    std::array<int, 2> sizes[MAX_LEVELS];
+    std::vector<Type*> textures;
+    std::vector<int> lvlWidths;
+    std::vector<int> lvlHeights;
 };

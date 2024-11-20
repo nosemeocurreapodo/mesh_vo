@@ -97,7 +97,7 @@ public:
     //     pix_diff = p - centerPix;
     // }
 
-    inline vec2<float> getPix(vec2<float> p, ShapePatch *shape)
+    inline vec2<float> getPix(vec2<float> p, ShapePatch &shape)
     {
         if (!(currentPix == p))
         {
@@ -105,7 +105,7 @@ public:
             pix_diff = currentPix - centerPix;
         }
 
-        return shape->centerPix + pix_diff;
+        return shape.centerPix + pix_diff;
     }
 
     inline float getDepth(vec2<float> p)

@@ -58,6 +58,7 @@ public:
         tripletList.push_back(T(ids(0), ids(0), jac(0) * jac(0) * weight));
     }
 
+    template <typename type>
     void sparseAdd(vec3<float> jac, float error, float weight, vec3<int> ids)
     {
         count++;
