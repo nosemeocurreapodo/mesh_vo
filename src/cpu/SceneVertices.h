@@ -8,6 +8,29 @@
 #include "cpu/Shapes.h"
 #include "cpu/frameCPU.h"
 
+struct vertex
+{
+    vertex()
+    {
+        used = false;
+    }
+
+    vertex(vec3<float> v, vec3<float> r, vec2<float> p, float w)
+    {
+        ver = v;
+        ray = r;
+        pix = p;
+        weight = w;
+        used = true;
+    }
+
+    vec3<float> ver;
+    vec3<float> ray;
+    vec2<float> pix;
+    float weight;
+    bool used;
+}
+
 class SceneVertices // : public SceneBase
 {
 public:
@@ -18,9 +41,6 @@ public:
     SceneVertices(const SceneVertices &other)// : SceneBase(other)
     {
         vertices = other.vertices;
-        rays = other.rays;
-        pixels = other.pixels;
-        weights = other.weights;
     }
 
     /*
@@ -30,6 +50,7 @@ public:
      }
      */
 
+    /*
     void clear()
     {
         vertices.clear();
@@ -37,11 +58,10 @@ public:
         pixels.clear();
         weights.clear();
     }
+    */
 
     void init(camera cam, std::vector<vec3<float>> &new_vertices)
     {
-        clear();
-
         for (int i = 0; i < (int)new_vertices.size(); i++)
         {
             vec3<float> vertice = new_vertices[i];
@@ -53,17 +73,12 @@ public:
             if (idph <= 0.0)
                 continue;
 
-            vertices.push_back(vertice);
-            rays.push_back(ray);
-            pixels.push_back(pix);
-            weights.push_back(iv);
+            vertices[i] = vertex(vertice, ray, pix, iv);
         }
     }
 
     void init(camera cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths)
     {
-        clear();
-
         for (int i = 0; i < (int)texcoords.size(); i++)
         {
             vec2<float> pix = texcoords[i];
@@ -406,8 +421,10 @@ public:
     }
 
 private:
-    std::vector<vec3<float>> vertices;
-    std::vector<vec3<float>> rays;
-    std::vector<vec2<float>> pixels;
-    std::vector<float> weights;
+    //vec3<float> *vertices;
+    //vec3<float> *rays;
+    //vec2<float> *pixels;
+    //float *weights;
+
+    vertex vertices[MAX_VERTEX];
 };
