@@ -29,7 +29,7 @@ public:
         // G += J * error;
         // H += J * J.transpose();
 
-        for (int i = 0; i < J.size(); i++)
+        for (int i = 0; i < type::size(); i++)
         {
             G(i) += weight * J(i) * error;
             H(i, i) += J(i) * J(i) * weight;

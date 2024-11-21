@@ -8,6 +8,7 @@
 #include "cpu/frameCPU.h"
 #include "common/HGEigenSparse.h"
 
+template <typename shapeType>
 class SceneBase
 {
 public:
@@ -24,7 +25,7 @@ public:
     virtual void project(camera cam) = 0;
 
     virtual std::vector<int> getShapesIds() const = 0;
-    //virtual std::unique_ptr<ShapeBase> getShape(int polId) = 0;
+    virtual shapeType getShape(int polId) = 0;
     //virtual void getShape(ShapeBase* shape, int polId) = 0;
     virtual int getNumParams() = 0;
 

@@ -150,7 +150,7 @@ void DelaunayTriangulation::triangulate()
 
     triangles.push_back(superTriangleIndices);
 
-    for (int it = 0; it < vertices.size() - 3; ++it)
+    for (int it = 0; it < (int)vertices.size() - 3; ++it)
     {
         triangulateVertice(it);
     }
@@ -175,7 +175,7 @@ void DelaunayTriangulation::removeVertice(int v_id)
     vertices.erase(vertices.begin() + v_id);
 
     std::vector<int> to_remove;
-    for (int it = 0; it < triangles.size(); it++)
+    for (int it = 0; it < (int)triangles.size(); it++)
     {
         vec3<int> tri = triangles[it];
 

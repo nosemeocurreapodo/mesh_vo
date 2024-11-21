@@ -36,10 +36,10 @@ public:
 
 private:
 
-    void checkFrameAndAddToList(frameCPU &frame)
-    {
-        //dataCPU<float> kIdepth = meshOptimizer.getIdepth(meshOptimizer.kframe.getPose(), 1);
-    }
+    //void checkFrameAndAddToList(frameCPU &frame)
+    //{
+    //  dataCPU<float> kIdepth = meshOptimizer.getIdepth(meshOptimizer.kframe.getPose(), 1);
+    //}
 
     int lastId;
     camera cam;
@@ -47,6 +47,6 @@ private:
     std::vector<frameCPU> lastFrames;
     std::vector<frameCPU> keyFrames;
 
-    meshOptimizerCPU<SceneMesh, ShapeTriangleFlat, vec3<float>, vec3<int>> meshOptimizer;
+    meshOptimizerCPU<SceneMesh, vec3<float>, vec3<int>> meshOptimizer;
     // keyframeIdepthSceneCPU scene;
 };

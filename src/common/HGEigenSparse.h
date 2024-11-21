@@ -16,7 +16,7 @@ public:
         // reserve space, will need roughly
         // 3 entryes for every map parameter
         // every pose parameter will be related with every map parameter
-        tripletList.reserve(size * 3 + 5 * 6 * size);
+        tripletList.reserve(size * 3 + 5 * 8 * size);
     }
 
     void setZero()
@@ -50,6 +50,7 @@ public:
         tripletList.push_back(T(ids, ids, jac * jac * weight));
     }
 
+    /*
     void sparseAdd(vec1<float> jac, float error, float weight, vec1<int> ids)
     {
         count++;
@@ -57,6 +58,7 @@ public:
         G(ids(0)) += jac(0) * error * weight;
         tripletList.push_back(T(ids(0), ids(0), jac(0) * jac(0) * weight));
     }
+    */
 
     void sparseAdd(vec3<float> jac, float error, float weight, vec3<int> ids)
     {

@@ -12,13 +12,12 @@
 #include "threadpoolCPU.h"
 #include "params.h"
 
-template <typename sceneType, typename shapeType>
+template <typename sceneType>
 class renderCPU
 {
 public:
     renderCPU(unsigned int width, unsigned int height)
-        : z_buffer(width, height, -1),
-          pool(RENDERER_NTHREADS)
+        : z_buffer(width, height, -1)
     {
     }
 
@@ -189,12 +188,12 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                // renderDebugWindow(scene, frame, cam, win, buffer, lvl);
-                pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, image, win, buffer, lvl));
+                renderDebugWindow(image, win, buffer, lvl);
+                //pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, image, win, buffer, lvl));
             }
         }
 
-        pool.waitUntilDone();
+        //pool.waitUntilDone();
     }
 
     template <typename jmapType, typename idsType>
@@ -735,7 +734,7 @@ private:
 
         for (auto t_id : ids)
         {
-            shapeType f_pol = scene2->getShape(t_id);
+            auto f_pol = scene2->getShape(t_id);
 
             if(!win.isPixInWindow(f_pol->getCenterPix()))
                 continue;
@@ -743,7 +742,7 @@ private:
             if (f_pol->getScreenArea() < 0.0)
                 continue;
 
-            shapeType kf_pol = scene1->getShape(t_id);
+            auto kf_pol = scene1->getShape(t_id);
 
             window pol_win = f_pol->getScreenBounds();
 
@@ -789,7 +788,7 @@ private:
 
         for (int t_id : shapesIds)
         {
-            shapeType f_pol = scene2.getShape(t_id);
+            auto f_pol = scene2.getShape(t_id);
 
             if(!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -832,7 +831,7 @@ private:
 
         for (int t_id : shapesIds)
         {
-            shapeType f_pol = scene2.getShape(t_id);
+            auto f_pol = scene2.getShape(t_id);
 
             if(!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -881,9 +880,9 @@ private:
         float alpha = std::exp(-affine(0));
         float beta = affine(1);
 
-        for (auto t_id : t_ids)
+        for (int t_id : t_ids)
         {
-            shapeType f_pol = scene2.getShape(t_id);
+            auto f_pol = scene2.getShape(t_id);
 
             if(!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -891,7 +890,7 @@ private:
             if (f_pol.getScreenArea() <= min_area)
                 continue;
 
-            shapeType kf_pol = scene1.getShape(t_id);
+            auto kf_pol = scene1.getShape(t_id);
 
             window pol_win = f_pol.getScreenBounds();
 
@@ -949,7 +948,7 @@ private:
 
         for (int t_id : t_ids)
         {
-            shapeType f_pol = scene2.getShape(t_id);
+            auto f_pol = scene2.getShape(t_id);
 
             if (!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -957,7 +956,7 @@ private:
             if (f_pol.getScreenArea() <= min_area)
                 continue;
 
-            shapeType kf_pol = scene1.getShape(t_id);
+            auto kf_pol = scene1.getShape(t_id);
 
             window pol_win = f_pol.getScreenBounds();
 
@@ -1031,7 +1030,7 @@ private:
 
         for (int t_id : t_ids)
         {
-            shapeType f_pol = scene2.getShape(t_id);
+            auto f_pol = scene2.getShape(t_id);
 
             if(!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -1039,7 +1038,7 @@ private:
             if (f_pol.getScreenArea() <= min_area)
                 continue;
 
-            shapeType kf_pol = scene1.getShape(t_id);
+            auto kf_pol = scene1.getShape(t_id);
 
             window pol_win = f_pol.getScreenBounds();
 
@@ -1166,11 +1165,11 @@ private:
 
         //int shapeDoF = scene2->getShapesDoF();
 
-        for (auto t_id : t_ids)
+        for (int t_id : t_ids)
         {
             //std::vector<int> p_ids = scene2->getShapeParamsIds(t_id);
 
-            shapeType f_pol = scene2.getShape(t_id);
+            auto f_pol = scene2.getShape(t_id);
 
             if(win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -1178,7 +1177,7 @@ private:
             if (f_pol.getScreenArea() < min_area)
                 continue;
 
-            shapeType kf_pol = scene1.getShape(t_id);
+            auto kf_pol = scene1.getShape(t_id);
 
             if (kf_pol.getScreenArea() < min_area)
                 continue;
@@ -1266,7 +1265,7 @@ private:
 
         for (auto t_id : t_ids)
         {
-            shapeType f_pol = scene2.getShape(t_id);
+            auto f_pol = scene2.getShape(t_id);
 
             if(!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -1275,7 +1274,7 @@ private:
             if (f_pol_area <= 0.0)
                 continue;
 
-            shapeType kf_pol = scene1.getShape(t_id);
+            auto kf_pol = scene1.getShape(t_id);
 
             float kf_pol_area = kf_pol.getScreenArea();
             if (kf_pol_area <= 0.0)
@@ -1349,7 +1348,7 @@ private:
                     vec3<float> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_e(0), d_f_ver_d_kf_depth_e(1), d_f_ver_d_kf_depth_e(2));
                     float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
-                    jmapType jacs = kf_pol.getParamJacobian(kf_pix);
+                    jmapType jacs = kf_pol.getParamJacobian(kf_pix)*d_f_i_d_kf_depth;
                     idsType ids = kf_pol.getParamIds();
 
                     float error = f_i_cor - kf_i;
@@ -1368,7 +1367,7 @@ private:
 
         for (auto t_id : ids)
         {
-            shapeType f_pol = scene2.getShape(t_id);
+            auto f_pol = scene2.getShape(t_id);
 
             if (!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -1413,5 +1412,5 @@ private:
     sceneType scene1;
     sceneType scene2;
     dataCPU<float> z_buffer;
-    ThreadPool pool;
+    ThreadPool<RENDERER_NTHREADS> pool;
 };

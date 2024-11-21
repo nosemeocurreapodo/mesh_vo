@@ -22,7 +22,7 @@ public:
 };
 */
 
-class ShapePatch// : public ShapeBase<float, int>
+class ShapePatch // : public ShapeBase<float, int>
 {
 public:
     ShapePatch(vec3<float> r, vec2<float> p, float d, float wg, int i, float w, float h)

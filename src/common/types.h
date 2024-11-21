@@ -59,12 +59,12 @@ struct vec1
         data = c(0);
     }
 
-    inline type &operator()(int c)
+    inline type &operator()()
     {
         return data;
     }
 
-    inline type operator()(int c) const
+    inline type operator()() const
     {
         return data;
     }
@@ -150,11 +150,13 @@ struct vec2
         return false;
     }
 
+    /*
     void operator=(vec2<type> c)
     {
         data[0] = c(0);
         data[1] = c(1);
     }
+    */
 
     inline type &operator()(int c)
     {
@@ -279,12 +281,14 @@ struct vec3
         return result;
     }
 
+    /*
     void operator=(vec3<type> c)
     {
         data[0] = c(0);
         data[1] = c(1);
         data[2] = c(2);
     }
+    */
 
     bool operator==(vec3<type> c)
     {
@@ -405,6 +409,7 @@ struct vec6
         return result;
     }
 
+    /*
     void operator=(vec6<type> c)
     {
         data[0] = c(0);
@@ -414,6 +419,7 @@ struct vec6
         data[4] = c(4);
         data[5] = c(5);
     }
+    */
 
     bool operator==(vec6<type> c)
     {
@@ -545,6 +551,7 @@ struct vec8
         return result;
     }
 
+    /*
     void operator=(vec8<type> c)
     {
         data[0] = c(0);
@@ -556,6 +563,7 @@ struct vec8
         data[6] = c(6);
         data[7] = c(7);
     }
+    */
 
     bool operator==(vec8<type> c)
     {
@@ -598,6 +606,7 @@ struct vecx
         return s;
     }
 
+    /*
     void operator=(vecx<s, type> c)
     {
         for (int i = 0; i < s; i++)
@@ -605,6 +614,7 @@ struct vecx
             data[i] = c(i);
         }
     }
+    */
 
     template <typename type2>
     vecx operator*(type2 c)

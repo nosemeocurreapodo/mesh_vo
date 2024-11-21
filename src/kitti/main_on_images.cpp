@@ -150,13 +150,19 @@ camera getKittiCamera(const char *calibFileName)
 
 int main(int argc, char **argv)
 {
+	if(argc != 3)
+    {
+        std::cout << "usage: " << argv[0] << " /path/to/calibfile /path/to/dataset" << std::endl;
+        return 0;
+    }
+
 	// get camera calibration in form of an undistorter object.
 	// if no undistortion is required, the undistorter will just pass images through.
 	std::string calibFile = argv[1];
 
 	camera cam = getKittiCamera(calibFile.c_str());
 
-	cam.resize(512, 512);
+	cam.resize(IMAGE_WIDTH, IMAGE_HEIGHT);
 
 	visualOdometry odometry(cam);
 
@@ -178,7 +184,7 @@ int main(int argc, char **argv)
 	}
 
 	// get HZ
-	double hz = std::atof(argv[2]);
+	//double hz = std::atof(argv[2]);
 
 	cv::Mat image = cv::Mat(376, 1241, CV_8U);
 	int runningIDX = 0;

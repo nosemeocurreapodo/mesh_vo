@@ -152,6 +152,12 @@ std::array<camera, 2> getKittiCamera(const char *calibFileName)
 
 int main(int argc, char **argv)
 {
+	if(argc != 3)
+    {
+        std::cout << "usage: " << argv[0] << " /path/to/calibfile /path/to/dataset" << std::endl;
+        return 0;
+    }
+
 	// get camera calibration in form of an undistorter object.
 	// if no undistortion is required, the undistorter will just pass images through.
 	std::string calibFile = argv[1];
@@ -189,7 +195,7 @@ int main(int argc, char **argv)
 	}
 
 	// get HZ
-	double hz = std::atof(argv[2]);
+	//double hz = std::atof(argv[2]);
 
 	cv::Mat image_left = cv::Mat(376, 1241, CV_8U);
 	cv::Mat image_right = cv::Mat(376, 1241, CV_8U);

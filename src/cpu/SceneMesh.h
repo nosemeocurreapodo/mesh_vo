@@ -535,7 +535,7 @@ private:
     std::vector<int> getTrianglesIds() const
     {
         std::vector<int> keys;
-        for (int it = 0; it < triangles.size(); ++it)
+        for (int it = 0; it < (int)triangles.size(); ++it)
         {
             keys.push_back(it);
         }

@@ -112,7 +112,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
 
             lastPose = lastPose * newKeyframePoseInv;
             
-            for(int i = 0; i < lastFrames.size(); i++)
+            for(int i = 0; i < (int)lastFrames.size(); i++)
             {
                 newPose = lastFrames[i].getPose() * newKeyframePoseInv;
                 lastAffine = lastFrames[i].getAffine();
@@ -219,7 +219,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
                 newFrame.setAffine(keyframe.getAffine());
             }
             */
-            for (int i = 0; i < lastFrames.size(); i++)
+            for (int i = 0; i < (int)lastFrames.size(); i++)
             {
                 if (keyframe.getId() == lastFrames[i].getId())
                 {
@@ -230,7 +230,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         }
     }
 
-    meshOptimizer.plotDebug(newFrame, keyFrames);
+    //meshOptimizer.plotDebug(newFrame, keyFrames);
 
     lastMovement = newFrame.getPose() * lastPose.inverse();
     lastPose = newFrame.getPose();

@@ -23,7 +23,7 @@ int main(int argc, char * argv[])
 {
     if(argc != 2)
     {
-        std::cout << "usage: ./testapp /path/to/dataset" << std::endl;
+        std::cout << "usage: " << argv[0] << " /path/to/dataset" << std::endl;
         return 0;
     }
 
@@ -32,7 +32,6 @@ int main(int argc, char * argv[])
     int frameNumber = 0;
     int frameCounterDirection = 1;
 
-    int framesToTrack = 20;//rand() % 10 + 50;
     int framesTracked = 0;
 
     int width = 640;
@@ -63,6 +62,7 @@ int main(int argc, char * argv[])
     ivar.set(1.0, 0);
     ivar.generateMipmaps();
 
+    /*
     //get corner from image
     int maxCorners = MESH_WIDTH*MESH_HEIGHT;
     std::vector<cv::Point2f> corners;
@@ -94,6 +94,7 @@ int main(int argc, char * argv[])
         pixels.push_back(pixel);
         idepths.push_back(id);
     }
+    */
 
     visualOdometry odometry(cam);
 
@@ -108,8 +109,8 @@ int main(int argc, char * argv[])
             frameCounterDirection = -1;
         if(frameNumber < 2)
             frameCounterDirection = 1;
-        //if(frameNumber > 50)
-        //    return 1;
+        if(frameNumber > 100)
+            return 1;
 
         char image_filename[500];
         char RT_filename[500];

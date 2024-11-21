@@ -8,17 +8,12 @@
 #include "cpu/Shapes.h"
 #include "cpu/frameCPU.h"
 
-class SceneVertices// : public SceneBase
+class SceneVertices // : public SceneBase
 {
 public:
 
-    //SceneVertices() : SceneBase() {
-    //                      };
-
-    SceneVertices()
-    {
-        
-    }
+    SceneVertices() {};// : SceneBase() {
+                    //      };
 
     SceneVertices(const SceneVertices &other)// : SceneBase(other)
     {
@@ -27,19 +22,6 @@ public:
         pixels = other.pixels;
         weights = other.weights;
     }
-
-    /*
-    PointSet &operator=(const PointSet &other)
-    {
-        if (this != &other)
-        {
-            vertices = other.vertices;
-            globalPose = other.globalPose;
-            last_vertice_id = other.last_vertice_id;
-        }
-        return *this;
-    }
-    */
 
     /*
      std::unique_ptr<SceneBase> clone() const override
@@ -60,7 +42,7 @@ public:
     {
         clear();
 
-        for (int i = 0; i < new_vertices.size(); i++)
+        for (int i = 0; i < (int)new_vertices.size(); i++)
         {
             vec3<float> vertice = new_vertices[i];
             vec3<float> ray = vertice / vertice(2);
@@ -82,7 +64,7 @@ public:
     {
         clear();
 
-        for (int i = 0; i < texcoords.size(); i++)
+        for (int i = 0; i < (int)texcoords.size(); i++)
         {
             vec2<float> pix = texcoords[i];
             float idph = idepths[i];
@@ -428,6 +410,4 @@ private:
     std::vector<vec3<float>> rays;
     std::vector<vec2<float>> pixels;
     std::vector<float> weights;
-    float scale;
-    float bias;
 };

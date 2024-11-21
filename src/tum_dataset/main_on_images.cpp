@@ -122,6 +122,12 @@ int getFile(std::string source, std::vector<std::string> &files)
 using namespace lsd_slam;
 int main(int argc, char **argv)
 {
+	if(argc != 3)
+    {
+        std::cout << "usage: " << argv[0] << " /path/to/calibfile /path/to/dataset" << std::endl;
+        return 0;
+    }
+
 	// get camera calibration in form of an undistorter object.
 	// if no undistortion is required, the undistorter will just pass images through.
 	std::string calibFile = argv[1];
@@ -149,7 +155,7 @@ int main(int argc, char **argv)
 	// K << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
 
 	camera cam(fx, fy, cx, cy, w, h);
-	cam.resize(512, 512);
+	cam.resize(IMAGE_WIDTH, IMAGE_WIDTH);
 
 	visualOdometry odometry(cam);
 
@@ -171,7 +177,7 @@ int main(int argc, char **argv)
 	}
 
 	// get HZ
-	double hz = std::atof(argv[2]);
+	//double hz = std::atof(argv[2]);
 
 	cv::Mat image = cv::Mat(h, w, CV_8U);
 	int runningIDX = 0;

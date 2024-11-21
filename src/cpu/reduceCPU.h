@@ -18,7 +18,6 @@ class reduceCPU
 {
 public:
     reduceCPU()
-        : pool(REDUCER_NTHREADS)
     {
     }
 
@@ -34,8 +33,8 @@ public:
 
     Error reduceErrorParallel(dataCPU<float> &residual, dataCPU<float> &weights, int lvl)
     {
-        int divi_y = pool.getNumThreads();
-        int divi_x = 1;
+        const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
+        const int divi_x = 1;
 
         Error partialerr[divi_y * divi_x];
 
@@ -81,8 +80,8 @@ public:
 
     HGEigenDense<2> reduceHGLightAffineParallel(dataCPU<vec2<float>> &jlightaffine_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
     {
-        int divi_y = pool.getNumThreads();
-        int divi_x = 1;
+        const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
+        const int divi_x = 1;
 
         HGEigenDense<2> partialhg[divi_x * divi_y];
 
@@ -118,8 +117,8 @@ public:
 
     HGEigenDense<8> reduceHGPoseParallel(dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
     {
-        int divi_y = pool.getNumThreads();
-        int divi_x = 1;
+        const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
+        const int divi_x = 1;
 
         HGEigenDense<8> partialhg[divi_x * divi_y];
 
@@ -174,8 +173,8 @@ public:
     template <typename jmapType, typename idsType>
     HGMapped reduceHGMapParallel(dataCPU<jmapType> &j_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
     {
-        int divi_y = pool.getNumThreads();
-        int divi_x = 1;
+        const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
+        const int divi_x = 1;
 
         HGMapped partialhg[divi_x * divi_y];
 
@@ -230,8 +229,8 @@ public:
     template <typename jmapType, typename idsType>
     HGMapped reduceHGPoseMapParallel(int frameId, int numFrames, int numMapParams, dataCPU<vec8<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
     {
-        int divi_y = pool.getNumThreads();
-        int divi_x = 1;
+        const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
+        const int divi_x = 1;
 
         HGMapped partialhg[divi_x * divi_y];
 
@@ -268,8 +267,8 @@ public:
     template <typename jmapType, typename idsType>
     HGEigenSparse reduceHGPoseMapParallel2(int frameId, int numFrames, int numMapParams, dataCPU<vec8<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer, int lvl)
     {
-        int divi_y = pool.getNumThreads();
-        int divi_x = 1;
+        const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
+        const int divi_x = 1;
 
         // HGEigenSparse partialhg[divi_x * divi_y];
 
@@ -580,5 +579,5 @@ private:
         hg->endSparseAdd();
     }
 
-    ThreadPool pool;
+    ThreadPool<REDUCER_NTHREADS> pool;
 };
