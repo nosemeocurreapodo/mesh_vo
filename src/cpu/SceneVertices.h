@@ -29,18 +29,23 @@ struct vertex
     vec2<float> pix;
     float weight;
     bool used;
-}
+};
 
+template <int size>
 class SceneVertices // : public SceneBase
 {
 public:
-
-    SceneVertices() {};// : SceneBase() {
-                    //      };
-
-    SceneVertices(const SceneVertices &other)// : SceneBase(other)
+    SceneVertices()
     {
-        vertices = other.vertices;
+        _pose = Sophus::SE3f();
+        _cam = camera(0.0, 0.0, 0.0, 0.0, 0, 0);
+    };
+
+    SceneVertices(const SceneVertices &other) // : SceneBase(other)
+    {
+        _vertices = other._vertices;
+        _pose = other._pose;
+        _cam = other._cam;
     }
 
     /*
@@ -60,52 +65,66 @@ public:
     }
     */
 
-    void init(camera cam, std::vector<vec3<float>> &new_vertices)
+    void init(camera cam, Sophus::SE3f pose, std::vector<vec3<float>> &vertices)
     {
-        for (int i = 0; i < (int)new_vertices.size(); i++)
+        _pose = pose;
+        _cam = cam;
+        for (int i = 0; i < size; i++)
         {
-            vec3<float> vertice = new_vertices[i];
-            vec3<float> ray = vertice / vertice(2);
-            float idph = 1.0 / vertice(2);
-            vec2<float> pix = cam.rayToPix(ray);
-            float iv = 0.1;
+            if (i < vertices.size())
+            {
+                vec3<float> vertice = vertices[i];
+                vec3<float> ray = vertice / vertice(2);
+                float idph = 1.0 / vertice(2);
+                vec2<float> pix = cam.rayToPix(ray);
+                float iv = 0.1;
 
-            if (idph <= 0.0)
-                continue;
+                if (idph <= 0.0)
+                    continue;
 
-            vertices[i] = vertex(vertice, ray, pix, iv);
+                _vertices[i] = vertex(vertice, ray, pix, iv);
+            }
+            else
+            {
+                _vertices[i].used = false;
+            }
         }
     }
 
-    void init(camera cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths)
+    void init(camera cam, Sophus::SE3f pose, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths)
     {
-        for (int i = 0; i < (int)texcoords.size(); i++)
+        _cam = cam;
+        _pose = pose;
+
+        for (int i = 0; i < size; i++)
         {
-            vec2<float> pix = texcoords[i];
-            float idph = idepths[i];
+            if (i < texcoords.size())
+            {
+                vec2<float> pix = texcoords[i];
+                float idph = idepths[i];
 
-            vec3<float> ray = cam.pixToRay(pix);
-            float iv = 0.1;
+                vec3<float> ray = cam.pixToRay(pix);
+                float iv = 0.1;
 
-            if (idph <= 0.0)
-                continue;
+                if (idph <= 0.0)
+                    continue;
 
-            vec3<float> vertice = ray / idph;
+                vec3<float> vertice = ray / idph;
 
-            // vertices[id] = vertice;
-            // rays[id] = ray;
-            // pixels[id] = pix;
-            vertices.push_back(vertice);
-            rays.push_back(ray);
-            pixels.push_back(pix);
-            weights.push_back(iv);
+                _vertices[i] = vertex(vertice, ray, pix, iv);
+            }
+            else
+            {
+                _vertices[i].used = false;
+            }
         }
     }
 
-    void init(camera cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
+    void init(camera cam, Sophus::SE3f pose, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
     {
-        clear();
-
+        _cam = cam;
+        _pose = pose;
+        int i = 0;
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
             for (float x = 0.0; x < MESH_WIDTH; x++)
@@ -124,17 +143,17 @@ public:
 
                 vec3<float> vertice = ray / idph;
 
-                // vertices[id] = vertice;
-                // rays[id] = ray;
-                // pixels[id] = pix;
-                vertices.push_back(vertice);
-                rays.push_back(ray);
-                pixels.push_back(pix);
-                weights.push_back(iv);
+                _vertices[i] = vertex(vertice, ray, pix, iv);
+                i++;
             }
+        }
+        for (int j = i; j < size; j++)
+        {
+            _vertices[j].used = false;
         }
     }
 
+    /*
     void complete(frameCPU &frame, camera &cam, dataCPU<float> &idepth, int lvl)
     {
         float max = 1.0;
@@ -193,6 +212,7 @@ public:
             }
         }
     }
+    */
 
     vec2<float> meanStdDepth()
     {
@@ -202,11 +222,12 @@ public:
         float new_s = 0;
         int n = 0;
 
-        std::vector<int> vertsIds = getVerticesIds();
-
-        for (int vertId : vertsIds)
+        for (int i = 0; i < size; i++)
         {
-            float depth = vertices[vertId](2);
+            if (!_vertices[i].used)
+                continue;
+
+            float depth = _vertices[i].ver(2);
 
             n++;
 
@@ -234,78 +255,28 @@ public:
 
     void scaleDepth(vec2<float> affine)
     {
-        std::vector<int> vertsIds = getVerticesIds();
-
-        for (int vertId : vertsIds)
+        for (int i = 0; i < size; i++)
         {
-            vec3<float> vertice = vertices[vertId];
+            if (!_vertices[i].used)
+                continue;
+            vec3<float> vertice = _vertices[i].ver;
             float depth = vertice(2);
             float new_depth = (depth - affine(1)) / affine(0);
             vec3<float> new_vertice = vertice * (new_depth / depth);
-            vertices[vertId] = new_vertice;
+            _vertices[i].ver = new_vertice;
         }
     }
 
-    inline vec3<float> &getVertice(unsigned int id)
+    inline vertex &getVertex(unsigned int id)
     {
 #ifdef DEBUG
         if (id >= vertices.size())
             throw std::out_of_range("getVertice invalid id");
 #endif
-        return vertices[id];
+        return _vertices[id];
     }
 
-    inline vec3<float> &getRay(unsigned int id)
-    {
-#ifdef DEBUG
-        if (id >= rays.size())
-            throw std::out_of_range("getRay invalid id");
-#endif
-        return rays[id];
-    }
-
-    inline vec2<float> &getPix(unsigned int id)
-    {
-#ifdef DEBUG
-        if (id >= pixels.size())
-            throw std::out_of_range("getRay invalid id");
-#endif
-        return pixels[id];
-    }
-
-    inline float &getDepth(unsigned int id)
-    {
-#ifdef DEBUG
-        if (id >= vertices.size())
-            throw std::out_of_range("getDepth invalid id");
-#endif
-        return vertices[id](2);
-    }
-
-    inline float &getWeight(unsigned int id)
-    {
-#ifdef DEBUG
-        if (id >= weights.size())
-            throw std::out_of_range("getDepth invalid id");
-#endif
-        return weights[id];
-    }
-
-    inline std::vector<vec3<float>> &getVertices()
-    {
-        return vertices;
-    }
-
-    inline std::vector<vec3<float>> &getRays()
-    {
-        return rays;
-    }
-
-    inline std::vector<vec2<float>> &getPixels()
-    {
-        return pixels;
-    }
-
+    /*
     unsigned int addVertice(vec3<float> vert)
     {
         int id = vertices.size();
@@ -315,6 +286,7 @@ public:
         weights.push_back(1.0);
         return id;
     }
+    */
 
     /*
     void removeVertice(unsigned int id)
@@ -326,16 +298,6 @@ public:
     }
     */
 
-    void setVertice(vec3<float> &vert, unsigned int id)
-    {
-#ifdef DEBUG
-        if (id >= vertices.size())
-            throw std::out_of_range("setVertice invalid id");
-#endif
-        vertices[id] = vert;
-        rays[id] = vert / vert(2);
-    }
-
     void setVerticeDepth(float depth, unsigned int id)
     {
 #ifdef DEBUG
@@ -343,16 +305,7 @@ public:
             throw std::out_of_range("setVerticeDepth invalid id");
 #endif
         // vertices[id] = depth * vertices[id] / vertices[id](2);
-        vertices[id] = rays[id] * depth;
-    }
-
-    void setWeight(float w, unsigned int id)
-    {
-#ifdef DEBUG
-        if (id >= weights.size())
-            throw std::out_of_range("setVerticeDepth invalid id");
-#endif
-        weights[id] = w;
+        _vertices[id].vert = _vertices[id].ray * depth;
     }
 
     float getVerticeDepth(unsigned int id)
@@ -361,50 +314,53 @@ public:
         if (id >= vertices.size())
             throw std::out_of_range("getVerticeDepth invalid id");
 #endif
-        return vertices[id](2);
+        return _vertices[id].vert(2);
     }
 
     std::vector<int> getVerticesIds() const
     {
         std::vector<int> keys;
-        for (size_t it = 0; it < vertices.size(); ++it)
+        for (size_t it = 0; it < size; ++it)
         {
             keys.push_back((int)it);
         }
         return keys;
     }
 
-    void transform(Sophus::SE3f relativePose)
+    void transform(camera cam, Sophus::SE3f pose)
     {
-        // Sophus::SE3f relativePose = newGlobalPose * getPose().inverse();
-        for (size_t it = 0; it < vertices.size(); ++it)
+        if (!(_pose.translation() == pose.translation()) && !(_pose.unit_quaternion() == pose.unit_quaternion()) )
         {
-            Eigen::Vector3f vert(vertices[it](0), vertices[it](1), vertices[it](2));
-            vert = relativePose * vert;
-            vertices[it] = vec3<float>(vert(0), vert(1), vert(2));
-            rays[it] = vertices[it] / vertices[it](2);
-        }
-        // setPose(newGlobalPose);
-    }
+            Sophus::SE3f relativePose = _pose * pose.inverse();
+            _pose = pose;
+            for (size_t it = 0; it < size; ++it)
+            {
+                if (!_vertices[it].used)
+                    continue;
+                Eigen::Vector3f _vert = relativePose * Eigen::Vector3f(_vertices[it].ver(0), _vertices[it].ver(1), _vertices[it].ver(2));
+                vec3<float> vert(_vert(0), _vert(1), _vert(2));
+                vec3<float> ray = vert / vert(2);
 
-    void project(camera cam)
-    {
-        for (size_t it = 0; it < vertices.size(); ++it)
+                _vertices[it].vert = vert;
+                _vertices[it].ray = ray;
+            }
+        }
+
+        if (!(_cam == cam))
         {
-            pixels[it] = cam.rayToPix(rays[it]);
+            _cam = cam;
+            for (size_t it = 0; it < size; ++it)
+            {
+                if(!_vertices[it].used)
+                    continue;
+                _vertices[it].pix = _cam.rayToPix(_vertices[it].ray);
+            }
         }
     }
 
     void setDepthParam(float param, unsigned int v_id)
     {
         float new_depth = fromParamToDepth(param);
-        // set the param (the depth in this case)
-#ifdef DEBUG
-        if (new_depth <= 0.0)
-        {
-            std::cout << "setDepthParam new_depth " << new_depth << std::endl;
-        }
-#endif
         setVerticeDepth(new_depth, v_id);
     }
 
@@ -413,18 +369,17 @@ public:
         return fromDepthToParam(getVerticeDepth(v_id));
     }
 
+    /*
     bool isVertInWindow(window &win, int v_id)
     {
         if (win.isPixInWindow(getPix(v_id)))
             return true;
         return false;
     }
+    */
 
 private:
-    //vec3<float> *vertices;
-    //vec3<float> *rays;
-    //vec2<float> *pixels;
-    //float *weights;
-
-    vertex vertices[MAX_VERTEX];
+    vertex _vertices[size];
+    Sophus::SE3f _pose;
+    camera _cam;
 };

@@ -201,6 +201,14 @@ public:
     }
     */
 
+    bool operator==(camera c)
+    {
+        if (fx == c.fx && fy == c.fy && cx == c.cx && cy == c.cy &&
+            width == c.width && height == c.height)
+            return true;
+        return false;
+    }
+
     int width, height;
 
     float fx;

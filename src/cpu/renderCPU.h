@@ -164,10 +164,8 @@ public:
     {
         scene1 = scene->clone();
         scene2 = scene->clone();
-        // scene1->transform(frame->getPose());
-        scene2.transform(pose);
-        scene1.project(cam);
-        scene2.project(cam);
+        scene1.transform(cam, Sophus::SE3f());
+        scene2.transform(cam, pose);
 
         z_buffer.set(z_buffer.nodata, lvl);
 

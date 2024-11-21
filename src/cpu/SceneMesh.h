@@ -9,7 +9,8 @@
 #include "common/HGEigenSparse.h"
 #include "params.h"
 
-class SceneMesh : public SceneVertices
+template <int size>
+class SceneMesh : public SceneVertices<size>
 {
 public:
     SceneMesh() : SceneVertices() {
@@ -37,11 +38,13 @@ public:
         return SceneMesh(*this);
     }
 
+    /*
     void clear()
     {
         SceneVertices::clear();
         triangles.clear();
     }
+    */
 
     void init(camera cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
     {
