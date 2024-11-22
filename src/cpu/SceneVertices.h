@@ -322,7 +322,8 @@ public:
         std::vector<int> keys;
         for (size_t it = 0; it < size; ++it)
         {
-            keys.push_back((int)it);
+            if(vertices[it].used)
+                keys.push_back((int)it);
         }
         return keys;
     }

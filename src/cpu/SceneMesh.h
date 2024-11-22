@@ -9,14 +9,14 @@
 #include "common/HGEigenSparse.h"
 #include "params.h"
 
-template <int size>
-class SceneMesh : public SceneVertices<size>
+template <int vertsize, int trisize>
+class SceneMesh : public SceneVertices<vertsize>
 {
 public:
-    SceneMesh() : SceneVertices() {
+    SceneMesh() : SceneVertices<vertsize>() {
                   };
 
-    SceneMesh(const SceneMesh &other) : SceneVertices(other)
+    SceneMesh(const SceneMesh &other) : SceneVertices<vertsize>(other)
     {
         triangles = other.triangles;
     }
@@ -46,24 +46,24 @@ public:
     }
     */
 
-    void init(camera cam, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
+    void init(camera cam, Sophus::SE3f pose, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
     {
-        clear();
-        SceneVertices::init(cam, idepth, ivar, lvl);
+        //clear();
+        SceneVertices<vertsize>::init(cam, pose, idepth, ivar, lvl);
         buildTriangles();
     }
 
-    void init(camera cam, std::vector<vec3<float>> &vertices)
+    void init(camera cam, Sophus::SE3f pose, std::vector<vec3<float>> &vertices)
     {
-        clear();
-        SceneVertices::init(cam, vertices);
+        //clear();
+        SceneVertices<vertsize>::init(cam, pose, vertices);
         buildTriangles();
     }
 
-    void init(camera cam, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths)
+    void init(camera cam, Sophus::SE3f pose, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths)
     {
-        clear();
-        SceneVertices::init(cam, texcoords, idepths);
+        //clear();
+        SceneVertices<vertsize>::init(cam, pose, texcoords, idepths);
         buildTriangles();
     }
 
@@ -681,5 +681,5 @@ private:
     }
     */
 
-    std::vector<vec3<int>> triangles;
+    vec3<int> triangles;
 };

@@ -278,27 +278,12 @@ class ShapeTriangleFlat // : public ShapeBase<vec3<float>, vec3<int>>
 public:
     // ShapeTriangleFlat() {};
 
-    ShapeTriangleFlat(vec3<float> &ray0, vec3<float> &ray1, vec3<float> &ray2,
-                      vec2<float> &pix0, vec2<float> &pix1, vec2<float> &pix2,
-                      float depth0, float depth1, float depth2,
-                      float weight0, float weight1, float weight2,
+    ShapeTriangleFlat(vertex vert0, vertex vert1, vertex vert2,
                       int id0, int id1, int id2)
     {
-        m_ray0 = &ray0;
-        m_ray1 = &ray1;
-        m_ray2 = &ray2;
-
-        m_pix0 = &pix0;
-        m_pix1 = &pix1;
-        m_pix2 = &pix2;
-
-        m_depth0 = depth0;
-        m_depth1 = depth1;
-        m_depth2 = depth2;
-
-        m_weight0 = weight0;
-        m_weight1 = weight1;
-        m_weight2 = weight2;
+        m_vert0 = vert0;
+        m_vert1 = vert1;
+        m_vert2 = vert2;
 
         m_paramId0 = id0;
         m_paramId1 = id1;
@@ -328,27 +313,12 @@ public:
                         ((*m_pix2)(0) - (*m_pix1)(0)) * ((*m_pix0)(1) - (*m_pix2)(1));
     };
 
-    void set(vec3<float> &ray0, vec3<float> &ray1, vec3<float> &ray2,
-             vec2<float> &pix0, vec2<float> &pix1, vec2<float> &pix2,
-             float depth0, float depth1, float depth2,
-             float weight0, float weight1, float weight2,
+    void set(vertex vert0, vertex vert1, vertex vert2,
              int id0, int id1, int id2)
     {
-        m_ray0 = &ray0;
-        m_ray1 = &ray1;
-        m_ray2 = &ray2;
-
-        m_pix0 = &pix0;
-        m_pix1 = &pix1;
-        m_pix2 = &pix2;
-
-        m_depth0 = depth0;
-        m_depth1 = depth1;
-        m_depth2 = depth2;
-
-        m_weight0 = weight0;
-        m_weight1 = weight1;
-        m_weight2 = weight2;
+        m_vert0 = vert0;
+        m_vert1 = vert1;
+        m_vert2 = vert2;
 
         m_paramId0 = id0;
         m_paramId1 = id1;
@@ -402,9 +372,9 @@ public:
             computeBarycentric(currentPix);
         }
         // float ray_depth = vertices[0].dot(normal) / ray.dot(normal);
-        float ray_depth = barycentric(0) * m_depth0 +
-                          barycentric(1) * m_depth1 +
-                          barycentric(2) * m_depth2;
+        float ray_depth = barycentric(0) * vert0.ver(2) +
+                          barycentric(1) * vert1.ver(2) +
+                          barycentric(2) * vert2.ver(2);
 
         return ray_depth;
     }
@@ -418,9 +388,9 @@ public:
         }
 
         // float ray_depth = vertices[0].dot(normal) / ray.dot(normal);
-        float weight = barycentric(0) * m_weight0 +
-                       barycentric(1) * m_weight1 +
-                       barycentric(2) * m_weight2;
+        float weight = barycentric(0) * vert0.weight +
+                       barycentric(1) * vert1.weight +
+                       barycentric(2) * vert2.weight;
 
         return weight;
     }
@@ -534,10 +504,10 @@ public:
 
     inline window getScreenBounds()
     {
-        int min_x = std::min(std::min((int)(*m_pix0)(0), (int)(*m_pix1)(0)), (int)(*m_pix2)(0)) - 1;
-        int max_x = std::max(std::max((int)(*m_pix0)(0), (int)(*m_pix1)(0)), (int)(*m_pix2)(0)) + 1;
-        int min_y = std::min(std::min((int)(*m_pix0)(1), (int)(*m_pix1)(1)), (int)(*m_pix2)(1)) - 1;
-        int max_y = std::max(std::max((int)(*m_pix0)(1), (int)(*m_pix1)(1)), (int)(*m_pix2)(1)) + 1;
+        int min_x = std::min(std::min((int)m_vert0.pix(0), (int)m_vert1.pix(0)), (int)m_vert2.pix(0)) - 1;
+        int max_x = std::max(std::max((int)m_vert0.pix(0), (int)m_vert1.pix(0)), (int)m_vert2.pix(0)) + 1;
+        int min_y = std::min(std::min((int)m_vert0.pix(1), (int)m_vert1.pix(1)), (int)m_vert2.pix(1)) - 1;
+        int max_y = std::max(std::max((int)m_vert0.pix(1), (int)m_vert1.pix(1)), (int)m_vert2.pix(1)) + 1;
 
         window win(min_x, max_x, min_y, max_y);
 
@@ -546,9 +516,7 @@ public:
 
     inline vec2<float> getCenterPix()
     {
-        vec2<float> center;
-        center(0) = ((*m_pix0)(0) + (*m_pix1)(0) + (*m_pix2)(0)) / 3.0;
-        center(1) = ((*m_pix0)(1) + (*m_pix1)(1) + (*m_pix2)(1)) / 3.0;
+        vec2<float> center = (m_vert0.pix + m_vert1.pix + m_vert2.pix)/3.0;
         return center;
     };
 
@@ -598,8 +566,8 @@ private:
         //                  ((*m_ray0)(0) - (*m_ray2)(0)) * (ray(1) - (*m_ray2)(1))) /
         //                 denominator;
         vec2<float> diff;
-        diff(0) = ray(0) - (*m_ray2)(0);
-        diff(1) = ray(1) - (*m_ray2)(1);
+        diff(0) = ray(0) - m_vert2.ray(0);
+        diff(1) = ray(1) - m_vert2.ray(1);
         barycentric(0) = r_m1.dot(diff) / r_denominator;
         barycentric(1) = r_m2.dot(diff) / r_denominator;
         barycentric(2) = 1.0f - barycentric(0) - barycentric(1);
@@ -613,43 +581,22 @@ private:
         // barycentric(1) = (((*m_ray2)(1) - (*m_ray0)(1)) * (ray(0) - (*m_ray2)(0)) +
         //                  ((*m_ray0)(0) - (*m_ray2)(0)) * (ray(1) - (*m_ray2)(1))) /
         //                 denominator;
-        vec2<float> diff;
-        diff(0) = pix(0) - (*m_pix2)(0);
-        diff(1) = pix(1) - (*m_pix2)(1);
+        vec2<float> diff = pix - m_vert2.pix;
         barycentric(0) = p_m1.dot(diff) / p_denominator;
         barycentric(1) = p_m2.dot(diff) / p_denominator;
         barycentric(2) = 1.0f - barycentric(0) - barycentric(1);
     }
 
-    // vec3<float> m_vertice0;
-    // vec3<float> m_vertice1;
-    // vec3<float> m_vertice2;
-
-    float m_depth0;
-    float m_depth1;
-    float m_depth2;
-
-    float m_weight0;
-    float m_weight1;
-    float m_weight2;
-
-    vec3<float> *m_ray0;
-    vec3<float> *m_ray1;
-    vec3<float> *m_ray2;
-
-    vec2<float> *m_pix0;
-    vec2<float> *m_pix1;
-    vec2<float> *m_pix2;
+    vertex m_vert0;
+    vertex m_vert1;
+    vertex m_vert2;
 
     int m_paramId0;
     int m_paramId1;
     int m_paramId2;
 
-    // Eigen::Vector3f normal;
-
     vec2<float> currentPix;
 
-    // vec3<float> ray;
     vec3<float> barycentric;
 
     vec2<float> r_m1;
