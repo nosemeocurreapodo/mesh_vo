@@ -8,44 +8,56 @@
 #include "cpu/Shapes.h"
 #include "cpu/frameCPU.h"
 
-struct vertex
-{
-    vertex()
-    {
-        used = false;
-    }
-
-    vertex(vec3<float> v, vec3<float> r, vec2<float> p, float w)
-    {
-        ver = v;
-        ray = r;
-        pix = p;
-        weight = w;
-        used = true;
-    }
-
-    vec3<float> ver;
-    vec3<float> ray;
-    vec2<float> pix;
-    float weight;
-    bool used;
-};
-
-template <int size>
 class SceneVertices // : public SceneBase
 {
 public:
+
     SceneVertices()
     {
+        m_vertices = nullptr;
+        m_pose = Sophus::SE3f();
+        m_cam = camera(0.0, 0.0, 0.0, 0.0, 0, 0);
+        m_verticesBufferSize = 0;
+    }
+
+    /*
+    SceneVertices(int size)
+    {
+        _vertices = new (std::nothrow) vertex[size];
         _pose = Sophus::SE3f();
         _cam = camera(0.0, 0.0, 0.0, 0.0, 0, 0);
+        _size = size;
     };
+    */
 
+    /*
     SceneVertices(const SceneVertices &other) // : SceneBase(other)
     {
-        _vertices = other._vertices;
-        _pose = other._pose;
-        _cam = other._cam;
+        m_pose = other.m_pose;
+        m_cam = other.m_cam;
+        m_verticesBufferSize = other.m_verticesBufferSize;
+
+        if(m_vertices != nullptr)
+            deleteBuffer();
+        createBuffer(m_verticesBufferSize);
+        std::memcpy(m_vertices, other.m_vertices, sizeof(vertex) *m_verticesBufferSize);
+    }
+    */
+
+    SceneVertices &operator=(const SceneVertices &other)
+    {
+        if (this != &other)
+        {
+            m_pose = other.m_pose;
+            m_cam = other.m_cam;
+            m_verticesBufferSize = other.m_verticesBufferSize;
+
+            if(m_vertices != nullptr)
+                deleteBuffer();
+            createBuffer(m_verticesBufferSize);
+            std::memcpy(m_vertices, other.m_vertices, sizeof(vertex) *m_verticesBufferSize);
+        }
+        return *this;
     }
 
     /*
@@ -55,75 +67,68 @@ public:
      }
      */
 
-    /*
-    void clear()
-    {
-        vertices.clear();
-        rays.clear();
-        pixels.clear();
-        weights.clear();
-    }
-    */
-
     void init(camera cam, Sophus::SE3f pose, std::vector<vec3<float>> &vertices)
     {
-        _pose = pose;
-        _cam = cam;
-        for (int i = 0; i < size; i++)
+        m_pose = pose;
+        m_cam = cam;
+        m_verticesBufferSize = vertices.size();
+        
+        if(m_vertices != nullptr)
+            deleteBuffer();
+        createBuffer(m_verticesBufferSize);
+
+        for (int i = 0; i < m_verticesBufferSize; i++)
         {
-            if (i < vertices.size())
-            {
-                vec3<float> vertice = vertices[i];
-                vec3<float> ray = vertice / vertice(2);
-                float idph = 1.0 / vertice(2);
-                vec2<float> pix = cam.rayToPix(ray);
-                float iv = 0.1;
+            vec3<float> vertice = vertices[i];
+            vec3<float> ray = vertice / vertice(2);
+            float idph = 1.0 / vertice(2);
+            vec2<float> pix = cam.rayToPix(ray);
+            float iv = 0.1;
 
-                if (idph <= 0.0)
-                    continue;
+            if (idph <= 0.0)
+                continue;
 
-                _vertices[i] = vertex(vertice, ray, pix, iv);
-            }
-            else
-            {
-                _vertices[i].used = false;
-            }
+            m_vertices[i] = vertex(vertice, ray, pix, iv);
         }
     }
 
     void init(camera cam, Sophus::SE3f pose, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths)
     {
-        _cam = cam;
-        _pose = pose;
+        m_cam = cam;
+        m_pose = pose;
+        m_verticesBufferSize = texcoords.size();
 
-        for (int i = 0; i < size; i++)
+        if(m_vertices != nullptr)
+            deleteBuffer();
+        createBuffer(m_verticesBufferSize);
+
+        for (int i = 0; i < m_verticesBufferSize; i++)
         {
-            if (i < texcoords.size())
-            {
-                vec2<float> pix = texcoords[i];
-                float idph = idepths[i];
+            vec2<float> pix = texcoords[i];
+            float idph = idepths[i];
 
-                vec3<float> ray = cam.pixToRay(pix);
-                float iv = 0.1;
+            vec3<float> ray = cam.pixToRay(pix);
+            float iv = 0.1;
 
-                if (idph <= 0.0)
-                    continue;
+            if (idph <= 0.0)
+                continue;
 
-                vec3<float> vertice = ray / idph;
+            vec3<float> vertice = ray / idph;
 
-                _vertices[i] = vertex(vertice, ray, pix, iv);
-            }
-            else
-            {
-                _vertices[i].used = false;
-            }
+            m_vertices[i] = vertex(vertice, ray, pix, iv);
         }
     }
 
     void init(camera cam, Sophus::SE3f pose, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
     {
-        _cam = cam;
-        _pose = pose;
+        m_cam = cam;
+        m_pose = pose;
+        m_verticesBufferSize = MESH_WIDTH*MESH_HEIGHT;
+
+        if(m_vertices != nullptr)
+            deleteBuffer();
+        createBuffer(m_verticesBufferSize);
+
         int i = 0;
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
@@ -143,13 +148,9 @@ public:
 
                 vec3<float> vertice = ray / idph;
 
-                _vertices[i] = vertex(vertice, ray, pix, iv);
+                m_vertices[i] = vertex(vertice, ray, pix, iv);
                 i++;
             }
-        }
-        for (int j = i; j < size; j++)
-        {
-            _vertices[j].used = false;
         }
     }
 
@@ -214,7 +215,7 @@ public:
     }
     */
 
-    vec2<float> meanStdDepth()
+    vec2<float> meanStdDepthParam()
     {
         float old_m = 0;
         float new_m = 0;
@@ -222,25 +223,25 @@ public:
         float new_s = 0;
         int n = 0;
 
-        for (int i = 0; i < size; i++)
+        for (int i = 0; i < m_verticesBufferSize; i++)
         {
-            if (!_vertices[i].used)
+            if (!m_vertices[i].used)
                 continue;
 
-            float depth = _vertices[i].ver(2);
+            float param = getDepthParam(i);
 
             n++;
 
             if (n == 1)
             {
-                old_m = depth;
-                new_m = depth;
+                old_m = param;
+                new_m = param;
                 old_s = 0;
             }
             else
             {
-                new_m = old_m + (depth - old_m) / n;
-                new_s = old_s + (depth - old_m) * (depth - new_m);
+                new_m = old_m + (param - old_m) / n;
+                new_s = old_s + (param - old_m) * (param - new_m);
                 old_m = new_m;
                 old_s = new_s;
             }
@@ -253,27 +254,25 @@ public:
         return results;
     }
 
-    void scaleDepth(vec2<float> affine)
+    void scaleDepthParam(vec2<float> affine)
     {
-        for (int i = 0; i < size; i++)
+        for (int i = 0; i < m_verticesBufferSize; i++)
         {
-            if (!_vertices[i].used)
+            if (!m_vertices[i].used)
                 continue;
-            vec3<float> vertice = _vertices[i].ver;
-            float depth = vertice(2);
-            float new_depth = (depth - affine(1)) / affine(0);
-            vec3<float> new_vertice = vertice * (new_depth / depth);
-            _vertices[i].ver = new_vertice;
+            float param = getDepthParam(i);
+            float new_param = (param - affine(1)) / affine(0);
+            setDepthParam(new_param, i);
         }
     }
 
     inline vertex &getVertex(unsigned int id)
     {
 #ifdef DEBUG
-        if (id >= vertices.size())
-            throw std::out_of_range("getVertice invalid id");
+        if (id >= m_verticesBufferSize)
+            throw std::out_of_range("getVertex invalid id");
 #endif
-        return _vertices[id];
+        return m_vertices[id];
     }
 
     /*
@@ -298,31 +297,12 @@ public:
     }
     */
 
-    void setVerticeDepth(float depth, unsigned int id)
-    {
-#ifdef DEBUG
-        if (id >= vertices.size())
-            throw std::out_of_range("setVerticeDepth invalid id");
-#endif
-        // vertices[id] = depth * vertices[id] / vertices[id](2);
-        _vertices[id].vert = _vertices[id].ray * depth;
-    }
-
-    float getVerticeDepth(unsigned int id)
-    {
-#ifdef DEBUG
-        if (id >= vertices.size())
-            throw std::out_of_range("getVerticeDepth invalid id");
-#endif
-        return _vertices[id].vert(2);
-    }
-
     std::vector<int> getVerticesIds() const
     {
         std::vector<int> keys;
-        for (size_t it = 0; it < size; ++it)
+        for (int it = 0; it < m_verticesBufferSize; ++it)
         {
-            if(vertices[it].used)
+            if(m_vertices[it].used)
                 keys.push_back((int)it);
         }
         return keys;
@@ -330,33 +310,40 @@ public:
 
     void transform(camera cam, Sophus::SE3f pose)
     {
-        if (!(_pose.translation() == pose.translation()) && !(_pose.unit_quaternion() == pose.unit_quaternion()) )
+        bool poseUpdated = false;
+        if (!(m_pose.translation() == pose.translation()) && !(m_pose.unit_quaternion() == pose.unit_quaternion()) )
         {
-            Sophus::SE3f relativePose = _pose * pose.inverse();
-            _pose = pose;
-            for (size_t it = 0; it < size; ++it)
+            poseUpdated = true;
+            Sophus::SE3f relativePose = m_pose * pose.inverse();
+            m_pose = pose;
+            for (int it = 0; it < m_verticesBufferSize; ++it)
             {
-                if (!_vertices[it].used)
+                if (!m_vertices[it].used)
                     continue;
-                Eigen::Vector3f _vert = relativePose * Eigen::Vector3f(_vertices[it].ver(0), _vertices[it].ver(1), _vertices[it].ver(2));
-                vec3<float> vert(_vert(0), _vert(1), _vert(2));
-                vec3<float> ray = vert / vert(2);
+                Eigen::Vector3f _vert = relativePose * Eigen::Vector3f(m_vertices[it].ver(0), m_vertices[it].ver(1), m_vertices[it].ver(2));
+                vec3<float> ver(_vert(0), _vert(1), _vert(2));
+                vec3<float> ray = ver / ver(2);
 
-                _vertices[it].vert = vert;
-                _vertices[it].ray = ray;
+                m_vertices[it].ver = ver;
+                m_vertices[it].ray = ray;
             }
         }
 
-        if (!(_cam == cam))
+        if (!(m_cam == cam) || poseUpdated)
         {
-            _cam = cam;
-            for (size_t it = 0; it < size; ++it)
+            m_cam = cam;
+            for (int it = 0; it < m_verticesBufferSize; ++it)
             {
-                if(!_vertices[it].used)
+                if(!m_vertices[it].used)
                     continue;
-                _vertices[it].pix = _cam.rayToPix(_vertices[it].ray);
+                m_vertices[it].pix = m_cam.rayToPix(m_vertices[it].ray);
             }
         }
+    }
+
+    std::vector<int> getParamIds()
+    {
+        return getVerticesIds();
     }
 
     void setDepthParam(float param, unsigned int v_id)
@@ -370,17 +357,49 @@ public:
         return fromDepthToParam(getVerticeDepth(v_id));
     }
 
-    /*
-    bool isVertInWindow(window &win, int v_id)
+    void setParamWeight(float weight, unsigned int v_id)
     {
-        if (win.isPixInWindow(getPix(v_id)))
-            return true;
-        return false;
+        m_vertices[v_id].weight = weight;
     }
-    */
+
+    float getParamWeight(unsigned int v_id)
+    {
+        return m_vertices[v_id].weight;
+    }
 
 private:
-    vertex _vertices[size];
-    Sophus::SE3f _pose;
-    camera _cam;
+
+    void deleteBuffer()
+    {
+        delete m_vertices;
+        m_vertices = nullptr;
+    }
+
+    void createBuffer(int size)
+    {
+        m_vertices = new (std::nothrow) vertex[size];
+    }
+
+    void setVerticeDepth(float depth, unsigned int id)
+    {
+#ifdef DEBUG
+        if (id >= m_verticesBufferSize)
+            throw std::out_of_range("setVerticeDepth invalid id");
+#endif
+        m_vertices[id].ver = m_vertices[id].ray * depth;
+    }
+
+    float getVerticeDepth(unsigned int id)
+    {
+#ifdef DEBUG
+        if (id >= m_verticesBufferSize)
+            throw std::out_of_range("getVerticeDepth invalid id");
+#endif
+        return m_vertices[id].ver(2);
+    }
+
+    vertex* m_vertices;
+    Sophus::SE3f m_pose;
+    camera m_cam;
+    int m_verticesBufferSize;
 };

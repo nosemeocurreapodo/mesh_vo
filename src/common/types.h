@@ -1431,3 +1431,43 @@ SE3<type> exp(vec6<type> xi)
 
     return SE3<type>(rotation, translation);
 }
+
+struct vertex
+{
+    vertex()
+    {
+        used = false;
+    }
+
+    vertex(vec3<float> v, vec3<float> r, vec2<float> p, float w)
+    {
+        ver = v;
+        ray = r;
+        pix = p;
+        weight = w;
+        used = true;
+    }
+
+    vec3<float> ver;
+    vec3<float> ray;
+    vec2<float> pix;
+    float weight;
+    bool used;
+};
+
+struct triangle
+{
+    triangle()
+    {
+        used = false;
+    }
+
+    triangle(vec3<int> i)
+    {
+        vertexIds = i;
+        used = true;
+    }
+
+    vec3<int> vertexIds;
+    bool used;
+};

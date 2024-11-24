@@ -39,9 +39,9 @@ public:
         return ScenePatches(*this);
     }
 
-    void project(camera cam)
+    void transform(camera cam, Sophus::SE3f pose)
     {
-        SceneVertices::project(cam);
+        SceneVertices::transform(cam, pose);
         patch_width = int(cam.fx*0.1);
         patch_height = int(cam.fy*0.1);
     }
@@ -69,7 +69,7 @@ public:
     ShapePatch getShape(int polId)
     {
         // always return triangle in cartesian
-        return ShapePatch(getRay(polId), getPix(polId), getDepth(polId), getWeight(polId), polId, patch_width, patch_height);
+        return ShapePatch(getVertex(polId), polId, patch_width, patch_height);
     }
 
     /*
@@ -99,14 +99,19 @@ public:
         setDepthParam(param, paramId);
     }
 
-    void setParamWeight(float weight, int paramId)
+    void setWeight(float weight, int paramId)
     {
-        setWeight(weight, paramId);
+        setParamWeight(weight, paramId);
     }
 
     float getParam(int paramId)
     {
         return getDepthParam(paramId);
+    }
+
+    float getWeight(int paramId)
+    {
+        return getParamWeight(paramId);
     }
 
     Error errorRegu(camera cam)
@@ -120,7 +125,7 @@ public:
 
         for (auto polId : polIds)
         {
-            vec2<float> pix = getPix(polId);
+            vec2<float> pix = getVertex(polId).pix;
 
             window win(pix(0) - patch_width * 2, pix(0) + patch_width * 2, pix(1) - patch_height * 2, pix(1) + patch_height * 2);
 
@@ -130,7 +135,7 @@ public:
             {
                 //if(polId == polId2)
                 //    continue;
-                vec2<float> pix2 = getPix(polId2);
+                vec2<float> pix2 = getVertex(polId2).pix;
                 if (win.isPixInWindow(pix2))
                 {
                     meanParam += getDepthParam(polId2);
@@ -157,7 +162,7 @@ public:
 
         for (auto polId : polIds)
         {
-            vec2<float> pix = getPix(polId);
+            vec2<float> pix = getVertex(polId).pix;
 
             window win(pix(0) - patch_width * 2, pix(0) + patch_width * 2, pix(1) - patch_height * 2, pix(1) + patch_height * 2);
 
@@ -168,7 +173,7 @@ public:
             {
                 //if(polId == polId2)
                 //    continue;
-                vec2<float> pix2 = getPix(polId2);
+                vec2<float> pix2 = getVertex(polId2).pix;
                 if (win.isPixInWindow(pix2))
                 {
                     polIds2.push_back(polId2);

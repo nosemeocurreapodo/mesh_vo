@@ -43,7 +43,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &fram
     // renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl, 0.5, 1.5);
     ivar_buffer.set(ivar_buffer.nodata, lvl);
     renderer.renderSmooth(cam[lvl], &ivar_buffer, lvl, initialIvar(), initialIvar());
-    kscene.init(cam[lvl], idepth_buffer, ivar_buffer, lvl);
+    kscene.init(cam[lvl], frame.getPose(), idepth_buffer, ivar_buffer, lvl);
     kimage = frame.getRawImage();
     kpose = frame.getPose();
 }
@@ -51,7 +51,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &fram
 template <typename sceneType, typename jmapType, typename idsType>
 void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
 {
-    kscene.init(cam[lvl], idepth, ivar, lvl);
+    kscene.init(cam[lvl], frame.getPose(), idepth, ivar, lvl);
 
     /*
     for(int i = 0; i < 1; i++)
@@ -73,7 +73,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &fram
 template <typename sceneType, typename jmapType, typename idsType>
 void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl)
 {
-    kscene.init(cam[lvl], texcoords, idepths);
+    kscene.init(cam[lvl], frame.getPose(), texcoords, idepths);
     kimage = frame.getRawImage();
     kpose = frame.getPose();
 }
@@ -81,9 +81,9 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &fram
 template <typename sceneType, typename jmapType, typename idsType>
 void meshOptimizerCPU<sceneType, jmapType, idsType>::normalizeDepth()
 {
-    vec2<float> affine = kscene.meanStdDepth();
+    vec2<float> affine = kscene.meanStdDepthParam();
     affine(1) = 0.0;
-    kscene.scaleDepth(affine);
+    kscene.scaleDepthParam(affine);
     kDepthAffine = affine;
 }
 
@@ -301,9 +301,11 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
     Error e_regu;
     Error e_init;
 
-    HGEigenSparse hg(kscene.getNumParams());
-    HGEigenSparse hg_regu(kscene.getNumParams());
-    HGEigenSparse hg_init(kscene.getNumParams());
+    int numMapParams = kscene.getParamIds().size();
+
+    HGEigenSparse hg(numMapParams);
+    HGEigenSparse hg_regu(numMapParams);
+    HGEigenSparse hg_init(numMapParams);
 
     // HGMapped hg;
     // HGMapped hg_regu;
@@ -517,8 +519,12 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
 {
     Error e;
     Error e_regu;
-    HGEigenSparse hg(kscene.getNumParams() + frames.size() * 8);
-    HGEigenSparse hg_regu(kscene.getNumParams() + frames.size() * 8);
+
+    int numMapParams = kscene.getParamIds().size();
+    int numFrameParams = frames.size()*8;
+
+    HGEigenSparse hg(numMapParams + numFrameParams);
+    HGEigenSparse hg_regu(numMapParams + numFrameParams);
 
     for (int lvl = 4; lvl >= 1; lvl--)
     {
@@ -624,7 +630,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                     // have to fix it some better way
                     for (int j = 0; j < 8; j++)
                     {
-                        int paramId = kscene.getNumParams() + i * 8 + j;
+                        int paramId = numMapParams + i * 8 + j;
                         int index = paramIds[paramId];
                         pose_inc(j) = inc(index);
                     }
@@ -648,7 +654,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                 for (auto id : paramIds)
                 {
                     // negative ids are for the poses
-                    if (id.first >= kscene.getNumParams())
+                    if (id.first >= numMapParams)
                         continue;
 
                     float best_param = kscene.getParam(id.first);
@@ -715,7 +721,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                     for (auto id : paramIds)
                     {
                         // negative ids are for the poses
-                        if (id.first >= kscene.getNumParams())
+                        if (id.first >= numMapParams)
                             continue;
 
                         kscene.setParam(best_params[id.first], id.first);

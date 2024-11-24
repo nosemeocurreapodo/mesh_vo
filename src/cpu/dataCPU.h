@@ -35,11 +35,19 @@ public:
 
     dataCPU(const dataCPU &other)
     {
+        // std::fill(std::begin(texture), std::end(texture), nullptr);
+        for (size_t lvl = 0; lvl < texture.size(); lvl++)
+        {
+            delete[] texture[lvl];
+            //texture[lvl] = nullptr;
+        }
+        texture.clear();
+
         nodata = other.nodata;
         lvlWidths = other.lvlWidths;
         lvlHeights = other.lvlHeights;
         lvls = other.lvls;
-        // std::fill(std::begin(texture), std::end(texture), nullptr);
+
         for (int lvl = 0; lvl < lvls; lvl++)
         {
             Type* tex = new (std::nothrow) Type[lvlWidths[lvl] * lvlHeights[lvl]];
@@ -53,11 +61,12 @@ public:
         if (this != &other)
         {
             // Free existing resources
-            //for (int lvl = 0; lvl < lvlWidths.size(); lvl++)
-            //{
-            //    delete[] texture[lvl];
-            //    texture[lvl] = nullptr;
-            //}
+            for (size_t lvl = 0; lvl < texture.size(); lvl++)
+            {
+                delete[] texture[lvl];
+                //texture[lvl] = nullptr;
+            }
+            texture.clear();
 
             nodata = other.nodata;
             lvlWidths = other.lvlWidths;
@@ -69,7 +78,9 @@ public:
             for (int lvl = 0; lvl < lvls; lvl++)
             {
                 //texture[lvl] = new Type[sizes[lvl][0] * sizes[lvl][1]];
-                std::memcpy(texture[lvl], other.texture[lvl], sizeof(Type) * lvlWidths[lvl] * lvlHeights[lvl]);
+                Type* tex = new (std::nothrow) Type[lvlWidths[lvl] * lvlHeights[lvl]];
+                std::memcpy(tex, other.texture[lvl], sizeof(Type) * lvlWidths[lvl] * lvlHeights[lvl]);
+                texture.push_back(tex);
             }
         }
         return *this;

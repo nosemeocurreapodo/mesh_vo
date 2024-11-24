@@ -213,8 +213,3 @@ void DelaunayTriangulation::removeVertice(int v_id)
     }
     */
 }
-
-std::vector<vec3<int>> DelaunayTriangulation::getTriangles()
-{
-    return triangles;
-}

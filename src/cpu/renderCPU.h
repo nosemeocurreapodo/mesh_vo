@@ -39,7 +39,7 @@ public:
     {
         window win(0, cam.width-1, 0, cam.height-1);
 
-        renderRandomWindow(cam, win, buffer, lvl);
+        renderRandomWindow(win, buffer, lvl);
     }
 
     void renderSmooth(camera cam, dataCPU<float> *buffer, int lvl, float start = 1.0, float end = 2.0)
@@ -58,12 +58,10 @@ public:
 
     void renderImage(sceneType *kscene, dataCPU<float> *kimage, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
     {
-        scene1 = kscene->clone();
-        scene2 = kscene->clone();
-        // scene1->transform(pose);
-        scene2->transform(pose);
-        scene1->project(cam);
-        scene2->project(cam);
+        scene1 = *kscene;
+        scene2 = *kscene;
+        scene1.transform(cam, Sophus::SE3f());
+        scene2.transform(cam, pose);
 
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -74,12 +72,10 @@ public:
 
     void renderImageParallel(sceneType *kscene, dataCPU<float> *kimage, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
     {
-        scene1 = kscene->clone();
-        scene2 = kscene->clone();
-        // scene1->transform(kframe->getPose());
-        scene2->transform(pose);
-        scene1->project(cam);
-        scene2->project(cam);
+        scene1 = *kscene;
+        scene2 = *kscene;
+        scene1.transform(cam, Sophus::SE3f());
+        scene2.transform(cam, pose);
 
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -146,12 +142,10 @@ public:
 
     void renderDebug(sceneType *scene, dataCPU<float> *image, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
     {
-        scene1 = scene->clone();
-        scene2 = scene->clone();
-        // scene1->transform(frame->getPose());
-        scene2->transform(pose);
-        scene1->project(cam);
-        scene2->project(cam);
+        scene1 = *scene;
+        scene2 = *scene;
+        scene1.transform(cam, Sophus::SE3f());
+        scene2.transform(cam, pose);
 
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -162,8 +156,8 @@ public:
 
     void renderDebugParallel(sceneType *scene, dataCPU<float> *image, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
     {
-        scene1 = scene->clone();
-        scene2 = scene->clone();
+        scene1 = *scene;
+        scene2 = *scene;
         scene1.transform(cam, Sophus::SE3f());
         scene2.transform(cam, pose);
 
@@ -197,12 +191,10 @@ public:
     template <typename jmapType, typename idsType>
     void renderJMap(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
-        scene1 = kscene->clone();
-        scene2 = kscene->clone();
-        //scene1->transform(kframe->getPose());
-        scene2->transform(frame->getPose());
-        scene1->project(cam);
-        scene2->project(cam);
+        scene1 = *kscene;
+        scene2 = *kscene;
+        scene1.transform(cam, Sophus::SE3f());
+        scene2.transform(cam, frame->getPose());
 
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -214,12 +206,10 @@ public:
     template <typename jmapType, typename idsType>
     void renderJMapParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera &cam, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
-        scene1 = kscene->clone();
-        scene2 = kscene->clone();
-        //scene1->transform(kframe->getPose());
-        scene2.transform(frame->getPose());
-        scene1.project(cam);
-        scene2.project(cam);
+        scene1 = *kscene;
+        scene2 = *kscene;
+        scene1.transform(cam, Sophus::SE3f());
+        scene2.transform(cam, frame->getPose());
 
         z_buffer.set(z_buffer.nodata, lvl);
 
@@ -253,12 +243,10 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        scene1 = kscene->clone();
-        scene2 = kscene->clone();
-        //scene1->transform(kframe->getPose());
-        scene2->transform(frame->getPose());
-        scene1->project(cam);
-        scene2->project(cam);
+        scene1 = *kscene;
+        scene2 = *kscene;
+        scene1->transform(cam, Sophus::SE3f());
+        scene2->transform(cam, frame->getPose());
 
         window win(0, cam.width-1, 0, cam.height-1);
 
@@ -270,12 +258,10 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        scene1 = kscene->clone();
-        scene2 = kscene->clone();
-        //scene1->transform(kframe->getPose());
-        scene2.transform(frame->getPose());
-        scene1.project(cam);
-        scene2.project(cam);
+        scene1 = *kscene;
+        scene2 = *kscene;
+        scene1.transform(cam, Sophus::SE3f());
+        scene2.transform(cam, frame->getPose());
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -306,12 +292,10 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        scene1 = kscene->clone();
-        scene2 = kscene->clone();
-        //scene1->transform(kframe->getPose());
-        scene2.transform(frame->getPose());
-        scene1.project(cam);
-        scene2.project(cam);
+        scene1 = *kscene;
+        scene2 = *kscene;
+        scene1.transform(cam, Sophus::SE3f());
+        scene2.transform(cam, frame->getPose());
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -342,12 +326,10 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        scene1 = kscene->clone();
-        scene2 = kscene->clone();
-        //scene1->transform(kframe->getPose());
-        scene2->transform(frame->getPose());
-        scene1->project(cam);
-        scene2->project(cam);
+        scene1 = *kscene;
+        scene2 = *kscene;
+        scene1->transform(cam, Sophus::SE3f());
+        scene2->transform(cam, frame->getPose());
 
         window win(0, cam.width-1, 0, cam.height-1);
 
@@ -358,12 +340,10 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        scene1 = kscene->clone();
-        scene2 = kscene->clone();
-        //scene1->transform(kframe->getPose());
-        scene2.transform(frame->getPose());
-        scene1.project(cam);
-        scene2.project(cam);
+        scene1 = *kscene;
+        scene2 = *kscene;
+        scene1.transform(cam, Sophus::SE3f());
+        scene2.transform(cam, frame->getPose());
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -394,12 +374,10 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        scene1 = kscene->clone();
-        scene2 = kscene->clone();
-        //scene1->transform(kframe->getPose());
-        scene2->transform(frame->getPose());
-        scene1->project(cam);
-        scene2->project(cam);
+        scene1 = *kscene;
+        scene2 = *kscene;
+        scene1.transform(cam, Sophus::SE3f());
+        scene2.transform(cam, frame->getPose());
 
         window win(0, cam.width-1, 0, cam.height-1);
 
@@ -410,12 +388,10 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        scene1 = kscene->clone();
-        scene2 = kscene->clone();
-        //scene1->transform(kframe->getPose());
-        scene2.transform(frame->getPose());
-        scene1.project(cam);
-        scene2.project(cam);
+        scene1 = *kscene;
+        scene2 = *kscene;
+        scene1.transform(cam, Sophus::SE3f());
+        scene2.transform(cam, frame->getPose());
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -483,9 +459,8 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        scene2 = scene->clone();
-        scene2.transform(pose);
-        scene2.project(cam);
+        scene2 = *scene;
+        scene2.transform(cam, pose);
 
         window win(0, cam.width-1, 0, cam.height-1);
 
@@ -496,9 +471,8 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        scene2 = scene->clone();
-        scene2.transform(pose);
-        scene2.project(cam);
+        scene2 = *scene;
+        scene2.transform(cam, pose);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -529,9 +503,8 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        scene2 = scene->clone();
-        scene2.transform(pose);
-        scene2.project(cam);
+        scene2 = *scene;
+        scene2.transform(cam, pose);
 
         window win(0, cam.width-1, 0, cam.height-1);
 
@@ -542,9 +515,8 @@ public:
     {
         z_buffer.set(z_buffer.nodata, lvl);
 
-        scene2 = scene->clone();
-        scene2.transform(pose);
-        scene2.project(cam);
+        scene2 = *scene;
+        scene2.transform(cam, pose);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -584,7 +556,7 @@ private:
         }
     }
 
-    void renderRandomWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float min = 1.0, float max = 2.0)
+    void renderRandomWindow(window win, dataCPU<float> *buffer, int lvl, float min = 1.0, float max = 2.0)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
@@ -985,7 +957,7 @@ private:
 
                     vec3<float> f_ray = cam.pixToRay(x, y);
                     vec3<float> f_ver = f_ray * f_depth;
-                    vec3<float> kf_ray = cam.pixToRay(kf_pix);
+                    //vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
                     auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
                     auto f_i = frame->getRawImage().get(y, x, lvl);
@@ -1153,7 +1125,7 @@ private:
         float min_area = 0.0; //(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3 / 4;
 
         Sophus::SE3f kfTofPose = frame->getPose();
-        Sophus::SE3f fTokfPose = kfTofPose.inverse();
+        //Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         vec2<float> affine = frame->getAffine();
         float alpha = std::exp(-affine(0));
@@ -1252,7 +1224,7 @@ private:
         float min_area = 0.0;//(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3.0 / 4.0;
 
         Sophus::SE3f kfTofPose = frame->getPose();
-        Sophus::SE3f fTokfPose = kfTofPose.inverse();
+        //Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         vec2<float> affine = frame->getAffine();
         float alpha = std::exp(-affine(0));
@@ -1269,13 +1241,13 @@ private:
                 continue;
 
             float f_pol_area = f_pol.getScreenArea();
-            if (f_pol_area <= 0.0)
+            if (f_pol_area <= min_area)
                 continue;
 
             auto kf_pol = scene1.getShape(t_id);
 
             float kf_pol_area = kf_pol.getScreenArea();
-            if (kf_pol_area <= 0.0)
+            if (kf_pol_area <= min_area)
                 continue;
 
             float p_area;
@@ -1386,7 +1358,7 @@ private:
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
 
-                    float f_depth = f_pol.getDepth(f_pix);
+                    //float f_depth = f_pol.getDepth(f_pix);
                     bool isLine = f_pol.isEdge(f_pix);
 
                     float f_i = image->get(y, x, lvl);

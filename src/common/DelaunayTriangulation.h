@@ -16,7 +16,7 @@ public:
     {
     }
 
-    void loadPoints(std::vector<vec2<float>> &texcoords)
+    void loadPoints(std::vector<vec2<float>> texcoords)
     {
         vertices = texcoords;
     }
@@ -26,9 +26,13 @@ public:
         triangles = tris;
     }
 
+    std::vector<vec3<int>> getTriangles()
+    {
+        return triangles;
+    }
+
     void triangulateVertice(int v_id);
     void triangulate();
-    std::vector<vec3<int>> getTriangles();
 
 private:
 

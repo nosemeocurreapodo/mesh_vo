@@ -9,34 +9,46 @@
 #include "common/HGEigenSparse.h"
 #include "params.h"
 
-template <int vertsize, int trisize>
-class SceneMesh : public SceneVertices<vertsize>
+class SceneMesh : public SceneVertices
 {
 public:
-    SceneMesh() : SceneVertices<vertsize>() {
-                  };
-
-    SceneMesh(const SceneMesh &other) : SceneVertices<vertsize>(other)
+    SceneMesh() : SceneVertices() 
     {
-        triangles = other.triangles;
-    }
+        m_triangles = nullptr;
+        m_trianglesBufferSize = 0;
+    };
+
     /*
-    Mesh &operator=(const Mesh &other)
+    SceneMesh(const SceneMesh &other) : SceneVertices(other)
+    {
+        m_trianglesBufferSize = other.m_trianglesBufferSize;
+        if(m_triangles != nullptr)
+            deleteBuffer();
+        createBuffer(m_trianglesBufferSize);
+        std::memcpy(m_triangles, other.m_triangles, sizeof(triangle) * m_trianglesBufferSize);
+    }
+    */
+    
+    SceneMesh &operator=(const SceneMesh &other)
     {
         if (this != &other)
         {
-            PointSet::operator=(other);
-            triangles = other.triangles;
-            last_triangle_id = other.last_triangle_id;
+            SceneVertices::operator=(other);
+            m_trianglesBufferSize = other.m_trianglesBufferSize;
+            if(m_triangles != nullptr)
+                deleteBuffer();
+            createBuffer(m_trianglesBufferSize);
+            std::memcpy(m_triangles, other.m_triangles, sizeof(triangle) * m_trianglesBufferSize);
         }
         return *this;
     }
-    */
-
+    
+    /*
     SceneMesh clone() const
     {
         return SceneMesh(*this);
     }
+    */
 
     /*
     void clear()
@@ -48,22 +60,19 @@ public:
 
     void init(camera cam, Sophus::SE3f pose, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
     {
-        //clear();
-        SceneVertices<vertsize>::init(cam, pose, idepth, ivar, lvl);
+        SceneVertices::init(cam, pose, idepth, ivar, lvl);
         buildTriangles();
     }
 
     void init(camera cam, Sophus::SE3f pose, std::vector<vec3<float>> &vertices)
     {
-        //clear();
-        SceneVertices<vertsize>::init(cam, pose, vertices);
+        SceneVertices::init(cam, pose, vertices);
         buildTriangles();
     }
 
     void init(camera cam, Sophus::SE3f pose, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths)
     {
-        //clear();
-        SceneVertices<vertsize>::init(cam, pose, texcoords, idepths);
+        SceneVertices::init(cam, pose, texcoords, idepths);
         buildTriangles();
     }
 
@@ -78,14 +87,14 @@ public:
         std::vector<int> trianglesIds = getTrianglesIds();
         for (int triangleId : trianglesIds)
         {
-            vec3<int> triIn = triangles[triangleId];
+            vec3<int> triIn = m_triangles[triangleId].vertexIds;
             // ShapeTriangleFlat triangle(getRay(triIn(0)), getRay(triIn(1)), getRay(triIn(2)),
             //                            getPix(triIn(0)), getPix(triIn(1)), getPix(triIn(2)),
             //                            getDepth(triIn(0)), getDepth(triIn(1)), getDepth(triIn(2)),
             //                            getWeight(triIn(0)), getWeight(triIn(1)), getWeight(triIn(2)));
             // vec2<float> centerPix = triangle.getCenterPix();
 
-            vec2<float> centerPix = (getPix(triIn(0)) + getPix(triIn(1)) + getPix(triIn(2))) / 3.0;
+            vec2<float> centerPix = (getVertex(triIn(0)).pix + getVertex(triIn(1)).pix + getVertex(triIn(2)).pix) / 3.0;
 
             float err = error.get(centerPix(1), centerPix(0), lvl);
             if (err > thresh)
@@ -164,19 +173,13 @@ public:
         init(frame, cam, good_vertices, lvl);
         */
 
-        triangles = good_triangles;
+        //_triangles = good_triangles;
 
         // update pixs
         // project(cam);
         // buildTriangles();
 
         return 0; // good_vertices.size();
-    }
-
-    int getNumParams()
-    {
-        // one depth for each vertice
-        return getVerticesIds().size();
     }
 
     /*
@@ -207,17 +210,9 @@ public:
 
     ShapeTriangleFlat getShape(int polId)
     {
-        vec3<int> tri = getTriangleIndices(polId);
-        // return std::make_unique<ShapeTriangleFlat>(getVertice(tri[0]), getVertice(tri[1]), getVertice(tri[2]), getDepthJacMethod());
-        return ShapeTriangleFlat(getRay(tri(0)), getRay(tri(1)), getRay(tri(2)),
-                                 getPix(tri(0)), getPix(tri(1)), getPix(tri(2)),
-                                 getDepth(tri(0)), getDepth(tri(1)), getDepth(tri(2)),
-                                 getWeight(tri(0)), getWeight(tri(1)), getWeight(tri(2)),
-                                 tri(0), tri(1), tri(2));
-        // return std::make_unique<ShapeTriangleFlat>(getRay(tri[0]), getRay(tri[1]), getRay(tri[2]),
-        //                                            getPix(tri[0]), getPix(tri[1]), getPix(tri[2]),
-        //                                            getDepth(tri[0]), getDepth(tri[1]), getDepth(tri[2]),
-        //                                            getDepthJacMethod());
+        vec3<int> vIds = m_triangles[polId].vertexIds;
+        return ShapeTriangleFlat(getVertex(vIds(0)), getVertex(vIds(1)), getVertex(vIds(2)),
+                                 vIds(0), vIds(1), vIds(2));
     }
 
     /*
@@ -257,9 +252,9 @@ public:
         setDepthParam(param, paramId);
     }
 
-    void setParamWeight(float weight, int paramId)
+    void setWeight(float weight, int paramId)
     {
-        setWeight(weight, paramId);
+        setParamWeight(weight, paramId);
     }
 
     float getParam(int paramId)
@@ -267,22 +262,28 @@ public:
         return getDepthParam(paramId);
     }
 
+    float getWeight(int paramId)
+    {
+        return getParamWeight(paramId);
+    }
+
     Error errorRegu(camera cam)
     {
         Error error;
 
-        std::vector<int> polIds = getTrianglesIds();
+        std::vector<int> triIds = getTrianglesIds();
+        std::vector<int> vecIds = getVerticesIds();
 
-        for (size_t index = 0; index < polIds.size(); index++)
+        for (size_t index = 0; index < triIds.size(); index++)
         {
-            int id = polIds[index];
-            vec3<int> tri = getTriangleIndices(id);
+            int id = triIds[index];
+            vec3<int> vIds = m_triangles[id].vertexIds;
 
             float theta[3];
 
             for (int j = 0; j < 3; j++)
             {
-                theta[j] = getDepthParam(tri(j));
+                theta[j] = getDepthParam(vIds(j));
             }
 
             float diff1 = theta[0] - theta[1];
@@ -300,15 +301,16 @@ public:
 
     HGEigenSparse HGRegu(camera cam, int numFrames = 0)
     {
-        std::vector<int> polIds = getTrianglesIds();
+        std::vector<int> triIds = getTrianglesIds();
+        std::vector<int> vecIds = getVerticesIds();
 
-        HGEigenSparse hg(getNumParams() + numFrames * 8);
+        HGEigenSparse hg(vecIds.size() + numFrames * 8);
 
-        for (size_t i = 0; i < polIds.size(); i++)
+        for (size_t i = 0; i < triIds.size(); i++)
         {
-            int p_id = polIds[i];
+            int t_id = triIds[i];
 
-            vec3<int> v_ids = getTriangleIndices(p_id);
+            vec3<int> v_ids = m_triangles[t_id].vertexIds;
 
             float theta[3];
             theta[0] = getDepthParam(v_ids(0));
@@ -317,17 +319,17 @@ public:
 
             float diff1 = theta[0] - theta[1];
             float diff2 = theta[0] - theta[2];
-            float diff3 = theta[1] - theta[0];
+            //float diff3 = theta[1] - theta[0];
             float diff4 = theta[1] - theta[2];
-            float diff5 = theta[2] - theta[0];
-            float diff6 = theta[2] - theta[1];
+            //float diff5 = theta[2] - theta[0];
+            //float diff6 = theta[2] - theta[1];
 
             vec3<float> J1(1.0, -1.0, 0.0);
             vec3<float> J2(1.0, 0.0, -1.0);
-            vec3<float> J3(-1.0, 1.0, 0.0);
+            //vec3<float> J3(-1.0, 1.0, 0.0);
             vec3<float> J4(0.0, 1.0, -1.0);
-            vec3<float> J5(-1.0, 0.0, 1.0);
-            vec3<float> J6(0.0, -1.0, 1.0);
+            //vec3<float> J5(-1.0, 0.0, 1.0);
+            //vec3<float> J6(0.0, -1.0, 1.0);
 
             hg.sparseAdd(J1, diff1, 1.0, v_ids);
             hg.sparseAdd(J2, diff2, 1.0, v_ids);
@@ -495,6 +497,19 @@ public:
     }
 
 private:
+
+    void deleteBuffer()
+    {
+        delete m_triangles;
+        m_triangles = nullptr;
+    }
+
+    void createBuffer(int size)
+    {
+        m_triangles = new (std::nothrow) triangle[size];
+    }
+
+/*
     void clearTriangles()
     {
         triangles.clear();
@@ -516,31 +531,15 @@ private:
         triangles.push_back(tri);
         return id;
     }
-
-    void setTriangleIndices(vec3<int> &tri, int id)
-    {
-#ifdef DEBUG
-        if (id >= triangles.size())
-            throw std::out_of_range("setTriangleIndices invalid id");
-#endif
-        triangles[id] = tri;
-    }
-
-    inline vec3<int> &getTriangleIndices(int id)
-    {
-#ifdef DEBUG
-        if (id >= triangles.size())
-            throw std::out_of_range("setTriangleIndices invalid id");
-#endif
-        return triangles[id];
-    }
+*/
 
     std::vector<int> getTrianglesIds() const
     {
         std::vector<int> keys;
-        for (int it = 0; it < (int)triangles.size(); ++it)
+        for (int it = 0; it < m_trianglesBufferSize; ++it)
         {
-            keys.push_back(it);
+            if(m_triangles[it].used)
+                keys.push_back(it);
         }
         return keys;
     }
@@ -640,11 +639,31 @@ private:
 
     void buildTriangles()
     {
-        DelaunayTriangulation triangulation;
-        triangulation.loadPoints(getPixels());
-        triangulation.triangulate();
+        std::vector<int> ids = getVerticesIds();
+
+        std::vector<vec2<float>> pixels;
+        pixels.reserve(ids.size());
+
+        for(size_t i = 0; i < ids.size(); i++)
+        {
+            pixels.push_back(getVertex(ids[i]).pix);
+        }
+
+        m_triangulator.loadPoints(pixels);
+        m_triangulator.triangulate();
         // clearTriangles();
-        setTriangles(triangulation.getTriangles());
+        std::vector<vec3<int>> tris = m_triangulator.getTriangles();
+
+        if(m_triangles != nullptr)
+            deleteBuffer();
+        createBuffer(tris.size());
+        m_trianglesBufferSize = tris.size();
+
+        for(size_t i = 0; i < tris.size(); i++)
+        {
+            m_triangles[i].vertexIds = tris[i];
+            m_triangles[i].used = true;
+        }
     }
 
     /*
@@ -681,5 +700,7 @@ private:
     }
     */
 
-    vec3<int> triangles;
+    triangle* m_triangles;
+    int m_trianglesBufferSize;
+    DelaunayTriangulation m_triangulator;
 };

@@ -50,15 +50,13 @@ public:
     {
         int lvl = 1;
 
-        kscene.project(cam[lvl]);
+        kscene.transform(cam[lvl], Sophus::SE3f());
 
-        sceneType scene1 = kscene.clone();
-        scene1.transform(frame1->getPose());
-        scene1.project(cam[lvl]);
+        sceneType scene1 = kscene;
+        scene1.transform(cam[lvl], frame1->getPose());
 
-        sceneType scene2 = kscene.clone();
-        scene2.transform(frame2->getPose());
-        scene2.project(cam[lvl]);
+        sceneType scene2 = kscene;
+        scene2.transform(cam[lvl], frame2->getPose());
 
         Sophus::SE3f frame1PoseInv = frame1->getPose().inverse();
         Sophus::SE3f frame2PoseInv = frame2->getPose().inverse();
@@ -109,9 +107,8 @@ public:
     float getViewPercent(frameCPU &frame)
     {
         int lvl = 1;
-        sceneType scene = kscene.clone();
-        scene.transform(frame.getPose());
-        scene.project(cam[lvl]);
+        sceneType scene = kscene;
+        scene.transform(cam[lvl], frame.getPose());
         std::vector<int> shapeIds = scene.getShapesIds();
 
         int numVisible = 0;
@@ -351,11 +348,13 @@ private:
         jmap_buffer.set(jmap_buffer.nodata, lvl);
         pId_buffer.set(pId_buffer.nodata, lvl);
 
+        int numMapParams = kscene.getParamIds().size();
+
         // renderer.renderJMap(scene, cam[lvl], kframe, frame, jmap_buffer, error_buffer, pId_buffer, lvl);
         renderer.renderJMapParallel(&kscene, &kimage, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
         // HGMapped hg = reducer.reduceHGMap(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
         // HGEigen hg = reducer.reduceHGMapParallel(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
-        HGEigenSparse hg = reducer.reduceHGMap2(kscene.getNumParams(), jmap_buffer, error_buffer, pId_buffer, *mask, lvl);
+        HGEigenSparse hg = reducer.reduceHGMap2(numMapParams, jmap_buffer, error_buffer, pId_buffer, *mask, lvl);
 
         return hg;
     }
@@ -381,9 +380,11 @@ private:
         error_buffer.set(error_buffer.nodata, lvl);
         pId_buffer.set(pId_buffer.nodata, lvl);
 
+        int numMapParams = kscene.getParamIds().size();
+
         renderer.renderJPoseMapParallel(&kscene, &kimage, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
         // HGEigenSparse hg = reducer.reduceHGPoseMap2(cam[lvl], frameIndex, numFrames, scene->getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
-        HGEigenSparse hg = reducer.reduceHGPoseMapParallel2(frameIndex, numFrames, kscene.getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
+        HGEigenSparse hg = reducer.reduceHGPoseMapParallel2(frameIndex, numFrames, numMapParams, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
         return hg;
     }
