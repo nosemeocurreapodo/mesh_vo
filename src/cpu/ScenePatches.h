@@ -184,14 +184,14 @@ public:
             }
             float error = getDepthParam(polId) - meanParam / count;
 
-            hg.sparseAdd(1.0, error, 1.0, polId);
+            hg.add(1.0, error, 1.0, polId);
             for (auto polId2 : polIds2)
             {
-                hg.sparseAdd(-1.0 / count, error, 1.0, polId2);
+                hg.add(-1.0 / count, error, 1.0, polId2);
             }
         }
 
-        hg.endSparseAdd();
+        hg.endAdd();
 
         return hg;
     }

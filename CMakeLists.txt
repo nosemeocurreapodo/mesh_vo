@@ -15,7 +15,7 @@ set(CMAKE_CXX_FLAGS
 #   "-O3 -ffast-math -fno-math-errno -DNDEBUG"
 #"-O3 -ffast-math -march=native -fopenmp -DNDEBUG"
 "-g -DEBUG -fno-omit-frame-pointer -DDEBUG"
-#"-O3 -Wall -Wextra -pedantic -DNDEBUG -pg"
+#"-O3 -Wall -Wextra -pedantic -DNDEBUG"
 )
 
 include_directories("src")

@@ -1,6 +1,4 @@
-#include <cmath>
 #include "common/DelaunayTriangulation.h"
-#include "common/common.h"
 
 std::array<vec2<float>, 3> DelaunayTriangulation::getSuperTriangle()
 {

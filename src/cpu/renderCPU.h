@@ -1263,6 +1263,8 @@ private:
 
             pol_win.intersect(win);
 
+            idsType ids = kf_pol.getParamIds();
+
             for (int y = pol_win.min_y; y < pol_win.max_y; y++)
             {
                 for (int x = pol_win.min_x; x < pol_win.max_x; x++)
@@ -1319,7 +1321,6 @@ private:
                     float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
                     jmapType jacs = kf_pol.getParamJacobian(kf_pix)*d_f_i_d_kf_depth;
-                    idsType ids = kf_pol.getParamIds();
 
                     float error = f_i_cor - kf_i;
 

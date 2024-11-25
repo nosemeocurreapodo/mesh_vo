@@ -294,7 +294,7 @@ private:
         return e;
     }
 
-    HGEigenDense<2> computeHGLightAffine(frameCPU *frame, int lvl, bool useWeights)
+    HGEigenDense computeHGLightAffine(frameCPU *frame, int lvl, bool useWeights)
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
         jlightaffine_buffer.set(jlightaffine_buffer.nodata, lvl);
@@ -305,12 +305,12 @@ private:
         if (useWeights)
             renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
 
-        HGEigenDense<2> hg = reducer.reduceHGLightAffineParallel(jlightaffine_buffer, error_buffer, ivar_buffer, lvl);
+        HGEigenDense hg = reducer.reduceHGLightAffineParallel(jlightaffine_buffer, error_buffer, ivar_buffer, lvl);
 
         return hg;
     }
 
-    HGEigenDense<8> computeHGPose(frameCPU *frame, int lvl, bool useWeights)
+    HGEigenDense computeHGPose(frameCPU *frame, int lvl, bool useWeights)
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
         jpose_buffer.set(jpose_buffer.nodata, lvl);
@@ -321,7 +321,7 @@ private:
         if (useWeights)
             renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
 
-        HGEigenDense<8> hg = reducer.reduceHGPoseParallel(jpose_buffer, error_buffer, ivar_buffer, lvl);
+        HGEigenDense hg = reducer.reduceHGPoseParallel(jpose_buffer, error_buffer, ivar_buffer, lvl);
 
         return hg;
     }

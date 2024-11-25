@@ -8,16 +8,16 @@
 #include "cpu/Shapes.h"
 #include "cpu/frameCPU.h"
 
+#define MAX_VERTEX_SIZE 4096 //for a 64*64 mesh
+
 class SceneVertices // : public SceneBase
 {
 public:
 
     SceneVertices()
     {
-        m_vertices = nullptr;
         m_pose = Sophus::SE3f();
         m_cam = camera(0.0, 0.0, 0.0, 0.0, 0, 0);
-        m_verticesBufferSize = 0;
     }
 
     /*
@@ -44,6 +44,7 @@ public:
     }
     */
 
+    /*
     SceneVertices &operator=(const SceneVertices &other)
     {
         if (this != &other)
@@ -52,13 +53,14 @@ public:
             m_cam = other.m_cam;
             m_verticesBufferSize = other.m_verticesBufferSize;
 
-            if(m_vertices != nullptr)
-                deleteBuffer();
-            createBuffer(m_verticesBufferSize);
+            //if(m_vertices != nullptr)
+            //    deleteBuffer();
+            //createBuffer(m_verticesBufferSize);
             std::memcpy(m_vertices, other.m_vertices, sizeof(vertex) *m_verticesBufferSize);
         }
         return *this;
     }
+    */
 
     /*
      std::unique_ptr<SceneBase> clone() const override
@@ -71,14 +73,16 @@ public:
     {
         m_pose = pose;
         m_cam = cam;
-        m_verticesBufferSize = vertices.size();
+        //m_verticesBufferSize = vertices.size();
         
-        if(m_vertices != nullptr)
-            deleteBuffer();
-        createBuffer(m_verticesBufferSize);
+        //if(m_vertices != nullptr)
+        //    deleteBuffer();
+        //createBuffer(m_verticesBufferSize);
 
-        for (int i = 0; i < m_verticesBufferSize; i++)
+        for (int i = 0; i < vertices.size(); i++)
         {
+            if(i >= MAX_VERTEX_SIZE)
+                break;
             vec3<float> vertice = vertices[i];
             vec3<float> ray = vertice / vertice(2);
             float idph = 1.0 / vertice(2);
@@ -96,14 +100,16 @@ public:
     {
         m_cam = cam;
         m_pose = pose;
-        m_verticesBufferSize = texcoords.size();
+        //m_verticesBufferSize = texcoords.size();
 
-        if(m_vertices != nullptr)
-            deleteBuffer();
-        createBuffer(m_verticesBufferSize);
+        //if(m_vertices != nullptr)
+        //    deleteBuffer();
+        //createBuffer(m_verticesBufferSize);
 
-        for (int i = 0; i < m_verticesBufferSize; i++)
+        for (int i = 0; i < texcoords.size(); i++)
         {
+            if(i >= MAX_VERTEX_SIZE)
+                break;
             vec2<float> pix = texcoords[i];
             float idph = idepths[i];
 
@@ -123,17 +129,20 @@ public:
     {
         m_cam = cam;
         m_pose = pose;
-        m_verticesBufferSize = MESH_WIDTH*MESH_HEIGHT;
+        //m_verticesBufferSize = MESH_WIDTH*MESH_HEIGHT;
 
-        if(m_vertices != nullptr)
-            deleteBuffer();
-        createBuffer(m_verticesBufferSize);
+        //if(m_vertices != nullptr)
+        //    deleteBuffer();
+        //createBuffer(m_verticesBufferSize);
 
         int i = 0;
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
             for (float x = 0.0; x < MESH_WIDTH; x++)
             {
+                if(i >= MAX_VERTEX_SIZE)
+                    return;
+
                 vec2<float> pix;
                 pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
                 pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
@@ -223,7 +232,7 @@ public:
         float new_s = 0;
         int n = 0;
 
-        for (int i = 0; i < m_verticesBufferSize; i++)
+        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
         {
             if (!m_vertices[i].used)
                 continue;
@@ -256,7 +265,7 @@ public:
 
     void scaleDepthParam(vec2<float> affine)
     {
-        for (int i = 0; i < m_verticesBufferSize; i++)
+        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
         {
             if (!m_vertices[i].used)
                 continue;
@@ -269,7 +278,7 @@ public:
     inline vertex &getVertex(unsigned int id)
     {
 #ifdef DEBUG
-        if (id >= m_verticesBufferSize)
+        if (id >= MAX_VERTEX_SIZE)
             throw std::out_of_range("getVertex invalid id");
 #endif
         return m_vertices[id];
@@ -300,7 +309,7 @@ public:
     std::vector<int> getVerticesIds() const
     {
         std::vector<int> keys;
-        for (int it = 0; it < m_verticesBufferSize; ++it)
+        for (int it = 0; it < MAX_VERTEX_SIZE; ++it)
         {
             if(m_vertices[it].used)
                 keys.push_back((int)it);
@@ -314,9 +323,9 @@ public:
         if (!(m_pose.translation() == pose.translation()) && !(m_pose.unit_quaternion() == pose.unit_quaternion()) )
         {
             poseUpdated = true;
-            Sophus::SE3f relativePose = m_pose * pose.inverse();
+            Sophus::SE3f relativePose = pose * m_pose.inverse();
             m_pose = pose;
-            for (int it = 0; it < m_verticesBufferSize; ++it)
+            for (int it = 0; it < MAX_VERTEX_SIZE; ++it)
             {
                 if (!m_vertices[it].used)
                     continue;
@@ -332,7 +341,7 @@ public:
         if (!(m_cam == cam) || poseUpdated)
         {
             m_cam = cam;
-            for (int it = 0; it < m_verticesBufferSize; ++it)
+            for (int it = 0; it < MAX_VERTEX_SIZE; ++it)
             {
                 if(!m_vertices[it].used)
                     continue;
@@ -369,6 +378,7 @@ public:
 
 private:
 
+    /*
     void deleteBuffer()
     {
         delete m_vertices;
@@ -379,11 +389,12 @@ private:
     {
         m_vertices = new (std::nothrow) vertex[size];
     }
+    */
 
     void setVerticeDepth(float depth, unsigned int id)
     {
 #ifdef DEBUG
-        if (id >= m_verticesBufferSize)
+        if (id >= MAX_VERTEX_SIZE)
             throw std::out_of_range("setVerticeDepth invalid id");
 #endif
         m_vertices[id].ver = m_vertices[id].ray * depth;
@@ -392,14 +403,14 @@ private:
     float getVerticeDepth(unsigned int id)
     {
 #ifdef DEBUG
-        if (id >= m_verticesBufferSize)
+        if (id >= MAX_VERTEX_SIZE)
             throw std::out_of_range("getVerticeDepth invalid id");
 #endif
         return m_vertices[id].ver(2);
     }
 
-    vertex* m_vertices;
+    vertex m_vertices[MAX_VERTEX_SIZE]; 
     Sophus::SE3f m_pose;
     camera m_cam;
-    int m_verticesBufferSize;
+    //int m_verticesBufferSize;
 };

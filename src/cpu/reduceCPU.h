@@ -68,9 +68,9 @@ public:
         return err;
     }
 
-    HGEigenDense<8> reduceHGPose(dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
+    HGEigenDense reduceHGPose(dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
     {
-        HGEigenDense<8> hg;
+        HGEigenDense hg(8);
         int width = jpose_buffer.lvlWidths[lvl];
         int height = jpose_buffer.lvlHeights[lvl];
         window win = {0, width, 0, height};
@@ -78,12 +78,19 @@ public:
         return hg;
     }
 
-    HGEigenDense<2> reduceHGLightAffineParallel(dataCPU<vec2<float>> &jlightaffine_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
+    HGEigenDense reduceHGLightAffineParallel(dataCPU<vec2<float>> &jlightaffine_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
     {
         const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
         const int divi_x = 1;
 
-        HGEigenDense<2> partialhg[divi_x * divi_y];
+        std::vector<HGEigenDense> partialhg;
+
+        // calling constructor
+        // for each index of array
+        for (int i = 0; i < divi_x * divi_y; i++)
+        {
+            partialhg.push_back(HGEigenDense(2));
+        }
 
         int width = jlightaffine_buffer.lvlWidths[lvl] / divi_x;
         int height = jlightaffine_buffer.lvlHeights[lvl] / divi_y;
@@ -106,7 +113,7 @@ public:
 
         //pool.waitUntilDone();
 
-        HGEigenDense<2> hg;
+        HGEigenDense hg(2);
         for (int i = 0; i < divi_y * divi_x; i++)
         {
             hg += partialhg[i];
@@ -115,12 +122,19 @@ public:
         return hg;
     }
 
-    HGEigenDense<8> reduceHGPoseParallel(dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
+    HGEigenDense reduceHGPoseParallel(dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &err_buffer, dataCPU<float> &weights_buffer, int lvl)
     {
         const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
         const int divi_x = 1;
 
-        HGEigenDense<8> partialhg[divi_x * divi_y];
+        std::vector<HGEigenDense> partialhg;
+
+        // calling constructor
+        // for each index of array
+        for (int i = 0; i < divi_x * divi_y; i++)
+        {
+            partialhg.push_back(HGEigenDense(8));
+        }
 
         int width = jpose_buffer.lvlWidths[lvl] / divi_x;
         int height = jpose_buffer.lvlHeights[lvl] / divi_y;
@@ -143,7 +157,7 @@ public:
 
         //pool.waitUntilDone();
 
-        HGEigenDense<8> hg;
+        HGEigenDense hg(8);
         for (int i = 0; i < divi_y * divi_x; i++)
         {
             hg += partialhg[i];
@@ -332,7 +346,7 @@ private:
             }
     }
 
-    void reduceHGLightAffineWindow(window win, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense<2> *hg, int lvl)
+    void reduceHGLightAffineWindow(window win, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense *hg, int lvl)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
@@ -355,7 +369,7 @@ private:
         }
     }
 
-    void reduceHGPoseWindow(window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense<8> *hg, int lvl)
+    void reduceHGPoseWindow(window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *res_buffer, dataCPU<float> *weights_buffer, HGEigenDense *hg, int lvl)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
@@ -405,15 +419,6 @@ private:
     template <typename jmapType, typename idsType>
     void reduceHGMapWindow(window win, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<idsType> *pId_buffer, dataCPU<float> *weights_buffer, HGEigenSparse *hg, int lvl)
     {
-        typedef Eigen::Triplet<double> T;
-        std::vector<T> tripletList;
-        // tripletList.reserve(paramIds.size() * 3);
-
-        // Eigen::SparseMatrix<float> eigenMatrix(paramIds.size(), paramIds.size());
-        // eigenMatrix.setFromTriplets(tripletList.begin(), tripletList.end());
-
-        // return eigenMatrix;
-
         for (int y = win.min_y; y < win.max_y; y++)
         {
             for (int x = win.min_x; x < win.max_x; x++)
@@ -434,11 +439,11 @@ private:
                 if (absres > HUBER_THRESH_PIX)
                     hw = HUBER_THRESH_PIX / absres;
 
-                hg->sparseAdd(jac, res, w*hw, ids);
+                hg->add(jac, res, w*hw, ids);
             }
         }
 
-        hg->endSparseAdd();
+        hg->endAdd();
     }
 
     template <typename jmapType, typename idsType>
@@ -482,47 +487,11 @@ private:
                 hg->add(J, res, hw, ids);
             }
         }
-        /*
-        for (int y = win.min_y; y < win.max_y; y++)
-        {
-            for (int x = win.min_x; x < win.max_x; x++)
-            {
-                vec6<float> J_pose = jpose_buffer->get(y, x, lvl);
-                // Type2 J_map = jmap_buffer->get(y, x, lvl);
-                float error = error_buffer->get(y, x, lvl);
-                // Type3 ids = pId_buffer->get(y, x, lvl);
-
-                if (J_pose == jpose_buffer->nodata || error == error_buffer->nodata)
-                    continue;
-
-                vec6<unsigned int> ids;
-                for (int i = 0; i < 6; i++)
-                    ids(i) = numMapParams + frameId * 6 + i;
-
-                hg->add(J_pose, error, ids);
-            }
-        }
-
-        for (int y = win.min_y; y < win.max_y; y++)
-        {
-            for (int x = win.min_x; x < win.max_x; x++)
-            {
-                Type1 J_map = jmap_buffer->get(y, x, lvl);
-                float error = error_buffer->get(y, x, lvl);
-                Type2 ids = pId_buffer->get(y, x, lvl);
-
-                hg->add(J_map, error, ids);
-            }
-        }
-        */
     }
 
     template <typename jmapType, typename idsType>
     void reduceHGPoseMapWindow2(window win, int frameId, int numMapParams, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *res_buffer, dataCPU<idsType> *pId_buffer, HGEigenSparse *hg, int lvl)
     {
-        typedef Eigen::Triplet<double> T;
-        std::vector<T> tripletList;
-
         for (int y = win.min_y; y < win.max_y; y++)
         {
             for (int x = win.min_x; x < win.max_x; x++)
@@ -549,8 +518,8 @@ private:
                 }
                 for(int i = 0; i < jmapType::size(); i++)
                 {
-                    J(i + J_pose.size()) = J_map(i);
-                    ids(i + J_pose.size()) = map_ids(i);
+                    J(i + 8) = J_map(i);
+                    ids(i + 8) = map_ids(i);
                 }
 
                 float absres = std::fabs(res);
@@ -558,25 +527,11 @@ private:
                 if (absres > HUBER_THRESH_PIX)
                     hw = HUBER_THRESH_PIX / absres;
 
-                hg->sparseAdd(J, res, hw, ids);
+                hg->add(J, res, hw, ids);
             }
         }
 
-        /*
-        for (int y = win.min_y; y < win.max_y; y++)
-        {
-            for (int x = win.min_x; x < win.max_x; x++)
-            {
-                Type2 J_map = jmap_buffer->get(y, x, lvl);
-                float error = error_buffer->get(y, x, lvl);
-                Type3 ids = pId_buffer->get(y, x, lvl);
-
-                hg->sparseAdd(J_map, error, ids);
-            }
-        }
-        */
-
-        hg->endSparseAdd();
+        hg->endAdd();
     }
 
     ThreadPool<REDUCER_NTHREADS> pool;

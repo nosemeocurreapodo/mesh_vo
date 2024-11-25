@@ -192,7 +192,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         //meshOptimizer.optMap(keyFrames, mask);
         //meshOptimizer.normalizeDepth();
 
-        //meshOptimizer.optPoseMap(keyFrames);
+        meshOptimizer.optPoseMap(keyFrames);
         //meshOptimizer.normalizeDepth();
         //vec2<float> depthAffine = meshOptimizer.kDepthAffine;
 
@@ -230,7 +230,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         }
     }
 
-    meshOptimizer.plotDebug(newFrame, keyFrames);
+    //meshOptimizer.plotDebug(newFrame, keyFrames);
 
     lastMovement = newFrame.getPose() * lastPose.inverse();
     lastPose = newFrame.getPose();

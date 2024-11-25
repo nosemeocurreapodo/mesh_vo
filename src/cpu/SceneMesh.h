@@ -9,13 +9,15 @@
 #include "common/HGEigenSparse.h"
 #include "params.h"
 
+#define MAX_TRIANGLE_SIZE 4096
+
 class SceneMesh : public SceneVertices
 {
 public:
     SceneMesh() : SceneVertices() 
     {
-        m_triangles = nullptr;
-        m_trianglesBufferSize = 0;
+        //m_triangles = nullptr;
+        //m_trianglesBufferSize = 0;
     };
 
     /*
@@ -28,7 +30,7 @@ public:
         std::memcpy(m_triangles, other.m_triangles, sizeof(triangle) * m_trianglesBufferSize);
     }
     */
-    
+    /*
     SceneMesh &operator=(const SceneMesh &other)
     {
         if (this != &other)
@@ -42,6 +44,7 @@ public:
         }
         return *this;
     }
+    */
     
     /*
     SceneMesh clone() const
@@ -331,15 +334,15 @@ public:
             //vec3<float> J5(-1.0, 0.0, 1.0);
             //vec3<float> J6(0.0, -1.0, 1.0);
 
-            hg.sparseAdd(J1, diff1, 1.0, v_ids);
-            hg.sparseAdd(J2, diff2, 1.0, v_ids);
+            hg.add(J1, diff1, 1.0, v_ids);
+            hg.add(J2, diff2, 1.0, v_ids);
             // hg.sparseAdd(J3, diff3, 1.0, v_ids);
-            hg.sparseAdd(J4, diff4, 1.0, v_ids);
+            hg.add(J4, diff4, 1.0, v_ids);
             // hg.sparseAdd(J5, diff5, 1.0, v_ids);
             // hg.sparseAdd(J6, diff6, 1.0, v_ids);
         }
 
-        hg.endSparseAdd();
+        hg.endAdd();
 
         return hg;
     }
@@ -498,6 +501,7 @@ public:
 
 private:
 
+    /*
     void deleteBuffer()
     {
         delete m_triangles;
@@ -508,6 +512,7 @@ private:
     {
         m_triangles = new (std::nothrow) triangle[size];
     }
+    */
 
 /*
     void clearTriangles()
@@ -536,7 +541,7 @@ private:
     std::vector<int> getTrianglesIds() const
     {
         std::vector<int> keys;
-        for (int it = 0; it < m_trianglesBufferSize; ++it)
+        for (int it = 0; it < MAX_TRIANGLE_SIZE; ++it)
         {
             if(m_triangles[it].used)
                 keys.push_back(it);
@@ -654,13 +659,10 @@ private:
         // clearTriangles();
         std::vector<vec3<int>> tris = m_triangulator.getTriangles();
 
-        if(m_triangles != nullptr)
-            deleteBuffer();
-        createBuffer(tris.size());
-        m_trianglesBufferSize = tris.size();
-
         for(size_t i = 0; i < tris.size(); i++)
         {
+            if(i >= MAX_TRIANGLE_SIZE)
+                break;
             m_triangles[i].vertexIds = tris[i];
             m_triangles[i].used = true;
         }
@@ -700,7 +702,7 @@ private:
     }
     */
 
-    triangle* m_triangles;
-    int m_trianglesBufferSize;
+    triangle m_triangles[MAX_TRIANGLE_SIZE];
+    //int m_trianglesBufferSize;
     DelaunayTriangulation m_triangulator;
 };

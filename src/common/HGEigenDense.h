@@ -2,11 +2,10 @@
 
 #include <Eigen/Core>
 
-template <int size>
 class HGEigenDense
 {
 public:
-    HGEigenDense()
+    HGEigenDense(int size)
     {
         H = Eigen::MatrixXf::Zero(size, size);
         G = Eigen::VectorXf::Zero(size);
@@ -31,10 +30,10 @@ public:
 
         for (int i = 0; i < type::size(); i++)
         {
-            G(i) += weight * J(i) * error;
+            G(i) += J(i) * error * weight;
             H(i, i) += J(i) * J(i) * weight;
 
-            for (int j = i + 1; j < J.size(); j++)
+            for (int j = i + 1; j < type::size(); j++)
             {
                 float jj = J(i) * J(j) * weight;
                 H(i, j) += jj;

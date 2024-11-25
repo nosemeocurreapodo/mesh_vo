@@ -2,10 +2,13 @@
 
 #include <map>
 #include <vector>
-//#include <cmath>
+#include <array>
+#include <cmath>
 //#include <algorithm>
 //#include <iostream>
 
+//#include <cmath>
+#include "common/common.h"
 //#include <Eigen/Core>
 #include "common/types.h"
 

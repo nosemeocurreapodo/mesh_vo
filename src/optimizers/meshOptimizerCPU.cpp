@@ -103,7 +103,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &fr
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             // HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
-            HGEigenDense<2> hg = computeHGLightAffine(&frame, lvl, false);
+            HGEigenDense hg = computeHGLightAffine(&frame, lvl, false);
 
             Eigen::VectorXf G = hg.getG();
             Eigen::Matrix<float, 2, 2> H = hg.getH();
