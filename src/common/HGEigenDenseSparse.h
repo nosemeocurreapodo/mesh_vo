@@ -7,17 +7,20 @@
 class HGEigenDenseSparse
 {
 public:
-    HGEigenDenseSparse(int numFrames, int numMapParams)
+    HGEigenDenseSparse(int numPoseParams, int numMapParams)
     {
-        HPose = Eigen::MatrixXf::Zero(numFrames*8, numFrames*8);
-        GPose = Eigen::VectorXf::Zero(numFrames*8);
+        m_numPoseParams = numPoseParams;
+        m_numMapParams = numMapParams;
 
-        HGPoseMap = Eigen::MatrixXf::Zero(numFrames*8, numMapParams)
+        m_HPose = Eigen::MatrixXf::Zero(numPoseParams, numPoseParams);
+        m_GPose = Eigen::VectorXf::Zero(numPoseParams);
 
-        HMap = Eigen::SparseMatrix<float>(numMapParams, numMapParams);
-        GMap = Eigen::VectorXf::Zero(numMapParams);
+        m_HPoseMap = Eigen::MatrixXf::Zero(numPoseParams, numMapParams);
+
+        m_HMap = Eigen::SparseMatrix<float>(numMapParams, numMapParams);
+        m_GMap = Eigen::VectorXf::Zero(numMapParams);
         
-        count = 0;
+        m_count = 0;
 
         // reserve space, will need roughly
         // for each pixel
@@ -28,36 +31,42 @@ public:
 
     void setZero()
     {
-        HPose.setZero();
-        GPose.setZero();
-        HGPoseMap.setZero();
-        HMap.setZero();
-        GMap.setZero();
-        count = 0;
+        m_HPose.setZero();
+        m_GPose.setZero();
+        m_HPoseMap.setZero();
+        m_HMap.setZero();
+        m_GMap.setZero();
+        m_count = 0;
     }
 
     HGEigenDenseSparse operator+(HGEigenDenseSparse &a)
     {
-        HGEigenDenseSparse sum(G.size());
-        sum.HPose = HPose + a.HPose;
-        sum.GPose = GPose + a.GPose;
-        sum.HPoseMap = HPoseMap + a.HPoseMap;
-        sum.GPoseMap = GPoseMap + a.GPoseMap;
-        sum.HMap = HMap + a.HMap;
-        sum.GMap = GMap + a.GMap;
-        sum.count = count + a.count;
+        setFromTriplets();
+        a.setFromTriplets();
+
+        HGEigenDenseSparse sum(m_numPoseParams, m_numMapParams);
+        sum.m_HPose = m_HPose + a.m_HPose;
+        sum.m_GPose = m_GPose + a.m_GPose;
+        sum.m_HPoseMap = m_HPoseMap + a.m_HPoseMap;
+        sum.m_HMap = m_HMap + a.m_HMap;
+        sum.m_GMap = m_GMap + a.m_GMap;
+        sum.m_count = m_count + a.m_count;
+        sum.m_numPoseParams;
+        sum.m_numMapParams;
         return sum;
     }
 
     void operator+=(HGEigenDenseSparse &a)
     {
-        HPose += a.HPose;
-        GPose += a.GPose;
-        HPoseMap += a.HPoseMap;
-        GPoseMap += a.GPoseMap;
-        HMap += a.HMap;
-        GMap += a.GMap;
-        count += a.count;
+        setFromTriplets();
+        a.setFromTriplets();
+
+        m_HPose += a.m_HPose;
+        m_GPose += a.m_GPose;
+        m_HPoseMap += a.m_HPoseMap;
+        m_HMap += a.m_HMap;
+        m_GMap += a.m_GMap;
+        m_count += a.m_count;
     }
 
     /*
@@ -81,13 +90,14 @@ public:
     }
     */
 
+    template <typename jacType, typename idsType>
     void add(vec3<float> jacMap, float error, float weight, vec3<int> mapIds)
     {
-        count++;
+        m_count++;
 
         for (int j = 0; j < 3; j++)
         {
-            G(mapIds(j)) += jacMap(j) * error * weight;
+            m_GMap(mapIds(j)) += jacMap(j) * error * weight;
             tripletList.push_back(T(mapIds(j), mapIds(j), jacMap(j) * jacMap(j) * weight));
             //H.coeffRef(ids(j), ids(j)) += jac(j) * jac(j) * weight;
 
@@ -102,20 +112,20 @@ public:
         }
     }
 
-    void add(vec8<float> jacPose, vec3<float> jacMap, float error, float weight, vec8<int> poseIds, vec3<int> mapIds)
+    void add(vec8<float> jacPose, vec3<float> jacMap, float error, float weight, int poseId, vec3<int> mapIds)
     {
         count++;
 
         for (int i = 0; i < 8; i++)
         {
-            GPose(i) += jacPose(i) * error * weight;
-            HPose(i, i) += jacPose(i) * jacPose(i) * weight;
+            GPose(i + poseId*8) += jacPose(i) * error * weight;
+            HPose(i + poseId*8, i + poseId*8) += jacPose(i) * jacPose(i) * weight;
 
             for (int j = i + 1; j < 8; j++)
             {
                 float jj = jacPose(i) * jacPose(j) * weight;
-                HPose(i, j) += jj;
-                HPose(j, i) += jj;
+                HPose(i + poseId*8, j + poseId*8) += jj;
+                HPose(j + poseId*8, i + poseId*8) += jj;
             }
         }
 
@@ -123,7 +133,7 @@ public:
         {
             for(int j = 0; j < 3; j++)
             {
-                HPoseMap(i, mapIds(j)) += jacPose(i) * jacMap(j) * weight;
+                HPoseMap(i + poseId*8, mapIds(j)) += jacPose(i) * jacMap(j) * weight;
             }
         }
 
@@ -167,12 +177,6 @@ public:
     }
     */
 
-    void endAdd()
-    {
-        HMap.setFromTriplets(tripletList.begin(), tripletList.end());
-        tripletList.clear();
-    }
-
     /*
     std::vector<int> getParamIds()
     {
@@ -189,7 +193,7 @@ public:
     std::map<int, int> getParamIds()
     {
         std::map<int, int> ids;
-        for (int it = 0; it < G.size(); ++it)
+        for (int it = 0; it < GMap.size(); ++it)
         {
             // ids.push_back(it);
             ids[it] = ids.size();
@@ -200,9 +204,9 @@ public:
     std::map<int, int> getObservedParamIds()
     {
         std::map<int, int> ids;
-        for (int it = 0; it < G.size(); ++it)
+        for (int it = 0; it < GMap.size(); ++it)
         {
-            if (G[it] != 0.0)
+            if (GMap[it] != 0.0)
             {
                 // ids.push_back(it);
                 ids[it] = ids.size();
@@ -218,7 +222,7 @@ public:
         {
             int dst = id.second;
             int src = id.first;
-            float val = G(src);
+            float val = GMap(src);
             _G(dst) = val;
         }
         /*
@@ -232,6 +236,8 @@ public:
 
     Eigen::SparseMatrix<float> getH(std::map<int, int> &pIds)
     {
+        setFromTriplets();
+
         Eigen::SparseMatrix<float> _H(pIds.size(), pIds.size());
 
         /*
@@ -250,7 +256,7 @@ public:
         {
             int dst_col = id.second;
             int src_col = id.first;
-            for (Eigen::SparseMatrix<float>::InnerIterator it(H, src_col); it; ++it)
+            for (Eigen::SparseMatrix<float>::InnerIterator it(HMap, src_col); it; ++it)
             {
                 // it.value();
                 // it.row();   // row index
@@ -281,15 +287,26 @@ public:
     */
 
 private:
-    Eigen::SparseMatrix<float> HMap;
-    Eigen::VectorXf GMap;
+    void setFromTriplets()
+    {
+        if(tripletList.size() > 0)
+        {
+            m_HMap.setFromTriplets(tripletList.begin(), tripletList.end());
+            tripletList.clear();
+        }
+    }
 
-    Eigen::MatrixXf HPose;
-    Eigen::VectorXf GPose;
+    Eigen::SparseMatrix<float> m_HMap;
+    Eigen::VectorXf m_GMap;
 
-    Eigen::MatrixXf HPoseMap;
+    Eigen::MatrixXf m_HPose;
+    Eigen::VectorXf m_GPose;
 
-    int count;
+    Eigen::MatrixXf m_HPoseMap;
+
+    int m_count;
+    int m_numPoseParams;
+    int m_numMapParams;
 
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;

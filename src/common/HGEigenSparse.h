@@ -7,50 +7,68 @@
 class HGEigenSparse
 {
 public:
-    HGEigenSparse(int size)
+    HGEigenSparse(int numPoseParams, int numMapParams)
     {
-        H = Eigen::SparseMatrix<float>(size, size);
-        G = Eigen::VectorXf::Zero(size);
-        count = 0;
+        m_numPoseParams = numPoseParams;
+        m_numMapParams = numMapParams;
+        m_H = Eigen::SparseMatrix<float>(numPoseParams + numMapParams, numPoseParams + numMapParams);
+        m_G = Eigen::VectorXf::Zero(numPoseParams + numMapParams);
+        m_count = 0;
 
         // reserve space, will need roughly
         // for each pixel
         //a 11*11 matrix
         //H.reserve(Eigen::VectorXi::Constant(size,3));
-        tripletList.reserve(256*256*11*11);
+        tripletList.reserve(256*256*(numPoseParams + numMapParams)*(numPoseParams + numMapParams));
     }
 
     void setZero()
     {
-        H.setZero();
-        G.setZero();
-        count = 0;
+        m_H.setZero();
+        m_G.setZero();
+        m_count = 0;
+        m_numPoseParams = 0;
+        m_numMapParams = 0;
     }
 
     HGEigenSparse operator+(HGEigenSparse &a)
     {
-        HGEigenSparse sum(G.size());
-        sum.H = H + a.H;
-        sum.G = G + a.G;
-        sum.count = count + a.count;
+        assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams);
+
+        setFromTriplets();
+        a.setFromTriplets();
+
+        HGEigenSparse sum(m_numPoseParams, m_numMapParams);
+        sum.m_H = m_H + a.m_H;
+        sum.m_G = m_G + a.m_G;
+        sum.m_count = m_count + a.m_count;
+        sum.m_numPoseParams = m_numPoseParams;
+        sum.m_numMapParams = m_numMapParams;
         return sum;
     }
 
     void operator+=(HGEigenSparse &a)
     {
-        H += a.H;
-        G += a.G;
-        count += a.count;
+        assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams);
+
+        setFromTriplets();
+        a.setFromTriplets();
+
+        m_H += a.m_H;
+        m_G += a.m_G;
+        m_count += a.m_count;
     }
 
+    /*
     void add(float jac, float error, float weight, int ids)
     {
-        count++;
+        m_count++;
 
-        G(ids) += jac * error * weight;
+        m_G(ids) += jac * error * weight;
         tripletList.push_back(T(ids, ids, jac * jac * weight));
         //H.coeffRef(ids, ids) += jac * jac * weight;
     }
+    */
 
     /*
     void add(vec1<float> jac, float error, float weight, vec1<int> ids)
@@ -62,39 +80,45 @@ public:
     }
     */
 
-    void add(vec3<float> jac, float error, float weight, vec3<int> ids)
+    template <typename jacType>
+    void add(jacType jac, float error, float weight)
     {
-        count++;
+        assert(jacType::size() <= m_numPoseParams + m_numMapParams);
 
-        for (int j = 0; j < 3; j++)
+        m_count++;
+
+        for (int j = 0; j < jacType::size(); j++)
         {
-            G(ids(j)) += jac(j) * error * weight;
-            tripletList.push_back(T(ids(j), ids(j), jac(j) * jac(j) * weight));
+            m_G(j) += jac(j) * error * weight;
+            tripletList.push_back(T(j, j, jac(j) * jac(j) * weight));
             //H.coeffRef(ids(j), ids(j)) += jac(j) * jac(j) * weight;
 
             for (int k = j + 1; k < 3; k++)
             {
                 float value = jac(j) * jac(k) * weight;
-                tripletList.push_back(T(ids(j), ids(k), value));
-                tripletList.push_back(T(ids(k), ids(j), value));
+                tripletList.push_back(T(j, k, value));
+                tripletList.push_back(T(k, j, value));
                 //H.coeffRef(ids(j), ids(k)) += value;
                 //H.coeffRef(ids(k), ids(j)) += value;
             }
         }
     }
 
-    template <int size>
-    void add(vecx<size, float> jac, float error, float weight, vecx<size, int> ids)
+    template <typename jacType, typename idsType>
+    void add(jacType jac, float error, float weight, idsType ids)
     {
-        count++;
+        assert(jacType::size() == idsType::size());
+        assert(jacType::size() <= m_numPoseParams + m_numMapParams);
 
-        for (int j = 0; j < size; j++)
+        m_count++;
+
+        for (int j = 0; j < jacType::size(); j++)
         {
-            G(ids(j)) += jac(j) * error * weight;
+            m_G(ids(j)) += jac(j) * error * weight;
             tripletList.push_back(T(ids(j), ids(j), jac(j) * jac(j) * weight));
             //H.coeffRef(ids(j), ids(j)) += jac(j) * jac(j) * weight;
 
-            for (int k = j + 1; k < size; k++)
+            for (int k = j + 1; k < jacType::size(); k++)
             {
                 float value = jac(j) * jac(k) * weight;
                 tripletList.push_back(T(ids(j), ids(k), value));
@@ -105,10 +129,60 @@ public:
         }
     }
 
-    void endAdd()
+    template <typename jacPoseType, typename jacMapType, typename idsType>
+    void add(jacPoseType jacPose, jacMapType jacMap, float error, float weight, int poseId, idsType mapIds)
     {
-        H.setFromTriplets(tripletList.begin(), tripletList.end());
-        tripletList.clear();
+        assert(jacMapType::size() == idsType::size());
+        assert(m_numPoseParams > jacPoseType::size() - 1 + poseId*jacPoseType::size());
+
+        m_count++;
+
+        idsType intMapIds = mapIds + idsType(m_numPoseParams);
+
+        for (int i = 0; i < jacPoseType::size(); i++)
+        {
+            int poseParamId1 = i + poseId*jacPoseType::size();
+
+            m_G(poseParamId1) += jacPose(i) * error * weight;
+            //H.coeffRef(i + poseId*8, i + poseId*8) += jac(j) * jac(j) * weight;
+            tripletList.push_back(T(poseParamId1, poseParamId1, jacPose(i) * jacPose(i) * weight));
+
+            for (int j = i + 1; j < poseId*jacPoseType::size(); j++)
+            {
+                int poseParamId2 = j + poseId*jacPoseType::size();
+
+                float jj = jacPose(i) * jacPose(j) * weight;
+
+                tripletList.push_back(T(poseParamId1, poseParamId2, jj));
+                tripletList.push_back(T(poseParamId2, poseParamId1, jj));
+            }
+        }
+
+        for (int i = 0; i < jacPoseType::size(); i++)
+        {
+            int poseParamId = i + poseId*jacPoseType::size();
+            for(int j = 0; j < jacMapType::size(); j++)
+            {
+                //m_H(poseParamId, intMapIds(j)) += jacPose(i) * jacMap(j) * weight;
+                tripletList.push_back(T(poseParamId, intMapIds(j), jacPose(i) * jacMap(j) * weight));
+            }
+        }
+
+        for (int j = 0; j < jacMapType::size(); j++)
+        {
+            m_G(intMapIds(j)) += jacMap(j) * error * weight;
+            tripletList.push_back(T(intMapIds(j), intMapIds(j), jacMap(j) * jacMap(j) * weight));
+            //H.coeffRef(ids(j), ids(j)) += jac(j) * jac(j) * weight;
+
+            for (int k = j + 1; k < jacMapType::size(); k++)
+            {
+                float value = jacMap(j) * jacMap(k) * weight;
+                tripletList.push_back(T(intMapIds(j), intMapIds(k), value));
+                tripletList.push_back(T(intMapIds(k), intMapIds(j), value));
+                //H.coeffRef(ids(j), ids(k)) += value;
+                //H.coeffRef(ids(k), ids(j)) += value;
+            }
+        }
     }
 
     /*
@@ -127,7 +201,7 @@ public:
     std::map<int, int> getParamIds()
     {
         std::map<int, int> ids;
-        for (int it = 0; it < G.size(); ++it)
+        for (int it = 0; it < m_G.size(); ++it)
         {
             // ids.push_back(it);
             ids[it] = ids.size();
@@ -138,9 +212,9 @@ public:
     std::map<int, int> getObservedParamIds()
     {
         std::map<int, int> ids;
-        for (int it = 0; it < G.size(); ++it)
+        for (int it = 0; it < m_G.size(); ++it)
         {
-            if (G[it] != 0.0)
+            if (m_G[it] != 0.0)
             {
                 // ids.push_back(it);
                 ids[it] = ids.size();
@@ -151,12 +225,14 @@ public:
 
     Eigen::VectorXf getG(std::map<int, int> &pIds)
     {
+        assert(m_count > 0);
+
         Eigen::VectorXf _G(pIds.size());
         for (auto id : pIds)
         {
             int dst = id.second;
             int src = id.first;
-            float val = G(src);
+            float val = m_G(src);
             _G(dst) = val;
         }
         /*
@@ -165,11 +241,15 @@ public:
             _G[id] = G[pIds[id]];
         }
         */
-        return _G / count;
+        return _G / m_count;
     }
 
-    Eigen::SparseMatrix<float> getH(std::map<int, int> &pIds)
+    Eigen::SparseMatrix<float> getHSparse(std::map<int, int> &pIds)
     {
+        assert(m_count > 0);
+
+        setFromTriplets();
+
         Eigen::SparseMatrix<float> _H(pIds.size(), pIds.size());
 
         /*
@@ -188,7 +268,7 @@ public:
         {
             int dst_col = id.second;
             int src_col = id.first;
-            for (Eigen::SparseMatrix<float>::InnerIterator it(H, src_col); it; ++it)
+            for (Eigen::SparseMatrix<float>::InnerIterator it(m_H, src_col); it; ++it)
             {
                 // it.value();
                 // it.row();   // row index
@@ -206,7 +286,7 @@ public:
 
         _H.makeCompressed();
 
-        _H /= count;
+        _H /= m_count;
         return _H;
     }
 
@@ -219,9 +299,21 @@ public:
     */
 
 private:
-    Eigen::SparseMatrix<float> H;
-    Eigen::VectorXf G;
-    int count;
+
+    void setFromTriplets()
+    {
+        if(tripletList.size() > 0)
+        {
+            m_H.setFromTriplets(tripletList.begin(), tripletList.end());
+            tripletList.clear();
+        }
+    }
+
+    Eigen::SparseMatrix<float> m_H;
+    Eigen::VectorXf m_G;
+    int m_numPoseParams;
+    int m_numMapParams;
+    int m_count;
 
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;

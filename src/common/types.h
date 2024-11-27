@@ -59,12 +59,12 @@ struct vec1
         data = c(0);
     }
 
-    inline type &operator()()
+    inline type &operator()(int c)
     {
         return data;
     }
 
-    inline type operator()() const
+    inline type operator()(int c) const
     {
         return data;
     }

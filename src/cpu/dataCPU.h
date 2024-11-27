@@ -97,11 +97,9 @@ public:
 
     void set(Type value, int y, int x, int lvl)
     {
+        assert(y >= 0 && x >= 0 && y < lvlHeights[lvl] && x < lvlWidths[lvl]);
+
         int address = x + y * lvlWidths[lvl];
-#ifdef DEBUG
-        if (address < 0 || address >= lvlWidths[lvl] * lvlHeights[lvl] || x < 0 || x >= lvlWidths[lvl] || y < 0 || y >= lvlHeights[lvl])
-            throw std::out_of_range("set invalid address");
-#endif
         texture[lvl][address] = value;
     }
 
@@ -135,11 +133,9 @@ public:
 
     inline Type get(int y, int x, int lvl)
     {
+        assert(y >= 0 && x >= 0 && y < lvlHeights[lvl] && x < lvlWidths[lvl]);
+
         int address = x + y * lvlWidths[lvl];
-#ifdef DEBUG
-        if (address < 0 || address >= lvlWidths[lvl] * lvlHeights[lvl] || x < 0 || x >= lvlWidths[lvl] || y < 0 || y >= lvlHeights[lvl])
-            throw std::out_of_range("get invalid address");
-#endif
         return texture[lvl][address];
     }
 

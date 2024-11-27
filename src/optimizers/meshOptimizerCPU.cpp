@@ -106,7 +106,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &fr
             HGEigenDense hg = computeHGLightAffine(&frame, lvl, false);
 
             Eigen::VectorXf G = hg.getG();
-            Eigen::Matrix<float, 2, 2> H = hg.getH();
+            Eigen::Matrix<float, 2, 2> H = hg.getHDense();
 
             float lambda = 0.0;
             int n_try = 0;
@@ -211,7 +211,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
             // Eigen::SparseMatrix<float> H = hg.H.toEigen(pIds);
 
             Eigen::VectorXf G = hg.getG();
-            Eigen::Matrix<float, 8, 8> H = hg.getH();
+            Eigen::Matrix<float, 8, 8> H = hg.getHDense();
 
             float lambda = 0.0;
             int n_try = 0;
@@ -295,21 +295,11 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
-void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU> &frames, dataCPU<float> &mask)
+void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU> &frames)
 {
-    Error e;
-    Error e_regu;
-    Error e_init;
-
     int numMapParams = kscene.getParamIds().size();
-
-    HGEigenSparse hg(numMapParams);
-    HGEigenSparse hg_regu(numMapParams);
-    HGEigenSparse hg_init(numMapParams);
-
-    // HGMapped hg;
-    // HGMapped hg_regu;
-    // HGMapped hg_init;
+    Error e;
+    HGEigenDense hg(frames.size(), numMapParams);
 
     for (int lvl = 4; lvl >= 1; lvl--)
     {
@@ -319,16 +309,12 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
             e += computeError(&frames[i], lvl);
         }
 
-        float last_error = e.getError();
-
         if (meshRegularization > 0.0)
         {
-            e_regu = kscene.errorRegu(cam[lvl]);
-            last_error += meshRegularization * e_regu.getError();
+            e += kscene.errorRegu(meshRegularization);
         }
 
-        // e_init = keyframeScene.errorInitial(initialScene, initialInvVar);
-        //  e_init.error /= e_init.count;
+        float last_error = e.getError();
 
         std::cout << "optMap initial error " << last_error << " " << lvl << std::endl;
 
@@ -339,28 +325,32 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
             hg.setZero();
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                HGEigenSparse _hg = computeHGMap2(&frames[i], &mask, lvl);
-                hg += _hg;
+                hg += computeHGMap2(&frames[i], lvl);
             }
-
+            if (meshRegularization > 0.0)
+            {
+                kscene.HGRegu(hg, meshRegularization);
+            }
             // saveH(hg, "H.png");
 
             std::map<int, int> paramIds = hg.getObservedParamIds();
             // std::map<int, int> paramIds = hg.getParamIds();
 
             Eigen::VectorXf G = hg.getG(paramIds);
-            Eigen::SparseMatrix<float> H = hg.getH(paramIds);
+            Eigen::SparseMatrix<float> H = hg.getHSparse(paramIds);
 
+            /*
             if (meshRegularization > 0.0)
             {
                 hg_regu = kscene.HGRegu(cam[lvl]);
 
                 Eigen::VectorXf G_regu = hg_regu.getG(paramIds);
-                Eigen::SparseMatrix<float> H_regu = hg_regu.getH(paramIds);
+                Eigen::SparseMatrix<float> H_regu = hg_regu.getHSparse(paramIds);
 
                 H += meshRegularization * H_regu; // + meshInitial * H_init;
                 G += meshRegularization * G_regu; // + meshInitial * G_init;
             }
+            */
 
             // hg_init = HGInitial(initialScene, initialInvVar);
 
@@ -452,16 +442,12 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
                     e += computeError(&frames[i], lvl);
                 }
 
-                float error = e.getError();
-
                 if (meshRegularization > 0.0)
                 {
-                    e_regu = kscene.errorRegu(cam[lvl]);
-                    error += meshRegularization * e_regu.getError();
+                    e += kscene.errorRegu(meshRegularization);
                 }
 
-                // e_init = errorInitial(initialMesh, initialInvVar);
-                // e_init.error /= e_init.count;
+                float error = e.getError();
 
                 std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
 
@@ -517,14 +503,10 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
 template <typename sceneType, typename jmapType, typename idsType>
 void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<frameCPU> &frames)
 {
-    Error e;
-    Error e_regu;
-
     int numMapParams = kscene.getParamIds().size();
     int numFrameParams = frames.size()*8;
-
-    HGEigenSparse hg(numMapParams + numFrameParams);
-    HGEigenSparse hg_regu(numMapParams + numFrameParams);
+    Error e;
+    HGEigenDense hg(numFrameParams, numMapParams);
 
     for (int lvl = 4; lvl >= 1; lvl--)
     {
@@ -534,13 +516,12 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
             e += computeError(&frames[i], lvl);
         }
 
-        float last_error = e.getError();
-
         if (meshRegularization > 0.0)
         {
-            e_regu = kscene.errorRegu(cam[lvl]);
-            last_error += meshRegularization * e_regu.getError();
+            e += kscene.errorRegu(meshRegularization);
         }
+
+        float last_error = e.getError();
 
         std::cout << "optPoseMap initial error " << last_error << " lvl: " << lvl << std::endl;
 
@@ -551,8 +532,12 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
             hg.setZero();
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                HGEigenSparse _hg = computeHGPoseMap2(&frames[i], i, frames.size(), lvl);
-                hg += _hg;
+                hg += computeHGPoseMap2(&frames[i], i, frames.size(), lvl);
+            }
+
+            if (meshRegularization > 0.0)
+            {
+                kscene.HGRegu(hg, meshRegularization);
             }
 
             // saveH(hg, "H.png");
@@ -562,18 +547,20 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
             // std::map<int, int> paramIds = hg.getParamIds();
 
             Eigen::VectorXf G = hg.getG(paramIds);
-            Eigen::SparseMatrix<float> H = hg.getH(paramIds);
+            Eigen::SparseMatrix<float> H = hg.getHSparse(paramIds);
 
+            /*
             if (meshRegularization > 0.0)
             {
                 hg_regu = kscene.HGRegu(cam[lvl], frames.size());
 
                 Eigen::VectorXf G_regu = hg_regu.getG(paramIds);
-                Eigen::SparseMatrix<float> H_regu = hg_regu.getH(paramIds);
+                Eigen::SparseMatrix<float> H_regu = hg_regu.getHSparse(paramIds);
 
                 H += meshRegularization * H_regu;
                 G += meshRegularization * G_regu;
             }
+            */
 
             int n_try = 0;
             while (true)
@@ -630,7 +617,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                     // have to fix it some better way
                     for (int j = 0; j < 8; j++)
                     {
-                        int paramId = numMapParams + i * 8 + j;
+                        int paramId = i * 8 + j;
                         int index = paramIds[paramId];
                         pose_inc(j) = inc(index);
                     }
@@ -654,18 +641,20 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                 for (auto id : paramIds)
                 {
                     // negative ids are for the poses
-                    if (id.first >= numMapParams)
+                    if (id.first < numFrameParams)
                         continue;
 
-                    float best_param = kscene.getParam(id.first);
+                    int mapParamId = id.first - numFrameParams;
+
+                    float best_param = kscene.getParam(mapParamId);
                     float inc_param = inc(id.second);
                     float new_param = best_param - inc_param;
                     float weight = H.coeffRef(id.second, id.second);
                     // if(std::fabs(inc_param/best_param) > 0.4)
                     //     solverSucceded = false;
-                    best_params[id.first] = best_param;
-                    kscene.setParam(new_param, id.first);
-                    kscene.setParamWeight(weight, id.first);
+                    best_params[mapParamId] = best_param;
+                    kscene.setParam(new_param, mapParamId);
+                    kscene.setParamWeight(weight, mapParamId);
                     map_inc_mag += inc_param * inc_param;
                     map_inc_mag_count += 1;
                 }
@@ -677,13 +666,12 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                     e += computeError(&frames[i], lvl);
                 }
 
-                float error = e.getError();
-
                 if (meshRegularization > 0.0)
                 {
-                    e_regu = kscene.errorRegu(cam[lvl]);
-                    error += meshRegularization * e_regu.getError();
+                    e += kscene.errorRegu(meshRegularization);
                 }
+
+                float error = e.getError();
 
                 std::cout << "new error " << error << " " << it << " " << lambda << " lvl: " << lvl << std::endl;
 
@@ -720,11 +708,12 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
 
                     for (auto id : paramIds)
                     {
-                        // negative ids are for the poses
-                        if (id.first >= numMapParams)
+                        if (id.first < numFrameParams)
                             continue;
 
-                        kscene.setParam(best_params[id.first], id.first);
+                        int mapParamId = id.first - numFrameParams;
+
+                        kscene.setParam(best_params[mapParamId], mapParamId);
                     }
 
                     n_try++;

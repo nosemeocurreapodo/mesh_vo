@@ -83,6 +83,7 @@ public:
         {
             if(i >= MAX_VERTEX_SIZE)
                 break;
+
             vec3<float> vertice = vertices[i];
             vec3<float> ray = vertice / vertice(2);
             float idph = 1.0 / vertice(2);
@@ -110,6 +111,7 @@ public:
         {
             if(i >= MAX_VERTEX_SIZE)
                 break;
+
             vec2<float> pix = texcoords[i];
             float idph = idepths[i];
 
@@ -277,10 +279,8 @@ public:
 
     inline vertex &getVertex(unsigned int id)
     {
-#ifdef DEBUG
-        if (id >= MAX_VERTEX_SIZE)
-            throw std::out_of_range("getVertex invalid id");
-#endif
+        assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        
         return m_vertices[id];
     }
 
@@ -393,19 +393,15 @@ private:
 
     void setVerticeDepth(float depth, unsigned int id)
     {
-#ifdef DEBUG
-        if (id >= MAX_VERTEX_SIZE)
-            throw std::out_of_range("setVerticeDepth invalid id");
-#endif
+        assert(id >= 0 && id < MAX_VERTEX_SIZE);
+
         m_vertices[id].ver = m_vertices[id].ray * depth;
     }
 
     float getVerticeDepth(unsigned int id)
     {
-#ifdef DEBUG
-        if (id >= MAX_VERTEX_SIZE)
-            throw std::out_of_range("getVerticeDepth invalid id");
-#endif
+        assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        
         return m_vertices[id].ver(2);
     }
 

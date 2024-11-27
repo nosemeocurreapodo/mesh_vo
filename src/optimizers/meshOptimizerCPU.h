@@ -16,8 +16,8 @@
 #include "cpu/frameCPU.h"
 #include "cpu/renderCPU.h"
 #include "cpu/reduceCPU.h"
-#include "cpu/SceneBase.h"
-#include "cpu/ScenePatches.h"
+//#include "cpu/SceneBase.h"
+//#include "cpu/ScenePatches.h"
 #include "cpu/SceneMesh.h"
 // #include "cpu/SceneSurfels.h"
 // #include "cpu/SceneMeshSmooth.h"
@@ -38,7 +38,7 @@ public:
 
     void optLightAffine(frameCPU &frame);
     void optPose(frameCPU &frame);
-    void optMap(std::vector<frameCPU> &frames, dataCPU<float> &mask);
+    void optMap(std::vector<frameCPU> &frames);
     void optPoseMap(std::vector<frameCPU> &frames);
 
     void setMeshRegu(float mr)
@@ -129,10 +129,9 @@ public:
     float checkInfo(frameCPU &frame)
     {
         int lvl = 2;
-        dataCPU<float> mask(cam[0].width, cam[0].height, -1);
-        HGEigenSparse hg = computeHGMap2(&frame, &mask, lvl);
+        HGEigenDense hg = computeHGMap2(&frame, lvl);
         std::map<int, int> ids = hg.getObservedParamIds();
-        Eigen::SparseMatrix<float> H = hg.getH(ids);
+        Eigen::SparseMatrix<float> H = hg.getHSparse(ids);
         Eigen::VectorXf G = hg.getG(ids);
 
         // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float> > solver;
@@ -342,7 +341,7 @@ private:
     }
     */
 
-    HGEigenSparse computeHGMap2(frameCPU *frame, dataCPU<float> *mask, int lvl)
+    HGEigenDense computeHGMap2(frameCPU *frame, int lvl)
     {
         error_buffer.set(error_buffer.nodata, lvl);
         jmap_buffer.set(jmap_buffer.nodata, lvl);
@@ -354,7 +353,7 @@ private:
         renderer.renderJMapParallel(&kscene, &kimage, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
         // HGMapped hg = reducer.reduceHGMap(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
         // HGEigen hg = reducer.reduceHGMapParallel(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
-        HGEigenSparse hg = reducer.reduceHGMap2(numMapParams, jmap_buffer, error_buffer, pId_buffer, *mask, lvl);
+        HGEigenDense hg = reducer.reduceHGMap2(numMapParams, jmap_buffer, error_buffer, pId_buffer, lvl);
 
         return hg;
     }
@@ -373,7 +372,7 @@ private:
     }
     */
 
-    HGEigenSparse computeHGPoseMap2(frameCPU *frame, int frameIndex, int numFrames, int lvl)
+    HGEigenDense computeHGPoseMap2(frameCPU *frame, int frameIndex, int numFrames, int lvl)
     {
         jpose_buffer.set(jpose_buffer.nodata, lvl);
         jmap_buffer.set(jmap_buffer.nodata, lvl);
@@ -384,7 +383,7 @@ private:
 
         renderer.renderJPoseMapParallel(&kscene, &kimage, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
         // HGEigenSparse hg = reducer.reduceHGPoseMap2(cam[lvl], frameIndex, numFrames, scene->getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
-        HGEigenSparse hg = reducer.reduceHGPoseMapParallel2(frameIndex, numFrames, numMapParams, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
+        HGEigenDense hg = reducer.reduceHGPoseMapParallel2(frameIndex, numFrames, numMapParams, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
         return hg;
     }

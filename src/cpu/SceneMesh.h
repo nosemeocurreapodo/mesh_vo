@@ -6,6 +6,7 @@
 #include "cpu/Shapes.h"
 #include "common/common.h"
 #include "common/DelaunayTriangulation.h"
+#include "common/HGEigenDense.h"
 #include "common/HGEigenSparse.h"
 #include "params.h"
 
@@ -270,7 +271,7 @@ public:
         return getParamWeight(paramId);
     }
 
-    Error errorRegu(camera cam)
+    Error errorRegu(float regularization)
     {
         Error error;
 
@@ -296,18 +297,19 @@ public:
             float diff5 = 0.0; // theta[2] - theta[0];
             float diff6 = 0.0; // theta[2] - theta[1];
 
-            error += diff1 * diff1 + diff2 * diff2 + diff3 * diff3 + diff4 * diff4 + diff5 * diff5 + diff6 * diff6;
+            error += (diff1 * diff1 + diff2 * diff2 + diff3 * diff3 + diff4 * diff4 + diff5 * diff5 + diff6 * diff6);
         }
+        error *= regularization;
 
         return error;
     }
 
-    HGEigenSparse HGRegu(camera cam, int numFrames = 0)
+    void HGRegu(HGEigenDense &hg, float regularization)// int numFrames = 0)
     {
         std::vector<int> triIds = getTrianglesIds();
         std::vector<int> vecIds = getVerticesIds();
 
-        HGEigenSparse hg(vecIds.size() + numFrames * 8);
+        //HGEigenDense hg(numFrames*8, vecIds.size());
 
         for (size_t i = 0; i < triIds.size(); i++)
         {
@@ -334,17 +336,15 @@ public:
             //vec3<float> J5(-1.0, 0.0, 1.0);
             //vec3<float> J6(0.0, -1.0, 1.0);
 
-            hg.add(J1, diff1, 1.0, v_ids);
-            hg.add(J2, diff2, 1.0, v_ids);
+            hg.add(J1, diff1, regularization, v_ids);
+            hg.add(J2, diff2, regularization, v_ids);
             // hg.sparseAdd(J3, diff3, 1.0, v_ids);
-            hg.add(J4, diff4, 1.0, v_ids);
+            hg.add(J4, diff4, regularization, v_ids);
             // hg.sparseAdd(J5, diff5, 1.0, v_ids);
             // hg.sparseAdd(J6, diff6, 1.0, v_ids);
         }
 
-        hg.endAdd();
-
-        return hg;
+        //return hg;
     }
 
     /*
@@ -663,6 +663,7 @@ private:
         {
             if(i >= MAX_TRIANGLE_SIZE)
                 break;
+
             m_triangles[i].vertexIds = tris[i];
             m_triangles[i].used = true;
         }

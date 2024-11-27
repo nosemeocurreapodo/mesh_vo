@@ -151,11 +151,11 @@ public:
         return error;
     }
 
-    HGEigenSparse HGRegu(camera cam, int numFrames = 0)
+    HGEigenDense HGRegu(camera cam, int numFrames = 0)
     {
         std::vector<int> polIds = getShapesIds();
 
-        HGEigenSparse hg(getNumParams() + numFrames * 8);
+        HGEigenDense hg(numFrames*8, getNumParams());
 
         int patch_width = cam.width / MESH_WIDTH;
         int patch_height = cam.height / MESH_HEIGHT;
@@ -184,14 +184,12 @@ public:
             }
             float error = getDepthParam(polId) - meanParam / count;
 
-            hg.add(1.0, error, 1.0, polId);
+            hg.add(vec1<float>(1.0f), error, 1.0f, vec1<int>(polId));
             for (auto polId2 : polIds2)
             {
-                hg.add(-1.0 / count, error, 1.0, polId2);
+                hg.add(vec1<float>(-1.0f / count), error, 1.0f, vec1<int>(polId2));
             }
         }
-
-        hg.endAdd();
 
         return hg;
     }

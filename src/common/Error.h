@@ -37,6 +37,12 @@ public:
         count++;
     }
 
+    template <typename type>
+    void operator*=(type a)
+    {
+        error *= a;
+    }
+
     float getError()
     {
         if(count == 0)

@@ -7,7 +7,7 @@
 inline void saveH(HGEigenSparse &data, std::string file_name)
 {
     std::map<int, int> obsParamIds = data.getParamIds();
-    Eigen::SparseMatrix<float> H = data.getH(obsParamIds);
+    Eigen::SparseMatrix<float> H = data.getHSparse(obsParamIds);
 
     cv::Mat toShow(H.outerSize(), H.innerSize(), CV_32FC1, 0.0);
 
