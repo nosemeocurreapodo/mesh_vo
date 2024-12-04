@@ -6,19 +6,19 @@
 #include "common/camera.h"
 #include "cpu/Shapes.h"
 #include "cpu/frameCPU.h"
-#include "common/HGEigenSparse.h"
+//#include "common/SparseLinearProblem.h"
 
 template <typename shapeType>
 class SceneBase
 {
 public:
-    SceneBase(){};
+    SceneBase() {};
 
     SceneBase(const SceneBase &other)
     {
     }
 
-    //virtual std::unique_ptr<SceneBase> clone() const = 0;
+    // virtual std::unique_ptr<SceneBase> clone() const = 0;
     virtual void clear() = 0;
 
     virtual void transform(Sophus::SE3f relativePose) = 0;
@@ -26,7 +26,7 @@ public:
 
     virtual std::vector<int> getShapesIds() const = 0;
     virtual shapeType getShape(int polId) = 0;
-    //virtual void getShape(ShapeBase* shape, int polId) = 0;
+    // virtual void getShape(ShapeBase* shape, int polId) = 0;
     virtual int getNumParams() = 0;
 
     virtual void setParam(float param, int paramId) = 0;
@@ -34,8 +34,7 @@ public:
     virtual void setParamWeight(float weight, int paramId) = 0;
 
     virtual Error errorRegu(camera cam) = 0;
-    virtual HGEigenSparse HGRegu(camera cam, int numFrames) = 0;
+    //virtual SparseLinearProblem HGRegu(camera cam, int numFrames) = 0;
 
 private:
-
 };

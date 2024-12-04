@@ -6,8 +6,8 @@
 #include "cpu/Shapes.h"
 #include "common/common.h"
 #include "common/DelaunayTriangulation.h"
-#include "common/HGEigenDense.h"
-#include "common/HGEigenSparse.h"
+#include "common/DenseLinearProblem.h"
+// #include "common/SparseLinearProblem.h"
 #include "params.h"
 
 #define MAX_TRIANGLE_SIZE 4096
@@ -15,11 +15,10 @@
 class SceneMesh : public SceneVertices
 {
 public:
-    SceneMesh() : SceneVertices() 
-    {
-        //m_triangles = nullptr;
-        //m_trianglesBufferSize = 0;
-    };
+    SceneMesh() : SceneVertices() {
+                      // m_triangles = nullptr;
+                      // m_trianglesBufferSize = 0;
+                  };
 
     /*
     SceneMesh(const SceneMesh &other) : SceneVertices(other)
@@ -46,7 +45,7 @@ public:
         return *this;
     }
     */
-    
+
     /*
     SceneMesh clone() const
     {
@@ -64,18 +63,30 @@ public:
 
     void init(camera cam, Sophus::SE3f pose, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
     {
+        for (int i = 0; i < MAX_TRIANGLE_SIZE; i++)
+        {
+            m_triangles[i].used = false;
+        }
         SceneVertices::init(cam, pose, idepth, ivar, lvl);
         buildTriangles();
     }
 
     void init(camera cam, Sophus::SE3f pose, std::vector<vec3<float>> &vertices)
     {
+        for (int i = 0; i < MAX_TRIANGLE_SIZE; i++)
+        {
+            m_triangles[i].used = false;
+        }
         SceneVertices::init(cam, pose, vertices);
         buildTriangles();
     }
 
     void init(camera cam, Sophus::SE3f pose, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths)
     {
+        for (int i = 0; i < MAX_TRIANGLE_SIZE; i++)
+        {
+            m_triangles[i].used = false;
+        }
         SceneVertices::init(cam, pose, texcoords, idepths);
         buildTriangles();
     }
@@ -214,6 +225,7 @@ public:
 
     ShapeTriangleFlat getShape(int polId)
     {
+        assert(m_triangles[polId].used);
         vec3<int> vIds = m_triangles[polId].vertexIds;
         return ShapeTriangleFlat(getVertex(vIds(0)), getVertex(vIds(1)), getVertex(vIds(2)),
                                  vIds(0), vIds(1), vIds(2));
@@ -271,7 +283,7 @@ public:
         return getParamWeight(paramId);
     }
 
-    Error errorRegu(float regularization)
+    Error errorRegu()
     {
         Error error;
 
@@ -283,33 +295,25 @@ public:
             int id = triIds[index];
             vec3<int> vIds = m_triangles[id].vertexIds;
 
-            float theta[3];
-
-            for (int j = 0; j < 3; j++)
-            {
-                theta[j] = getDepthParam(vIds(j));
-            }
-
-            float diff1 = theta[0] - theta[1];
-            float diff2 = theta[0] - theta[2];
+            float diff1 = getDepthParam(vIds(0)) - getDepthParam(vIds(1));
+            float diff2 = getDepthParam(vIds(0)) - getDepthParam(vIds(2));
             float diff3 = 0.0; // theta[1] - theta[0];
-            float diff4 = theta[1] - theta[2];
+            float diff4 = getDepthParam(vIds(1)) - getDepthParam(vIds(2));
             float diff5 = 0.0; // theta[2] - theta[0];
             float diff6 = 0.0; // theta[2] - theta[1];
 
             error += (diff1 * diff1 + diff2 * diff2 + diff3 * diff3 + diff4 * diff4 + diff5 * diff5 + diff6 * diff6);
         }
-        error *= regularization;
 
         return error;
     }
 
-    void HGRegu(HGEigenDense &hg, float regularization)// int numFrames = 0)
+    DenseLinearProblem HGRegu(int numFrames)
     {
         std::vector<int> triIds = getTrianglesIds();
         std::vector<int> vecIds = getVerticesIds();
 
-        //HGEigenDense hg(numFrames*8, vecIds.size());
+        DenseLinearProblem hg(numFrames * 8, vecIds.size());
 
         for (size_t i = 0; i < triIds.size(); i++)
         {
@@ -324,27 +328,27 @@ public:
 
             float diff1 = theta[0] - theta[1];
             float diff2 = theta[0] - theta[2];
-            //float diff3 = theta[1] - theta[0];
+            // float diff3 = theta[1] - theta[0];
             float diff4 = theta[1] - theta[2];
-            //float diff5 = theta[2] - theta[0];
-            //float diff6 = theta[2] - theta[1];
+            // float diff5 = theta[2] - theta[0];
+            // float diff6 = theta[2] - theta[1];
 
             vec3<float> J1(1.0, -1.0, 0.0);
             vec3<float> J2(1.0, 0.0, -1.0);
-            //vec3<float> J3(-1.0, 1.0, 0.0);
+            // vec3<float> J3(-1.0, 1.0, 0.0);
             vec3<float> J4(0.0, 1.0, -1.0);
-            //vec3<float> J5(-1.0, 0.0, 1.0);
-            //vec3<float> J6(0.0, -1.0, 1.0);
+            // vec3<float> J5(-1.0, 0.0, 1.0);
+            // vec3<float> J6(0.0, -1.0, 1.0);
 
-            hg.add(J1, diff1, regularization, v_ids);
-            hg.add(J2, diff2, regularization, v_ids);
+            hg.add(J1, diff1, 1.0, v_ids);
+            hg.add(J2, diff2, 1.0, v_ids);
             // hg.sparseAdd(J3, diff3, 1.0, v_ids);
-            hg.add(J4, diff4, regularization, v_ids);
+            hg.add(J4, diff4, 1.0, v_ids);
             // hg.sparseAdd(J5, diff5, 1.0, v_ids);
             // hg.sparseAdd(J6, diff6, 1.0, v_ids);
         }
 
-        //return hg;
+        return hg;
     }
 
     /*
@@ -500,7 +504,6 @@ public:
     }
 
 private:
-
     /*
     void deleteBuffer()
     {
@@ -514,36 +517,36 @@ private:
     }
     */
 
-/*
-    void clearTriangles()
-    {
-        triangles.clear();
-    }
+    /*
+        void clearTriangles()
+        {
+            triangles.clear();
+        }
 
-    void setTriangles(std::vector<vec3<int>> new_tris)
-    {
-        triangles = new_tris;
-    }
+        void setTriangles(std::vector<vec3<int>> new_tris)
+        {
+            triangles = new_tris;
+        }
 
-    void removeTriangle(unsigned int id)
-    {
-        triangles.erase(triangles.begin() + id);
-    }
+        void removeTriangle(unsigned int id)
+        {
+            triangles.erase(triangles.begin() + id);
+        }
 
-    unsigned int addTriangle(vec3<int> &tri)
-    {
-        int id = triangles.size();
-        triangles.push_back(tri);
-        return id;
-    }
-*/
+        unsigned int addTriangle(vec3<int> &tri)
+        {
+            int id = triangles.size();
+            triangles.push_back(tri);
+            return id;
+        }
+    */
 
     std::vector<int> getTrianglesIds() const
     {
         std::vector<int> keys;
         for (int it = 0; it < MAX_TRIANGLE_SIZE; ++it)
         {
-            if(m_triangles[it].used)
+            if (m_triangles[it].used)
                 keys.push_back(it);
         }
         return keys;
@@ -649,7 +652,7 @@ private:
         std::vector<vec2<float>> pixels;
         pixels.reserve(ids.size());
 
-        for(size_t i = 0; i < ids.size(); i++)
+        for (size_t i = 0; i < ids.size(); i++)
         {
             pixels.push_back(getVertex(ids[i]).pix);
         }
@@ -659,9 +662,9 @@ private:
         // clearTriangles();
         std::vector<vec3<int>> tris = m_triangulator.getTriangles();
 
-        for(size_t i = 0; i < tris.size(); i++)
+        for (size_t i = 0; i < tris.size(); i++)
         {
-            if(i >= MAX_TRIANGLE_SIZE)
+            if (i >= MAX_TRIANGLE_SIZE)
                 break;
 
             m_triangles[i].vertexIds = tris[i];
@@ -704,6 +707,6 @@ private:
     */
 
     triangle m_triangles[MAX_TRIANGLE_SIZE];
-    //int m_trianglesBufferSize;
+    // int m_trianglesBufferSize;
     DelaunayTriangulation m_triangulator;
 };

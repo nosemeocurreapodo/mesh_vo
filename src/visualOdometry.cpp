@@ -64,9 +64,11 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
 
     t.tic();
     meshOptimizer.optPose(newFrame);
-    std::cout << "affine " << newFrame.getAffine()(0) << " " << newFrame.getAffine()(1) << std::endl;
-    std::cout << "estimated pose " << t.toc() << std::endl;
-    std::cout << newFrame.getPose().matrix() << std::endl;
+    std::cout << "estimate pose time: " << t.toc() << std::endl;
+
+    //std::cout << "affine " << newFrame.getAffine()(0) << " " << newFrame.getAffine()(1) << std::endl;
+    //std::cout << "estimated pose " << std::endl;
+    //std::cout << newFrame.getPose().matrix() << std::endl;
 
     if (lastFrames.size() == 0)
     {
@@ -76,7 +78,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     }
     else
     {
-        float meanViewAngle = meshOptimizer.meanViewAngle(&lastFrames[lastFrames.size() - 1], &newFrame);
+        float lastViewAngle = meshOptimizer.meanViewAngle(lastFrames[lastFrames.size() - 1].getPose(), newFrame.getPose());
+        float keyframeViewAngle = meshOptimizer.meanViewAngle(newFrame.getPose(), Sophus::SE3f());
         //dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
         //float percentNoData = idepth.getPercentNoData(1);
 
@@ -86,16 +89,18 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         //std::cout << "view percent " << viewPercent << std::endl;
         //std::cout << "percent nodata " << percentNoData << std::endl;
 
-        if (meanViewAngle > M_PI / 64.0) //(percentNoData > 0.2) //(viewPercent < 0.8)
+        if (lastViewAngle > LAST_MAX_ANGLE) //(percentNoData > 0.2) //(viewPercent < 0.8)
         {            
             lastFrames.push_back(newFrame);
             if(lastFrames.size() > NUM_FRAMES)
                 lastFrames.erase(lastFrames.begin());
         }
 
-        if((viewPercent < 0.7 || meanViewAngle > M_PI / 32.0) && lastFrames.size() > 1)
+        if((viewPercent < MIN_VIEW_PERC || keyframeViewAngle > KEY_MAX_ANGLE) && lastFrames.size() > 1)
+        //if((viewPercent < 0.9 || meanViewAngle > M_PI / 64.0) && lastFrames.size() > 1)
         {
-            int newKeyframeIndex = int(lastFrames.size() / 2);
+            //int newKeyframeIndex = int(lastFrames.size() / 2);
+            int newKeyframeIndex = int(lastFrames.size() - 1);
             frameCPU newKeyframe = lastFrames[newKeyframeIndex];
 
             Sophus::SE3f newKeyframePoseInv = newKeyframe.getPose().inverse();
@@ -185,11 +190,10 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         std::cout << "optmap time " << t.toc() << std::endl;
         */
 
-
         t.tic();
         //meshOptimizer.setMeshRegu(200.0);
         //dataCPU<float> mask(cam.width, cam.height, -1);
-        //meshOptimizer.optMap(keyFrames, mask);
+        //meshOptimizer.optMap(keyFrames);
         //meshOptimizer.normalizeDepth();
 
         meshOptimizer.optPoseMap(keyFrames);
@@ -207,7 +211,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         //    keyFrames[i].setPose(pose);
         //}
 
-        std::cout << "optposemap time " << t.toc() << std::endl;
+        std::cout << "optposemap time: " << t.toc() << std::endl;
        
         // sync the updated keyframe poses present in lastframes
         for (auto keyframe : keyFrames)
@@ -230,7 +234,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         }
     }
 
-    //meshOptimizer.plotDebug(newFrame, keyFrames);
+    meshOptimizer.plotDebug(newFrame, keyFrames);
 
     lastMovement = newFrame.getPose() * lastPose.inverse();
     lastPose = newFrame.getPose();

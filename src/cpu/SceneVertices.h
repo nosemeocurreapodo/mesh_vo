@@ -73,11 +73,11 @@ public:
     {
         m_pose = pose;
         m_cam = cam;
-        //m_verticesBufferSize = vertices.size();
-        
-        //if(m_vertices != nullptr)
-        //    deleteBuffer();
-        //createBuffer(m_verticesBufferSize);
+
+        for(int i = 0; i < MAX_VERTEX_SIZE; i++)
+        {
+            m_vertices[i].used = false;
+        }
 
         for (int i = 0; i < vertices.size(); i++)
         {
@@ -101,11 +101,11 @@ public:
     {
         m_cam = cam;
         m_pose = pose;
-        //m_verticesBufferSize = texcoords.size();
 
-        //if(m_vertices != nullptr)
-        //    deleteBuffer();
-        //createBuffer(m_verticesBufferSize);
+        for(int i = 0; i < MAX_VERTEX_SIZE; i++)
+        {
+            m_vertices[i].used = false;
+        }
 
         for (int i = 0; i < texcoords.size(); i++)
         {
@@ -131,11 +131,11 @@ public:
     {
         m_cam = cam;
         m_pose = pose;
-        //m_verticesBufferSize = MESH_WIDTH*MESH_HEIGHT;
 
-        //if(m_vertices != nullptr)
-        //    deleteBuffer();
-        //createBuffer(m_verticesBufferSize);
+        for(int i = 0; i < MAX_VERTEX_SIZE; i++)
+        {
+            m_vertices[i].used = false;
+        }
 
         int i = 0;
         for (float y = 0.0; y < MESH_HEIGHT; y++)
@@ -151,11 +151,10 @@ public:
                 vec3<float> ray = cam.pixToRay(pix);
                 float idph = idepth.get(pix(1), pix(0), lvl);
                 float iv = ivar.get(pix(1), pix(0), lvl);
-                if (idph == idepth.nodata || iv == ivar.nodata)
-                    continue;
 
-                if (idph <= 0.0)
-                    continue;
+                assert(idph != idepth.nodata);
+                assert(iv != ivar.nodata);
+                assert(idph > 0.0);
 
                 vec3<float> vertice = ray / idph;
 
@@ -280,6 +279,7 @@ public:
     inline vertex &getVertex(unsigned int id)
     {
         assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        assert(m_vertices[id].used);
         
         return m_vertices[id];
     }
@@ -358,6 +358,7 @@ public:
     void setDepthParam(float param, unsigned int v_id)
     {
         float new_depth = fromParamToDepth(param);
+        assert(new_depth > 0.0);
         setVerticeDepth(new_depth, v_id);
     }
 
@@ -368,11 +369,13 @@ public:
 
     void setParamWeight(float weight, unsigned int v_id)
     {
+        assert(m_vertices[v_id].used);
         m_vertices[v_id].weight = weight;
     }
 
     float getParamWeight(unsigned int v_id)
     {
+        assert(m_vertices[v_id].used);
         return m_vertices[v_id].weight;
     }
 
@@ -394,6 +397,7 @@ private:
     void setVerticeDepth(float depth, unsigned int id)
     {
         assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        assert(m_vertices[id].used);
 
         m_vertices[id].ver = m_vertices[id].ray * depth;
     }
@@ -401,7 +405,8 @@ private:
     float getVerticeDepth(unsigned int id)
     {
         assert(id >= 0 && id < MAX_VERTEX_SIZE);
-        
+        assert(m_vertices[id].used);
+
         return m_vertices[id].ver(2);
     }
 

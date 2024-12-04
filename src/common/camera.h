@@ -155,10 +155,11 @@ public:
 
     inline vec2<float> rayToPix(vec3<float> ray)
     {
-        // vec2<float> pix;
-        // pix(0) = fx * ray(0) + cx;
-        // pix(1) = fy * ray(1) + cy;
-        return vec2<float>(fx * ray(0) + cx, fy * ray(1) + cy);
+        vec2<float> pix;
+        pix(0) = fx * ray(0) + cx;
+        pix(1) = fy * ray(1) + cy;
+        return pix;
+        //return vec2<float>(fx * ray(0) + cx, fy * ray(1) + cy);
     }
 
     inline vec3<float> pixToRay(vec2<float> pix)

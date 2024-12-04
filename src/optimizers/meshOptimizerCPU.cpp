@@ -1,7 +1,7 @@
 #include "optimizers/meshOptimizerCPU.h"
 
 template class meshOptimizerCPU<SceneMesh, vec3<float>, vec3<int>>;
-//template class meshOptimizerCPU<ScenePatches, vec1<float>, vec1<int>>;
+// template class meshOptimizerCPU<ScenePatches, vec1<float>, vec1<int>>;
 
 template <typename sceneType, typename jmapType, typename idsType>
 meshOptimizerCPU<sceneType, jmapType, idsType>::meshOptimizerCPU(camera &_cam)
@@ -30,28 +30,26 @@ meshOptimizerCPU<sceneType, jmapType, idsType>::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 100.0;
+    meshRegularization = 1.0;
     meshInitial = 0.0;
-    kDepthAffine = vec2<float>(1.0, 0.0);
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
 void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &frame, int lvl)
 {
     idepth_buffer.set(idepth_buffer.nodata, lvl);
-    renderer.renderRandom(cam[lvl], &idepth_buffer, lvl);
-    // renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl, 0.5, 1.5);
+    // renderer.renderRandom(cam[lvl], &idepth_buffer, lvl, 0.5, 1.5);
+    renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl, 0.1, 2.0);
     ivar_buffer.set(ivar_buffer.nodata, lvl);
     renderer.renderSmooth(cam[lvl], &ivar_buffer, lvl, initialIvar(), initialIvar());
-    kscene.init(cam[lvl], frame.getPose(), idepth_buffer, ivar_buffer, lvl);
+    kscene.init(cam[lvl], Sophus::SE3f(), idepth_buffer, ivar_buffer, lvl);
     kimage = frame.getRawImage();
-    kpose = frame.getPose();
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
 void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
 {
-    kscene.init(cam[lvl], frame.getPose(), idepth, ivar, lvl);
+    kscene.init(cam[lvl], Sophus::SE3f(), idepth, ivar, lvl);
 
     /*
     for(int i = 0; i < 1; i++)
@@ -66,16 +64,14 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &fram
     */
 
     kimage = frame.getRawImage();
-    kpose = frame.getPose();
     // kframe.setAffine(vec2<float>(0.0, 0.0));
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
 void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl)
 {
-    kscene.init(cam[lvl], frame.getPose(), texcoords, idepths);
+    kscene.init(cam[lvl], Sophus::SE3f(), texcoords, idepths);
     kimage = frame.getRawImage();
-    kpose = frame.getPose();
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
@@ -84,7 +80,6 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::normalizeDepth()
     vec2<float> affine = kscene.meanStdDepthParam();
     affine(1) = 0.0;
     kscene.scaleDepthParam(affine);
-    kDepthAffine = affine;
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
@@ -103,24 +98,24 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &fr
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             // HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
-            HGEigenDense hg = computeHGLightAffine(&frame, lvl, false);
-
-            Eigen::VectorXf G = hg.getG();
-            Eigen::Matrix<float, 2, 2> H = hg.getHDense();
+            DenseLinearProblem hg = computeHGLightAffine(&frame, lvl, false);
 
             float lambda = 0.0;
             int n_try = 0;
             while (true)
             {
-                Eigen::Matrix<float, 2, 2> H_lambda;
-                H_lambda = H;
+                if (!hg.prepareH(lambda))
+                {
+                    n_try++;
 
-                for (int j = 0; j < 2; j++)
-                    H_lambda(j, j) *= 1.0 + lambda;
+                    if (lambda == 0.0f)
+                        lambda = MIN_LAMBDA;
+                    else
+                        lambda *= std::pow(2.0, n_try);
 
-                // Eigen::Matrix<float, 6, 1> inc = H_lambda.ldlt().solve(G);
-                Eigen::VectorXf inc = Eigen::VectorXf::Zero(2);
-                inc = H_lambda.ldlt().solve(G);
+                    continue;
+                }
+                Eigen::VectorXf inc = hg.solve();
 
                 // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
                 vec2<float> new_affine = best_affine - vec2<float>(inc(0), inc(1));
@@ -142,10 +137,10 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &fr
                     best_affine = new_affine;
                     float p = error / last_error;
 
-                    // if (lambda < 0.2f)
-                    //     lambda = 0.0f;
-                    // else
-                    // lambda *= 0.5;
+                    //if (lambda < MIN_LAMBDA)
+                    //    lambda = 0.0f;
+                    //else
+                    //    lambda *= 0.5;
                     lambda = 0.0;
 
                     last_error = error;
@@ -165,9 +160,9 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &fr
                     n_try++;
 
                     if (lambda == 0.0)
-                        lambda = 0.2f;
+                        lambda = MIN_LAMBDA;
                     else
-                        lambda *= 2.0; // std::pow(2.0, n_try);
+                        lambda *= std::pow(2.0, n_try);
 
                     // reject update, increase lambda, use un-updated data
                     // std::cout << "update rejected " << std::endl;
@@ -203,42 +198,32 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
 
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
-            // HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
-            HGEigenDense hg = computeHGPose(&frame, lvl, false);
-
-            // std::vector<int> pIds = hg.G.getParamIds();
-            // Eigen::VectorXf G = hg.G.toEigen(pIds);
-            // Eigen::SparseMatrix<float> H = hg.H.toEigen(pIds);
-
-            Eigen::VectorXf G = hg.getG();
-            Eigen::Matrix<float, 8, 8> H = hg.getHDense();
+            DenseLinearProblem hg = computeHGPose(&frame, lvl, false);
 
             float lambda = 0.0;
             int n_try = 0;
             while (true)
             {
-                Eigen::Matrix<float, 8, 8> H_lambda;
-                H_lambda = H;
+                if (!hg.prepareH(lambda))
+                {
+                    n_try++;
 
-                for (int j = 0; j < 8; j++)
-                    H_lambda(j, j) *= 1.0 + lambda;
+                    if (lambda == 0.0f)
+                        lambda = MIN_LAMBDA;
+                    else
+                        lambda *= std::pow(2.0, n_try);
 
-                // Eigen::Matrix<float, 6, 1> inc = H_lambda.ldlt().solve(G);
-                Eigen::VectorXf inc = Eigen::VectorXf::Zero(8);
-                inc = H_lambda.ldlt().solve(G);
+                    continue;
+                }
+                Eigen::VectorXf inc = hg.solve();
 
-                // Sophus::SE3f new_pose = frame.pose * Sophus::SE3f::exp(inc_pose);
                 Sophus::SE3f new_pose = best_pose * Sophus::SE3f::exp(inc.segment(0, 6)).inverse();
                 vec2<float> new_affine = best_affine; // - vec2<float>(inc(6), inc(7));
                 frame.setPose(new_pose);
                 frame.setAffine(new_affine);
-                // Sophus::SE3f new_pose = Sophus::SE3f::exp(inc_pose).inverse() * frame.pose;
 
-                // e.setZero();
-                // e = computeError(idepth_buffer, keyframe, frame, lvl);
                 e = computeError(&frame, lvl, false);
                 float error = e.getError();
-                // std::cout << "new error " << error << " time " << t.toc() << std::endl;
 
                 std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
 
@@ -250,10 +235,10 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
                     best_affine = new_affine;
                     float p = error / last_error;
 
-                    // if (lambda < 0.2f)
-                    //     lambda = 0.0f;
-                    // else
-                    // lambda *= 0.5;
+                    //if (lambda < MIN_LAMBDA)
+                    //    lambda = 0.0f;
+                    //else
+                    //    lambda *= 0.5;
                     lambda = 0.0;
 
                     last_error = error;
@@ -274,9 +259,9 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
                     n_try++;
 
                     if (lambda == 0.0)
-                        lambda = 0.2f;
+                        lambda = MIN_LAMBDA;
                     else
-                        lambda *= 2.0; // std::pow(2.0, n_try);
+                        lambda *= std::pow(2.0, n_try);
 
                     // reject update, increase lambda, use un-updated data
                     // std::cout << "update rejected " << std::endl;
@@ -299,7 +284,9 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
 {
     int numMapParams = kscene.getParamIds().size();
     Error e;
-    HGEigenDense hg(frames.size(), numMapParams);
+    Error e_regu;
+    DenseLinearProblem hg(0, numMapParams);
+    DenseLinearProblem hg_regu(0, numMapParams);
 
     for (int lvl = 4; lvl >= 1; lvl--)
     {
@@ -309,9 +296,13 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
             e += computeError(&frames[i], lvl);
         }
 
+        e *= 1.0 / frames.size();
+
         if (meshRegularization > 0.0)
         {
-            e += kscene.errorRegu(meshRegularization);
+            e_regu = kscene.errorRegu();
+            e_regu *= meshRegularization;
+            e += e_regu;
         }
 
         float last_error = e.getError();
@@ -327,110 +318,53 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
             {
                 hg += computeHGMap2(&frames[i], lvl);
             }
+
+            hg *= 1.0 / frames.size();
+
             if (meshRegularization > 0.0)
             {
-                kscene.HGRegu(hg, meshRegularization);
+                hg_regu = kscene.HGRegu(0);
+                hg_regu *= meshRegularization;
+                hg += hg_regu;
             }
             // saveH(hg, "H.png");
 
-            std::map<int, int> paramIds = hg.getObservedParamIds();
-            // std::map<int, int> paramIds = hg.getParamIds();
-
-            Eigen::VectorXf G = hg.getG(paramIds);
-            Eigen::SparseMatrix<float> H = hg.getHSparse(paramIds);
-
-            /*
-            if (meshRegularization > 0.0)
-            {
-                hg_regu = kscene.HGRegu(cam[lvl]);
-
-                Eigen::VectorXf G_regu = hg_regu.getG(paramIds);
-                Eigen::SparseMatrix<float> H_regu = hg_regu.getHSparse(paramIds);
-
-                H += meshRegularization * H_regu; // + meshInitial * H_init;
-                G += meshRegularization * G_regu; // + meshInitial * G_init;
-            }
-            */
-
-            // hg_init = HGInitial(initialScene, initialInvVar);
-
-            // Eigen::VectorXf G_init = hg_init.G.toEigen(ids);
-            // Eigen::SparseMatrix<float> H_init = hg_init.H.toEigen(ids);
-
-            // H += meshInitial * H_init;
-            // G += meshInitial * G_init;
+            // std::vector<int> paramIds = hg.removeUnobservedParams();
+            std::vector<int> paramIds = hg.getParamIds();
 
             int n_try = 0;
             while (true)
             {
-                Eigen::SparseMatrix<float> H_lambda = H;
-
-                for (int j = 0; j < H_lambda.rows(); j++)
+                if (!hg.prepareH(lambda))
                 {
-                    H_lambda.coeffRef(j, j) *= (1.0 + lambda);
+                    n_try++;
+
+                    if (lambda == 0.0f)
+                        lambda = MIN_LAMBDA;
+                    else
+                        lambda *= std::pow(2.0, n_try);
+
+                    continue;
                 }
-
-                bool solverSucceded = true;
-
-                H_lambda.makeCompressed();
-                // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
-                Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-                //   Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
-
-                // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
-                // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
-
-                // Eigen::CholmodDecomposition<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
-                // solver.setMode(Eigen::CholmodSupernodalLLt);
-
-                // Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
-
-                solver.compute(H_lambda);
-                // solver.analyzePattern(H_lambda);
-                // solver.factorize(H_lambda);
-
-                if (solver.info() != Eigen::Success)
-                {
-                    // some problem i have still to debug
-                    solverSucceded = false;
-                }
-                // std::cout << solver.lastErrorMessage() << std::endl;
-
-                Eigen::VectorXf inc = solver.solve(G);
-                // Eigen::VectorXf inc = G / (1.0 + lambda);
-                //    inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
-                //    inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
-                //    inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
-
-                if (solver.info() != Eigen::Success)
-                {
-                    // solving failed
-                    solverSucceded = false;
-                }
+                Eigen::VectorXf inc = hg.solve();
 
                 std::vector<float> best_params;
                 float map_inc_mag = 0.0;
                 int map_inc_mag_count = 0;
-                for (auto id : paramIds)
+                for (size_t index = 0; index < paramIds.size(); index++)
                 {
-                    float best_param = kscene.getParam(id.first);
-                    float inc_param = inc(id.second);
+                    int paramId = paramIds[index];
+
+                    float best_param = kscene.getParam(paramId);
+                    float inc_param = inc(index);
                     float new_param = best_param - inc_param;
 
-                    // if (std::fabs(inc_param / best_param) > 0.1)
-                    // if(new_param <= 0.0)
-                    if (false)
-                    {
-                        solverSucceded = false;
-                        // break;
-                    }
-
-                    float weight = H.coeffRef(id.second, id.second);
+                    float weight = 0.1; // H.coeffRef(index, index);
                     best_params.push_back(best_param);
                     // the derivative is with respecto to the keyframe pose
                     // the update should take this into account
-                    kscene.setParam(new_param, id.first);
-                    kscene.setParamWeight(weight, id.first);
+                    kscene.setParam(new_param, paramId);
+                    kscene.setParamWeight(weight, paramId);
                     map_inc_mag += inc_param * inc_param;
                     map_inc_mag_count += 1;
                 }
@@ -442,25 +376,29 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
                     e += computeError(&frames[i], lvl);
                 }
 
+                e *= 1.0 / frames.size();
+
                 if (meshRegularization > 0.0)
                 {
-                    e += kscene.errorRegu(meshRegularization);
+                    e_regu = kscene.errorRegu();
+                    e_regu *= meshRegularization;
+                    e += e_regu;
                 }
 
                 float error = e.getError();
 
                 std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
 
-                if (error < last_error && solverSucceded)
+                if (error < last_error)
                 {
                     // accept update, decrease lambda
                     float p = error / last_error;
 
-                    // if (lambda < 0.2f)
-                    //     lambda = 0.0f;
-                    // else
-                    lambda *= 0.5;
-                    // lambda = 0.0;
+                    //if (lambda < MIN_LAMBDA)
+                    //    lambda = 0.0f;
+                    //else
+                    //    lambda *= 0.5;
+                    lambda = 0.0;
 
                     last_error = error;
 
@@ -476,15 +414,17 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
                 }
                 else
                 {
-                    for (auto id : paramIds)
-                        kscene.setParam(best_params[id.second], id.first);
+                    for (size_t index = 0; index < paramIds.size(); index++)
+                    {
+                        kscene.setParam(best_params[index], paramIds[index]);
+                    }
 
                     n_try++;
 
                     if (lambda == 0.0f)
-                        lambda = 0.01f;
+                        lambda = MIN_LAMBDA;
                     else
-                        lambda *= 4.0; // std::pow(2.0, n_try);
+                        lambda *= std::pow(2.0, n_try);
 
                     // reject update, increase lambda, use un-updated data
 
@@ -503,12 +443,17 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
 template <typename sceneType, typename jmapType, typename idsType>
 void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<frameCPU> &frames)
 {
-    int numMapParams = kscene.getParamIds().size();
-    int numFrameParams = frames.size()*8;
-    Error e;
-    HGEigenDense hg(numFrameParams, numMapParams);
+    assert(frames.size() > 0);
 
-    for (int lvl = 4; lvl >= 1; lvl--)
+    int numMapParams = kscene.getParamIds().size();
+    int numFrameParams = frames.size() * 8;
+
+    Error e;
+    Error e_regu;
+    DenseLinearProblem hg(numFrameParams, numMapParams);
+    DenseLinearProblem hg_regu(numFrameParams, numMapParams);
+
+    for (int lvl = 0; lvl >= 0; lvl--)
     {
         e.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
@@ -516,9 +461,13 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
             e += computeError(&frames[i], lvl);
         }
 
+        e *= 1.0 / frames.size();
+
         if (meshRegularization > 0.0)
         {
-            e += kscene.errorRegu(meshRegularization);
+            e_regu = kscene.errorRegu();
+            e_regu *= meshRegularization;
+            e += e_regu;
         }
 
         float last_error = e.getError();
@@ -535,74 +484,34 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                 hg += computeHGPoseMap2(&frames[i], i, frames.size(), lvl);
             }
 
+            hg *= 1.0 / frames.size();
+
             if (meshRegularization > 0.0)
             {
-                kscene.HGRegu(hg, meshRegularization);
+                hg_regu = kscene.HGRegu(frames.size());
+                hg_regu *= meshRegularization;
+                hg += hg_regu;
             }
 
+            // std::vector<int> paramIds = hg.removeUnobservedParams();
+            std::vector<int> paramIds = hg.getParamIds();
             // saveH(hg, "H.png");
-
-            // map from param id to param index paramIndex = obsParamIds[paramId]
-            std::map<int, int> paramIds = hg.getObservedParamIds();
-            // std::map<int, int> paramIds = hg.getParamIds();
-
-            Eigen::VectorXf G = hg.getG(paramIds);
-            Eigen::SparseMatrix<float> H = hg.getHSparse(paramIds);
-
-            /*
-            if (meshRegularization > 0.0)
-            {
-                hg_regu = kscene.HGRegu(cam[lvl], frames.size());
-
-                Eigen::VectorXf G_regu = hg_regu.getG(paramIds);
-                Eigen::SparseMatrix<float> H_regu = hg_regu.getHSparse(paramIds);
-
-                H += meshRegularization * H_regu;
-                G += meshRegularization * G_regu;
-            }
-            */
 
             int n_try = 0;
             while (true)
             {
-                Eigen::SparseMatrix<float> H_lambda = H;
-
-                for (int j = 0; j < H_lambda.rows(); j++)
+                if (!hg.prepareH(lambda))
                 {
-                    H_lambda.coeffRef(j, j) *= (1.0 + lambda);
+                    n_try++;
+
+                    if (lambda == 0.0f)
+                        lambda = MIN_LAMBDA;
+                    else
+                        lambda *= std::pow(2.0, n_try);
+
+                    continue;
                 }
-
-                bool solverSucceded = true;
-
-                H_lambda.makeCompressed();
-                Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
-                //Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-                //   Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
-
-                // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
-                // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
-
-                // Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
-                // Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
-
-                solver.compute(H_lambda);
-                // solver.analyzePattern(H_lambda);
-                // solver.factorize(H_lambda);
-                if (solver.info() != Eigen::Success)
-                {
-                    solverSucceded = false;
-                }
-                // std::cout << solver.lastErrorMessage() << std::endl;
-                Eigen::VectorXf inc = solver.solve(G);
-                // Eigen::VectorXf inc = G / (1.0 + lambda);
-                //  inc_depth = -acc_H_depth_lambda.llt().solve(acc_J_depth);
-                //  inc_depth = - acc_H_depth_lambda.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(acc_J_depth);
-                //  inc_depth = -acc_H_depth_lambda.colPivHouseholderQr().solve(acc_J_depth);
-
-                if (solver.info() != Eigen::Success)
-                {
-                    solverSucceded = false;
-                }
+                Eigen::VectorXf inc = hg.solve();
 
                 // update pose
                 std::vector<Sophus::SE3f> best_poses;
@@ -612,21 +521,14 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                 float pose_inc_mag = 0.0;
                 for (size_t i = 0; i < frames.size(); i++)
                 {
-                    Eigen::Matrix<float, 8, 1> pose_inc;
-                    // if ids are in order, like this I get the correct pose increment
-                    // have to fix it some better way
-                    for (int j = 0; j < 8; j++)
-                    {
-                        int paramId = i * 8 + j;
-                        int index = paramIds[paramId];
-                        pose_inc(j) = inc(index);
-                    }
+                    Eigen::Matrix<float, 8, 1> pose_inc = inc.segment(i * 8, 8);
+
                     pose_inc_mag += pose_inc.dot(pose_inc);
                     best_poses.push_back(frames[i].getPose());
                     best_affines.push_back(frames[i].getAffine());
                     Sophus::SE3f new_pose = frames[i].getPose() * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
                     if (i == frames.size() - 1)
-                        new_pose.translation() = frames[i].getPose().translation();
+                        new_pose.translation() = new_pose.translation().normalized() * frames[i].getPose().translation().norm();
                     vec2<float> new_affine = frames[i].getAffine(); // - vec2<float>(pose_inc(6), pose_inc(7));
                     frames[i].setPose(new_pose);
                     frames[i].setAffine(new_affine);
@@ -638,18 +540,19 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                 std::map<unsigned int, float> best_params;
                 float map_inc_mag = 0.0;
                 int map_inc_mag_count = 0;
-                for (auto id : paramIds)
+                for (size_t index = 0; index < paramIds.size(); index++)
                 {
+                    int paramId = paramIds[index];
                     // negative ids are for the poses
-                    if (id.first < numFrameParams)
+                    if (paramId < numFrameParams)
                         continue;
 
-                    int mapParamId = id.first - numFrameParams;
+                    int mapParamId = paramId - numFrameParams;
 
                     float best_param = kscene.getParam(mapParamId);
-                    float inc_param = inc(id.second);
+                    float inc_param = inc(index);
                     float new_param = best_param - inc_param;
-                    float weight = H.coeffRef(id.second, id.second);
+                    float weight = 0.1; // H.coeffRef(id.second, id.second);
                     // if(std::fabs(inc_param/best_param) > 0.4)
                     //     solverSucceded = false;
                     best_params[mapParamId] = best_param;
@@ -666,25 +569,29 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                     e += computeError(&frames[i], lvl);
                 }
 
+                e *= 1.0 / frames.size();
+
                 if (meshRegularization > 0.0)
                 {
-                    e += kscene.errorRegu(meshRegularization);
+                    e_regu = kscene.errorRegu();
+                    e_regu *= meshRegularization;
+                    e += e_regu;
                 }
 
                 float error = e.getError();
 
                 std::cout << "new error " << error << " " << it << " " << lambda << " lvl: " << lvl << std::endl;
 
-                if (error < last_error && solverSucceded)
+                if (error < last_error)
                 {
                     // accept update, decrease lambda
                     float p = error / last_error;
 
-                    // if (lambda < 0.001f)
-                    //     lambda = 0.0f;
-                    // else
-                    lambda *= 0.5;
-                    // lambda = 0.0;
+                    //if (lambda < MIN_LAMBDA)
+                    //    lambda = 0.0f;
+                    //else
+                    //    lambda *= 0.5;
+                    lambda = 0.0;
 
                     last_error = error;
 
@@ -706,12 +613,13 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                         frames[index].setAffine(best_affines[index]);
                     }
 
-                    for (auto id : paramIds)
+                    for (int index = 0; index < paramIds.size(); index++)
                     {
-                        if (id.first < numFrameParams)
+                        int paramId = paramIds[index];
+                        if (paramId < numFrameParams)
                             continue;
 
-                        int mapParamId = id.first - numFrameParams;
+                        int mapParamId = paramId - numFrameParams;
 
                         kscene.setParam(best_params[mapParamId], mapParamId);
                     }
@@ -719,9 +627,9 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                     n_try++;
 
                     if (lambda == 0.0f)
-                        lambda = 0.01f;
+                        lambda = MIN_LAMBDA;
                     else
-                        lambda *= 4.0; // std::pow(2.0, n_try);
+                        lambda *= std::pow(2.0, n_try);
 
                     // reject update, increase lambda, use un-updated data
 

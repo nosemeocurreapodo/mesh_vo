@@ -4,10 +4,10 @@
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 
-class HGEigenDenseSparse
+class DenseSparseLinearProblem
 {
 public:
-    HGEigenDenseSparse(int numPoseParams, int numMapParams)
+    DenseSparseLinearProblem(int numPoseParams, int numMapParams)
     {
         m_numPoseParams = numPoseParams;
         m_numMapParams = numMapParams;
@@ -39,24 +39,24 @@ public:
         m_count = 0;
     }
 
-    HGEigenDenseSparse operator+(HGEigenDenseSparse &a)
+    DenseSparseLinearProblem operator+(DenseSparseLinearProblem &a)
     {
         setFromTriplets();
         a.setFromTriplets();
 
-        HGEigenDenseSparse sum(m_numPoseParams, m_numMapParams);
+        DenseSparseLinearProblem sum(m_numPoseParams, m_numMapParams);
         sum.m_HPose = m_HPose + a.m_HPose;
         sum.m_GPose = m_GPose + a.m_GPose;
         sum.m_HPoseMap = m_HPoseMap + a.m_HPoseMap;
         sum.m_HMap = m_HMap + a.m_HMap;
         sum.m_GMap = m_GMap + a.m_GMap;
         sum.m_count = m_count + a.m_count;
-        sum.m_numPoseParams;
-        sum.m_numMapParams;
+        sum.m_numPoseParams = m_numPoseParams;
+        sum.m_numMapParams = m_numMapParams;
         return sum;
     }
 
-    void operator+=(HGEigenDenseSparse &a)
+    void operator+=(DenseSparseLinearProblem &a)
     {
         setFromTriplets();
         a.setFromTriplets();
@@ -310,4 +310,14 @@ private:
 
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
+
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
+    //Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+    //   Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+
+    // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+    // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+
+    // Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
+    // Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
 };

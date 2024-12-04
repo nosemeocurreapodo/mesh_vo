@@ -4,14 +4,14 @@
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 
-class HGEigenSparse
+class SparseLinearProblem
 {
 public:
-    HGEigenSparse(int numPoseParams, int numMapParams)
+    SparseLinearProblem(int numPoseParams, int numMapParams)
     {
         m_numPoseParams = numPoseParams;
         m_numMapParams = numMapParams;
-        m_H = Eigen::SparseMatrix<float>(numPoseParams + numMapParams, numPoseParams + numMapParams);
+        //m_H = Eigen::SparseMatrix<float>(numPoseParams + numMapParams, numPoseParams + numMapParams);
         m_G = Eigen::VectorXf::Zero(numPoseParams + numMapParams);
         m_count = 0;
 
@@ -24,38 +24,41 @@ public:
 
     void setZero()
     {
-        m_H.setZero();
+        //m_H.setZero();
         m_G.setZero();
+        tripletList.clear();
         m_count = 0;
         m_numPoseParams = 0;
         m_numMapParams = 0;
     }
 
-    HGEigenSparse operator+(HGEigenSparse &a)
+    SparseLinearProblem operator+(SparseLinearProblem &a)
     {
         assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams);
 
-        setFromTriplets();
-        a.setFromTriplets();
+        //setFromTriplets();
+        //a.setFromTriplets();
 
-        HGEigenSparse sum(m_numPoseParams, m_numMapParams);
-        sum.m_H = m_H + a.m_H;
+        SparseLinearProblem sum(m_numPoseParams, m_numMapParams);
+        //sum.m_H = m_H + a.m_H;
         sum.m_G = m_G + a.m_G;
+        tripletList.insert(std::end(tripletList), std::begin(a.tripletList), std::end(a.tripletList));
         sum.m_count = m_count + a.m_count;
         sum.m_numPoseParams = m_numPoseParams;
         sum.m_numMapParams = m_numMapParams;
         return sum;
     }
 
-    void operator+=(HGEigenSparse &a)
+    void operator+=(SparseLinearProblem &a)
     {
         assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams);
 
-        setFromTriplets();
-        a.setFromTriplets();
+        //setFromTriplets();
+        //a.setFromTriplets();
 
-        m_H += a.m_H;
+        //m_H += a.m_H;
         m_G += a.m_G;
+        tripletList.insert(std::end(tripletList), std::begin(a.tripletList), std::end(a.tripletList));
         m_count += a.m_count;
     }
 
@@ -185,6 +188,31 @@ public:
         }
     }
 
+    void addLambda(float lambda)
+    {
+        for (int j = 0; j < m_G.size(); j++)
+        {
+            //m_H(j, j) *= (1.0 + lambda);
+            //tripletList.push_back(T(intMapIds(k), intMapIds(j), value));
+        }
+        H_lambda.makeCompressed();
+    }
+
+    Eigen::VectorXf solve()
+    {
+        solver.compute(m_H);
+        // solver.analyzePattern(H_lambda);
+        // solver.factorize(H_lambda);
+
+        assert (solver.info() == Eigen::Success);
+
+        Eigen::VectorXf inc = solver.solve(G);
+
+        assert (solver.info() == Eigen::Success);
+
+        return inc;
+    }
+
     /*
     std::vector<int> getParamIds()
     {
@@ -248,7 +276,10 @@ public:
     {
         assert(m_count > 0);
 
-        setFromTriplets();
+        Eigen::SparseMatrix<float> m_H;
+
+        m_H.setFromTriplets(tripletList.begin(), tripletList.end());
+        tripletList.clear();
 
         Eigen::SparseMatrix<float> _H(pIds.size(), pIds.size());
 
@@ -300,16 +331,7 @@ public:
 
 private:
 
-    void setFromTriplets()
-    {
-        if(tripletList.size() > 0)
-        {
-            m_H.setFromTriplets(tripletList.begin(), tripletList.end());
-            tripletList.clear();
-        }
-    }
-
-    Eigen::SparseMatrix<float> m_H;
+    //Eigen::SparseMatrix<float> m_H;
     Eigen::VectorXf m_G;
     int m_numPoseParams;
     int m_numMapParams;
@@ -317,4 +339,12 @@ private:
 
     typedef Eigen::Triplet<float> T;
     std::vector<T> tripletList;
+
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
+    //Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+    //Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+    // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+    // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+    // Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
+    // Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
 };

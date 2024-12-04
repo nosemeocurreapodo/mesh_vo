@@ -101,7 +101,13 @@
         "fft": "cpp",
         "format": "cpp",
         "ranges": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "charconv": "cpp",
+        "forward_list": "cpp",
+        "source_location": "cpp",
+        "shared_mutex": "cpp",
+        "stdfloat": "cpp",
+        "__memory": "cpp"
     },
     "cmake.configureOnOpen": true
 }

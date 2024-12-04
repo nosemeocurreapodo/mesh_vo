@@ -1,17 +1,22 @@
 #pragma once
 
+#include <map>
 #include <Eigen/Core>
+#include <Eigen/Dense>
+#include <Eigen/Cholesky>
+#include <Eigen/Sparse>
 
-class HGEigenDense
+class DenseLinearProblem
 {
 public:
-    HGEigenDense(int numPoseParams, int numMapParams)
+    DenseLinearProblem(int numPoseParams, int numMapParams)
     {
         m_numPoseParams = numPoseParams;
         m_numMapParams = numMapParams;
 
         m_H = Eigen::MatrixXf::Zero(numPoseParams + numMapParams, numPoseParams + numMapParams);
         m_G = Eigen::VectorXf::Zero(numPoseParams + numMapParams);
+        m_sH = Eigen::SparseMatrix<float>(1, 1);
 
         m_count = 0;
     }
@@ -20,6 +25,7 @@ public:
     {
         m_H.setZero();
         m_G.setZero();
+        m_sH = Eigen::SparseMatrix<float>(1, 1);
         m_count = 0;
     }
 
@@ -130,27 +136,144 @@ public:
         }
     }
 
-    HGEigenDense operator+(HGEigenDense a)
+    DenseLinearProblem operator+(DenseLinearProblem a)
     {
-        assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams);
+        assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams && a.m_count > 0);
 
-        HGEigenDense sum(m_numPoseParams, m_numMapParams);
-        sum.m_H = m_H + a.m_H;
-        sum.m_G = m_G + a.m_G;
-        sum.m_count = m_count + a.m_count;
+        DenseLinearProblem sum(m_numPoseParams, m_numMapParams);
+        if(m_count == 0)
+        {
+            sum.m_H = a.m_H/a.m_count;
+            sum.m_G = a.m_G/a.m_count;   
+        }
+        else
+        {
+            sum.m_H = m_H/m_count + a.m_H/a.m_count;
+            sum.m_G = m_G/m_count + a.m_G/a.m_count;
+        }
+
+        sum.m_count = 1;
         sum.m_numPoseParams = m_numPoseParams;
         sum.m_numMapParams = m_numMapParams;
         return sum;
     }
 
-    void operator+=(HGEigenDense a)
+    void operator+=(DenseLinearProblem a)
     {
-        assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams);
+        assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams && a.m_count > 0);
 
-        m_H += a.m_H;
-        m_G += a.m_G;
-        m_count += a.m_count;
+        if(m_count == 0)
+        {
+            m_H = a.m_H/a.m_count;
+            m_G = a.m_G/a.m_count;   
+        }
+        else
+        {
+            m_H = m_H/m_count + a.m_H/a.m_count;
+            m_G = m_G/m_count + a.m_G/a.m_count;
+        }
+        
+        m_count = 1;
     }
+
+    template <typename type>
+    void operator*=(type a)
+    {
+        m_H *= a;
+        m_G *= a;
+    }
+
+    std::vector<int> removeUnobservedParams()
+    {
+        std::vector<int> indicesToKeep;
+        
+        for (int i = 0; i < m_G.size(); ++i)
+        {
+            if (m_G[i] != 0.0)
+            {
+                indicesToKeep.push_back(i);
+            }
+        }
+
+        Eigen::VectorXi indicesToKeepVector(indicesToKeep.size());
+
+        for (int i = 0; i < indicesToKeep.size(); i++)
+        {     
+            indicesToKeepVector(i) = indicesToKeep[i];
+        }
+
+        m_H = m_H(indicesToKeepVector, indicesToKeepVector);
+        m_G = m_G(indicesToKeepVector);
+
+        return indicesToKeep;
+    }
+
+    std::vector<int> getParamIds()
+    {
+        std::vector<int> indicesToKeep;
+        
+        for (int i = 0; i < m_G.size(); ++i)
+        {
+            indicesToKeep.push_back(i);
+        }
+
+        return indicesToKeep;
+    }
+
+    bool prepareH(float lambda)
+    {
+        m_lH = m_H;
+        for (int j = 0; j < m_G.size(); j++)
+        {
+            m_lH(j, j) *= (1.0 + lambda);
+        } 
+        solver.compute(m_lH);
+        return (solver.info() == Eigen::Success);
+    }
+
+    Eigen::VectorXf solve()
+    {
+        Eigen::VectorXf res = solver.solve(m_G);
+        assert (solver.info() == Eigen::Success);
+        return res;
+    }
+
+    Eigen::VectorXf ssolve(float lambda)
+    {
+        if(m_sH.cols() == 1 || m_sH.rows() == 1)
+        {
+            m_sH = toSparseMatrix(m_H);     
+        }
+
+        Eigen::SparseMatrix<float> H = m_sH;
+
+        for (int j = 0; j < m_G.size(); j++)
+        {
+            H.coeffRef(j, j) *= (1.0 + lambda);
+        }
+
+        //int numParams = m_numPoseParams + m_numMapParams;
+        //Eigen::Matrix<float, numParams, numParams> H = m_H;
+        //return m_H.llt().solve(m_G);
+        //return m_H.ldlt().solve(m_G);
+        //solver.compute(m_H);
+        //return solver.solve(m_G);
+
+        Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> ssolver;
+
+        ssolver.compute(H);
+        // solver.analyzePattern(H_lambda);
+        // solver.factorize(H_lambda);
+
+        assert (ssolver.info() == Eigen::Success);
+
+        Eigen::VectorXf inc = ssolver.solve(m_G);
+
+        assert (ssolver.info() == Eigen::Success);
+
+        return inc;
+    }
+
 
     /*
     void operator=(HGPose _pose)
@@ -160,6 +283,7 @@ public:
     }
     */
 
+    /*
     std::map<int, int> getObservedParamIds()
     {
         std::map<int, int> ids;
@@ -171,9 +295,12 @@ public:
                 ids[it] = ids.size();
             }
         }
+        
         return ids;
     }
+    */
 
+    /*
     Eigen::MatrixXf getHDense()
     {
         assert(m_count > 0);
@@ -200,21 +327,18 @@ public:
             float val = m_G(src);
             _G(dst) = val;
         }
-        /*
-        for (int id = 0; id < pIds.size(); id++)
-        {
-            _G[id] = G[pIds[id]];
-        }
-        */
+        
+        //for (int id = 0; id < pIds.size(); id++)
+        //{
+        //    _G[id] = G[pIds[id]];
+        //}
+        
         return _G / m_count;
     }
+    */
 
-    Eigen::SparseMatrix<float> getHSparse(std::map<int, int> &pIds)
+    Eigen::SparseMatrix<float> toSparseMatrix(Eigen::MatrixXf &D)
     {
-        assert(m_count > 0);
-
-        Eigen::SparseMatrix<float> _H(pIds.size(), pIds.size());
-
         /*
         SparseMatrix<double> mat(rows, cols);
         for (int k = 0; k < mat.outerSize(); ++k)
@@ -227,44 +351,54 @@ public:
             }
             */
 
-        for (auto id : pIds)
+        Eigen::SparseMatrix<float> S(D.rows(), D.cols());
+        S.setZero();
+
+        for (int y = 0; y < D.rows(); y++)
         {
-            int dst_col = id.second;
-            int src_col = id.first;
             //for (Eigen::SparseMatrix<float>::InnerIterator it(m_H, src_col); it; ++it)
-            for(int it = 0; it < m_G.size(); it++)
+            for(int x = 0; x < D.cols(); x++)
             {
                 // it.value();
                 // it.row();   // row index
                 // it.col();   // col index (here it is equal to pId[id])
                 // it.index(); // inner index, here it is equal to it.row()
 
-                int src_row = it;
-                if (!pIds.count(src_row))
-                    continue;
-
-                float value = m_H(src_row, src_col);
+                float value = D(y, x);
                 if(value == 0.0)
                     continue;
                 
-                int dst_row = pIds[src_row];
-
-                _H.insert(dst_row, dst_col) = value;// it.value();
+                S.insert(y, x) = value;// it.value();
             }
         }
 
-        _H.makeCompressed();
+        S.makeCompressed();
 
-        _H /= m_count;
-        return _H;
+        return S;
     }
 
 private:
     Eigen::MatrixXf m_H;
     Eigen::VectorXf m_G;
+    
+    Eigen::MatrixXf m_lH;
+
+    Eigen::SparseMatrix<float> m_sH;
+
     int m_numPoseParams;
     int m_numMapParams;
     // Eigen::Matrix<float, 6, 6> H;
     // Eigen::Matrix<float, 6, 1> G;
     int m_count;
+
+    Eigen::LLT<Eigen::MatrixXf> solver;
+    //Eigen::LDLT<Eigen::MatrixXf> solver;
+
+    //Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> ssolver;
+    //Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+    //Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+    // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+    // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+    // Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
+    // Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
 };

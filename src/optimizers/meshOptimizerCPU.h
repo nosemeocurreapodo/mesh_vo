@@ -1,14 +1,14 @@
 #pragma once
 
 #include <Eigen/Core>
-#include <Eigen/CholmodSupport>
+//#include <Eigen/CholmodSupport>
 // #include <Eigen/SPQRSupport>
-#include <thread>
+//#include <thread>
 
 #include "common/camera.h"
 #include "common/types.h"
-#include "common/HGEigenDense.h"
-#include "common/HGEigenSparse.h"
+#include "common/DenseLinearProblem.h"
+//#include "common/SparseLinearProblem.h"
 // #include "common/HGMapped.h"
 #include "common/Error.h"
 #include "common/common.h"
@@ -46,20 +46,20 @@ public:
         meshRegularization = mr;
     }
 
-    float meanViewAngle(frameCPU *frame1, frameCPU *frame2)
+    float meanViewAngle(Sophus::SE3f pose1, Sophus::SE3f pose2)
     {
         int lvl = 1;
 
         kscene.transform(cam[lvl], Sophus::SE3f());
 
         sceneType scene1 = kscene;
-        scene1.transform(cam[lvl], frame1->getPose());
+        scene1.transform(cam[lvl], pose1);
 
         sceneType scene2 = kscene;
-        scene2.transform(cam[lvl], frame2->getPose());
+        scene2.transform(cam[lvl], pose2);
 
-        Sophus::SE3f frame1PoseInv = frame1->getPose().inverse();
-        Sophus::SE3f frame2PoseInv = frame2->getPose().inverse();
+        Sophus::SE3f frame1PoseInv = pose1.inverse();
+        Sophus::SE3f frame2PoseInv = pose2.inverse();
 
         Eigen::Vector3f frame1Tra = frame1PoseInv.translation();
         Eigen::Vector3f frame2Tra = frame2PoseInv.translation();
@@ -128,8 +128,9 @@ public:
 
     float checkInfo(frameCPU &frame)
     {
+        /*
         int lvl = 2;
-        HGEigenDense hg = computeHGMap2(&frame, lvl);
+        DenseLinearProblem hg = computeHGMap2(&frame, lvl);
         std::map<int, int> ids = hg.getObservedParamIds();
         Eigen::SparseMatrix<float> H = hg.getHSparse(ids);
         Eigen::VectorXf G = hg.getG(ids);
@@ -162,6 +163,8 @@ public:
         float relative_error = (H * inc - G).norm() / G.size(); // norm() is L2 norm
 
         return relative_error;
+        */
+       return 1.0;
     }
 
     dataCPU<float> getIdepth(Sophus::SE3f pose, int lvl)
@@ -271,8 +274,6 @@ public:
     sceneType kscene;
     // frameCPU kframe;
     dataCPU<float> kimage;
-    Sophus::SE3f kpose;
-    vec2<float> kDepthAffine;
 
     std::vector<camera> cam;
 
@@ -293,7 +294,7 @@ private:
         return e;
     }
 
-    HGEigenDense computeHGLightAffine(frameCPU *frame, int lvl, bool useWeights)
+    DenseLinearProblem computeHGLightAffine(frameCPU *frame, int lvl, bool useWeights)
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
         jlightaffine_buffer.set(jlightaffine_buffer.nodata, lvl);
@@ -304,12 +305,12 @@ private:
         if (useWeights)
             renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
 
-        HGEigenDense hg = reducer.reduceHGLightAffineParallel(jlightaffine_buffer, error_buffer, ivar_buffer, lvl);
+        DenseLinearProblem hg = reducer.reduceHGLightAffineParallel(jlightaffine_buffer, error_buffer, ivar_buffer, lvl);
 
         return hg;
     }
 
-    HGEigenDense computeHGPose(frameCPU *frame, int lvl, bool useWeights)
+    DenseLinearProblem computeHGPose(frameCPU *frame, int lvl, bool useWeights)
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
         jpose_buffer.set(jpose_buffer.nodata, lvl);
@@ -320,7 +321,7 @@ private:
         if (useWeights)
             renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
 
-        HGEigenDense hg = reducer.reduceHGPoseParallel(jpose_buffer, error_buffer, ivar_buffer, lvl);
+        DenseLinearProblem hg = reducer.reduceHGPoseParallel(jpose_buffer, error_buffer, ivar_buffer, lvl);
 
         return hg;
     }
@@ -341,7 +342,7 @@ private:
     }
     */
 
-    HGEigenDense computeHGMap2(frameCPU *frame, int lvl)
+    DenseLinearProblem computeHGMap2(frameCPU *frame, int lvl)
     {
         error_buffer.set(error_buffer.nodata, lvl);
         jmap_buffer.set(jmap_buffer.nodata, lvl);
@@ -353,7 +354,7 @@ private:
         renderer.renderJMapParallel(&kscene, &kimage, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
         // HGMapped hg = reducer.reduceHGMap(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
         // HGEigen hg = reducer.reduceHGMapParallel(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
-        HGEigenDense hg = reducer.reduceHGMap2(numMapParams, jmap_buffer, error_buffer, pId_buffer, lvl);
+        DenseLinearProblem hg = reducer.reduceHGMap2(numMapParams, jmap_buffer, error_buffer, pId_buffer, lvl);
 
         return hg;
     }
@@ -372,7 +373,7 @@ private:
     }
     */
 
-    HGEigenDense computeHGPoseMap2(frameCPU *frame, int frameIndex, int numFrames, int lvl)
+    DenseLinearProblem computeHGPoseMap2(frameCPU *frame, int frameIndex, int numFrames, int lvl)
     {
         jpose_buffer.set(jpose_buffer.nodata, lvl);
         jmap_buffer.set(jmap_buffer.nodata, lvl);
@@ -383,7 +384,7 @@ private:
 
         renderer.renderJPoseMapParallel(&kscene, &kimage, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
         // HGEigenSparse hg = reducer.reduceHGPoseMap2(cam[lvl], frameIndex, numFrames, scene->getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
-        HGEigenDense hg = reducer.reduceHGPoseMapParallel2(frameIndex, numFrames, numMapParams, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
+        DenseLinearProblem hg = reducer.reduceHGPoseMapParallel2(frameIndex, numFrames, numMapParams, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
 
         return hg;
     }

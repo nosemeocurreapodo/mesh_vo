@@ -11,7 +11,7 @@
 // #include "scene/keyframeIdepthSceneCPU.h"
 #include "cpu/frameCPU.h"
 
-#include "cpu/ScenePatches.h"
+//#include "cpu/ScenePatches.h"
 #include "cpu/SceneMesh.h"
 #include "cpu/Shapes.h"
 //#include "cpu/SceneSurfels.h"

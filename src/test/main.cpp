@@ -49,6 +49,8 @@ int main(int argc, char * argv[])
     imageMat.convertTo(imageMat, CV_32FC1);
     cv::resize(imageMat, imageMat, cv::Size(IMAGE_WIDTH, IMAGE_HEIGHT), cv::INTER_AREA);
 
+    //to avoid idepth = 0 in the data
+    idepthMat = idepthMat + 1.0;
     idepthMat.convertTo(idepthMat, CV_32FC1);
     cv::resize(idepthMat, idepthMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
@@ -99,8 +101,8 @@ int main(int argc, char * argv[])
     visualOdometry odometry(cam);
 
     //odometry.initScene(image, pixels, idepths);
-    odometry.initScene(image, idepth, ivar);
-    //odometry.initScene(image);
+    //odometry.initScene(image, idepth, ivar);
+    odometry.initScene(image);
 
     while(1){
         framesTracked++;
@@ -139,8 +141,8 @@ int main(int argc, char * argv[])
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();
 
-        std::cout << "real pose " << std::endl;
-        std::cout << realPose.matrix() << std::endl;
+        //std::cout << "real pose " << std::endl;
+        //std::cout << realPose.matrix() << std::endl;
 
         //std::cout << "est pose " << std::endl;
         //std::cout << visual_odometry.trackedPose.matrix() << std::endl;

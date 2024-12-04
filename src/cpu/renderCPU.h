@@ -35,11 +35,11 @@ public:
         renderIdepthLineSearchWindow(kframe, frame, cam, win, buffer, lvl);
     }
 
-    void renderRandom(camera cam, dataCPU<float> *buffer, int lvl)
+    void renderRandom(camera cam, dataCPU<float> *buffer, int lvl, float min = 0.1, float max = 1.9)
     {
         window win(0, cam.width-1, 0, cam.height-1);
 
-        renderRandomWindow(win, buffer, lvl);
+        renderRandomWindow(win, buffer, lvl, min, max);
     }
 
     void renderSmooth(camera cam, dataCPU<float> *buffer, int lvl, float start = 1.0, float end = 2.0)
@@ -535,7 +535,7 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                renderIdepthWindow(win, buffer, lvl);
+                renderWeightWindow(win, buffer, lvl);
                 //pool.enqueue(std::bind(&renderCPU::renderWeightWindow, this, win, buffer, lvl));
             }
         }
@@ -546,9 +546,9 @@ public:
 private:
     void renderSmoothWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float start = 1.0, float end = 2.0)
     {
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y <= win.max_y; y++)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x <= win.max_x; x++)
             {
                 float val = start + (end - start) * float(y) / (cam.width - 1.0);
                 buffer->set(val, y, x, lvl);
@@ -558,9 +558,9 @@ private:
 
     void renderRandomWindow(window win, dataCPU<float> *buffer, int lvl, float min = 1.0, float max = 2.0)
     {
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y <= win.max_y; y++)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x <= win.max_x; x++)
             {
                 if (buffer->get(y, x, lvl) == buffer->nodata)
                 {
@@ -573,9 +573,9 @@ private:
 
     void renderInterpolateWindow(camera cam, window win, dataCPU<float> *buffer, int lvl)
     {
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y <= win.max_y; y++)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x <= win.max_x; x++)
             {
                 if (buffer->get(y, x, lvl) == buffer->nodata)
                 {
@@ -625,9 +625,9 @@ private:
         dataCPU<float> corrFrame = frame->getRawImage();
         dataCPU<float> corrKframe = kframe->getRawImage();
 
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y <= win.max_y; y++)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x <= win.max_x; x++)
             {
                 auto f_i = corrFrame.get(y, x, lvl);
                 if (f_i == corrFrame.nodata)
@@ -718,9 +718,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 
@@ -770,9 +770,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 
@@ -806,16 +806,16 @@ private:
             if(!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
 
-            if (f_pol->getScreenArea() < 0.0)
+            if (f_pol.getScreenArea() < 0.0)
                 continue;
 
             window pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 
@@ -866,9 +866,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 
@@ -932,9 +932,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 
@@ -1014,9 +1014,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 
@@ -1141,7 +1141,7 @@ private:
 
             auto f_pol = scene2.getShape(t_id);
 
-            if(win.isPixInWindow(f_pol.getCenterPix()))
+            if(!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
 
             if (f_pol.getScreenArea() < min_area)
@@ -1152,13 +1152,15 @@ private:
             if (kf_pol.getScreenArea() < min_area)
                 continue;
 
+            idsType ids = kf_pol.getParamIds();
+
             window pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 
@@ -1208,7 +1210,6 @@ private:
                     // this could be the jacobian of the depth of the 3 vertices in a triangle
                     // or the jacobian of the normal + depth of a surfel
                     jmapType jacs = kf_pol.getParamJacobian(kf_pix)*d_f_i_d_kf_depth;
-                    idsType ids = kf_pol.getParamIds();
 
                     e_buffer->set(residual, y, x, lvl);
                     jmap_buffer->set(jacs, y, x, lvl);
@@ -1250,6 +1251,7 @@ private:
             if (kf_pol_area <= min_area)
                 continue;
 
+            /*
             float p_area;
             if (kf_pol_area > f_pol_area)
                 p_area = f_pol_area / kf_pol_area;
@@ -1258,6 +1260,7 @@ private:
 
             if (p_area < 0.5)
                 continue;
+            */
 
             window pol_win = f_pol.getScreenBounds();
 
@@ -1265,11 +1268,14 @@ private:
 
             idsType ids = kf_pol.getParamIds();
 
-            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
+
+                    //if (!cam.isPixVisible(f_pix))
+                    //    continue;
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -1350,9 +1356,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y < pol_win.max_y; y++)
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
             {
-                for (int x = pol_win.min_x; x < pol_win.max_x; x++)
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2<float> f_pix(x, y);
 

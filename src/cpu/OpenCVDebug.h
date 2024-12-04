@@ -2,11 +2,12 @@
 
 #include <opencv2/opencv.hpp>
 #include "cpu/dataCPU.h"
-#include "common/HGEigenSparse.h"
+#include "common/DenseLinearProblem.h"
 
-inline void saveH(HGEigenSparse &data, std::string file_name)
+inline void saveH(DenseLinearProblem &data, std::string file_name)
 {
-    std::map<int, int> obsParamIds = data.getParamIds();
+    /*
+    std::map<int, int> obsParamIds = data.getObservedParamIds();
     Eigen::SparseMatrix<float> H = data.getHSparse(obsParamIds);
 
     cv::Mat toShow(H.outerSize(), H.innerSize(), CV_32FC1, 0.0);
@@ -33,6 +34,7 @@ inline void saveH(HGEigenSparse &data, std::string file_name)
     // toShow = toShow / min;
     cv::normalize(toShow, toShow, 255.0, 0.0, cv::NORM_MINMAX, CV_8UC1);
     cv::imwrite(file_name, toShow);
+    */
 
     // cv::imshow(file_name, toShowLog);
     // cv::waitKey(30);
