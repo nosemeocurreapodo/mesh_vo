@@ -10,8 +10,6 @@
 // #include "common/SparseLinearProblem.h"
 #include "params.h"
 
-#define MAX_TRIANGLE_SIZE 4096
-
 class SceneMesh : public SceneVertices
 {
 public:

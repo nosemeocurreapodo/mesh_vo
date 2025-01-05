@@ -15,6 +15,7 @@ public:
         m_numMapParams = numMapParams;
 
         m_H = Eigen::MatrixXf::Zero(numPoseParams + numMapParams, numPoseParams + numMapParams);
+        m_lH = Eigen::MatrixXf::Zero(numPoseParams + numMapParams, numPoseParams + numMapParams);
         m_G = Eigen::VectorXf::Zero(numPoseParams + numMapParams);
         m_sH = Eigen::SparseMatrix<float>(1, 1);
 
@@ -138,9 +139,11 @@ public:
 
     DenseLinearProblem operator+(DenseLinearProblem a)
     {
-        assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams && a.m_count > 0);
+        assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams);
 
         DenseLinearProblem sum(m_numPoseParams, m_numMapParams);
+        
+        /*
         if(m_count == 0)
         {
             sum.m_H = a.m_H/a.m_count;
@@ -153,6 +156,12 @@ public:
         }
 
         sum.m_count = 1;
+        */
+
+        sum.m_H = m_H + a.m_H;
+        sum.m_G = m_G + a.m_G;
+        sum.m_count = m_count + a.m_count;
+
         sum.m_numPoseParams = m_numPoseParams;
         sum.m_numMapParams = m_numMapParams;
         return sum;
@@ -160,8 +169,9 @@ public:
 
     void operator+=(DenseLinearProblem a)
     {
-        assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams && a.m_count > 0);
+        assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams);
 
+        /*
         if(m_count == 0)
         {
             m_H = a.m_H/a.m_count;
@@ -174,6 +184,11 @@ public:
         }
         
         m_count = 1;
+        */
+
+        m_H += a.m_H;
+        m_G += a.m_G;
+        m_count += a.m_count;
     }
 
     template <typename type>
@@ -226,6 +241,17 @@ public:
         for (int j = 0; j < m_G.size(); j++)
         {
             m_lH(j, j) *= (1.0 + lambda);
+        } 
+        solver.compute(m_lH);
+        return (solver.info() == Eigen::Success);
+    }
+
+    bool prepareH_2(float lambda)
+    {
+        m_lH.setZero();
+        for (int j = 0; j < m_G.size(); j++)
+        {
+            m_lH(j, j) = m_H(j, j)*(1.0 + lambda);
         } 
         solver.compute(m_lH);
         return (solver.info() == Eigen::Success);
@@ -375,6 +401,11 @@ public:
         S.makeCompressed();
 
         return S;
+    }
+
+    int getCount()
+    {
+        return m_count;
     }
 
 private:

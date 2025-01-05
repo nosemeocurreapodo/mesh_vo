@@ -30,8 +30,9 @@ meshOptimizerCPU<sceneType, jmapType, idsType>::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 1.0;
+    meshRegularization = 1.0f;
     meshInitial = 0.0;
+    poseInitial = 100.0;
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
@@ -137,10 +138,10 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &fr
                     best_affine = new_affine;
                     float p = error / last_error;
 
-                    //if (lambda < MIN_LAMBDA)
-                    //    lambda = 0.0f;
-                    //else
-                    //    lambda *= 0.5;
+                    // if (lambda < MIN_LAMBDA)
+                    //     lambda = 0.0f;
+                    // else
+                    //     lambda *= 0.5;
                     lambda = 0.0;
 
                     last_error = error;
@@ -192,29 +193,33 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
         vec2<float> best_affine = frame.getAffine();
         // Error e = computeError(idepth_buffer, keyframe, frame, lvl);
         Error e = computeError(&frame, lvl, false);
+        e *= 1.0 / e.getCount();
+
         float last_error = e.getError();
 
-        std::cout << "initial error " << last_error << " " << lvl << std::endl;
+        // std::cout << "initial error " << last_error << " " << lvl << std::endl;
 
+        float lambda = 0.0;
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             DenseLinearProblem hg = computeHGPose(&frame, lvl, false);
+            hg *= 1.0 / hg.getCount();
 
-            float lambda = 0.0;
             int n_try = 0;
+            lambda = 0.0;
             while (true)
             {
-                if (!hg.prepareH(lambda))
+                if (n_try > 0)
                 {
-                    n_try++;
-
-                    if (lambda == 0.0f)
+                    if (lambda < MIN_LAMBDA)
                         lambda = MIN_LAMBDA;
-                    else
-                        lambda *= std::pow(2.0, n_try);
-
-                    continue;
+                    lambda *= std::pow(2.0, n_try);
                 }
+                n_try++;
+
+                if (!hg.prepareH(lambda))
+                    continue;
+
                 Eigen::VectorXf inc = hg.solve();
 
                 Sophus::SE3f new_pose = best_pose * Sophus::SE3f::exp(inc.segment(0, 6)).inverse();
@@ -223,29 +228,24 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
                 frame.setAffine(new_affine);
 
                 e = computeError(&frame, lvl, false);
+                if (e.getCount() == 0)
+                    continue;
+                e *= 1.0 / e.getCount();
+
                 float error = e.getError();
 
-                std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
+                // std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
 
                 if (error < last_error)
                 {
-                    // accept update, decrease lambda
-
                     best_pose = new_pose;
                     best_affine = new_affine;
                     float p = error / last_error;
-
-                    //if (lambda < MIN_LAMBDA)
-                    //    lambda = 0.0f;
-                    //else
-                    //    lambda *= 0.5;
-                    lambda = 0.0;
 
                     last_error = error;
 
                     if (p > 0.999f)
                     {
-                        // if converged, do next level
                         it = maxIterations[lvl];
                     }
                     // if update accepted, do next iteration
@@ -255,16 +255,6 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
                 {
                     frame.setPose(best_pose);
                     frame.setAffine(new_affine);
-
-                    n_try++;
-
-                    if (lambda == 0.0)
-                        lambda = MIN_LAMBDA;
-                    else
-                        lambda *= std::pow(2.0, n_try);
-
-                    // reject update, increase lambda, use un-updated data
-                    // std::cout << "update rejected " << std::endl;
 
                     if (!(inc.dot(inc) > 1e-16))
                     {
@@ -283,24 +273,23 @@ template <typename sceneType, typename jmapType, typename idsType>
 void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU> &frames)
 {
     int numMapParams = kscene.getParamIds().size();
-    Error e;
-    Error e_regu;
-    DenseLinearProblem hg(0, numMapParams);
-    DenseLinearProblem hg_regu(0, numMapParams);
 
-    for (int lvl = 4; lvl >= 1; lvl--)
+    for (int lvl = 0; lvl >= 0; lvl--)
     {
-        e.setZero();
+        Error e;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            e += computeError(&frames[i], lvl);
+            Error ef = computeError(&frames[i], lvl);
+            assert(ef.getCount() > 0);
+            e += ef;
         }
-
-        e *= 1.0 / frames.size();
+        e *= 1.0 / e.getCount();
 
         if (meshRegularization > 0.0)
         {
-            e_regu = kscene.errorRegu();
+            Error e_regu = kscene.errorRegu();
+            assert(e_regu.getCount() > 0);
+            e_regu *= 1.0 / e_regu.getCount();
             e_regu *= meshRegularization;
             e += e_regu;
         }
@@ -313,17 +302,20 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
         float lambda = 0.0;
         for (int it = 0; it < maxIterations; it++)
         {
-            hg.setZero();
+            DenseLinearProblem hg(0, numMapParams);
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                hg += computeHGMap2(&frames[i], lvl);
+                DenseLinearProblem fhg = computeHGMap2(&frames[i], lvl);
+                assert(fhg.getCount() > 0);
+                hg += fhg;
             }
-
-            hg *= 1.0 / frames.size();
+            hg *= 1.0 / hg.getCount();
 
             if (meshRegularization > 0.0)
             {
-                hg_regu = kscene.HGRegu(0);
+                DenseLinearProblem hg_regu = kscene.HGRegu(0);
+                assert(hg_regu.getCount() > 0);
+                hg_regu *= 1.0 / hg_regu.getCount();
                 hg_regu *= meshRegularization;
                 hg += hg_regu;
             }
@@ -333,19 +325,20 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
             std::vector<int> paramIds = hg.getParamIds();
 
             int n_try = 0;
+            lambda = 0.0;
             while (true)
             {
-                if (!hg.prepareH(lambda))
+                if (n_try > 0)
                 {
-                    n_try++;
-
-                    if (lambda == 0.0f)
+                    if (lambda < MIN_LAMBDA)
                         lambda = MIN_LAMBDA;
-                    else
-                        lambda *= std::pow(2.0, n_try);
-
-                    continue;
+                    lambda *= std::pow(2.0, n_try);
                 }
+                n_try++;
+
+                if (!hg.prepareH(lambda))
+                    continue;
+
                 Eigen::VectorXf inc = hg.solve();
 
                 std::vector<float> best_params;
@@ -371,34 +364,36 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
                 map_inc_mag /= map_inc_mag_count;
 
                 e.setZero();
+                bool someProblemWithUpdate = false;
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
-                    e += computeError(&frames[i], lvl);
+                    Error fe = computeError(&frames[i], lvl);
+                    if (fe.getCount() == 0)
+                        someProblemWithUpdate = true;
+                    e += fe;
                 }
+                e *= 1.0 / e.getCount();
 
-                e *= 1.0 / frames.size();
+                if (someProblemWithUpdate)
+                    continue;
 
                 if (meshRegularization > 0.0)
                 {
-                    e_regu = kscene.errorRegu();
+                    Error e_regu = kscene.errorRegu();
+                    assert(e_regu.getCount() > 0);
+                    e_regu *= 1.0 / e_regu.getCount();
                     e_regu *= meshRegularization;
                     e += e_regu;
                 }
 
                 float error = e.getError();
 
-                std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
+                std::cout << "new error " << error << " " << lambda << " " << it << " " << n_try << " lvl: " << lvl << std::endl;
 
                 if (error < last_error)
                 {
                     // accept update, decrease lambda
                     float p = error / last_error;
-
-                    //if (lambda < MIN_LAMBDA)
-                    //    lambda = 0.0f;
-                    //else
-                    //    lambda *= 0.5;
-                    lambda = 0.0;
 
                     last_error = error;
 
@@ -418,13 +413,6 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
                     {
                         kscene.setParam(best_params[index], paramIds[index]);
                     }
-
-                    n_try++;
-
-                    if (lambda == 0.0f)
-                        lambda = MIN_LAMBDA;
-                    else
-                        lambda *= std::pow(2.0, n_try);
 
                     // reject update, increase lambda, use un-updated data
 
@@ -448,26 +436,43 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
     int numMapParams = kscene.getParamIds().size();
     int numFrameParams = frames.size() * 8;
 
-    Error e;
-    Error e_regu;
-    DenseLinearProblem hg(numFrameParams, numMapParams);
-    DenseLinearProblem hg_regu(numFrameParams, numMapParams);
+    std::vector<Eigen::Matrix<float, 6, 1>> init_poses;
+    for (auto &frame : frames)
+    {
+        init_poses.push_back(frame.getPose().log());
+    }
 
     for (int lvl = 0; lvl >= 0; lvl--)
     {
-        e.setZero();
+        Error e;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            e += computeError(&frames[i], lvl);
+            Error fe = computeError(&frames[i], lvl);
+            assert(fe.getCount() > 0);
+            e += fe;
         }
-
-        e *= 1.0 / frames.size();
+        e *= 1.0 / e.getCount();
 
         if (meshRegularization > 0.0)
         {
-            e_regu = kscene.errorRegu();
+            Error e_regu = kscene.errorRegu();
+            assert(e_regu.getCount() > 0);
+            e_regu *= 1.0 / e_regu.getCount();
             e_regu *= meshRegularization;
             e += e_regu;
+        }
+
+        if (poseInitial > 0.0)
+        {
+            Error poseInitialError;
+            for (std::size_t i = 0; i < frames.size(); i++)
+            {
+                Eigen::Matrix<float, 6, 1> diff = frames[i].getPose().log() - init_poses[i];
+                poseInitialError += diff.dot(diff);
+            }
+            poseInitialError *= 1.0 / frames.size();
+            poseInitialError *= poseInitial;
+            e += poseInitialError;
         }
 
         float last_error = e.getError();
@@ -478,19 +483,37 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
         float lambda = 0.0;
         for (int it = 0; it < maxIterations; it++)
         {
-            hg.setZero();
+            DenseLinearProblem hg(numFrameParams, numMapParams);
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                hg += computeHGPoseMap2(&frames[i], i, frames.size(), lvl);
+                DenseLinearProblem fhg = computeHGPoseMap2(&frames[i], i, frames.size(), lvl);
+                assert(fhg.getCount() > 0);
+                hg += fhg;
             }
-
-            hg *= 1.0 / frames.size();
+            hg *= 1.0 / hg.getCount();
 
             if (meshRegularization > 0.0)
             {
-                hg_regu = kscene.HGRegu(frames.size());
+                DenseLinearProblem hg_regu = kscene.HGRegu(frames.size());
+                assert(hg_regu.getCount() > 0);
+                hg_regu *= 1.0 / hg_regu.getCount();
                 hg_regu *= meshRegularization;
                 hg += hg_regu;
+            }
+
+            if (poseInitial > 0.0)
+            {
+                for (std::size_t i = 0; i < frames.size(); i++)
+                {
+                    Eigen::Matrix<float, 6, 1> diff = frames[i].getPose().log() - init_poses[i];
+                    float pose_error = diff.dot(diff) / frames.size();
+                    vec8<float> pose_jac = vec8<float>(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0) / frames.size();
+                    vec8<int> pose_ids;
+                    for (int j = 0; j < 8; j++)
+                        pose_ids(j) = i * 8 + j - frames.size() * 8;
+
+                    hg.add(pose_jac, pose_error, 1.0, pose_ids);
+                }
             }
 
             // std::vector<int> paramIds = hg.removeUnobservedParams();
@@ -498,19 +521,21 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
             // saveH(hg, "H.png");
 
             int n_try = 0;
+            lambda = 0.0;
+            // lambda *= 0.5;
             while (true)
             {
-                if (!hg.prepareH(lambda))
+                if (n_try > 0)
                 {
-                    n_try++;
-
-                    if (lambda == 0.0f)
+                    if (lambda < MIN_LAMBDA)
                         lambda = MIN_LAMBDA;
-                    else
-                        lambda *= std::pow(2.0, n_try);
-
-                    continue;
+                    lambda *= std::pow(2.0, n_try);
                 }
+                n_try++;
+
+                if (!hg.prepareH(lambda))
+                    continue;
+
                 Eigen::VectorXf inc = hg.solve();
 
                 // update pose
@@ -527,8 +552,8 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                     best_poses.push_back(frames[i].getPose());
                     best_affines.push_back(frames[i].getAffine());
                     Sophus::SE3f new_pose = frames[i].getPose() * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
-                    if (i == frames.size() - 1)
-                        new_pose.translation() = new_pose.translation().normalized() * frames[i].getPose().translation().norm();
+                    // if (i == frames.size() - 1)
+                    //     new_pose.translation() = new_pose.translation().normalized() * frames[i].getPose().translation().norm();
                     vec2<float> new_affine = frames[i].getAffine(); // - vec2<float>(pose_inc(6), pose_inc(7));
                     frames[i].setPose(new_pose);
                     frames[i].setAffine(new_affine);
@@ -564,34 +589,48 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                 map_inc_mag /= map_inc_mag_count;
 
                 e.setZero();
+                bool someProblemWithUpdate = false;
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
-                    e += computeError(&frames[i], lvl);
+                    Error fe = computeError(&frames[i], lvl);
+                    if (fe.getCount() == 0)
+                        someProblemWithUpdate = true;
+                    e += fe;
                 }
+                if (someProblemWithUpdate)
+                    continue;
 
-                e *= 1.0 / frames.size();
+                e *= 1.0 / e.getCount();
 
                 if (meshRegularization > 0.0)
                 {
-                    e_regu = kscene.errorRegu();
+                    Error e_regu = kscene.errorRegu();
+                    e_regu *= 1.0 / e_regu.getCount();
                     e_regu *= meshRegularization;
                     e += e_regu;
                 }
 
+                if (poseInitial > 0.0)
+                {
+                    Error poseInitialError;
+                    for (std::size_t i = 0; i < frames.size(); i++)
+                    {
+                        Eigen::Matrix<float, 6, 1> diff = frames[i].getPose().log() - init_poses[i];
+                        poseInitialError += diff.dot(diff);
+                    }
+                    poseInitialError *= 1.0 / frames.size();
+                    poseInitialError *= poseInitial;
+                    e += poseInitialError;
+                }
+
                 float error = e.getError();
 
-                std::cout << "new error " << error << " " << it << " " << lambda << " lvl: " << lvl << std::endl;
+                std::cout << "new error " << error << " " << it << " " << lambda << " " << n_try << " lvl: " << lvl << std::endl;
 
                 if (error < last_error)
                 {
                     // accept update, decrease lambda
                     float p = error / last_error;
-
-                    //if (lambda < MIN_LAMBDA)
-                    //    lambda = 0.0f;
-                    //else
-                    //    lambda *= 0.5;
-                    lambda = 0.0;
 
                     last_error = error;
 
@@ -624,15 +663,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fram
                         kscene.setParam(best_params[mapParamId], mapParamId);
                     }
 
-                    n_try++;
-
-                    if (lambda == 0.0f)
-                        lambda = MIN_LAMBDA;
-                    else
-                        lambda *= std::pow(2.0, n_try);
-
                     // reject update, increase lambda, use un-updated data
-
                     // std::cout << "pose inc mag " << pose_inc_mag << " map inc mag " << map_inc_mag << std::endl;
 
                     if (pose_inc_mag < 1e-16 || map_inc_mag < 1e-16)

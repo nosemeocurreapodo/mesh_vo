@@ -190,8 +190,8 @@ public:
         idepth_buffer.set(idepth_buffer.nodata, 1);
         image_buffer.set(image_buffer.nodata, 1);
         error_buffer.set(error_buffer.nodata, 1);
-        ivar_buffer.set(ivar_buffer.nodata, 1);
-        debug.set(debug.nodata, 0);
+        //ivar_buffer.set(ivar_buffer.nodata, 1);
+        //debug.set(debug.nodata, 0);
 
         // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
         renderer.renderIdepthParallel(&kscene, frame.getPose(), cam[1], &idepth_buffer, 1);
@@ -200,13 +200,13 @@ public:
 
         show(frame.getRawImage(), "frame image", false, false, 1);
         show(kimage, "keyframe image", false, false, 1);
-        show(error_buffer, "frame error", false, true, 1);
-        show(idepth_buffer, "frame idepth", true, true, 1);
-        show(ivar_buffer, "ivar", true, false, 1);
+        show(error_buffer, "frame error", false, false, 1);
+        show(idepth_buffer, "frame idepth", true, false, 1);
+        //show(ivar_buffer, "ivar", true, false, 1);
 
-        show(frame.getdIdpixImage(), "frame dx image", false, true, 0, 1);
-        show(jpose_buffer, "jpose image", false, true, 0, 1);
-        show(jmap_buffer, "jmap image", false, true, 0, 1);
+        //show(frame.getdIdpixImage(), "frame dx image", false, false, 0, 1);
+        //show(jpose_buffer, "jpose image", false, false, 0, 1);
+        //show(jmap_buffer, "jmap image", false, false, 0, 1);
 
         if (frames.size() > 0)
         {
@@ -214,12 +214,17 @@ public:
             dataCPU<float> residual_buffer(cam[0].width * frames.size(), cam[0].height, -1);
             for (int i = 0; i < (int)frames.size(); i++)
             {
+                error_buffer.set(error_buffer.nodata, 1);
+                renderer.renderResidualParallel(&kscene, &kimage, &frames[i], cam[1], &error_buffer, 1);
+
                 for (int y = 0; y < cam[1].height; y++)
                 {
                     for (int x = 0; x < cam[1].width; x++)
                     {
                         float pix_val = frames[i].getRawImage().get(y, x, 1);
-                        float res_val = frames[i].getResidualImage().get(y, x, 1);
+                        //float res_val = frames[i].getResidualImage().get(y, x, 1);
+                        float res_val = error_buffer.get(y, x, 1);
+
                         frames_buffer.set(pix_val, y, x + i * cam[1].width, 1);
                         residual_buffer.set(res_val, y, x + i * cam[1].width, 1);
                     }
@@ -230,13 +235,13 @@ public:
             show(residual_buffer, "residuals", false, false, 1);
         }
 
-        renderer.renderDebugParallel(&kscene, &kimage, Sophus::SE3f(), cam[0], &debug, 0);
-        show(debug, "frame debug", false, false, 0);
+        //renderer.renderDebugParallel(&kscene, &kimage, Sophus::SE3f(), cam[0], &debug, 0);
+        //show(debug, "frame debug", false, false, 0);
 
-        idepth_buffer.set(idepth_buffer.nodata, 1);
+        //idepth_buffer.set(idepth_buffer.nodata, 1);
         // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
-        renderer.renderIdepthParallel(&kscene, Sophus::SE3f(), cam[1], &idepth_buffer, 1);
-        show(idepth_buffer, "keyframe idepth", true, false, 1);
+        //renderer.renderIdepthParallel(&kscene, Sophus::SE3f(), cam[1], &idepth_buffer, 1);
+        //show(idepth_buffer, "keyframe idepth", true, false, 1);
     }
 
     void changeKeyframe(frameCPU &frame)
@@ -393,6 +398,7 @@ private:
     bool multiThreading;
     float meshRegularization;
     float meshInitial;
+    float poseInitial;
 
     dataCPU<float> image_buffer;
     dataCPU<float> idepth_buffer;

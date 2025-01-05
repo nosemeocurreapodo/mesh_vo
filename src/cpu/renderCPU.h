@@ -897,9 +897,12 @@ private:
 
                     float f_i_cor = alpha*(f_i - beta);
 
-                    float residual = f_i_cor - kf_i;
+                    float residual = (f_i_cor - kf_i);
 
-                    e_buffer->set(residual, y, x, lvl);
+                    //vec3<float> bar = f_pol.getBarycentric();
+                    float weight = 1.0;//bar(0)*bar(1)*bar(2);
+
+                    e_buffer->set(residual*weight, y, x, lvl);
                     z_buffer.set(f_depth, y, x, lvl);
                 }
             }
@@ -978,10 +981,13 @@ private:
 
                     vec8<float> j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_affine(0), d_f_i_d_affine(1)};
 
-                    float residual = f_i_cor - kf_i;
+                    float residual = (f_i_cor - kf_i);
 
-                    jpose_buffer->set(j_pose, y, x, lvl);
-                    e_buffer->set(residual, y, x, lvl);
+                    //vec3<float> bar = f_pol.getBarycentric();
+                    float weight = 1.0;//bar(0)*bar(1)*bar(2);
+
+                    jpose_buffer->set(j_pose*weight, y, x, lvl);
+                    e_buffer->set(residual*weight, y, x, lvl);
                     z_buffer.set(f_depth, y, x, lvl);
                 }
             }
@@ -1211,8 +1217,11 @@ private:
                     // or the jacobian of the normal + depth of a surfel
                     jmapType jacs = kf_pol.getParamJacobian(kf_pix)*d_f_i_d_kf_depth;
 
-                    e_buffer->set(residual, y, x, lvl);
-                    jmap_buffer->set(jacs, y, x, lvl);
+                    //vec3<float> bar = f_pol.getBarycentric();
+                    float weight = 1.0;//bar(0)*bar(1)*bar(2);
+
+                    e_buffer->set(residual*weight, y, x, lvl);
+                    jmap_buffer->set(jacs*weight, y, x, lvl);
                     pId_buffer->set(ids, y, x, lvl);
                 }
             }
@@ -1319,8 +1328,6 @@ private:
 
                     vec8<float> jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2), d_f_i_d_f_affine(0), d_f_i_d_f_affine(1)};
 
-                    jpose_buffer->set(jpose, y, x, lvl);
-
                     Eigen::Vector3f d_f_ver_d_kf_depth_e = kfTofPose.rotationMatrix() * Eigen::Vector3f(kf_ray(0), kf_ray(1), kf_ray(2));
 
                     vec3<float> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_e(0), d_f_ver_d_kf_depth_e(1), d_f_ver_d_kf_depth_e(2));
@@ -1330,8 +1337,12 @@ private:
 
                     float error = f_i_cor - kf_i;
 
-                    e_buffer->set(error, y, x, lvl);
-                    jmap_buffer->set(jacs, y, x, lvl);
+                    //vec3<float> bar = f_pol.getBarycentric();
+                    float weight = 1.0;//bar(0)*bar(1)*bar(2);
+
+                    e_buffer->set(error*weight, y, x, lvl);
+                    jpose_buffer->set(jpose*weight, y, x, lvl);
+                    jmap_buffer->set(jacs*weight, y, x, lvl);
                     pId_buffer->set(ids, y, x, lvl);
                 }
             }

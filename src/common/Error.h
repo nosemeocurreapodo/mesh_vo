@@ -17,9 +17,10 @@ public:
 
     Error operator+(Error a)
     {
-        assert(a.count > 0);
-
         Error sum;
+
+        /*
+        assert(a.count > 0);
 
         if (count > 0)
         {
@@ -31,12 +32,17 @@ public:
         }
 
         sum.count = 1;
+        */
+
+       sum.error = error + a.error;
+       sum.count = count + a.count;
 
         return sum;
     }
 
     void operator+=(Error a)
     {
+        /*
         assert(a.count > 0);
 
         if (count > 0)
@@ -48,6 +54,10 @@ public:
             error = a.error / a.count;
         }
         count = 1;
+        */
+
+        error += a.error;
+        count += a.count;
     }
 
     template <typename type>
@@ -65,12 +75,12 @@ public:
 
     float getError()
     {
-        assert(count > 0);
+        return error;
+    }
 
-        // if(count == 0)
-        //     return std::numeric_limits<float>::max();
-
-        return error / count;
+    int getCount()
+    {
+        return count;
     }
 
     /*

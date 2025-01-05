@@ -111,8 +111,8 @@ int main(int argc, char * argv[])
             frameCounterDirection = -1;
         if(frameNumber < 2)
             frameCounterDirection = 1;
-        if(frameNumber > 100)
-            return 1;
+        //if(frameNumber > 100)
+        //    return 1;
 
         char image_filename[500];
         char RT_filename[500];

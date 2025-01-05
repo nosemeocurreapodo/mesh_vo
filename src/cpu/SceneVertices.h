@@ -8,12 +8,9 @@
 #include "cpu/Shapes.h"
 #include "cpu/frameCPU.h"
 
-#define MAX_VERTEX_SIZE 4096 //for a 64*64 mesh
-
 class SceneVertices // : public SceneBase
 {
 public:
-
     SceneVertices()
     {
         m_pose = Sophus::SE3f();
@@ -74,14 +71,14 @@ public:
         m_pose = pose;
         m_cam = cam;
 
-        for(int i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
         {
             m_vertices[i].used = false;
         }
 
         for (int i = 0; i < vertices.size(); i++)
         {
-            if(i >= MAX_VERTEX_SIZE)
+            if (i >= MAX_VERTEX_SIZE)
                 break;
 
             vec3<float> vertice = vertices[i];
@@ -102,14 +99,14 @@ public:
         m_cam = cam;
         m_pose = pose;
 
-        for(int i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
         {
             m_vertices[i].used = false;
         }
 
         for (int i = 0; i < texcoords.size(); i++)
         {
-            if(i >= MAX_VERTEX_SIZE)
+            if (i >= MAX_VERTEX_SIZE)
                 break;
 
             vec2<float> pix = texcoords[i];
@@ -132,7 +129,7 @@ public:
         m_cam = cam;
         m_pose = pose;
 
-        for(int i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
         {
             m_vertices[i].used = false;
         }
@@ -142,7 +139,7 @@ public:
         {
             for (float x = 0.0; x < MESH_WIDTH; x++)
             {
-                if(i >= MAX_VERTEX_SIZE)
+                if (i >= MAX_VERTEX_SIZE)
                     return;
 
                 vec2<float> pix;
@@ -280,7 +277,7 @@ public:
     {
         assert(id >= 0 && id < MAX_VERTEX_SIZE);
         assert(m_vertices[id].used);
-        
+
         return m_vertices[id];
     }
 
@@ -311,7 +308,7 @@ public:
         std::vector<int> keys;
         for (int it = 0; it < MAX_VERTEX_SIZE; ++it)
         {
-            if(m_vertices[it].used)
+            if (m_vertices[it].used)
                 keys.push_back((int)it);
         }
         return keys;
@@ -320,7 +317,7 @@ public:
     void transform(camera cam, Sophus::SE3f pose)
     {
         bool poseUpdated = false;
-        if (!(m_pose.translation() == pose.translation()) && !(m_pose.unit_quaternion() == pose.unit_quaternion()) )
+        if (!(m_pose.translation() == pose.translation()) && !(m_pose.unit_quaternion() == pose.unit_quaternion()))
         {
             poseUpdated = true;
             Sophus::SE3f relativePose = pose * m_pose.inverse();
@@ -343,7 +340,7 @@ public:
             m_cam = cam;
             for (int it = 0; it < MAX_VERTEX_SIZE; ++it)
             {
-                if(!m_vertices[it].used)
+                if (!m_vertices[it].used)
                     continue;
                 m_vertices[it].pix = m_cam.rayToPix(m_vertices[it].ray);
             }
@@ -380,7 +377,6 @@ public:
     }
 
 private:
-
     /*
     void deleteBuffer()
     {
@@ -410,8 +406,8 @@ private:
         return m_vertices[id].ver(2);
     }
 
-    vertex m_vertices[MAX_VERTEX_SIZE]; 
+    vertex m_vertices[MAX_VERTEX_SIZE];
     Sophus::SE3f m_pose;
     camera m_cam;
-    //int m_verticesBufferSize;
+    // int m_verticesBufferSize;
 };

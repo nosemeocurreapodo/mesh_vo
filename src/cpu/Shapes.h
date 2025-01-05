@@ -510,6 +510,11 @@ public:
         return ids;
     }
 
+    vec3<float> getBarycentric()
+    {
+        return m_barycentric;
+    }
+
 private:
     /*
     void computeNormal()
