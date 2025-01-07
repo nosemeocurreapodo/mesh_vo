@@ -9,12 +9,12 @@
 //#include "common/SparseLinearProblem.h"
 
 template <typename shapeType>
-class SceneBase
+class GeometryBase
 {
 public:
-    SceneBase() {};
+    GeometryBase() {};
 
-    SceneBase(const SceneBase &other)
+    GeometryBase(const GeometryBase &other)
     {
     }
 

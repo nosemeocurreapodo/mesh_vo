@@ -1,35 +1,34 @@
 #pragma once
 
-#include <opencv2/core.hpp>
-
 #include <iostream>
 #include <fstream>
 
+#include <opencv2/core.hpp>
+
 #include "sophus/se3.hpp"
 
-#include "optimizers/meshOptimizerCPU.h"
-// #include "scene/keyframeIdepthSceneCPU.h"
 #include "cpu/frameCPU.h"
-
 //#include "cpu/ScenePatches.h"
 #include "cpu/SceneMesh.h"
 #include "cpu/Shapes.h"
 //#include "cpu/SceneSurfels.h"
 //#include "cpu/SceneMeshSmooth.h"
 
+#include "optimizers/sceneOptimizerCPU.h"
+
 class visualOdometry
 {
 public:
     visualOdometry(camera &cam);
 
-    void initScene(dataCPU<float> &image, Sophus::SE3f pose = Sophus::SE3f());
-    void initScene(dataCPU<float> &image, dataCPU<float> &idepth, dataCPU<float> &ivar, Sophus::SE3f pose = Sophus::SE3f());
-    void initScene(dataCPU<float> &image, std::vector<vec2<float>> &pixels, std::vector<float> &idepths, Sophus::SE3f pose = Sophus::SE3f());
+    void init(frameCPU &frame);
+    void init(frameCPU &frame, dataCPU<float> &idepth);
+    void init(frameCPU &frame, std::vector<vec2<float>> &pixels, std::vector<float> &idepths);
 
     void locAndMap(dataCPU<float> &image);
-    void lightaffine(dataCPU<float> &image, Sophus::SE3f pose);
+    void lightaffine(dataCPU<float> &image, Sophus::SE3f globalPose);
     void localization(dataCPU<float> &image);
-    void mapping(dataCPU<float> &image, Sophus::SE3f pose, vec2<float> affine);
+    void mapping(dataCPU<float> &image, Sophus::SE3f globalPose, vec2<float> affine);
 
     Sophus::SE3f lastPose;
     vec2<float> lastAffine;
@@ -47,6 +46,9 @@ private:
     std::vector<frameCPU> lastFrames;
     std::vector<frameCPU> keyFrames;
 
-    meshOptimizerCPU<SceneMesh, vec3<float>, vec3<int>> meshOptimizer;
-    // keyframeIdepthSceneCPU scene;
+    SceneMesh kscene;
+    frameCPU kframe;
+
+    sceneOptimizerCPU<SceneMesh, vec3<float>, vec3<int>> sceneOptimizer;
+    renderCPU<SceneMesh> renderer;
 };

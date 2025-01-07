@@ -8,7 +8,6 @@
 #include "common/common.h"
 #include "cpu/dataCPU.h"
 #include "cpu/frameCPU.h"
-#include "cpu/SceneBase.h"
 #include "threadpoolCPU.h"
 #include "params.h"
 
@@ -26,58 +25,62 @@ public:
         return z_buffer;
     }
 
-    void renderIdepthLineSearch(frameCPU *kframe, frameCPU *frame, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderIdepthLineSearch(dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<float> &buffer)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
         window win(0, cam.width-1, 0, cam.height-1);
 
-        renderIdepthLineSearchWindow(kframe, frame, cam, win, buffer, lvl);
+        renderIdepthLineSearchWindow(kimage, image, imagePose, cam, win, buffer);
     }
 
-    void renderRandom(camera cam, dataCPU<float> *buffer, int lvl, float min = 0.1, float max = 1.9)
+    void renderRandom(camera cam, dataCPU<float> &buffer, float min = 0.1, float max = 1.9)
+    {
+        assert(cam.width == buffer.width && cam.height == buffer.height);
+
+        window win(0, cam.width-1, 0, cam.height-1);
+
+        renderRandomWindow(win, buffer, min, max);
+    }
+
+    void renderSmooth(camera cam, dataCPU<float> &buffer, float start = 1.0, float end = 2.0)
+    {
+        assert(cam.width == buffer.width && cam.height == buffer.height);
+
+        window win(0, cam.width-1, 0, cam.height-1);
+
+        renderSmoothWindow(cam, win, buffer, start, end);
+    }
+
+    void renderInterpolate(camera cam, dataCPU<float> &buffer)
     {
         window win(0, cam.width-1, 0, cam.height-1);
 
-        renderRandomWindow(win, buffer, lvl, min, max);
+        renderInterpolateWindow(cam, win, buffer);
     }
 
-    void renderSmooth(camera cam, dataCPU<float> *buffer, int lvl, float start = 1.0, float end = 2.0)
+    void renderImage(sceneType &kscene, dataCPU<float> &kimage, Sophus::SE3f pose, camera cam, dataCPU<float> &buffer)
     {
-        window win(0, cam.width-1, 0, cam.height-1);
-
-        renderSmoothWindow(cam, win, buffer, lvl, start, end);
-    }
-
-    void renderInterpolate(camera cam, dataCPU<float> *buffer, int lvl)
-    {
-        window win(0, cam.width-1, 0, cam.height-1);
-
-        renderInterpolateWindow(cam, win, buffer, lvl);
-    }
-
-    void renderImage(sceneType *kscene, dataCPU<float> *kimage, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
-    {
-        scene1 = *kscene;
-        scene2 = *kscene;
+        scene1 = kscene;
+        scene2 = kscene;
         scene1.transform(cam, Sophus::SE3f());
         scene2.transform(cam, pose);
 
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
         window win(0, cam.width-1, 0, cam.height-1);
 
-        renderImageWindow(kimage, cam, win, buffer, lvl);
+        renderImageWindow(kimage, cam, win, buffer);
     }
 
-    void renderImageParallel(sceneType *kscene, dataCPU<float> *kimage, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderImageParallel(sceneType &kscene, dataCPU<float> &kimage, Sophus::SE3f pose, camera cam, dataCPU<float> &buffer)
     {
-        scene1 = *kscene;
-        scene2 = *kscene;
+        scene1 = kscene;
+        scene2 = kscene;
         scene1.transform(cam, Sophus::SE3f());
         scene2.transform(cam, pose);
 
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -96,7 +99,7 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                renderImageWindow(kimage, cam, win, buffer, lvl);
+                renderImageWindow(kimage, cam, win, buffer);
                 //pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kimage, cam, win, buffer, lvl));
             }
         }
@@ -140,28 +143,28 @@ public:
     }
     */
 
-    void renderDebug(sceneType *scene, dataCPU<float> *image, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderDebug(sceneType &scene, dataCPU<float> &image, Sophus::SE3f pose, camera cam, dataCPU<float> &buffer)
     {
         scene1 = *scene;
         scene2 = *scene;
         scene1.transform(cam, Sophus::SE3f());
         scene2.transform(cam, pose);
 
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
         window win(0, cam.width-1, 0, cam.height-1);
 
-        renderDebugWindow(image, win, buffer, lvl);
+        renderDebugWindow(image, win, buffer);
     }
 
-    void renderDebugParallel(sceneType *scene, dataCPU<float> *image, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderDebugParallel(sceneType &scene, dataCPU<float> &image, Sophus::SE3f pose, camera cam, dataCPU<float> &buffer)
     {
         scene1 = *scene;
         scene2 = *scene;
         scene1.transform(cam, Sophus::SE3f());
         scene2.transform(cam, pose);
 
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -180,7 +183,7 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                renderDebugWindow(image, win, buffer, lvl);
+                renderDebugWindow(image, win, buffer);
                 //pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, image, win, buffer, lvl));
             }
         }
@@ -189,29 +192,29 @@ public:
     }
 
     template <typename jmapType, typename idsType>
-    void renderJMap(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
+    void renderJMap(sceneType &kscene, dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
     {
-        scene1 = *kscene;
-        scene2 = *kscene;
+        scene1 = kscene;
+        scene2 = kscene;
         scene1.transform(cam, Sophus::SE3f());
-        scene2.transform(cam, frame->getPose());
+        scene2.transform(cam, imagePose);
 
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
         window win(0, cam.width-1, 0, cam.height-1);
 
-        renderJMapWindow(&kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
+        renderJMapWindow(kimage, image, cam, win, jmap_buffer, e_buffer, pId_buffer);
     }
 
     template <typename jmapType, typename idsType>
-    void renderJMapParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera &cam, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
+    void renderJMapParallel(sceneType &kscene, dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose,, camera cam, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
     {
-        scene1 = *kscene;
-        scene2 = *kscene;
+        scene1 = kscene;
+        scene2 = kscene;
         scene1.transform(cam, Sophus::SE3f());
-        scene2.transform(cam, frame->getPose());
+        scene2.transform(cam, imagePose);
 
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -230,7 +233,7 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                renderJMapWindow(kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl);
+                renderJMapWindow(kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer);
                 //pool.enqueue(std::bind(&renderCPU::renderJMapWindow, this, kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
@@ -241,7 +244,7 @@ public:
     template <typename jmapType, typename idsType>
     void renderJPoseMap(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
         scene1 = *kscene;
         scene2 = *kscene;
@@ -256,7 +259,7 @@ public:
     template <typename jmapType, typename idsType>
     void renderJPoseMapParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
         scene1 = *kscene;
         scene2 = *kscene;
@@ -288,14 +291,14 @@ public:
         //pool.waitUntilDone();
     }
 
-    void renderJLightAffineParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJLightAffineParallel(sceneType &kscene, dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<vec2<float>> &jlightaffine_buffer, dataCPU<float> &e_buffer)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
-        scene1 = *kscene;
-        scene2 = *kscene;
+        scene1 = kscene;
+        scene2 = kscene;
         scene1.transform(cam, Sophus::SE3f());
-        scene2.transform(cam, frame->getPose());
+        scene2.transform(cam, imagePose);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -314,7 +317,7 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                renderJLightAffineWindow(kimage, frame, cam, win, jlightaffine_buffer, e_buffer, lvl);
+                renderJLightAffineWindow(kimage, image, imagePose, cam, win, jlightaffine_buffer, e_buffer);
                 //pool.enqueue(std::bind(&renderCPU::renderJLightAffineWindow, this, kimage, frame, cam, win, jlightaffine_buffer, e_buffer, lvl));
             }
         }
@@ -322,28 +325,28 @@ public:
         //pool.waitUntilDone();
     }
 
-    void renderJPose(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJPose(sceneType &kscene, dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &e_buffer)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
-        scene1 = *kscene;
-        scene2 = *kscene;
-        scene1->transform(cam, Sophus::SE3f());
-        scene2->transform(cam, frame->getPose());
+        scene1 = kscene;
+        scene2 = kscene;
+        scene1.transform(cam, Sophus::SE3f());
+        scene2.transform(cam, imagePose);
 
         window win(0, cam.width-1, 0, cam.height-1);
 
-        renderJPoseWindow(kimage, frame, cam, win, jpose_buffer, e_buffer, lvl);
+        renderJPoseWindow(kimage, image, imagePose, cam, win, jpose_buffer, e_buffer);
     }
 
-    void renderJPoseParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJPoseParallel(sceneType &kscene, dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &e_buffer)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
-        scene1 = *kscene;
-        scene2 = *kscene;
+        scene1 = kscene;
+        scene2 = kscene;
         scene1.transform(cam, Sophus::SE3f());
-        scene2.transform(cam, frame->getPose());
+        scene2.transform(cam, imagePose);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -362,7 +365,7 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                renderJPoseWindow(kimage, frame, cam, win, jpose_buffer, e_buffer, lvl);
+                renderJPoseWindow(kimage, image, imagePose, cam, win, jpose_buffer, e_buffer);
                 //pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kimage, frame, cam, win, jpose_buffer, e_buffer, lvl));
             }
         }
@@ -370,28 +373,28 @@ public:
         //pool.waitUntilDone();
     }
 
-    void renderResidual(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<float> *e_buffer, int lvl)
+    void renderResidual(sceneType &kscene, dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<float> &e_buffer)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
-        scene1 = *kscene;
-        scene2 = *kscene;
+        scene1 = kscene;
+        scene2 = kscene;
         scene1.transform(cam, Sophus::SE3f());
-        scene2.transform(cam, frame->getPose());
+        scene2.transform(cam, imagePose);
 
         window win(0, cam.width-1, 0, cam.height-1);
 
-        renderResidualWindow(kimage, frame, cam, win, e_buffer, lvl);
+        renderResidualWindow(kimage, image, imagePose, cam, win, e_buffer);
     }
 
-    void renderResidualParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<float> *e_buffer, int lvl)
+    void renderResidualParallel(sceneType &kscene, dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<float> &e_buffer, int lvl)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
-        scene1 = *kscene;
-        scene2 = *kscene;
+        scene1 = kscene;
+        scene2 = kscene;
         scene1.transform(cam, Sophus::SE3f());
-        scene2.transform(cam, frame->getPose());
+        scene2.transform(cam, imagePose);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -410,7 +413,7 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                renderResidualWindow(kimage, frame, cam, win, e_buffer, lvl);
+                renderResidualWindow(kimage, image, cam, win, e_buffer, lvl);
                 //pool.enqueue(std::bind(&renderCPU::renderResidualWindow, this, kimage, frame, cam, win, e_buffer, lvl));
             }
         }
@@ -455,23 +458,23 @@ public:
     }
     */
 
-    void renderIdepth(sceneType *scene, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderIdepth(sceneType &scene, Sophus::SE3f pose, camera cam, dataCPU<float> &buffer, int lvl)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
-        scene2 = *scene;
+        scene2 = scene;
         scene2.transform(cam, pose);
 
         window win(0, cam.width-1, 0, cam.height-1);
 
-        renderIdepthWindow(win, buffer, lvl);
+        renderIdepthWindow(win, buffer);
     }
 
-    void renderIdepthParallel(sceneType *scene, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderIdepthParallel(sceneType &scene, Sophus::SE3f pose, camera cam, dataCPU<float> &buffer)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
-        scene2 = *scene;
+        scene2 = scene;
         scene2.transform(cam, pose);
 
         int divi_y = pool.getNumThreads();
@@ -491,7 +494,7 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                renderIdepthWindow(win, buffer, lvl);
+                renderIdepthWindow(win, buffer);
                 //pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, win, buffer, lvl));
             }
         }
@@ -499,23 +502,23 @@ public:
         //pool.waitUntilDone();
     }
 
-    void renderWeight(sceneType *scene, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderWeight(sceneType &scene, Sophus::SE3f pose, camera cam, dataCPU<float> &buffer, int lvl)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
-        scene2 = *scene;
+        scene2 = scene;
         scene2.transform(cam, pose);
 
         window win(0, cam.width-1, 0, cam.height-1);
 
-        renderWeightWindow(win, buffer, lvl);
+        renderWeightWindow(win, buffer);
     }
 
-    void renderWeightParallel(sceneType *scene, Sophus::SE3f pose, camera cam, dataCPU<float> *buffer, int lvl)
+    void renderWeightParallel(sceneType &scene, Sophus::SE3f pose, camera cam, dataCPU<float> &buffer, int lvl)
     {
-        z_buffer.set(z_buffer.nodata, lvl);
+        z_buffer.set(z_buffer.nodata);
 
-        scene2 = *scene;
+        scene2 = scene;
         scene2.transform(cam, pose);
 
         int divi_y = pool.getNumThreads();
@@ -544,40 +547,40 @@ public:
     }
 
 private:
-    void renderSmoothWindow(camera cam, window win, dataCPU<float> *buffer, int lvl, float start = 1.0, float end = 2.0)
+    void renderSmoothWindow(camera cam, window win, dataCPU<float> &buffer, float start = 1.0, float end = 2.0)
     {
         for (int y = win.min_y; y <= win.max_y; y++)
         {
             for (int x = win.min_x; x <= win.max_x; x++)
             {
                 float val = start + (end - start) * float(y) / (cam.width - 1.0);
-                buffer->set(val, y, x, lvl);
+                buffer.set(val, y, x);
             }
         }
     }
 
-    void renderRandomWindow(window win, dataCPU<float> *buffer, int lvl, float min = 1.0, float max = 2.0)
+    void renderRandomWindow(window win, dataCPU<float> *buffer, float min = 1.0, float max = 2.0)
     {
         for (int y = win.min_y; y <= win.max_y; y++)
         {
             for (int x = win.min_x; x <= win.max_x; x++)
             {
-                if (buffer->get(y, x, lvl) == buffer->nodata)
+                if (buffer->get(y, x) == buffer->nodata)
                 {
                     float val = (max - min) * float(rand() % 1000) / 1000.0 + min;
-                    buffer->set(val, y, x, lvl);
+                    buffer->set(val, y, x);
                 }
             }
         }
     }
 
-    void renderInterpolateWindow(camera cam, window win, dataCPU<float> *buffer, int lvl)
+    void renderInterpolateWindow(camera cam, window win, dataCPU<float> &buffer)
     {
         for (int y = win.min_y; y <= win.max_y; y++)
         {
             for (int x = win.min_x; x <= win.max_x; x++)
             {
-                if (buffer->get(y, x, lvl) == buffer->nodata)
+                if (buffer.get(y, x) == buffer.nodata)
                 {
                     int size = 10;
                     float acc = 0.0;
@@ -591,8 +594,8 @@ private:
                                 if (!cam.isPixVisible(x_, y_))
                                     continue;
 
-                                auto val = buffer->get(y_, x_, lvl);
-                                if (val == buffer->nodata)
+                                auto val = buffer.get(y_, x_);
+                                if (val == buffer.nodata)
                                     continue;
 
                                 acc += val;
@@ -609,27 +612,27 @@ private:
                             break;
                         }
                     }
-                    buffer->set(acc, y, x, lvl);
+                    buffer.set(acc, y, x);
                 }
             }
         }
     }
 
-    void renderIdepthLineSearchWindow(frameCPU *kframe, frameCPU *frame, camera cam, window win, dataCPU<float> *buffer, int lvl)
+    void renderIdepthLineSearchWindow(dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, window win, dataCPU<float> &buffer)
     {
-        Sophus::SE3f kfTofPose = frame->getPose();// * kframe->getPose().inverse();
+        Sophus::SE3f kfTofPose = imagePose;// * kframe->getPose().inverse();
         Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         int size = 5;
 
-        dataCPU<float> corrFrame = frame->getRawImage();
-        dataCPU<float> corrKframe = kframe->getRawImage();
+        dataCPU<float> corrFrame = image;
+        dataCPU<float> corrKframe = kimage;
 
         for (int y = win.min_y; y <= win.max_y; y++)
         {
             for (int x = win.min_x; x <= win.max_x; x++)
             {
-                auto f_i = corrFrame.get(y, x, lvl);
+                auto f_i = corrFrame.get(y, x);
                 if (f_i == corrFrame.nodata)
                     continue;
 
@@ -669,17 +672,17 @@ private:
                     // if (z_depth < f_depth && z_depth != z_buffer.nodata)
                     //     continue;
 
-                    auto kf_i = corrKframe.get(kf_pix(1), kf_pix(0), lvl);
+                    auto kf_i = corrKframe.get(kf_pix(1), kf_pix(0));
                     if (kf_i == corrKframe.nodata)
                         continue;
 
                     float error = (f_i - kf_i) * (f_i - kf_i);
 
-                    float last_error = buffer->get(y, x, lvl);
+                    float last_error = buffer.get(y, x);
 
-                    if (error < last_error || last_error == buffer->nodata)
+                    if (error < last_error || last_error == buffer.nodata)
                     {
-                        buffer->set(error, y, x, lvl);
+                        buffer.set(error, y, x);
 
                         vec3<float> kf_ray = cam.pixToRay(kf_pix);
                         Eigen::Vector3f Y_e = fTokfPose * Eigen::Vector3f(f_ray(0), f_ray(1), f_ray(2));
@@ -691,20 +694,20 @@ private:
                         // float f_depth = depth_min + i * (depth_max - depth_min) / kf_pix_diff_norm;
                         // float f_idepth = 1.0 / f_depth;
 
-                        z_buffer.set(f_depth, y, x, lvl);
+                        z_buffer.set(f_depth, y, x);
                     }
                 }
             }
         }
     }
 
-    void renderImageWindow(dataCPU<float> *image, camera cam, window win, dataCPU<float> *buffer, int lvl)
+    void renderImageWindow(dataCPU<float> &image, camera cam, window win, dataCPU<float> &buffer)
     {
-        std::vector<int> ids = scene2->getShapesIds();
+        std::vector<int> ids = scene2.getShapesIds();
 
         for (auto t_id : ids)
         {
-            auto f_pol = scene2->getShape(t_id);
+            auto f_pol = scene2.getShape(t_id);
 
             if(!win.isPixInWindow(f_pol->getCenterPix()))
                 continue;
@@ -712,9 +715,9 @@ private:
             if (f_pol->getScreenArea() < 0.0)
                 continue;
 
-            auto kf_pol = scene1->getShape(t_id);
+            auto kf_pol = scene1.getShape(t_id);
 
-            window pol_win = f_pol->getScreenBounds();
+            window pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -731,7 +734,7 @@ private:
                     if (f_depth <= 0.0)
                         continue;
 
-                    float z_depth = z_buffer.get(y, x, lvl);
+                    float z_depth = z_buffer.get(y, x);
                     if (z_depth < f_depth && z_depth != z_buffer.nodata)
                         continue;
 
@@ -740,19 +743,19 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = image->get(kf_pix(1), kf_pix(0), lvl);
-                    if (kf_i == image->nodata)
+                    auto kf_i = image.get(kf_pix(1), kf_pix(0));
+                    if (kf_i == image.nodata)
                         continue;
 
                     // buffer->set(std::exp(kf_a) * (kf_i - kf_b), y, x, lvl);
-                    buffer->set(kf_i, y, x, lvl);
-                    z_buffer.set(f_depth, y, x, lvl);
+                    buffer.set(kf_i, y, x);
+                    z_buffer.set(f_depth, y, x);
                 }
             }
         }
     }
 
-    void renderIdepthWindow(window win, dataCPU<float> *buffer, int lvl)
+    void renderIdepthWindow(window win, dataCPU<float> &buffer)
     {
         std::vector<int> shapesIds = scene2.getShapesIds();
 
@@ -784,18 +787,18 @@ private:
                     if (f_depth <= 0.0)
                         continue;
 
-                    float z_depth = z_buffer.get(y, x, lvl);
+                    float z_depth = z_buffer.get(y, x);
                     if (z_depth <= f_depth && z_depth != z_buffer.nodata)
                         continue;
 
-                    buffer->set(1.0 / f_depth, y, x, lvl);
-                    z_buffer.set(f_depth, y, x, lvl);
+                    buffer.set(1.0 / f_depth, y, x);
+                    z_buffer.set(f_depth, y, x);
                 }
             }
         }
     }
 
-    void renderWeightWindow(window win, dataCPU<float> *buffer, int lvl)
+    void renderWeightWindow(window win, dataCPU<float> &buffer)
     {
         std::vector<int> shapesIds = scene2.getShapesIds();
 
@@ -827,26 +830,26 @@ private:
                     if (f_depth <= 0.0)
                         continue;
 
-                    float z_depth = z_buffer.get(y, x, lvl);
+                    float z_depth = z_buffer.get(y, x);
                     if (z_depth <= f_depth && z_depth != z_buffer.nodata)
                         continue;
 
                     float f_weight = f_pol.getWeight(f_pix);
 
-                    buffer->set(f_weight, y, x, lvl);
-                    z_buffer.set(f_depth, y, x, lvl);
+                    buffer.set(f_weight, y, x);
+                    z_buffer.set(f_depth, y, x);
                 }
             }
         }
     }
 
-    void renderResidualWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<float> *e_buffer, int lvl)
+    void renderResidualWindow(dataCPU<float> &kimage, dataCPU<float> &image, camera cam, window win, dataCPU<float> &e_buffer)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
 
         std::vector<int> t_ids = scene2.getShapesIds();
 
-        vec2<float> affine = frame->getAffine();
+        vec2<float> affine = vec2<float>(0.0, 0.0);//frame->getAffine();
         float alpha = std::exp(-affine(0));
         float beta = affine(1);
 
@@ -880,7 +883,7 @@ private:
                         continue;
 
                     // z-buffer
-                    float l_depth = z_buffer.get(y, x, lvl);
+                    float l_depth = z_buffer.get(y, x);
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
@@ -889,10 +892,10 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getRawImage().get(y, x, lvl);
+                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    auto f_i = image.get(y, x);
 
-                    if (kf_i == kimage->nodata || f_i == frame->getRawImage().nodata)
+                    if (kf_i == kimage.nodata || f_i == image.nodata)
                         continue;
 
                     float f_i_cor = alpha*(f_i - beta);
@@ -902,18 +905,18 @@ private:
                     //vec3<float> bar = f_pol.getBarycentric();
                     float weight = 1.0;//bar(0)*bar(1)*bar(2);
 
-                    e_buffer->set(residual*weight, y, x, lvl);
-                    z_buffer.set(f_depth, y, x, lvl);
+                    e_buffer.set(residual*weight, y, x);
+                    z_buffer.set(f_depth, y, x);
                 }
             }
         }
     }
 
-    void renderJPoseWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJPoseWindow(dataCPU<float> &kimage, dataCPU<float> &image, camera cam, window win, dataCPU<vec8<float>> &jpose_buffer, dataCPU<float> &e_buffer)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
 
-        vec2<float> affine = frame->getAffine();
+        vec2<float> affine = vec2<float>(0.0, 0.0);// frame->getAffine();
         float alpha = std::exp(-affine(0));
         float beta = affine(1);
 
@@ -949,7 +952,7 @@ private:
                         continue;
 
                     // z-buffer
-                    float l_depth = z_buffer.get(y, x, lvl);
+                    float l_depth = z_buffer.get(y, x);
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
@@ -962,11 +965,14 @@ private:
                     vec3<float> f_ver = f_ray * f_depth;
                     //vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
-                    auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getRawImage().get(y, x, lvl);
-                    vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x, lvl);
+                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    auto f_i = image.get(y, x);
+                    //vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x);
+                    vec2<float> d_f_i_d_pix;
+                    d_f_i_d_pix(0) = (image.get(y, x+1) - image.get(y, x-1))/2.0;
+                    d_f_i_d_pix(1) = (image.get(y+1, x) - image.get(y-1, x))/2.0;
 
-                    if (kf_i == kimage->nodata || f_i == frame->getRawImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage.nodata || f_i == image.nodata)// || d_f_i_d_pix == frame->getdIdpixImage().nodata)
                         continue;
 
                     float v0 = d_f_i_d_pix(0) * cam.fx / f_ver(2);
@@ -986,21 +992,21 @@ private:
                     //vec3<float> bar = f_pol.getBarycentric();
                     float weight = 1.0;//bar(0)*bar(1)*bar(2);
 
-                    jpose_buffer->set(j_pose*weight, y, x, lvl);
-                    e_buffer->set(residual*weight, y, x, lvl);
-                    z_buffer.set(f_depth, y, x, lvl);
+                    jpose_buffer.set(j_pose*weight, y, x);
+                    e_buffer.set(residual*weight, y, x);
+                    z_buffer.set(f_depth, y, x);
                 }
             }
         }
     }
 
-    void renderJLightAffineWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<vec2<float>> *jlightaffine_buffer, dataCPU<float> *e_buffer, int lvl)
+    void renderJLightAffineWindow(dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, window win, dataCPU<vec2<float>> &jlightaffine_buffer, dataCPU<float> &e_buffer)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
 
         std::vector<int> t_ids = scene2.getShapesIds();
 
-        vec2<float> affine = frame->getAffine();
+        vec2<float> affine = vec2<float>(0.0, 0.0); //frame->getAffine();
         float alpha = std::exp(-affine(0));
         float beta = affine(1);
 
@@ -1034,7 +1040,7 @@ private:
                         continue;
 
                     // z-buffer
-                    float l_depth = z_buffer.get(y, x, lvl);
+                    float l_depth = z_buffer.get(y, x);
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
@@ -1043,10 +1049,10 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getRawImage().get(y, x, lvl);
+                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    auto f_i = image.get(y, x);
 
-                    if (kf_i == kimage->nodata || f_i == frame->getRawImage().nodata)
+                    if (kf_i == kimage.nodata || f_i == image.nodata)
                         continue;
 
                     float f_i_cor = alpha*(f_i - beta);
@@ -1055,9 +1061,9 @@ private:
 
                     float residual = f_i_cor - kf_i;
 
-                    jlightaffine_buffer->set(j_lightaffine, y, x, lvl);
-                    e_buffer->set(residual, y, x, lvl);
-                    z_buffer.set(f_depth, y, x, lvl);
+                    jlightaffine_buffer.set(j_lightaffine, y, x);
+                    e_buffer.set(residual, y, x);
+                    z_buffer.set(f_depth, y, x);
                 }
             }
         }
@@ -1126,14 +1132,14 @@ private:
     */
 
     template <typename jmapType, typename idsType>
-    void renderJMapWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
+    void renderJMapWindow(dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, window win, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
     {
         float min_area = 0.0; //(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3 / 4;
 
-        Sophus::SE3f kfTofPose = frame->getPose();
+        Sophus::SE3f kfTofPose = imagePose;
         //Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
-        vec2<float> affine = frame->getAffine();
+        vec2<float> affine = vec2<float>(0.0, 0.0);//frame->getAffine();
         float alpha = std::exp(-affine(0));
         float beta = affine(1);
 
@@ -1178,7 +1184,7 @@ private:
                         continue;
 
                     // z-buffer
-                    float l_idepth = z_buffer.get(y, x, lvl);
+                    float l_idepth = z_buffer.get(y, x);
                     if (l_idepth < f_depth && l_idepth != z_buffer.nodata)
                         continue;
                 
@@ -1191,11 +1197,13 @@ private:
                     vec3<float> f_ver = f_ray * f_depth;
                     vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
-                    auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getRawImage().get(y, x, lvl);
-                    vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x, lvl);
+                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    auto f_i = image.get(y, x);
+                    vec2<float> d_f_i_d_pix; // = frame->getdIdpixImage().get(y, x);
+                    d_f_i_d_pix(0) = (image.get(y, x+1) - image.get(y, x-1))/2.0;
+                    d_f_i_d_pix(1) = (image.get(y+1, x) - image.get(y-1, x))/2.0;
 
-                    if (kf_i == kimage->nodata || f_i == frame->getRawImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage.nodata || f_i == image.nodata)// || d_f_i_d_pix == frame->getdIdpixImage().nodata)
                         continue;
 
                     float f_i_cor = alpha*(f_i - beta);
@@ -1220,23 +1228,23 @@ private:
                     //vec3<float> bar = f_pol.getBarycentric();
                     float weight = 1.0;//bar(0)*bar(1)*bar(2);
 
-                    e_buffer->set(residual*weight, y, x, lvl);
-                    jmap_buffer->set(jacs*weight, y, x, lvl);
-                    pId_buffer->set(ids, y, x, lvl);
+                    e_buffer.set(residual*weight, y, x);
+                    jmap_buffer.set(jacs*weight, y, x);
+                    pId_buffer.set(ids, y, x);
                 }
             }
         }
     }
 
     template <typename jmapType, typename idsType>
-    void renderJPoseMapWindow(dataCPU<float> *kimage, frameCPU *frame, camera cam, window win, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
+    void renderJPoseMapWindow(dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, window win, dataCPU<vec8<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
     {
         float min_area = 0.0;//(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3.0 / 4.0;
 
-        Sophus::SE3f kfTofPose = frame->getPose();
+        Sophus::SE3f kfTofPose = imagePose;
         //Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
-        vec2<float> affine = frame->getAffine();
+        vec2<float> affine = vec2<float>(0.0, 0.0);//frame->getAffine();
         float alpha = std::exp(-affine(0));
         float beta = affine(1);
 
@@ -1294,7 +1302,7 @@ private:
                         continue;
 
                     // z-buffer
-                    float l_idepth = z_buffer.get(f_pix(1), f_pix(0), lvl);
+                    float l_idepth = z_buffer.get(f_pix(1), f_pix(0));
                     if (l_idepth < f_depth && l_idepth != z_buffer.nodata)
                         continue;
 
@@ -1303,11 +1311,13 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kimage->get(kf_pix(1), kf_pix(0), lvl);
-                    auto f_i = frame->getRawImage().get(y, x, lvl);
-                    vec2<float> d_f_i_d_pix = frame->getdIdpixImage().get(y, x, lvl);
+                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    auto f_i = image.get(y, x);
+                    vec2<float> d_f_i_d_pix;// = frame->getdIdpixImage().get(y, x);
+                    d_f_i_d_pix(0) = (image.get(y, x+1) - image.get(y, x-1))/2.0;
+                    d_f_i_d_pix(1) = (image.get(y+1, x) - image.get(y-1, x))/2.0;
 
-                    if (kf_i == kimage->nodata || f_i == frame->getRawImage().nodata || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage.nodata || f_i == image.nodata)// || d_f_i_d_pix == frame->getdIdpixImage().nodata)
                         continue;
 
                     vec3<float> f_ray = cam.pixToRay(f_pix);
@@ -1340,16 +1350,16 @@ private:
                     //vec3<float> bar = f_pol.getBarycentric();
                     float weight = 1.0;//bar(0)*bar(1)*bar(2);
 
-                    e_buffer->set(error*weight, y, x, lvl);
-                    jpose_buffer->set(jpose*weight, y, x, lvl);
-                    jmap_buffer->set(jacs*weight, y, x, lvl);
-                    pId_buffer->set(ids, y, x, lvl);
+                    e_buffer.set(error*weight, y, x);
+                    jpose_buffer.set(jpose*weight, y, x);
+                    jmap_buffer.set(jacs*weight, y, x);
+                    pId_buffer.set(ids, y, x);
                 }
             }
         }
     }
 
-    void renderDebugWindow(dataCPU<float> *image, window win, dataCPU<float> *buffer, int lvl)
+    void renderDebugWindow(dataCPU<float> &image, window win, dataCPU<float> &buffer)
     {
         std::vector<int> ids = scene2.getShapesIds();
 
@@ -1379,7 +1389,7 @@ private:
                     //float f_depth = f_pol.getDepth(f_pix);
                     bool isLine = f_pol.isEdge(f_pix);
 
-                    float f_i = image->get(y, x, lvl);
+                    float f_i = image.get(y, x);
                     f_i /= 255.0;
 
                     // z buffer
@@ -1388,10 +1398,10 @@ private:
                     //    continue;
 
                     if (isLine)
-                        buffer->set(1.0, y, x, lvl);
+                        buffer.set(1.0, y, x);
                     else
                         // buffer->set(1.0 / f_depth, y, x, lvl);
-                        buffer->set(f_i, y, x, lvl);
+                        buffer.set(f_i, y, x);
                 }
             }
         }

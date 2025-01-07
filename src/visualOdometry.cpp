@@ -2,56 +2,59 @@
 #include "utils/tictoc.h"
 
 visualOdometry::visualOdometry(camera &_cam)
-    : meshOptimizer(_cam)
+    : sceneOptimizer(_cam),
+    : kframe(_cam.width, _cam.height)
 {
     cam = _cam;
     lastId = 0;
 }
 
-void visualOdometry::initScene(dataCPU<float> &image, Sophus::SE3f pose)
+void visualOdometry::init(frameCPU &frame)
 {
+    assert(frame.getRawImage(0).width == cam.width && frame.getRawImage(0).height == cam.height);
+
     lastFrames.clear();
     keyFrames.clear();
     lastMovement = Sophus::SE3f();
-    lastPose = pose;
+    lastPose = frame.getPose();
     lastAffine = vec2<float>(0.0f, 0.0f);
-    frameCPU newFrame(cam.width, cam.height);
-    newFrame.setImage(image, 0);
-    newFrame.setPose(pose);
-    newFrame.setAffine(lastAffine);
-    meshOptimizer.initKeyframe(newFrame, 0);
+
+    dataCPU<float> buffer(cam.width, cam.height, -1.0);
+
+    renderer.renderSmooth(cam, &buffer, 0.1, 1.0);
+
+    kframe = frame;
+    kscene.init(buffer, cam);
 }
 
-void visualOdometry::initScene(dataCPU<float> &image, dataCPU<float> &idepth, dataCPU<float> &ivar, Sophus::SE3f pose)
+void visualOdometry::init(frameCPU &frame, dataCPU<float> &idepth)
 {
     lastFrames.clear();
     keyFrames.clear();
     lastMovement = Sophus::SE3f();
-    lastPose = pose;
+    lastPose = frame.getPose();
     lastAffine = vec2<float>(0.0f, 0.0f);
-    frameCPU newFrame(cam.width, cam.height);
-    newFrame.setImage(image, 0);
-    newFrame.setPose(pose);
-    newFrame.setAffine(lastAffine);
-    meshOptimizer.initKeyframe(newFrame, idepth, ivar, 0);
+
+    kframe = frame;
+    kscene.init(idepth, cam);
 }
 
-void visualOdometry::initScene(dataCPU<float> &image, std::vector<vec2<float>> &pixels, std::vector<float> &idepths, Sophus::SE3f pose)
+void visualOdometry::init(frameCPU &frame, std::vector<vec2<float>> &pixels, std::vector<float> &idepths)
 {
     lastFrames.clear();
     keyFrames.clear();
     lastMovement = Sophus::SE3f();
-    lastPose = pose;
+    lastPose = frame.getPose();
     lastAffine = vec2<float>(0.0f, 0.0f);
-    frameCPU newFrame(cam.width, cam.height);
-    newFrame.setImage(image, 0);
-    newFrame.setPose(pose);
-    newFrame.setAffine(lastAffine);
-    meshOptimizer.initKeyframe(newFrame, pixels, idepths, 0);
+
+    kframe = frame;
+    kscene.init(pixels, idepths, cam);
 }
 
 void visualOdometry::locAndMap(dataCPU<float> &image)
 {
+    assert(image.width == cam.width && image.height == cam.height);
+
     tic_toc t;
     bool optimize = false;
 
@@ -63,12 +66,12 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     lastId++;
 
     t.tic();
-    meshOptimizer.optPose(newFrame);
+    sceneOptimizer.optPose(newFrame);
     std::cout << "estimate pose time: " << t.toc() << std::endl;
 
-    //std::cout << "affine " << newFrame.getAffine()(0) << " " << newFrame.getAffine()(1) << std::endl;
-    //std::cout << "estimated pose " << std::endl;
-    //std::cout << newFrame.getPose().matrix() << std::endl;
+    // std::cout << "affine " << newFrame.getAffine()(0) << " " << newFrame.getAffine()(1) << std::endl;
+    // std::cout << "estimated pose " << std::endl;
+    // std::cout << newFrame.getPose().matrix() << std::endl;
 
     if (lastFrames.size() == 0)
     {
@@ -78,28 +81,28 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     }
     else
     {
-        float lastViewAngle = meshOptimizer.meanViewAngle(lastFrames[lastFrames.size() - 1].getPose(), newFrame.getPose());
-        float keyframeViewAngle = meshOptimizer.meanViewAngle(newFrame.getPose(), Sophus::SE3f());
-        //dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
-        //float percentNoData = idepth.getPercentNoData(1);
+        float lastViewAngle = sceneOptimizer.meanViewAngle(lastFrames[lastFrames.size() - 1].getPose(), newFrame.getPose());
+        float keyframeViewAngle = sceneOptimizer.meanViewAngle(newFrame.getPose(), Sophus::SE3f());
+        // dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
+        // float percentNoData = idepth.getPercentNoData(1);
 
-        float viewPercent = meshOptimizer.getViewPercent(newFrame);
+        float viewPercent = sceneOptimizer.getViewPercent(newFrame);
 
-        //std::cout << "mean viewAngle " << meanViewAngle << std::endl;
-        //std::cout << "view percent " << viewPercent << std::endl;
-        //std::cout << "percent nodata " << percentNoData << std::endl;
+        // std::cout << "mean viewAngle " << meanViewAngle << std::endl;
+        // std::cout << "view percent " << viewPercent << std::endl;
+        // std::cout << "percent nodata " << percentNoData << std::endl;
 
         if (lastViewAngle > LAST_MAX_ANGLE) //(percentNoData > 0.2) //(viewPercent < 0.8)
-        {            
+        {
             lastFrames.push_back(newFrame);
-            if(lastFrames.size() > NUM_FRAMES)
+            if (lastFrames.size() > NUM_FRAMES)
                 lastFrames.erase(lastFrames.begin());
         }
 
-        if((viewPercent < MIN_VIEW_PERC || keyframeViewAngle > KEY_MAX_ANGLE) && lastFrames.size() > 1)
-        //if((viewPercent < 0.9 || meanViewAngle > M_PI / 64.0) && lastFrames.size() > 1)
+        if ((viewPercent < MIN_VIEW_PERC || keyframeViewAngle > KEY_MAX_ANGLE) && lastFrames.size() > 1)
+        // if((viewPercent < 0.9 || meanViewAngle > M_PI / 64.0) && lastFrames.size() > 1)
         {
-            //int newKeyframeIndex = int(lastFrames.size() / 2);
+            // int newKeyframeIndex = int(lastFrames.size() / 2);
             int newKeyframeIndex = int(lastFrames.size() - 1);
             frameCPU newKeyframe = lastFrames[newKeyframeIndex];
 
@@ -109,20 +112,20 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
             Sophus::SE3f newPose = newFrame.getPose() * newKeyframePoseInv;
             vec2<float> lastAffine = newFrame.getAffine();
             float newAlpha = lastAffine(0) - newKeyframeAffine(0);
-            float newBeta = lastAffine(1) - newKeyframeAffine(1)/std::exp(-newAlpha);
+            float newBeta = lastAffine(1) - newKeyframeAffine(1) / std::exp(-newAlpha);
             vec2<float> newAffine(newAlpha, newBeta);
 
             newFrame.setPose(newPose);
             newFrame.setAffine(newAffine);
 
             lastPose = lastPose * newKeyframePoseInv;
-            
-            for(int i = 0; i < (int)lastFrames.size(); i++)
+
+            for (int i = 0; i < (int)lastFrames.size(); i++)
             {
                 newPose = lastFrames[i].getPose() * newKeyframePoseInv;
                 lastAffine = lastFrames[i].getAffine();
                 newAlpha = lastAffine(0) - newKeyframeAffine(0);
-                newBeta = lastAffine(1) - newKeyframeAffine(1)/std::exp(-newAlpha);
+                newBeta = lastAffine(1) - newKeyframeAffine(1) / std::exp(-newAlpha);
                 newAffine = vec2<float>(newAlpha, newBeta);
 
                 lastFrames[i].setPose(newPose);
@@ -132,7 +135,12 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
             keyFrames = lastFrames;
             keyFrames.erase(keyFrames.begin() + newKeyframeIndex);
 
-            meshOptimizer.changeKeyframe(newKeyframe);
+            dataCPU<float> idepth_buffer(cam.width, cam.height, -1);
+
+            renderer.renderIdepthParallel(kscene, newKeyframe.getPose(), cam, idepth_buffer);
+            renderer.renderInterpolate(cam, idepth_buffer);
+
+            init(newKeyframe, idepth_buffer);
 
             optimize = true;
         }
@@ -191,28 +199,28 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         */
 
         t.tic();
-        //meshOptimizer.setMeshRegu(200.0);
-        //dataCPU<float> mask(cam.width, cam.height, -1);
-        //meshOptimizer.optMap(keyFrames);
-        //meshOptimizer.normalizeDepth();
+        // meshOptimizer.setMeshRegu(200.0);
+        // dataCPU<float> mask(cam.width, cam.height, -1);
+        // meshOptimizer.optMap(keyFrames);
+        // meshOptimizer.normalizeDepth();
 
-        meshOptimizer.optPoseMap(keyFrames);
-        //meshOptimizer.normalizeDepth();
-        //vec2<float> depthAffine = meshOptimizer.kDepthAffine;
+        sceneOptimizer.optPoseMap(keyFrames);
+        // meshOptimizer.normalizeDepth();
+        // vec2<float> depthAffine = meshOptimizer.kDepthAffine;
 
-        //Sophus::SE3f pose = newFrame.getPose();
-        //pose.translation() = pose.translation()/depthAffine(0);
-        //newFrame.setPose(pose);
+        // Sophus::SE3f pose = newFrame.getPose();
+        // pose.translation() = pose.translation()/depthAffine(0);
+        // newFrame.setPose(pose);
 
-        //for(int i = 0; i < keyFrames.size(); i++)
+        // for(int i = 0; i < keyFrames.size(); i++)
         //{
-        //    Sophus::SE3f pose = keyFrames[i].getPose();
-        //    pose.translation() = pose.translation()/depthAffine(0);
-        //    keyFrames[i].setPose(pose);
-        //}
+        //     Sophus::SE3f pose = keyFrames[i].getPose();
+        //     pose.translation() = pose.translation()/depthAffine(0);
+        //     keyFrames[i].setPose(pose);
+        // }
 
         std::cout << "optposemap time: " << t.toc() << std::endl;
-       
+
         // sync the updated keyframe poses present in lastframes
         for (auto keyframe : keyFrames)
         {
@@ -234,7 +242,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         }
     }
 
-    meshOptimizer.plotDebug(newFrame, keyFrames);
+    sceneOptimizer.plotDebug(newFrame, keyFrames);
 
     lastMovement = newFrame.getPose() * lastPose.inverse();
     lastPose = newFrame.getPose();
@@ -243,6 +251,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
 
 void visualOdometry::lightaffine(dataCPU<float> &image, Sophus::SE3f pose)
 {
+    assert(image.width == cam.width && image.height == cam.height);
+
     tic_toc t;
 
     frameCPU newFrame(cam.width, cam.height);
@@ -250,91 +260,126 @@ void visualOdometry::lightaffine(dataCPU<float> &image, Sophus::SE3f pose)
     newFrame.setPose(pose);
 
     t.tic();
-    meshOptimizer.optLightAffine(newFrame);
+    sceneOptimizer.optLightAffine(newFrame);
     std::cout << "optmap time " << t.toc() << std::endl;
 
-    meshOptimizer.plotDebug(newFrame);
+    sceneOptimizer.plotDebug(newFrame);
 
     lastAffine = newFrame.getAffine();
 }
 
 void visualOdometry::localization(dataCPU<float> &image)
 {
+    assert(image.width == cam.width && image.height == cam.height);
+
     tic_toc t;
 
     frameCPU newFrame(cam.width, cam.height);
     newFrame.setImage(image, 0);
 
     t.tic();
-    meshOptimizer.optPose(newFrame);
+    sceneOptimizer.optPose(newFrame);
     std::cout << "estimated pose " << t.toc() << std::endl;
     std::cout << newFrame.getPose().matrix() << std::endl;
     std::cout << newFrame.getAffine()(0) << " " << newFrame.getAffine()(1) << std::endl;
 
-    meshOptimizer.plotDebug(newFrame);
+    sceneOptimizer.plotDebug(newFrame);
 
     lastPose = newFrame.getPose();
     lastAffine = newFrame.getAffine();
 }
 
-void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f pose, vec2<float> affine)
+void visualOdometry::mapping(dataCPU<float> &image, Sophus::SE3f globalPose, vec2<float> affine)
 {
+    assert(image.width == cam.width && image.height == cam.height);
+
     tic_toc t;
     bool optimize = false;
 
     frameCPU newFrame(cam.width, cam.height);
-    newFrame.setImage(image, lastId); //*keyframeData.pose.inverse();
-    newFrame.setPose(pose);
+    newFrame.setImage(image, lastId);
+    newFrame.setPose(globalPose);
+    // newFrame.setPose(lastPose);
     newFrame.setAffine(affine);
     lastId++;
 
-    lastFrames.push_back(newFrame);
-
-    if (lastFrames.size() < NUM_FRAMES)
+    if (lastFrames.size() == 0)
     {
-        optimize = true;
+        lastFrames.push_back(newFrame);
         keyFrames = lastFrames;
+        optimize = true;
     }
-
-    if (lastFrames.size() > NUM_FRAMES)
+    else
     {
-        lastFrames.erase(lastFrames.begin());
+        float lastViewAngle = sceneOptimizer.meanViewAngle(lastFrames[lastFrames.size() - 1].getPose(), newFrame.getPose());
+        float keyframeViewAngle = sceneOptimizer.meanViewAngle(newFrame.getPose(), Sophus::SE3f());
+        // dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
+        // float percentNoData = idepth.getPercentNoData(1);
+
+        float viewPercent = sceneOptimizer.getViewPercent(newFrame);
+
+        // std::cout << "mean viewAngle " << meanViewAngle << std::endl;
+        // std::cout << "view percent " << viewPercent << std::endl;
+        // std::cout << "percent nodata " << percentNoData << std::endl;
+
+        if (lastViewAngle > LAST_MAX_ANGLE) //(percentNoData > 0.2) //(viewPercent < 0.8)
+        {
+            lastFrames.push_back(newFrame);
+            if (lastFrames.size() > NUM_FRAMES)
+                lastFrames.erase(lastFrames.begin());
+        }
+
+        if ((viewPercent < MIN_VIEW_PERC || keyframeViewAngle > KEY_MAX_ANGLE) && lastFrames.size() > 1)
+        // if((viewPercent < 0.9 || meanViewAngle > M_PI / 64.0) && lastFrames.size() > 1)
+        {
+            int newKeyframeIndex = 0;
+            // int newKeyframeIndex = int(lastFrames.size() / 2);
+            // int newKeyframeIndex = int(lastFrames.size() - 1);
+            frameCPU newKeyframe = lastFrames[newKeyframeIndex];
+
+            Sophus::SE3f newKeyframePoseInv = newKeyframe.getPose().inverse();
+            vec2<float> newKeyframeAffine = newKeyframe.getAffine();
+
+            for (int i = 0; i < (int)lastFrames.size(); i++)
+            {
+                Sophus::SE3f newPose = lastFrames[i].getPose() * newKeyframePoseInv;
+                vec2<float> lastAffine = lastFrames[i].getAffine();
+                float newAlpha = lastAffine(0) - newKeyframeAffine(0);
+                float newBeta = lastAffine(1) - newKeyframeAffine(1) / std::exp(-newAlpha);
+                vec2<float> newAffine = vec2<float>(newAlpha, newBeta);
+
+                lastFrames[i].setPose(newPose);
+                lastFrames[i].setAffine(newAffine);
+            }
+
+            keyFrames = lastFrames;
+            keyFrames.erase(keyFrames.begin() + newKeyframeIndex);
+
+            /*
+            Sophus::SE3f newPose = newFrame.getPose() * newKeyframePoseInv;
+            vec2<float> lastAffine = newFrame.getAffine();
+            float newAlpha = lastAffine(0) - newKeyframeAffine(0);
+            float newBeta = lastAffine(1) - newKeyframeAffine(1)/std::exp(-newAlpha);
+            vec2<float> newAffine(newAlpha, newBeta);
+
+            newFrame.setPose(newPose);
+            newFrame.setAffine(newAffine);
+            */
+
+            sceneOptimizer.changeKeyframe(newKeyframe);
+
+            optimize = true;
+        }
+
+        sceneOptimizer.plotDebug(newFrame, keyFrames);
     }
 
-    /*
     if (optimize)
     {
         t.tic();
-        meshOptimizer.optMap(frames);
-        std::cout << "optmap time " << t.toc() << std::endl;
-        //newFrame.pose = frames[frames.size() - 1].pose;
+        sceneOptimizer.optMap(keyFrames);
+        std::cout << "optmap time: " << t.toc() << std::endl;
+
+        sceneOptimizer.plotDebug(newFrame, keyFrames);
     }
-    */
-
-    // dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.pose, 1);
-    // float percentNoData = idepth.getPercentNoData(1);
-    float viewPercent = meshOptimizer.getViewPercent(newFrame);
-
-    std::cout << "view percent " << viewPercent << std::endl;
-
-    if (viewPercent < 0.80)
-    {
-        keyFrames.clear();
-        keyFrames = lastFrames;
-
-        int newFrameIndex = int(keyFrames.size() / 2);
-        meshOptimizer.changeKeyframe(lastFrames[newFrameIndex]);
-        keyFrames.erase(keyFrames.begin() + newFrameIndex);
-        optimize = true;
-    }
-
-    if (optimize)
-    {
-        t.tic();
-        meshOptimizer.setMeshRegu(100.0);
-        meshOptimizer.optMap(keyFrames);
-        std::cout << "optmap time " << t.toc() << std::endl;
-    }
-
-    meshOptimizer.plotDebug(newFrame);
 }

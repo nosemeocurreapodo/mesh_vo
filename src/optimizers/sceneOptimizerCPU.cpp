@@ -1,10 +1,10 @@
-#include "optimizers/meshOptimizerCPU.h"
+#include "optimizers/sceneOptimizerCPU.h"
 
-template class meshOptimizerCPU<SceneMesh, vec3<float>, vec3<int>>;
+template class sceneOptimizerCPU<SceneMesh, vec3<float>, vec3<int>>;
 // template class meshOptimizerCPU<ScenePatches, vec1<float>, vec1<int>>;
 
 template <typename sceneType, typename jmapType, typename idsType>
-meshOptimizerCPU<sceneType, jmapType, idsType>::meshOptimizerCPU(camera &_cam)
+sceneOptimizerCPU<sceneType, jmapType, idsType>::sceneOptimizerCPU(camera &_cam)
     : kimage(_cam.width, _cam.height, -1.0),
       image_buffer(_cam.width, _cam.height, -1.0),
       idepth_buffer(_cam.width, _cam.height, -1.0),
@@ -30,68 +30,20 @@ meshOptimizerCPU<sceneType, jmapType, idsType>::meshOptimizerCPU(camera &_cam)
     }
 
     multiThreading = false;
-    meshRegularization = 1.0f;
+    meshRegularization = 100.0f;
     meshInitial = 0.0;
     poseInitial = 100.0;
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
-void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &frame, int lvl)
-{
-    idepth_buffer.set(idepth_buffer.nodata, lvl);
-    // renderer.renderRandom(cam[lvl], &idepth_buffer, lvl, 0.5, 1.5);
-    renderer.renderSmooth(cam[lvl], &idepth_buffer, lvl, 0.1, 2.0);
-    ivar_buffer.set(ivar_buffer.nodata, lvl);
-    renderer.renderSmooth(cam[lvl], &ivar_buffer, lvl, initialIvar(), initialIvar());
-    kscene.init(cam[lvl], Sophus::SE3f(), idepth_buffer, ivar_buffer, lvl);
-    kimage = frame.getRawImage();
-}
-
-template <typename sceneType, typename jmapType, typename idsType>
-void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
-{
-    kscene.init(cam[lvl], Sophus::SE3f(), idepth, ivar, lvl);
-
-    /*
-    for(int i = 0; i < 1; i++)
-    {
-        renderer.renderIdepth(&kscene, cam[lvl], &idepth_buffer, lvl);
-        dataCPU<float> diff = idepth.sub(idepth_buffer, lvl);
-
-        int added_vertices = kscene.updateMeshGivenErrorAndThresh(frame, cam[lvl], diff, 0.1, lvl);
-        if(added_vertices == 0)
-            break;
-    }
-    */
-
-    kimage = frame.getRawImage();
-    // kframe.setAffine(vec2<float>(0.0, 0.0));
-}
-
-template <typename sceneType, typename jmapType, typename idsType>
-void meshOptimizerCPU<sceneType, jmapType, idsType>::initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl)
-{
-    kscene.init(cam[lvl], Sophus::SE3f(), texcoords, idepths);
-    kimage = frame.getRawImage();
-}
-
-template <typename sceneType, typename jmapType, typename idsType>
-void meshOptimizerCPU<sceneType, jmapType, idsType>::normalizeDepth()
-{
-    vec2<float> affine = kscene.meanStdDepthParam();
-    affine(1) = 0.0;
-    kscene.scaleDepthParam(affine);
-}
-
-template <typename sceneType, typename jmapType, typename idsType>
-void meshOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &frame)
+void sceneOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &frame, sceneType &scene)
 {
     int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
 
     for (int lvl = 3; lvl >= 1; lvl--)
     {
         vec2<float> best_affine = frame.getAffine();
-        Error e = computeError(&frame, lvl, false);
+        Error e = computeError(frame, scene, lvl, false);
         float last_error = e.getError();
 
         std::cout << "initial error " << last_error << " " << lvl << std::endl;
@@ -99,7 +51,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &fr
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             // HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
-            DenseLinearProblem hg = computeHGLightAffine(&frame, lvl, false);
+            DenseLinearProblem hg = computeHGLightAffine(frame, scene, lvl, false);
 
             float lambda = 0.0;
             int n_try = 0;
@@ -182,7 +134,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &fr
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
-void meshOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
+void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
 {
     int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
 
@@ -270,7 +222,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
-void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU> &frames)
+void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU> &frames)
 {
     int numMapParams = kscene.getParamIds().size();
 
@@ -429,7 +381,7 @@ void meshOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
-void meshOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<frameCPU> &frames)
+void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<frameCPU> &frames)
 {
     assert(frames.size() > 0);
 

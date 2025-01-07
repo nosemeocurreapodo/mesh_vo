@@ -1,23 +1,23 @@
 #pragma once
 
 #include <Eigen/Core>
-//#include <Eigen/CholmodSupport>
-// #include <Eigen/SPQRSupport>
-//#include <thread>
+// #include <Eigen/CholmodSupport>
+//  #include <Eigen/SPQRSupport>
+// #include <thread>
 
 #include "common/camera.h"
 #include "common/types.h"
 #include "common/DenseLinearProblem.h"
-//#include "common/SparseLinearProblem.h"
-// #include "common/HGMapped.h"
+// #include "common/SparseLinearProblem.h"
+//  #include "common/HGMapped.h"
 #include "common/Error.h"
 #include "common/common.h"
 #include "cpu/dataCPU.h"
 #include "cpu/frameCPU.h"
 #include "cpu/renderCPU.h"
 #include "cpu/reduceCPU.h"
-//#include "cpu/SceneBase.h"
-//#include "cpu/ScenePatches.h"
+// #include "cpu/SceneBase.h"
+// #include "cpu/ScenePatches.h"
 #include "cpu/SceneMesh.h"
 // #include "cpu/SceneSurfels.h"
 // #include "cpu/SceneMeshSmooth.h"
@@ -25,14 +25,10 @@
 #include "params.h"
 
 template <typename sceneType, typename jmapType, typename idsType>
-class meshOptimizerCPU
+class sceneOptimizerCPU
 {
 public:
-    meshOptimizerCPU(camera &_cam);
-
-    void initKeyframe(frameCPU &frame, int lvl);
-    void initKeyframe(frameCPU &frame, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl);
-    void initKeyframe(frameCPU &frame, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths, int lvl);
+    sceneOptimizerCPU(camera &_cam);
 
     void normalizeDepth();
 
@@ -164,7 +160,7 @@ public:
 
         return relative_error;
         */
-       return 1.0;
+        return 1.0;
     }
 
     dataCPU<float> getIdepth(Sophus::SE3f pose, int lvl)
@@ -190,8 +186,8 @@ public:
         idepth_buffer.set(idepth_buffer.nodata, 1);
         image_buffer.set(image_buffer.nodata, 1);
         error_buffer.set(error_buffer.nodata, 1);
-        //ivar_buffer.set(ivar_buffer.nodata, 1);
-        //debug.set(debug.nodata, 0);
+        // ivar_buffer.set(ivar_buffer.nodata, 1);
+        // debug.set(debug.nodata, 0);
 
         // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
         renderer.renderIdepthParallel(&kscene, frame.getPose(), cam[1], &idepth_buffer, 1);
@@ -202,11 +198,11 @@ public:
         show(kimage, "keyframe image", false, false, 1);
         show(error_buffer, "frame error", false, false, 1);
         show(idepth_buffer, "frame idepth", true, false, 1);
-        //show(ivar_buffer, "ivar", true, false, 1);
+        // show(ivar_buffer, "ivar", true, false, 1);
 
-        //show(frame.getdIdpixImage(), "frame dx image", false, false, 0, 1);
-        //show(jpose_buffer, "jpose image", false, false, 0, 1);
-        //show(jmap_buffer, "jmap image", false, false, 0, 1);
+        // show(frame.getdIdpixImage(), "frame dx image", false, false, 0, 1);
+        // show(jpose_buffer, "jpose image", false, false, 0, 1);
+        // show(jmap_buffer, "jmap image", false, false, 0, 1);
 
         if (frames.size() > 0)
         {
@@ -222,7 +218,7 @@ public:
                     for (int x = 0; x < cam[1].width; x++)
                     {
                         float pix_val = frames[i].getRawImage().get(y, x, 1);
-                        //float res_val = frames[i].getResidualImage().get(y, x, 1);
+                        // float res_val = frames[i].getResidualImage().get(y, x, 1);
                         float res_val = error_buffer.get(y, x, 1);
 
                         frames_buffer.set(pix_val, y, x + i * cam[1].width, 1);
@@ -235,13 +231,13 @@ public:
             show(residual_buffer, "residuals", false, false, 1);
         }
 
-        //renderer.renderDebugParallel(&kscene, &kimage, Sophus::SE3f(), cam[0], &debug, 0);
-        //show(debug, "frame debug", false, false, 0);
+        // renderer.renderDebugParallel(&kscene, &kimage, Sophus::SE3f(), cam[0], &debug, 0);
+        // show(debug, "frame debug", false, false, 0);
 
-        //idepth_buffer.set(idepth_buffer.nodata, 1);
-        // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
-        //renderer.renderIdepthParallel(&kscene, Sophus::SE3f(), cam[1], &idepth_buffer, 1);
-        //show(idepth_buffer, "keyframe idepth", true, false, 1);
+        // idepth_buffer.set(idepth_buffer.nodata, 1);
+        //  renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
+        // renderer.renderIdepthParallel(&kscene, Sophus::SE3f(), cam[1], &idepth_buffer, 1);
+        // show(idepth_buffer, "keyframe idepth", true, false, 1);
     }
 
     void changeKeyframe(frameCPU &frame)
@@ -276,56 +272,49 @@ public:
         */
     }
 
-    sceneType kscene;
-    // frameCPU kframe;
-    dataCPU<float> kimage;
-
     std::vector<camera> cam;
 
 private:
-    Error computeError(frameCPU *frame, int lvl, bool useWeights=false)
+    Error computeError(frameCPU &frame, sceneType &scene, int lvl, bool useWeights = false)
     {
-        // error_buffer.set(error_buffer.nodata, lvl);
-        frame->getResidualImage().set(frame->getResidualImage().nodata, lvl);
+        error_buffer.set(error_buffer.nodata, lvl);
+        //frame->getResidualImage().set(frame->getResidualImage().nodata, lvl);
         ivar_buffer.set(ivar_buffer.nodata, lvl);
 
-        // renderer.renderResidualParallel(&kscene, &kframe, frame, cam[lvl], &error_buffer, lvl);
-        renderer.renderResidualParallel(&kscene, &kimage, frame, cam[lvl], &(frame->getResidualImage()), lvl);
+        renderer.renderResidualParallel(scene, frame.getRawImage(lvl), frame.getPose(), cam[lvl], error_buffer.get(lvl));
+        //renderer.renderResidualParallel(&scene, frame, cam[lvl], &(frame->getResidualImage()), lvl);
         if (useWeights)
-            renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
+            renderer.renderWeightParallel(scene, frame->getPose(), cam[lvl], ivar_buffer.get(lvl));
 
-        Error e = reducer.reduceErrorParallel(frame->getResidualImage(), ivar_buffer, lvl);
+        Error e = reducer.reduceErrorParallel(error_buffer.get(lvl), ivar_buffer.get(lvl));
 
         return e;
     }
 
-    DenseLinearProblem computeHGLightAffine(frameCPU *frame, int lvl, bool useWeights)
+    DenseLinearProblem computeHGLightAffine(frameCPU &frame, sceneType &scene, int lvl, bool useWeights)
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
         jlightaffine_buffer.set(jlightaffine_buffer.nodata, lvl);
         error_buffer.set(error_buffer.nodata, lvl);
         ivar_buffer.set(ivar_buffer.nodata, lvl);
 
-        renderer.renderJLightAffineParallel(&kscene, &kimage, frame, cam[lvl], &jlightaffine_buffer, &error_buffer, lvl);
+        renderer.renderJLightAffineParallel(scene, frame, cam[lvl], &jlightaffine_buffer, &error_buffer, lvl);
         if (useWeights)
-            renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
+            renderer.renderWeightParallel(scene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
 
         DenseLinearProblem hg = reducer.reduceHGLightAffineParallel(jlightaffine_buffer, error_buffer, ivar_buffer, lvl);
 
         return hg;
     }
 
-    DenseLinearProblem computeHGPose(frameCPU *frame, int lvl, bool useWeights)
+    DenseLinearProblem computeHGPose(frameCPU &frame, sceneType &scene, int lvl)
     {
         idepth_buffer.set(idepth_buffer.nodata, lvl);
         jpose_buffer.set(jpose_buffer.nodata, lvl);
         error_buffer.set(error_buffer.nodata, lvl);
         ivar_buffer.set(ivar_buffer.nodata, lvl);
 
-        renderer.renderJPoseParallel(&kscene, &kimage, frame, cam[lvl], &jpose_buffer, &error_buffer, lvl);
-        if (useWeights)
-            renderer.renderWeightParallel(&kscene, frame->getPose(), cam[lvl], &ivar_buffer, lvl);
-
+        renderer.renderJPoseParallel(scene, kimage.getRawImage(lvl), frame.getRawImage(lvl), frame.getPose(), cam[lvl], jpose_buffer, error_buffer);
         DenseLinearProblem hg = reducer.reduceHGPoseParallel(jpose_buffer, error_buffer, ivar_buffer, lvl);
 
         return hg;
@@ -347,16 +336,16 @@ private:
     }
     */
 
-    DenseLinearProblem computeHGMap2(frameCPU *frame, int lvl)
+    DenseLinearProblem computeHGMap2(frameCPU &frame, sceneType &scene, int lvl)
     {
         error_buffer.set(error_buffer.nodata, lvl);
         jmap_buffer.set(jmap_buffer.nodata, lvl);
         pId_buffer.set(pId_buffer.nodata, lvl);
 
-        int numMapParams = kscene.getParamIds().size();
+        int numMapParams = scene.getParamIds().size();
 
         // renderer.renderJMap(scene, cam[lvl], kframe, frame, jmap_buffer, error_buffer, pId_buffer, lvl);
-        renderer.renderJMapParallel(&kscene, &kimage, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
+        renderer.renderJMapParallel(scene, kimage.getRawImage(lvl), frame.getRawImage(lvl), frame.getPose(), cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
         // HGMapped hg = reducer.reduceHGMap(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
         // HGEigen hg = reducer.reduceHGMapParallel(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
         DenseLinearProblem hg = reducer.reduceHGMap2(numMapParams, jmap_buffer, error_buffer, pId_buffer, lvl);
@@ -400,20 +389,20 @@ private:
     float meshInitial;
     float poseInitial;
 
-    dataCPU<float> image_buffer;
-    dataCPU<float> idepth_buffer;
-    dataCPU<float> ivar_buffer;
-    dataCPU<float> error_buffer;
+    dataMipMapCPU<float> image_buffer;
+    dataMipMapCPU<float> idepth_buffer;
+    dataMipMapCPU<float> ivar_buffer;
+    dataMipMapCPU<float> error_buffer;
 
-    dataCPU<vec2<float>> jlightaffine_buffer;
-    dataCPU<vec8<float>> jpose_buffer;
+    dataMipMapCPU<vec2<float>> jlightaffine_buffer;
+    dataMipMapCPU<vec8<float>> jpose_buffer;
 
-    dataCPU<jmapType> jmap_buffer;
-    dataCPU<idsType> pId_buffer;
+    dataMipMapCPU<jmapType> jmap_buffer;
+    dataMipMapCPU<idsType> pId_buffer;
 
     // debug
-    dataCPU<float> debug;
-    dataCPU<float> idepthVar;
+    dataMipMapCPU<float> debug;
+    dataMipMapCPU<float> idepthVar;
 
     renderCPU<sceneType> renderer;
     reduceCPU reducer;

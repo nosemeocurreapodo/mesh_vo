@@ -237,7 +237,7 @@ int main(int argc, char **argv)
 
 		if (runningIDX == 0)
 		{
-			odometry.initScene(imageData_left);
+			odometry.init(imageData_left);
 			odometry.locAndMap(imageData_right);
 		}
 		else

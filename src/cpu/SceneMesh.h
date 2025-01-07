@@ -2,94 +2,68 @@
 #include <memory>
 #include <Eigen/Core>
 #include "sophus/se3.hpp"
-#include "cpu/SceneVertices.h"
+#include "cpu/GeometryVertices.h"
 #include "cpu/Shapes.h"
 #include "common/common.h"
+#include "common/Error.h"
 #include "common/DelaunayTriangulation.h"
 #include "common/DenseLinearProblem.h"
 // #include "common/SparseLinearProblem.h"
 #include "params.h"
 
-class SceneMesh : public SceneVertices
+class SceneMesh
 {
 public:
-    SceneMesh() : SceneVertices() {
-                      // m_triangles = nullptr;
-                      // m_trianglesBufferSize = 0;
-                  };
+    SceneMesh() 
+    {
 
-    /*
-    SceneMesh(const SceneMesh &other) : SceneVertices(other)
-    {
-        m_trianglesBufferSize = other.m_trianglesBufferSize;
-        if(m_triangles != nullptr)
-            deleteBuffer();
-        createBuffer(m_trianglesBufferSize);
-        std::memcpy(m_triangles, other.m_triangles, sizeof(triangle) * m_trianglesBufferSize);
-    }
-    */
-    /*
-    SceneMesh &operator=(const SceneMesh &other)
-    {
-        if (this != &other)
-        {
-            SceneVertices::operator=(other);
-            m_trianglesBufferSize = other.m_trianglesBufferSize;
-            if(m_triangles != nullptr)
-                deleteBuffer();
-            createBuffer(m_trianglesBufferSize);
-            std::memcpy(m_triangles, other.m_triangles, sizeof(triangle) * m_trianglesBufferSize);
-        }
-        return *this;
-    }
-    */
+    };
 
-    /*
-    SceneMesh clone() const
+    void init(std::vector<vec3<float>> &vertices, camera cam)
     {
-        return SceneMesh(*this);
-    }
-    */
-
-    /*
-    void clear()
-    {
-        SceneVertices::clear();
-        triangles.clear();
-    }
-    */
-
-    void init(camera cam, Sophus::SE3f pose, dataCPU<float> &idepth, dataCPU<float> &ivar, int lvl)
-    {
-        for (int i = 0; i < MAX_TRIANGLE_SIZE; i++)
-        {
-            m_triangles[i].used = false;
-        }
-        SceneVertices::init(cam, pose, idepth, ivar, lvl);
+        m_geometry.init(vertices, cam);
         buildTriangles();
     }
 
-    void init(camera cam, Sophus::SE3f pose, std::vector<vec3<float>> &vertices)
+    void init(std::vector<vec2<float>> &texcoords, std::vector<float> idepths, camera cam)
     {
-        for (int i = 0; i < MAX_TRIANGLE_SIZE; i++)
-        {
-            m_triangles[i].used = false;
-        }
-        SceneVertices::init(cam, pose, vertices);
+        m_geometry.init(texcoords, idepths, cam);
         buildTriangles();
     }
 
-    void init(camera cam, Sophus::SE3f pose, std::vector<vec2<float>> &texcoords, std::vector<float> &idepths)
+    void init(dataCPU<float> &idepth, camera cam)
     {
-        for (int i = 0; i < MAX_TRIANGLE_SIZE; i++)
+        std::vector<vec2<float>> texcoords;
+        std::vector<float> idepths;
+
+        int i = 0;
+        for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
-            m_triangles[i].used = false;
+            for (float x = 0.0; x < MESH_WIDTH; x++)
+            {
+                if (i >= MAX_VERTEX_SIZE)
+                    return;
+
+                vec2<float> pix;
+                pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
+                pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
+
+                float idph = idepth.get(pix(1), pix(0));
+
+                assert(idph != idepth.nodata);
+                assert(idph > 0.0);
+
+                texcoords.push_back(pix);
+                idepths.push_back(idph);
+
+                i++;
+            }
         }
-        SceneVertices::init(cam, pose, texcoords, idepths);
+        m_geometry.init(texcoords, idepths, cam);
         buildTriangles();
     }
 
-    int updateMeshGivenErrorAndThresh(frameCPU &frame, camera &cam, dataCPU<float> &error, float thresh, int lvl)
+    int updateMeshGivenErrorAndThresh(frameCPU &frame, camera &cam, dataMipMapCPU<float> &error, float thresh, int lvl)
     {
         // clear();
         // SceneVerticesBase::init(frame, cam, idepth, ivar, lvl);
@@ -107,7 +81,7 @@ public:
             //                            getWeight(triIn(0)), getWeight(triIn(1)), getWeight(triIn(2)));
             // vec2<float> centerPix = triangle.getCenterPix();
 
-            vec2<float> centerPix = (getVertex(triIn(0)).pix + getVertex(triIn(1)).pix + getVertex(triIn(2)).pix) / 3.0;
+            vec2<float> centerPix = (m_geometry.getVertex(triIn(0)).pix + m_geometry.getVertex(triIn(1)).pix + m_geometry.getVertex(triIn(2)).pix) / 3.0;
 
             float err = error.get(centerPix(1), centerPix(0), lvl);
             if (err > thresh)
@@ -225,7 +199,7 @@ public:
     {
         assert(m_triangles[polId].used);
         vec3<int> vIds = m_triangles[polId].vertexIds;
-        return ShapeTriangleFlat(getVertex(vIds(0)), getVertex(vIds(1)), getVertex(vIds(2)),
+        return ShapeTriangleFlat(m_geometry.getVertex(vIds(0)), m_geometry.getVertex(vIds(1)), m_geometry.getVertex(vIds(2)),
                                  vIds(0), vIds(1), vIds(2));
     }
 
@@ -263,40 +237,42 @@ public:
 
     void setParam(float param, int paramId)
     {
-        setDepthParam(param, paramId);
-    }
-
-    void setWeight(float weight, int paramId)
-    {
-        setParamWeight(weight, paramId);
+        m_geometry.setDepthParam(param, paramId);
     }
 
     float getParam(int paramId)
     {
-        return getDepthParam(paramId);
+        return m_geometry.getDepthParam(paramId);
+    }
+
+    /*
+    void setWeight(float weight, int paramId)
+    {
+        m_geometry.setParamWeight(weight, paramId);
     }
 
     float getWeight(int paramId)
     {
-        return getParamWeight(paramId);
+        return m_geometry.getParamWeight(paramId);
     }
+    */
 
     Error errorRegu()
     {
         Error error;
 
         std::vector<int> triIds = getTrianglesIds();
-        std::vector<int> vecIds = getVerticesIds();
+        std::vector<int> vecIds = m_geometry.getVerticesIds();
 
         for (size_t index = 0; index < triIds.size(); index++)
         {
             int id = triIds[index];
             vec3<int> vIds = m_triangles[id].vertexIds;
 
-            float diff1 = getDepthParam(vIds(0)) - getDepthParam(vIds(1));
-            float diff2 = getDepthParam(vIds(0)) - getDepthParam(vIds(2));
+            float diff1 = m_geometry.getDepthParam(vIds(0)) - m_geometry.getDepthParam(vIds(1));
+            float diff2 = m_geometry.getDepthParam(vIds(0)) - m_geometry.getDepthParam(vIds(2));
             float diff3 = 0.0; // theta[1] - theta[0];
-            float diff4 = getDepthParam(vIds(1)) - getDepthParam(vIds(2));
+            float diff4 = m_geometry.getDepthParam(vIds(1)) - m_geometry.getDepthParam(vIds(2));
             float diff5 = 0.0; // theta[2] - theta[0];
             float diff6 = 0.0; // theta[2] - theta[1];
 
@@ -309,7 +285,7 @@ public:
     DenseLinearProblem HGRegu(int numFrames)
     {
         std::vector<int> triIds = getTrianglesIds();
-        std::vector<int> vecIds = getVerticesIds();
+        std::vector<int> vecIds = m_geometry.getVerticesIds();
 
         DenseLinearProblem hg(numFrames * 8, vecIds.size());
 
@@ -320,9 +296,9 @@ public:
             vec3<int> v_ids = m_triangles[t_id].vertexIds;
 
             float theta[3];
-            theta[0] = getDepthParam(v_ids(0));
-            theta[1] = getDepthParam(v_ids(1));
-            theta[2] = getDepthParam(v_ids(2));
+            theta[0] = m_geometry.getDepthParam(v_ids(0));
+            theta[1] = m_geometry.getDepthParam(v_ids(1));
+            theta[2] = m_geometry.getDepthParam(v_ids(2));
 
             float diff1 = theta[0] - theta[1];
             float diff2 = theta[0] - theta[2];
@@ -452,53 +428,10 @@ public:
     }
     */
 
-    Error errorInitial(SceneMesh &initScene, MatrixMapped &initThetaVar)
+    void transform(camera cam, Sophus::SE3f relativePose)
     {
-        Error error;
-
-        std::vector<int> vertsIds = getVerticesIds();
-
-        for (size_t index = 0; index < vertsIds.size(); index++)
-        {
-            int id = vertsIds[index];
-
-            float initVar = initThetaVar[id][id];
-
-            float theta = getDepthParam(id);
-            float initTheta = initScene.getDepthParam(id);
-
-            float diff = theta - initTheta;
-
-            error += initVar * diff * diff;
-        }
-
-        return error;
-    }
-
-    HGMapped HGInitial(SceneMesh &initMesh, MatrixMapped &initThetaVar)
-    {
-        HGMapped hg;
-
-        /*
-        std::vector<unsigned int> vertsIds = getVerticesIds();
-
-        for (size_t i = 0; i < vertsIds.size(); i++)
-        {
-            unsigned int v_id = vertsIds[i];
-
-            float initVar = initThetaVar[v_id][v_id];
-
-            float theta = getDepthParam(v_id);
-            float initTheta = initMesh.getDepthParam(v_id);
-
-            hg.G[v_id] += initVar * (theta - initTheta);
-            hg.H[v_id][v_id] += initVar;
-        }
-
-        hg.count = vertsIds.size();
-        */
-
-        return hg;
+        m_geometry.transform(relativePose);
+        m_geometry.project(cam);
     }
 
 private:
@@ -645,14 +578,19 @@ private:
 
     void buildTriangles()
     {
-        std::vector<int> ids = getVerticesIds();
+        for (int i = 0; i < MAX_TRIANGLE_SIZE; i++)
+        {
+            m_triangles[i].used = false;
+        }
+
+        std::vector<int> ids = m_geometry.getVerticesIds();
 
         std::vector<vec2<float>> pixels;
         pixels.reserve(ids.size());
 
         for (size_t i = 0; i < ids.size(); i++)
         {
-            pixels.push_back(getVertex(ids[i]).pix);
+            pixels.push_back(m_geometry.getVertex(ids[i]).pix);
         }
 
         m_triangulator.loadPoints(pixels);
@@ -707,4 +645,6 @@ private:
     triangle m_triangles[MAX_TRIANGLE_SIZE];
     // int m_trianglesBufferSize;
     DelaunayTriangulation m_triangulator;
+
+    GeometryVertices m_geometry;
 };

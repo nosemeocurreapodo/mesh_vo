@@ -2,6 +2,7 @@
 
 #include "sophus/se3.hpp"
 
+#include "common/types.h"
 #include "dataCPU.h"
 #include "params.h"
 
@@ -9,19 +10,19 @@ class frameCPU
 {
 public:
     frameCPU(int width, int height)
-        : raw_image(width, height, -1.0f),
-          dIdpix_image(width, height, vec2<float>(0.0f, 0.0f)),
-          idepth_image(width, height, -1.0f),
-          residual_image(width, height, -1.0f)
+        : raw_image(width, height, -1.0f)
+          //dIdpix_image(width, height, vec2<float>(0.0f, 0.0f)),
+          //idepth_image(width, height, -1.0f),
+          //residual_image(width, height, -1.0f)
     {
         id = 0;
         affine = {0.0f, 0.0f};
     };
 
-    frameCPU(const frameCPU &other) : raw_image(other.raw_image),
-                                      dIdpix_image(other.dIdpix_image),
-                                      idepth_image(other.idepth_image),
-                                      residual_image(other.residual_image)
+    frameCPU(const frameCPU &other) : raw_image(other.raw_image)
+                                      //dIdpix_image(other.dIdpix_image),
+                                      //idepth_image(other.idepth_image),
+                                      //residual_image(other.residual_image)
     {
         id = other.id;
         pose = other.pose;
@@ -37,21 +38,26 @@ public:
             affine = other.affine;
 
             raw_image = other.raw_image;
-            dIdpix_image = other.dIdpix_image;
-            idepth_image = other.idepth_image;
-            residual_image = other.residual_image;
+            //dIdpix_image = other.dIdpix_image;
+            //idepth_image = other.idepth_image;
+            //residual_image = other.residual_image;
         }
         return *this;
     }
 
     void setImage(const dataCPU<float> &im, int _id)
     {
-        raw_image = im;
+        assert(raw_image.get(0).width == im.width && raw_image.get(0).height == im.height);
 
+        raw_image.get(0) = im;
+        raw_image.generateMipmaps();
+
+        /*
         for (int lvl = 0; lvl < raw_image.lvls; lvl++)
         {
             computeFrameDerivative(lvl);
         }
+        */
 
         id = _id;
     }
@@ -76,11 +82,12 @@ public:
         return pose;
     }
 
-    dataCPU<float>& getRawImage()
+    dataCPU<float>& getRawImage(int lvl)
     {
-        return raw_image;
+        return raw_image.get(lvl);
     }
 
+    /*
     dataCPU<vec2<float>>& getdIdpixImage()
     {
         return dIdpix_image;
@@ -95,6 +102,7 @@ public:
     {
         return residual_image;
     }
+    */
 
     int getId()
     {
@@ -103,13 +111,16 @@ public:
 
 private:
 
+    /*
     void computeFrameDerivative(int lvl)
     {
         // dx.set(dx.nodata, lvl);
         // dy.set(dy.nodata, lvl);
 
-        int width = raw_image.lvlWidths[lvl];
-        int height = raw_image.lvlHeights[lvl];
+        dataCPU<float> image = raw_image.get(lvl);
+
+        int width = image.width;
+        int height = image.height;
 
         for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
@@ -130,11 +141,12 @@ private:
                 //dy.set(_dy, y, x, lvl);
             }
     }
+    */
 
-    dataCPU<float> raw_image;
-    dataCPU<vec2<float>> dIdpix_image;
-    dataCPU<float> idepth_image;
-    dataCPU<float> residual_image;
+    dataMipMapCPU<float> raw_image;
+    //dataMipMapCPU<vec2<float>> dIdpix_image;
+    //dataMipMapCPU<float> idepth_image;
+    //dataMipMapCPU<float> residual_image;
 
     Sophus::SE3f pose;
     vec2<float> affine;

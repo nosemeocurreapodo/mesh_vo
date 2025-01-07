@@ -40,22 +40,20 @@ inline void saveH(DenseLinearProblem &data, std::string file_name)
     // cv::waitKey(30);
 }
 
-inline void show(dataCPU<float> &data, std::string window_name, bool colorize, bool upsample, int lvl)
+inline void show(dataCPU<float> &data, std::string window_name, bool colorize)
 {
-    int width = data.lvlWidths[0];
-    int height = data.lvlHeights[0];
-    int lvlWidth = data.lvlWidths[lvl];
-    int lvlHeight = data.lvlHeights[lvl];
+    int width = data.width;
+    int height = data.height;
 
-    cv::Mat toShow(lvlHeight, lvlWidth, CV_32FC1); // (uchar*)data.get(lvl))
+    cv::Mat toShow(height, width, CV_32FC1); // (uchar*)data.get(lvl))
 
     float nodata = data.nodata;
 
-    for (int y = 0; y < lvlHeight; y++)
+    for (int y = 0; y < height; y++)
     {
-        for (int x = 0; x < lvlWidth; x++)
+        for (int x = 0; x < width; x++)
         {
-            float in_val = data.get(y, x, lvl);
+            float in_val = data.get(y, x);
             // cv::Vec3f out_val(in_val(0), in_val(1), in_val(2));
             // toShow.at<cv::Vec3f>(y, x) = out_val;
             toShow.at<float>(y, x) = in_val;
@@ -79,32 +77,25 @@ inline void show(dataCPU<float> &data, std::string window_name, bool colorize, b
         toShow2 = toShow;
     }
 
-    if (upsample)
-    {
-        cv::resize(toShow2, toShow2, cv::Size(width, height));
-    }
-
     cv::imshow(window_name, toShow2);
     cv::waitKey(30);
 }
 
 template <typename type>
-inline void show(dataCPU<type> &data, std::string window_name, bool colorize, bool upsample, int channel, int lvl)
+inline void show(dataCPU<type> &data, std::string window_name, bool colorize, int channel)
 {
-    int width = data.lvlWidths[0];
-    int height = data.lvlHeights[0];
-    int lvlWidth = data.lvlWidths[lvl];
-    int lvlHeight = data.lvlHeights[lvl];
+    int width = data.width;
+    int height = data.height;
 
-    cv::Mat toShow(lvlHeight, lvlWidth, CV_32FC1); // (uchar*)data.get(lvl))
+    cv::Mat toShow(height, width, CV_32FC1); // (uchar*)data.get(lvl))
 
     type nodata = data.nodata;
 
-    for (int y = 0; y < lvlHeight; y++)
+    for (int y = 0; y < height; y++)
     {
-        for (int x = 0; x < lvlWidth; x++)
+        for (int x = 0; x < width; x++)
         {
-            type in_val = data.get(y, x, lvl);
+            type in_val = data.get(y, x);
             // cv::Vec3f out_val(in_val(0), in_val(1), in_val(2));
             // toShow.at<cv::Vec3f>(y, x) = out_val;
             toShow.at<float>(y, x) = in_val(channel);
@@ -126,11 +117,6 @@ inline void show(dataCPU<type> &data, std::string window_name, bool colorize, bo
     else
     {
         toShow2 = toShow;
-    }
-
-    if (upsample)
-    {
-        cv::resize(toShow2, toShow2, cv::Size(width, height));
     }
 
     cv::imshow(window_name, toShow2);
