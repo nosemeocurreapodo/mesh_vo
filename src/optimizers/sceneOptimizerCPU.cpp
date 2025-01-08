@@ -5,7 +5,7 @@ template class sceneOptimizerCPU<SceneMesh, vec3<float>, vec3<int>>;
 
 template <typename sceneType, typename jmapType, typename idsType>
 sceneOptimizerCPU<sceneType, jmapType, idsType>::sceneOptimizerCPU(camera &_cam)
-    : kimage(_cam.width, _cam.height, -1.0),
+    : cam(_cam),
       image_buffer(_cam.width, _cam.height, -1.0),
       idepth_buffer(_cam.width, _cam.height, -1.0),
       ivar_buffer(_cam.width, _cam.height, -1.0),
@@ -18,16 +18,7 @@ sceneOptimizerCPU<sceneType, jmapType, idsType>::sceneOptimizerCPU(camera &_cam)
       idepthVar(_cam.width, _cam.height, -1.0),
       renderer(_cam.width, _cam.height)
 {
-    int lvl = 0;
-    while (true)
-    {
-        camera lvlcam = _cam;
-        lvlcam.resize(1.0 / std::pow(2.0, lvl));
-        if (lvlcam.width == 0 || lvlcam.height == 0)
-            break;
-        cam.push_back(lvlcam);
-        lvl++;
-    }
+    cam = _cam;
 
     multiThreading = false;
     meshRegularization = 100.0f;
@@ -36,14 +27,14 @@ sceneOptimizerCPU<sceneType, jmapType, idsType>::sceneOptimizerCPU(camera &_cam)
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
-void sceneOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &frame, sceneType &scene)
+void sceneOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &frame, frameCPU &kframe, sceneType &kscene)
 {
     int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
 
     for (int lvl = 3; lvl >= 1; lvl--)
     {
         vec2<float> best_affine = frame.getAffine();
-        Error e = computeError(frame, scene, lvl, false);
+        Error e = computeError(frame, kframe, kscene, lvl);
         float last_error = e.getError();
 
         std::cout << "initial error " << last_error << " " << lvl << std::endl;
@@ -51,7 +42,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &f
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
             // HGPose hg = computeHGPose(idepth_buffer, keyframe, frame, lvl);
-            DenseLinearProblem hg = computeHGLightAffine(frame, scene, lvl, false);
+            DenseLinearProblem hg = computeHGLightAffine(frame, kframe, kscene, lvl);
 
             float lambda = 0.0;
             int n_try = 0;
@@ -77,7 +68,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &f
 
                 // e.setZero();
                 // e = computeError(idepth_buffer, keyframe, frame, lvl);
-                e = computeError(&frame, lvl, false);
+                e = computeError(frame, kframe, kscene, lvl);
                 float error = e.getError();
                 // std::cout << "new error " << error << " time " << t.toc() << std::endl;
 
@@ -134,7 +125,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &f
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
-void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
+void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame, frameCPU &kframe, sceneType &kscene)
 {
     int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
 
@@ -144,7 +135,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
         Sophus::SE3f best_pose = frame.getPose();
         vec2<float> best_affine = frame.getAffine();
         // Error e = computeError(idepth_buffer, keyframe, frame, lvl);
-        Error e = computeError(&frame, lvl, false);
+        Error e = computeError(frame, kframe, kscene, lvl);
         e *= 1.0 / e.getCount();
 
         float last_error = e.getError();
@@ -154,7 +145,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
         float lambda = 0.0;
         for (int it = 0; it < maxIterations[lvl]; it++)
         {
-            DenseLinearProblem hg = computeHGPose(&frame, lvl, false);
+            DenseLinearProblem hg = computeHGPose(frame, kframe, kscene, lvl);
             hg *= 1.0 / hg.getCount();
 
             int n_try = 0;
@@ -179,7 +170,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
                 frame.setPose(new_pose);
                 frame.setAffine(new_affine);
 
-                e = computeError(&frame, lvl, false);
+                e = computeError(frame, kframe, kscene, lvl);
                 if (e.getCount() == 0)
                     continue;
                 e *= 1.0 / e.getCount();
@@ -222,7 +213,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame)
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
-void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU> &frames)
+void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU> &frames, frameCPU &kframe, sceneType &kscene)
 {
     int numMapParams = kscene.getParamIds().size();
 
@@ -231,7 +222,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
         Error e;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            Error ef = computeError(&frames[i], lvl);
+            Error ef = computeError(frames[i], kframe, kscene, lvl);
             assert(ef.getCount() > 0);
             e += ef;
         }
@@ -257,7 +248,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
             DenseLinearProblem hg(0, numMapParams);
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                DenseLinearProblem fhg = computeHGMap2(&frames[i], lvl);
+                DenseLinearProblem fhg = computeHGMap2(frames[i], kframe, kscene, lvl);
                 assert(fhg.getCount() > 0);
                 hg += fhg;
             }
@@ -304,12 +295,10 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
                     float inc_param = inc(index);
                     float new_param = best_param - inc_param;
 
-                    float weight = 0.1; // H.coeffRef(index, index);
                     best_params.push_back(best_param);
                     // the derivative is with respecto to the keyframe pose
                     // the update should take this into account
                     kscene.setParam(new_param, paramId);
-                    kscene.setParamWeight(weight, paramId);
                     map_inc_mag += inc_param * inc_param;
                     map_inc_mag_count += 1;
                 }
@@ -319,7 +308,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
                 bool someProblemWithUpdate = false;
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
-                    Error fe = computeError(&frames[i], lvl);
+                    Error fe = computeError(frames[i], kframe, kscene, lvl);
                     if (fe.getCount() == 0)
                         someProblemWithUpdate = true;
                     e += fe;
@@ -381,7 +370,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
-void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<frameCPU> &frames)
+void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<frameCPU> &frames, frameCPU &kframe, sceneType &kscene)
 {
     assert(frames.size() > 0);
 
@@ -399,7 +388,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
         Error e;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            Error fe = computeError(&frames[i], lvl);
+            Error fe = computeError(frames[i], kframe, kscene, lvl);
             assert(fe.getCount() > 0);
             e += fe;
         }
@@ -438,7 +427,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
             DenseLinearProblem hg(numFrameParams, numMapParams);
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                DenseLinearProblem fhg = computeHGPoseMap2(&frames[i], i, frames.size(), lvl);
+                DenseLinearProblem fhg = computeHGPoseMap2(frames[i], kframe, kscene, i, frames.size(), lvl);
                 assert(fhg.getCount() > 0);
                 hg += fhg;
             }
@@ -529,12 +518,10 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                     float best_param = kscene.getParam(mapParamId);
                     float inc_param = inc(index);
                     float new_param = best_param - inc_param;
-                    float weight = 0.1; // H.coeffRef(id.second, id.second);
                     // if(std::fabs(inc_param/best_param) > 0.4)
                     //     solverSucceded = false;
                     best_params[mapParamId] = best_param;
                     kscene.setParam(new_param, mapParamId);
-                    kscene.setParamWeight(weight, mapParamId);
                     map_inc_mag += inc_param * inc_param;
                     map_inc_mag_count += 1;
                 }
@@ -544,7 +531,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                 bool someProblemWithUpdate = false;
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
-                    Error fe = computeError(&frames[i], lvl);
+                    Error fe = computeError(frames[i], kframe, kscene, lvl);
                     if (fe.getCount() == 0)
                         someProblemWithUpdate = true;
                     e += fe;

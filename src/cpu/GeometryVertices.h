@@ -29,7 +29,7 @@ public:
             vec3<float> ray = vertice/vertice(2);
             vec2<float> pix = cam.rayToPix(ray);
 
-            m_vertices[i] = vertex(vertice, ray, pix, 1.0);
+            m_vertices[i] = vertex(vertice, ray, pix);
         }
     }
 
@@ -54,7 +54,7 @@ public:
             vec3<float> ray = cam.pixToRay(pix);
             vec3<float> vertice = ray / idph;
 
-            m_vertices[i] = vertex(vertice, ray, pix, 1.0);
+            m_vertices[i] = vertex(vertice, ray, pix);
         }
     }
 

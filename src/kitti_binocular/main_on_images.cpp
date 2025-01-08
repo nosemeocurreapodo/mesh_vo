@@ -144,19 +144,18 @@ std::array<camera, 2> getKittiCamera(const char *calibFileName)
 				&ic[4], &ic[5], &ic[6], &ic[7],
 				&ic[8], &ic[9], &ic[10], &ic[11]);
 
-	std::array<camera, 2> cams;
-	cams[0].init(ic[0], ic[5], ic[2], ic[6], 1241, 376);
-	cams[1].init(ic[0], ic[5], ic[2], ic[6], 1241, 376);
+	std::array<camera, 2> cams = {camera(ic[0], ic[5], ic[2], ic[6], 1241, 376),
+								  camera(ic[0], ic[5], ic[2], ic[6], 1241, 376)};
 	return cams;
 }
 
 int main(int argc, char **argv)
 {
-	if(argc != 3)
-    {
-        std::cout << "usage: " << argv[0] << " /path/to/calibfile /path/to/dataset" << std::endl;
-        return 0;
-    }
+	if (argc != 3)
+	{
+		std::cout << "usage: " << argv[0] << " /path/to/calibfile /path/to/dataset" << std::endl;
+		return 0;
+	}
 
 	// get camera calibration in form of an undistorter object.
 	// if no undistortion is required, the undistorter will just pass images through.
@@ -167,7 +166,7 @@ int main(int argc, char **argv)
 	// cams[0].resize(int(1241/2), int(376/2));
 	// cams[1].resize(int(1241/2), int(376/2));
 
-	visualOdometry odometry(cams[0]);
+	visualOdometry<SceneMesh> odometry(cams[0]);
 
 	// open image files: first try to open as file.
 	std::string source_left = argv[2];
@@ -195,7 +194,7 @@ int main(int argc, char **argv)
 	}
 
 	// get HZ
-	//double hz = std::atof(argv[2]);
+	// double hz = std::atof(argv[2]);
 
 	cv::Mat image_left = cv::Mat(376, 1241, CV_8U);
 	cv::Mat image_right = cv::Mat(376, 1241, CV_8U);
@@ -237,7 +236,11 @@ int main(int argc, char **argv)
 
 		if (runningIDX == 0)
 		{
-			odometry.init(imageData_left);
+			frameCPU frame(cams[0].width, cams[0].height);
+			frame.setImage(imageData_left, 0);
+			frame.setPose(Sophus::SE3f());
+			frame.setAffine(vec2<float>(0.0, 0.0));
+			odometry.init(frame);
 			odometry.locAndMap(imageData_right);
 		}
 		else

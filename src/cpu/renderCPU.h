@@ -207,7 +207,7 @@ public:
     }
 
     template <typename jmapType, typename idsType>
-    void renderJMapParallel(sceneType &kscene, dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose,, camera cam, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
+    void renderJMapParallel(sceneType &kscene, dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
     {
         scene1 = kscene;
         scene2 = kscene;
@@ -233,7 +233,7 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                renderJMapWindow(kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer);
+                renderJMapWindow(kimage, image, imagePose, cam, win, jmap_buffer, e_buffer, pId_buffer);
                 //pool.enqueue(std::bind(&renderCPU::renderJMapWindow, this, kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
@@ -257,14 +257,14 @@ public:
     }
 
     template <typename jmapType, typename idsType>
-    void renderJPoseMapParallel(sceneType *kscene, dataCPU<float> *kimage, frameCPU *frame, camera cam, dataCPU<vec8<float>> *jpose_buffer, dataCPU<jmapType> *jmap_buffer, dataCPU<float> *e_buffer, dataCPU<idsType> *pId_buffer, int lvl)
+    void renderJPoseMapParallel(sceneType &kscene, dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<vec8<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
     {
         z_buffer.set(z_buffer.nodata);
 
-        scene1 = *kscene;
-        scene2 = *kscene;
+        scene1 = kscene;
+        scene2 = kscene;
         scene1.transform(cam, Sophus::SE3f());
-        scene2.transform(cam, frame->getPose());
+        scene2.transform(cam, imagePose);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -283,7 +283,7 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                renderJPoseMapWindow(kimage, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl);
+                renderJPoseMapWindow(kimage, image, imagePose, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer);
                 //pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow, this, kimage, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
@@ -365,7 +365,7 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                renderJPoseWindow(kimage, image, imagePose, cam, win, jpose_buffer, e_buffer);
+                renderJPoseWindow(kimage, image, cam, win, jpose_buffer, e_buffer);
                 //pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kimage, frame, cam, win, jpose_buffer, e_buffer, lvl));
             }
         }
@@ -387,7 +387,7 @@ public:
         renderResidualWindow(kimage, image, imagePose, cam, win, e_buffer);
     }
 
-    void renderResidualParallel(sceneType &kscene, dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<float> &e_buffer, int lvl)
+    void renderResidualParallel(sceneType &kscene, dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<float> &e_buffer)
     {
         z_buffer.set(z_buffer.nodata);
 
@@ -413,7 +413,7 @@ public:
 
                 window win(min_x, max_x-1, min_y, max_y-1);
 
-                renderResidualWindow(kimage, image, cam, win, e_buffer, lvl);
+                renderResidualWindow(kimage, image, cam, win, e_buffer);
                 //pool.enqueue(std::bind(&renderCPU::renderResidualWindow, this, kimage, frame, cam, win, e_buffer, lvl));
             }
         }

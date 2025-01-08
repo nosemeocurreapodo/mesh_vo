@@ -33,23 +33,12 @@ public:
     int max_x;
     int min_y;
     int max_y;
-
-private:
 };
 
 class camera
 {
 public:
-    camera()
-    {
-    }
-
     camera(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
-    {
-        init(_fx, _fy, _cx, _cy, _width, _height);
-    }
-
-    void init(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
     {
         width = _width;
         height = _height;
@@ -159,7 +148,7 @@ public:
         pix(0) = fx * ray(0) + cx;
         pix(1) = fy * ray(1) + cy;
         return pix;
-        //return vec2<float>(fx * ray(0) + cx, fy * ray(1) + cy);
+        // return vec2<float>(fx * ray(0) + cx, fy * ray(1) + cy);
     }
 
     inline vec3<float> pixToRay(vec2<float> pix)
@@ -231,6 +220,69 @@ public:
     float fyinv_norm;
     float cxinv_norm;
     float cyinv_norm;
+};
+
+class cameraMipMap
+{
+public:
+    cameraMipMap(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
+    {
+        int width = _width;
+        int height = _height;
+        float fx = _fx;
+        float fy = _fy;
+        float cx = _cx;
+        float cy = _cy;
+
+        while (true)
+        {
+            camera __cam(fx, fy, cx, cy, width, height);
+            width = int(width / 2);
+            height = int(height / 2);
+            fx = fx / 2;
+            fy = fy / 2;
+            cx = cx / 2;
+            cy = cy / 2;
+
+            cam.push_back(__cam);
+
+            if (width < 1 || height < 1)
+                break;
+        }
+    }
+
+    cameraMipMap(camera _cam)
+    {
+        int width = _cam.width;
+        int height = _cam.height;
+        float fx = _cam.fx;
+        float fy = _cam.fy;
+        float cx = _cam.cx;
+        float cy = _cam.cy;
+
+        while (true)
+        {
+            camera __cam(fx, fy, cx, cy, width, height);
+            width = int(width / 2);
+            height = int(height / 2);
+            fx = fx / 2;
+            fy = fy / 2;
+            cx = cx / 2;
+            cy = cy / 2;
+
+            cam.push_back(__cam);
+
+            if (width < 1 || height < 1)
+                break;
+        }
+    }
+
+    camera &operator[](int c)
+    {
+        assert(c >= 0 && c < cam.size());
+        return cam[c];
+    }
 
 private:
+    std::vector<camera> cam;
 };

@@ -56,13 +56,9 @@ int main(int argc, char * argv[])
 
     dataCPU<float> image(IMAGE_WIDTH, IMAGE_HEIGHT, -1.0);
     dataCPU<float> idepth(IMAGE_WIDTH, IMAGE_HEIGHT, -1.0);
-    dataCPU<float> ivar(IMAGE_WIDTH, IMAGE_HEIGHT, -1.0);
 
     image.set((float*)imageMat.data);
     idepth.set((float*)idepthMat.data);
-
-    ivar.set(1.0, 0);
-    ivar.generateMipmaps();
 
     /*
     //get corner from image
@@ -98,11 +94,11 @@ int main(int argc, char * argv[])
     }
     */
 
-    visualOdometry odometry(cam);
+    visualOdometry<SceneMesh> odometry(cam);
 
     //odometry.initScene(image, pixels, idepths);
     //odometry.initScene(image, idepth, ivar);
-    odometry.initScene(image);
+    odometry.init(image);
 
     while(1){
         framesTracked++;

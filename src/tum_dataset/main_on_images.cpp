@@ -122,11 +122,11 @@ int getFile(std::string source, std::vector<std::string> &files)
 using namespace lsd_slam;
 int main(int argc, char **argv)
 {
-	if(argc != 3)
-    {
-        std::cout << "usage: " << argv[0] << " /path/to/calibfile /path/to/dataset" << std::endl;
-        return 0;
-    }
+	if (argc != 3)
+	{
+		std::cout << "usage: " << argv[0] << " /path/to/calibfile /path/to/dataset" << std::endl;
+		return 0;
+	}
 
 	// get camera calibration in form of an undistorter object.
 	// if no undistortion is required, the undistorter will just pass images through.
@@ -157,7 +157,7 @@ int main(int argc, char **argv)
 	camera cam(fx, fy, cx, cy, w, h);
 	cam.resize(IMAGE_WIDTH, IMAGE_WIDTH);
 
-	visualOdometry odometry(cam);
+	visualOdometry<SceneMesh> odometry(cam);
 
 	// open image files: first try to open as file.
 	std::string source = argv[2];
@@ -177,7 +177,7 @@ int main(int argc, char **argv)
 	}
 
 	// get HZ
-	//double hz = std::atof(argv[2]);
+	// double hz = std::atof(argv[2]);
 
 	cv::Mat image = cv::Mat(h, w, CV_8U);
 	int runningIDX = 0;
@@ -212,8 +212,14 @@ int main(int argc, char **argv)
 		imageData.set((float *)image.data);
 
 		if (runningIDX == 0)
-			odometry.initScene(imageData);
-		// system->randomInit(image.data, fakeTimeStamp, runningIDX);
+		{
+			frameCPU frame(cam.width, cam.height);
+			frame.setImage(imageData, 0);
+			frame.setPose(Sophus::SE3f());
+			frame.setAffine(vec2<float>(0.0, 0.0));
+			odometry.init(frame);
+			// system->randomInit(image.data, fakeTimeStamp, runningIDX);
+		}
 		else
 			odometry.locAndMap(imageData);
 		// system->trackFrame(image.data, runningIDX ,hz == 0,fakeTimeStamp);

@@ -59,12 +59,12 @@ struct vec1
         data = c(0);
     }
 
-    inline type &operator()(int c)
+    type &operator()(int c)
     {
         return data;
     }
 
-    inline type operator()(int c) const
+    type operator()(int c) const
     {
         return data;
     }
@@ -158,12 +158,12 @@ struct vec2
     }
     */
 
-    inline type &operator()(int c)
+    type &operator()(int c)
     {
         return data[c];
     }
 
-    inline type operator()(int c) const
+    type operator()(int c) const
     {
         return data[c];
     }
@@ -263,7 +263,7 @@ struct vec3
         return result;
     }
 
-    inline vec3<type> operator+(vec3<type> c)
+    vec3<type> operator+(vec3<type> c)
     {
         vec3<type> result;
         result(0) = type(data[0] + c(0));
@@ -297,12 +297,12 @@ struct vec3
         return false;
     }
 
-    inline type &operator()(int c)
+    type &operator()(int c)
     {
         return data[c];
     }
 
-    inline type operator()(int c) const
+    type operator()(int c) const
     {
         return data[c];
     }
@@ -429,12 +429,12 @@ struct vec6
         return false;
     }
 
-    inline type &operator()(int c)
+    type &operator()(int c)
     {
         return data[c];
     }
 
-    inline type operator()(int c) const
+    type operator()(int c) const
     {
         return data[c];
     }
@@ -574,12 +574,12 @@ struct vec8
         return false;
     }
 
-    inline type &operator()(int c)
+    type &operator()(int c)
     {
         return data[c];
     }
 
-    inline type operator()(int c) const
+    type operator()(int c) const
     {
         return data[c];
     }
@@ -627,12 +627,12 @@ struct vecx
         return result;
     }
 
-    inline type &operator()(int c)
+    type &operator()(int c)
     {
         return data[c];
     }
 
-    inline type operator()(int c) const
+    type operator()(int c) const
     {
         return data[c];
     }
@@ -848,12 +848,12 @@ struct mat3
         }
     }
 
-    inline type &operator()(int b, int c)
+    type &operator()(int b, int c)
     {
         return data[b][c];
     }
 
-    inline type operator()(int b, int c) const
+    type operator()(int b, int c) const
     {
         return data[b][c];
     }
@@ -1023,12 +1023,12 @@ struct mat6
         }
     }
 
-    inline type &operator()(int b, int c)
+    type &operator()(int b, int c)
     {
         return data[b][c];
     }
 
-    inline type operator()(int b, int c) const
+    type operator()(int b, int c) const
     {
         return data[b][c];
     }
@@ -1149,12 +1149,12 @@ struct mat8
         }
     }
 
-    inline type &operator()(int b, int c)
+    type &operator()(int b, int c)
     {
         return data[b][c];
     }
 
-    inline type operator()(int b, int c) const
+    type operator()(int b, int c) const
     {
         return data[b][c];
     }
@@ -1171,17 +1171,17 @@ struct SO3
         identity();
     }
 
-    inline SO3(type qw, type qx, type qy, type qz)
+    SO3(type qw, type qx, type qy, type qz)
     {
         fromQuaternion(qw, qx, qy, qz);
     }
 
-    inline SO3(mat3<type> mat)
+    SO3(mat3<type> mat)
     {
         matrix = mat;
     }
 
-    inline SO3(type *r)
+    SO3(type *r)
     {
         matrix(0, 0) = r[0];
         matrix(0, 1) = r[1];
@@ -1194,7 +1194,7 @@ struct SO3
         matrix(2, 2) = r[8];
     }
 
-    inline void fromQuaternion(type qw, type qx, type qy, type qz)
+    void fromQuaternion(type qw, type qx, type qy, type qz)
     {
         const type x = 2 * qx;
         const type y = 2 * qy;
@@ -1221,7 +1221,7 @@ struct SO3
     }
 
     /*
-    inline SE3(cv::Mat_<float> r, cv::vec3f t)
+    SE3(cv::Mat_<float> r, cv::vec3f t)
     {
       data(0,0)=r(0,0); data(0,1)=r(0,1); data(0,2)=r(0,2); data(0,3)=t.x;
       data(1,0)=r(1,0); data(1,1)=r(1,1); data(1,2)=r(1,2); data(1,3)=t.y;
@@ -1234,7 +1234,7 @@ struct SO3
         matrix.identity();
     }
 
-    inline SO3<type> inverse() const
+    SO3<type> inverse() const
     {
         return matrix.transpose();
     }
@@ -1244,17 +1244,17 @@ struct SO3
         matrix = c.matrix;
     }
 
-    inline type operator()(int r, int c) const
+    type operator()(int r, int c) const
     {
         return matrix(r, c);
     }
 
-    inline type &operator()(int r, int c)
+    type &operator()(int r, int c)
     {
         return matrix(r, c);
     }
 
-    inline vec3<type> dot(const vec3<type> &p) const
+    vec3<type> dot(const vec3<type> &p) const
     {
         vec3<type> result = matrix.dot(p);
         return result;
@@ -1325,7 +1325,7 @@ struct SE3
     }
 
     /// Constructor from a normalized quaternion and a translation vector
-    inline SE3(type qw, type qx, type qy, type qz, type tx, type ty, type tz)
+    SE3(type qw, type qx, type qy, type qz, type tx, type ty, type tz)
     {
         rotation.fromQuaternion(qw, qx, qy, qz);
         translation = vec3<float>(tx, ty, tz);
@@ -1334,7 +1334,7 @@ struct SE3
     /// Construct from C arrays
     /// r is rotation matrix row major
     /// t is the translation vector (x y z)
-    inline SE3(type *r, type *t)
+    SE3(type *r, type *t)
     {
         rotation(0, 0) = r[0];
         rotation(0, 1) = r[1];
@@ -1353,14 +1353,14 @@ struct SE3
         translation(2) = t[2];
     }
 
-    inline SE3(SO3<type> _rotation, vec3<type> _translation)
+    SE3(SO3<type> _rotation, vec3<type> _translation)
     {
         rotation = _rotation;
         translation = _translation;
     }
 
     /*
-    inline SE3(cv::Mat_<float> r, cv::vec3f t)
+    SE3(cv::Mat_<float> r, cv::vec3f t)
     {
       data(0,0)=r(0,0); data(0,1)=r(0,1); data(0,2)=r(0,2); data(0,3)=t.x;
       data(1,0)=r(1,0); data(1,1)=r(1,1); data(1,2)=r(1,2); data(1,3)=t.y;
@@ -1374,7 +1374,7 @@ struct SE3
         translation = vec3<float>(0.0, 0.0, 0.0);
     }
 
-    inline SE3<type> inv() const
+    SE3<type> inv() const
     {
         SE3<type> result;
         result.rotation = rotation.inv();
@@ -1383,18 +1383,18 @@ struct SE3
     }
 
     /*
-        inline type this->operator()()(int r, int c) const
+        type this->operator()()(int r, int c) const
         {
           return data[r][c];
         }
 
-        inline type &this->operator()()(int r, int c)
+        type &this->operator()()(int r, int c)
         {
           return data[r][c];
         }
         */
 
-    inline SE3<type> dot(const SE3<type> &rhs)
+    SE3<type> dot(const SE3<type> &rhs)
     {
         SE3<type> result;
         result.rotation = rotation.dot(rhs.rotation);
@@ -1402,7 +1402,7 @@ struct SE3
         return result;
     }
 
-    inline vec3<type> dot(const vec3<type> &rhs)
+    vec3<type> dot(const vec3<type> &rhs)
     {
         vec3<type> result = rotation.dot(rhs) + translation;
         return result;
@@ -1439,19 +1439,19 @@ struct vertex
         used = false;
     }
 
-    vertex(vec3<float> v, vec3<float> r, vec2<float> p, float w)
+    vertex(vec3<float> v, vec3<float> r, vec2<float> p)
     {
         ver = v;
         ray = r;
         pix = p;
-        weight = w;
+        //weight = w;
         used = true;
     }
 
     vec3<float> ver;
     vec3<float> ray;
     vec2<float> pix;
-    float weight;
+    //float weight;
     bool used;
 };
 

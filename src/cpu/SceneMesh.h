@@ -245,13 +245,18 @@ public:
         return m_geometry.getDepthParam(paramId);
     }
 
+    std::vector<int> getParamIds()
+    {
+        return m_geometry.getParamIds();
+    }
+
     /*
-    void setWeight(float weight, int paramId)
+    void setParamWeight(float weight, int paramId)
     {
         m_geometry.setParamWeight(weight, paramId);
     }
 
-    float getWeight(int paramId)
+    float getParamWeight(int paramId)
     {
         return m_geometry.getParamWeight(paramId);
     }
