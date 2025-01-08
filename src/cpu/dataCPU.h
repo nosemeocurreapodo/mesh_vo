@@ -4,12 +4,6 @@ template <typename Type>
 class dataCPU
 {
 public:
-
-    dataCPU()
-    {
-
-    }
-
     dataCPU(int _width, int _height, Type _nodata_value)
     {
         nodata = _nodata_value;
@@ -17,6 +11,7 @@ public:
         height = _height;
         m_data = new (std::nothrow) Type[width * height];
         assert(m_data != nullptr);
+        std::fill_n(m_data, width * height, _nodata_value);
     }
 
     dataCPU(const dataCPU &other)
@@ -131,13 +126,13 @@ public:
         return float(nodatacount) / (width * height);
     }
 
-    dataCPU<Type> generateMipmap(int baselvl = 0)
+    dataCPU<Type> generateMipmap()
     {
-        dataCPU<Type> mipmap(width/2, height/2, nodata);
+        dataCPU<Type> mipmap(width / 2, height / 2, nodata);
 
-        for (int y = 0; y < height/2; y++)
+        for (int y = 0; y < height / 2; y++)
         {
-            for (int x = 0; x < width/2; x++)
+            for (int x = 0; x < width / 2; x++)
             {
                 Type pixel = area(y * 2, x * 2);
                 mipmap.set(pixel, y, x);
@@ -228,9 +223,8 @@ private:
         return pix;
     }
 
-    Type* m_data;
+    Type *m_data;
 };
-
 
 template <typename Type>
 class dataMipMapCPU
@@ -238,8 +232,6 @@ class dataMipMapCPU
 public:
     dataMipMapCPU(int _width, int _height, Type _nodata_value)
     {
-        lvls = 0;
-
         int width = _width;
         int height = _height;
 
@@ -248,21 +240,17 @@ public:
             dataCPU<Type> lvlData(width, height, _nodata_value);
             data.push_back(lvlData);
 
-            lvls++;
+            width = int(width / 2);
+            height = int(height / 2);
 
-            _width = int(_width / 2);
-            _height = int(_height / 2);
-
-            if (_width == 0 || _height == 0)
+            if (width <= 1 || height <= 1)
                 break;
         }
     }
 
     dataMipMapCPU(const dataMipMapCPU &other)
     {
-        lvls = other.lvls;
-
-        for (int lvl = 0; lvl < lvls; lvl++)
+        for (int lvl = 0; lvl < other.data.size(); lvl++)
         {
             dataCPU<Type> lvlData = other.data[lvl];
             data.push_back(lvlData);
@@ -273,9 +261,9 @@ public:
     {
         if (this != &other)
         {
-            assert(lvls == other.lvls);
+            assert(data.size() == other.data.size());
 
-            for (int lvl = 0; lvl < lvls; lvl++)
+            for (int lvl = 0; lvl < other.data.size(); lvl++)
             {
                 data[lvl] = other.data[lvl];
             }
@@ -336,10 +324,16 @@ public:
 
     void generateMipmaps(int baselvl = 0)
     {
-        for (int lvl = baselvl + 1; lvl < lvls; lvl++)
+        for (int lvl = baselvl + 1; lvl < data.size(); lvl++)
         {
-            data[lvl] = data[lvl-1].generateMipmap();
+            dataCPU<Type> d = data[lvl - 1].generateMipmap();
+            data[lvl] = d;
         }
+    }
+
+    int getLvls()
+    {
+        return data.size();
     }
 
     /*
@@ -396,9 +390,7 @@ public:
     */
 
     Type nodata;
-    int lvls;
 
 private:
-
     std::vector<dataCPU<Type>> data;
 };

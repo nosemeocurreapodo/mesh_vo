@@ -39,6 +39,26 @@ void visualOdometry<sceneType>::init(dataCPU<float> &image, Sophus::SE3f pose)
 }
 
 template <typename sceneType>
+void visualOdometry<sceneType>::init(dataCPU<float> &image, dataCPU<float> &idepth, Sophus::SE3f pose)
+{
+    assert(image.width == idepth.width && image.height == idepth.height);
+
+    frameCPU newFrame(cam[0].width, cam[0].height);
+    newFrame.setImage(image, 0);
+    newFrame.setPose(pose);
+    newFrame.setAffine(vec2<float>(0.0, 0.0));
+
+    lastFrames.clear();
+    keyFrames.clear();
+    lastMovement = Sophus::SE3f();
+    lastPose = pose;
+    lastAffine = vec2<float>(0.0f, 0.0f);
+
+    kframe = newFrame;
+    kscene.init(idepth, cam[0]);
+}
+
+template <typename sceneType>
 void visualOdometry<sceneType>::init(frameCPU &frame)
 {
     int lvl = 1;
@@ -174,7 +194,7 @@ void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
             keyFrames = lastFrames;
             keyFrames.erase(keyFrames.begin() + newKeyframeIndex);
 
-            int lvl = 1;
+            int lvl = 0;
 
             dataCPU<float> idepth_buffer(cam[lvl].width, cam[lvl].height, -1);
 
@@ -408,7 +428,7 @@ void visualOdometry<sceneType>::mapping(dataCPU<float> &image, Sophus::SE3f glob
             newFrame.setPose(newPose);
             newFrame.setAffine(newAffine);
 
-            int lvl = 1;
+            int lvl = 0;
 
             dataCPU<float> idepth_buffer(cam[lvl].width, cam[lvl].height, -1);
 

@@ -10,19 +10,19 @@ class frameCPU
 {
 public:
     frameCPU(int width, int height)
-        : raw_image(width, height, -1.0f)
-          //dIdpix_image(width, height, vec2<float>(0.0f, 0.0f)),
-          //idepth_image(width, height, -1.0f),
-          //residual_image(width, height, -1.0f)
+        : raw_image(width, height, -1.0f),
+          dIdpix_image(width, height, vec2<float>(0.0f, 0.0f))
+    // idepth_image(width, height, -1.0f),
+    // residual_image(width, height, -1.0f)
     {
         id = 0;
         affine = {0.0f, 0.0f};
     };
 
-    frameCPU(const frameCPU &other) : raw_image(other.raw_image)
-                                      //dIdpix_image(other.dIdpix_image),
-                                      //idepth_image(other.idepth_image),
-                                      //residual_image(other.residual_image)
+    frameCPU(const frameCPU &other) : raw_image(other.raw_image),
+                                      dIdpix_image(other.dIdpix_image)
+    // idepth_image(other.idepth_image),
+    // residual_image(other.residual_image)
     {
         id = other.id;
         pose = other.pose;
@@ -38,9 +38,9 @@ public:
             affine = other.affine;
 
             raw_image = other.raw_image;
-            //dIdpix_image = other.dIdpix_image;
-            //idepth_image = other.idepth_image;
-            //residual_image = other.residual_image;
+            dIdpix_image = other.dIdpix_image;
+            // idepth_image = other.idepth_image;
+            // residual_image = other.residual_image;
         }
         return *this;
     }
@@ -52,12 +52,10 @@ public:
         raw_image.get(0) = im;
         raw_image.generateMipmaps();
 
-        /*
-        for (int lvl = 0; lvl < raw_image.lvls; lvl++)
+        for (int lvl = 0; lvl < raw_image.getLvls(); lvl++)
         {
             computeFrameDerivative(lvl);
         }
-        */
 
         id = _id;
     }
@@ -66,7 +64,7 @@ public:
     {
         affine = _affine;
     }
-    
+
     vec2<float> getAffine()
     {
         return affine;
@@ -82,17 +80,17 @@ public:
         return pose;
     }
 
-    dataCPU<float>& getRawImage(int lvl)
+    dataCPU<float> &getRawImage(int lvl)
     {
         return raw_image.get(lvl);
     }
 
-    /*
-    dataCPU<vec2<float>>& getdIdpixImage()
+    dataCPU<vec2<float>> &getdIdpixImage(int lvl)
     {
-        return dIdpix_image;
+        return dIdpix_image.get(lvl);
     }
 
+    /*
     dataCPU<float>& getIdepthImage()
     {
         return idepth_image;
@@ -110,8 +108,6 @@ public:
     }
 
 private:
-
-    /*
     void computeFrameDerivative(int lvl)
     {
         // dx.set(dx.nodata, lvl);
@@ -127,26 +123,25 @@ private:
             {
                 if (y == 0 || y == height - 1 || x == 0 || x == width - 1)
                 {
-                    //dx.set(0.0, y, x, lvl);
-                    //dy.set(0.0, y, x, lvl);
+                    // dx.set(0.0, y, x, lvl);
+                    // dy.set(0.0, y, x, lvl);
                     dIdpix_image.set(vec2<float>(0.0f, 0.0f), y, x, lvl);
                     continue;
                 }
 
-                float _dx = (float(raw_image.get(y, x + 1, lvl)) - float(raw_image.get(y, x - 1, lvl))) / 2.0;
-                float _dy = (float(raw_image.get(y + 1, x, lvl)) - float(raw_image.get(y - 1, x, lvl))) / 2.0;
+                float _dx = (float(image.get(y, x + 1)) - float(image.get(y, x - 1))) / 2.0;
+                float _dy = (float(image.get(y + 1, x)) - float(image.get(y - 1, x))) / 2.0;
 
                 dIdpix_image.set(vec2<float>(_dx, _dy), y, x, lvl);
-                //dx.set(_dx, y, x, lvl);
-                //dy.set(_dy, y, x, lvl);
+                // dx.set(_dx, y, x, lvl);
+                // dy.set(_dy, y, x, lvl);
             }
     }
-    */
 
     dataMipMapCPU<float> raw_image;
-    //dataMipMapCPU<vec2<float>> dIdpix_image;
-    //dataMipMapCPU<float> idepth_image;
-    //dataMipMapCPU<float> residual_image;
+    dataMipMapCPU<vec2<float>> dIdpix_image;
+    // dataMipMapCPU<float> idepth_image;
+    // dataMipMapCPU<float> residual_image;
 
     Sophus::SE3f pose;
     vec2<float> affine;

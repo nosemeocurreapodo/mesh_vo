@@ -55,37 +55,29 @@ private:
     Error computeError(frameCPU &frame, frameCPU &kframe, sceneType &kscene, int lvl)
     {
         error_buffer.set(error_buffer.nodata, lvl);
-        ivar_buffer.set(ivar_buffer.nodata, lvl);
-
         renderer.renderResidualParallel(kscene, kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getPose(), cam[lvl], error_buffer.get(lvl));
-
-        Error e = reducer.reduceErrorParallel(error_buffer.get(lvl), ivar_buffer.get(lvl));
-
+        Error e = reducer.reduceErrorParallel(error_buffer.get(lvl));
         return e;
     }
 
     DenseLinearProblem computeHGLightAffine(frameCPU &frame, frameCPU &kframe, sceneType &kscene, int lvl)
     {
-        idepth_buffer.set(idepth_buffer.nodata, lvl);
         jlightaffine_buffer.set(jlightaffine_buffer.nodata, lvl);
         error_buffer.set(error_buffer.nodata, lvl);
-        ivar_buffer.set(ivar_buffer.nodata, lvl);
 
         renderer.renderJLightAffineParallel(kscene, kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getPose(), cam[lvl], jlightaffine_buffer.get(lvl), error_buffer.get(lvl));
-        DenseLinearProblem hg = reducer.reduceHGLightAffineParallel(jlightaffine_buffer.get(lvl), error_buffer.get(lvl), ivar_buffer.get(lvl));
+        DenseLinearProblem hg = reducer.reduceHGLightAffineParallel(jlightaffine_buffer.get(lvl), error_buffer.get(lvl));
 
         return hg;
     }
 
     DenseLinearProblem computeHGPose(frameCPU &frame, frameCPU &kframe, sceneType &kscene, int lvl)
     {
-        idepth_buffer.set(idepth_buffer.nodata, lvl);
         jpose_buffer.set(jpose_buffer.nodata, lvl);
         error_buffer.set(error_buffer.nodata, lvl);
-        ivar_buffer.set(ivar_buffer.nodata, lvl);
 
-        renderer.renderJPoseParallel(kscene, kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getPose(), cam[lvl], jpose_buffer.get(lvl), error_buffer.get(lvl));
-        DenseLinearProblem hg = reducer.reduceHGPoseParallel(jpose_buffer.get(lvl), error_buffer.get(lvl), ivar_buffer.get(lvl));
+        renderer.renderJPoseParallel(kscene, kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getdIdpixImage(lvl), frame.getPose(), cam[lvl], jpose_buffer.get(lvl), error_buffer.get(lvl));
+        DenseLinearProblem hg = reducer.reduceHGPoseParallel(jpose_buffer.get(lvl), error_buffer.get(lvl));
 
         return hg;
     }
@@ -115,7 +107,7 @@ private:
         int numMapParams = kscene.getParamIds().size();
 
         // renderer.renderJMap(scene, cam[lvl], kframe, frame, jmap_buffer, error_buffer, pId_buffer, lvl);
-        renderer.renderJMapParallel(kscene, kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getPose(), cam[lvl], jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
+        renderer.renderJMapParallel(kscene, kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getdIdpixImage(lvl), frame.getPose(), cam[lvl], jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
         // HGMapped hg = reducer.reduceHGMap(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
         // HGEigen hg = reducer.reduceHGMapParallel(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
         DenseLinearProblem hg = reducer.reduceHGMap2(numMapParams, jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
@@ -146,7 +138,7 @@ private:
 
         int numMapParams = kscene.getParamIds().size();
 
-        renderer.renderJPoseMapParallel(kscene, kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getPose(), cam[lvl], jpose_buffer.get(lvl), jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
+        renderer.renderJPoseMapParallel(kscene, kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getdIdpixImage(lvl), frame.getPose(), cam[lvl], jpose_buffer.get(lvl), jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
         // HGEigenSparse hg = reducer.reduceHGPoseMap2(cam[lvl], frameIndex, numFrames, scene->getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
         DenseLinearProblem hg = reducer.reduceHGPoseMapParallel2(frameIndex, numFrames, numMapParams, jpose_buffer.get(lvl), jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
 
@@ -161,7 +153,6 @@ private:
 
     dataMipMapCPU<float> image_buffer;
     dataMipMapCPU<float> idepth_buffer;
-    dataMipMapCPU<float> ivar_buffer;
     dataMipMapCPU<float> error_buffer;
 
     dataMipMapCPU<vec2<float>> jlightaffine_buffer;
@@ -171,8 +162,7 @@ private:
     dataMipMapCPU<idsType> pId_buffer;
 
     // debug
-    dataMipMapCPU<float> debug;
-    dataMipMapCPU<float> idepthVar;
+    dataMipMapCPU<float> debug_buffer;
 
     renderCPU<sceneType> renderer;
     reduceCPU reducer;

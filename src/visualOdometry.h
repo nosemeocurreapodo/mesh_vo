@@ -23,6 +23,8 @@ public:
     visualOdometry(camera &_cam);
 
     void init(dataCPU<float> &image, Sophus::SE3f pose = Sophus::SE3f());
+    void init(dataCPU<float> &image, dataCPU<float> &idepth, Sophus::SE3f pose = Sophus::SE3f());
+
     void init(frameCPU &frame);
     void init(frameCPU &frame, dataCPU<float> &idepth);
     void init(frameCPU &frame, std::vector<vec2<float>> &pixels, std::vector<float> &idepths);
@@ -172,10 +174,7 @@ private:
         int lvl = 1;
 
         dataCPU<float> idepth_buffer(cam[lvl].width, cam[lvl].height, -1);
-        dataCPU<float> image_buffer(cam[lvl].width, cam[lvl].height, -1);
         dataCPU<float> error_buffer(cam[lvl].width, cam[lvl].height, -1);
-        // ivar_buffer.set(ivar_buffer.nodata, 1);
-        // debug.set(debug.nodata, 0);
 
         // renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
         renderer.renderIdepthParallel(kscene, frame.getPose(), cam[lvl], idepth_buffer);
@@ -186,11 +185,6 @@ private:
         show(kframe.getRawImage(lvl), "keyframe image", false);
         show(error_buffer, "frame error", false);
         show(idepth_buffer, "frame idepth", true);
-        // show(ivar_buffer, "ivar", true, false, 1);
-
-        // show(frame.getdIdpixImage(), "frame dx image", false, false, 0, 1);
-        // show(jpose_buffer, "jpose image", false, false, 0, 1);
-        // show(jmap_buffer, "jmap image", false, false, 0, 1);
 
         if (frames.size() > 0)
         {
@@ -218,14 +212,6 @@ private:
             show(frames_buffer, "frames", false);
             show(residual_buffer, "residuals", false);
         }
-
-        // renderer.renderDebugParallel(&kscene, &kimage, Sophus::SE3f(), cam[0], &debug, 0);
-        // show(debug, "frame debug", false, false, 0);
-
-        // idepth_buffer.set(idepth_buffer.nodata, 1);
-        //  renderer.renderIdepth(cam[1], frame.pose, idepth_buffer, 1);
-        // renderer.renderIdepthParallel(&kscene, Sophus::SE3f(), cam[1], &idepth_buffer, 1);
-        // show(idepth_buffer, "keyframe idepth", true, false, 1);
     }
 
     //void checkFrameAndAddToList(frameCPU &frame)

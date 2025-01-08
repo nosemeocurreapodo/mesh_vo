@@ -8,14 +8,12 @@ sceneOptimizerCPU<sceneType, jmapType, idsType>::sceneOptimizerCPU(camera &_cam)
     : cam(_cam),
       image_buffer(_cam.width, _cam.height, -1.0),
       idepth_buffer(_cam.width, _cam.height, -1.0),
-      ivar_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
       jlightaffine_buffer(_cam.width, _cam.height, vec2<float>(0.0)),
       jpose_buffer(_cam.width, _cam.height, vec8<float>(0.0)),
       jmap_buffer(_cam.width, _cam.height, jmapType(0.0)),
       pId_buffer(_cam.width, _cam.height, idsType(-1)),
-      debug(_cam.width, _cam.height, -1.0),
-      idepthVar(_cam.width, _cam.height, -1.0),
+      debug_buffer(_cam.width, _cam.height, -1.0),
       renderer(_cam.width, _cam.height)
 {
     cam = _cam;
@@ -140,7 +138,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame, f
 
         float last_error = e.getError();
 
-        // std::cout << "initial error " << last_error << " " << lvl << std::endl;
+        //std::cout << "initial error " << last_error << " " << lvl << std::endl;
 
         float lambda = 0.0;
         for (int it = 0; it < maxIterations[lvl]; it++)
@@ -177,7 +175,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame, f
 
                 float error = e.getError();
 
-                // std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
+                //std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
 
                 if (error < last_error)
                 {

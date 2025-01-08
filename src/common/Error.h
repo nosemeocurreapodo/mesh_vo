@@ -34,8 +34,8 @@ public:
         sum.count = 1;
         */
 
-       sum.error = error + a.error;
-       sum.count = count + a.count;
+        sum.error = error + a.error;
+        sum.count = count + a.count;
 
         return sum;
     }
