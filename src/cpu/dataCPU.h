@@ -11,7 +11,7 @@ public:
         height = _height;
         m_data = new (std::nothrow) Type[width * height];
         assert(m_data != nullptr);
-        std::fill_n(m_data, width * height, _nodata_value);
+        set(_nodata_value);
     }
 
     dataCPU(const dataCPU &other)
@@ -66,6 +66,10 @@ public:
     void set(Type value)
     {
         std::fill_n(m_data, width * height, value);
+
+        // for(int y = 0; y < height; y++)
+        //     for(int x = 0; x < width; x++)
+        //         set(value, y, x);
     }
 
     void set(Type *data)
@@ -119,7 +123,8 @@ public:
         {
             for (int x = 0; x < width; x++)
             {
-                if (get(y, x) == nodata)
+                Type d = get(y, x);
+                if (d == nodata)
                     nodatacount++;
             }
         }
@@ -234,10 +239,11 @@ public:
     {
         int width = _width;
         int height = _height;
+        nodata = _nodata_value;
 
         while (true)
         {
-            dataCPU<Type> lvlData(width, height, _nodata_value);
+            dataCPU<Type> lvlData(width, height, nodata);
             data.push_back(lvlData);
 
             width = int(width / 2);
@@ -293,7 +299,7 @@ public:
 
     void set(Type *data, int lvl)
     {
-        data[lvl].set(data, lvl);
+        data[lvl].set(data);
     }
 
     void set(Type *data)
@@ -352,7 +358,7 @@ public:
 
     float getPercentNoData(int lvl)
     {
-        return data[lvl].getPercentNoData(lvl);
+        return data[lvl].getPercentNoData();
     }
 
     /*

@@ -125,9 +125,9 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optLightAffine(frameCPU &f
 template <typename sceneType, typename jmapType, typename idsType>
 void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame, frameCPU &kframe, sceneType &scene)
 {
-    int maxIterations[10] = {5, 20, 50, 100, 100, 100, 100, 100, 100, 100};
+    int maxIterations[10] = {100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
 
-    for (int lvl = 4; lvl >= 0; lvl--)
+    for (int lvl = 2; lvl >= 2; lvl--)
     {
         // std::cout << "*************************lvl " << lvl << std::endl;
         Sophus::SE3f best_pose = frame.getPose();
@@ -138,7 +138,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame, f
 
         float last_error = e.getError();
 
-        // std::cout << "initial error " << last_error << " " << lvl << std::endl;
+        std::cout << "initial error " << last_error << " " << lvl << std::endl;
         std::vector<frameCPU> frames;
         frames.push_back(frame);
         plotDebug(scene, kframe, frames);
@@ -167,20 +167,19 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame, f
                 Eigen::VectorXf inc = hg.solve();
 
                 Sophus::SE3f new_pose = best_pose * Sophus::SE3f::exp(inc.segment(0, 6)).inverse();
-                vec2<float> new_affine = best_affine - vec2<float>(inc(6), inc(7));
+                vec2<float> new_affine = best_affine; // - vec2<float>(inc(6), inc(7));
                 frame.setPose(new_pose);
                 frame.setAffine(new_affine);
                 float inc_mag = inc.dot(inc);
 
                 e = computeError(frame, kframe, scene, lvl);
-                if (e.getCount() == 0)
+                if (e.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
                     continue;
                 e *= 1.0 / e.getCount();
 
                 float error = e.getError();
 
-                // std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
-
+                std::cout << "new error " << error << " " << lambda << " " << it << " " << lvl << std::endl;
                 std::vector<frameCPU> frames;
                 frames.push_back(frame);
                 plotDebug(scene, kframe, frames);
@@ -316,7 +315,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
                     Error fe = computeError(frames[i], kframe, scene, lvl);
-                    if (fe.getCount() == 0)
+                    if (fe.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
                         someProblemWithUpdate = true;
                     e += fe;
                 }
@@ -391,13 +390,13 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
         init_poses.push_back(frame.getPose().log());
     }
 
-    for (int lvl = 1; lvl >= 0; lvl--)
+    for (int lvl = 1; lvl >= 1; lvl--)
     {
         Error e;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
             Error fe = computeError(frames[i], kframe, scene, lvl);
-            assert(fe.getCount() > 0);
+            assert(fe.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
             e += fe;
         }
         e *= 1.0 / e.getCount();
@@ -437,7 +436,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
             for (std::size_t i = 0; i < frames.size(); i++)
             {
                 DenseLinearProblem fhg = computeHGPoseMap2(frames[i], kframe, scene, i, frames.size(), lvl);
-                assert(fhg.getCount() > 0);
+                assert(fhg.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
                 hg += fhg;
             }
             hg *= 1.0 / hg.getCount();
@@ -457,7 +456,8 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                 {
                     Eigen::Matrix<float, 6, 1> _pose_error = frames[i].getPose().log() - init_poses[i];
                     vec8<float> pose_error = vec8<float>(_pose_error(0), _pose_error(1), _pose_error(2), _pose_error(3),
-                                                         _pose_error(4), _pose_error(5), 0.0, 0.0) * poseInitial / frames.size();
+                                                         _pose_error(4), _pose_error(5), 0.0, 0.0) *
+                                             poseInitial / frames.size();
                     vec8<float> pose_jac = vec8<float>(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0) * poseInitial / frames.size();
                     vec8<int> pose_ids;
                     for (int j = 0; j < 8; j++)
@@ -502,10 +502,12 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                     pose_inc_mag += pose_inc.dot(pose_inc);
                     best_poses.push_back(frames[i].getPose());
                     best_affines.push_back(frames[i].getAffine());
-                    Sophus::SE3f new_pose = frames[i].getPose() * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
+                    // Sophus::SE3f new_pose = frames[i].getPose() * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
+                    Sophus::SE3f new_pose = ((frames[i].getPose() * kframe.getPose().inverse()) * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse()) * kframe.getPose();
+
                     // if (i == frames.size() - 1)
                     //     new_pose.translation() = new_pose.translation().normalized() * frames[i].getPose().translation().norm();
-                    vec2<float> new_affine = frames[i].getAffine() - vec2<float>(pose_inc(6), pose_inc(7));
+                    vec2<float> new_affine = frames[i].getAffine(); // - vec2<float>(pose_inc(6), pose_inc(7));
                     frames[i].setPose(new_pose);
                     frames[i].setAffine(new_affine);
                     // frames[i].pose = Sophus::SE3f::exp(pose_inc).inverse() * frames[i].pose;
@@ -542,7 +544,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
                     Error fe = computeError(frames[i], kframe, scene, lvl);
-                    if (fe.getCount() == 0)
+                    if (fe.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
                         someProblemWithUpdate = true;
                     e += fe;
                 }

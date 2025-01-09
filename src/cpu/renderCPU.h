@@ -953,7 +953,7 @@ private:
                         continue;
 
                     float f_i_cor = alpha * (f_i - beta);
-                    float kf_i_cor = kalpha * (kf_i - beta);
+                    float kf_i_cor = kalpha * (kf_i - kbeta);
 
                     vec2<float> j_lightaffine(-f_i_cor, -alpha);
 
@@ -1105,7 +1105,7 @@ private:
                         continue;
 
                     float f_i_cor = alpha * (f_i - beta);
-                    float kf_i_cor = kalpha * (kf_i - beta);
+                    float kf_i_cor = kalpha * (kf_i - kbeta);
 
                     float residual = f_i_cor - kf_i_cor;
 
@@ -1232,7 +1232,7 @@ private:
                     vec3<float> d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
                     float f_i_cor = alpha * (f_i - beta);
-                    float kf_i_cor = kalpha * (kf_i - beta);
+                    float kf_i_cor = kalpha * (kf_i - kbeta);
 
                     vec2<float> d_f_i_d_f_affine(-f_i_cor, -alpha);
 

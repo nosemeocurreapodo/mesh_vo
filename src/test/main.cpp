@@ -97,8 +97,8 @@ int main(int argc, char * argv[])
     visualOdometry<SceneMesh> odometry(cam);
 
     //odometry.initScene(image, pixels, idepths, Sophus::SE3f());
-    odometry.init(image, idepth, Sophus::SE3f());
-    //odometry.init(image, Sophus::SE3f());
+    //odometry.init(image, idepth, Sophus::SE3f());
+    odometry.init(image, Sophus::SE3f());
 
     while(1){
         framesTracked++;
