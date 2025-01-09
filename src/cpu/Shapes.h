@@ -8,17 +8,17 @@ template <typename jacType, typename idsType>
 class ShapeBase
 {
 public:
-    virtual inline float getScreenArea() = 0;
-    virtual inline window getScreenBounds() = 0;
-    virtual inline vec2<float> getCenterPix() = 0;
-    virtual inline bool isPixInShape(vec2<float> p) = 0;
-    virtual inline bool isEdge(vec2<float> p) = 0;
-    virtual inline float getDepth(vec2<float> p) = 0;
-    virtual inline float getWeight(vec2<float> p) = 0;
-    virtual inline vec2<float> getPix(vec2<float> p, ShapeBase *shape) = 0;
-    virtual inline float getDepth(vec2<float> p, ShapeBase *shape) = 0;
-    virtual inline jacType getParamJacobian(vec2<float> p) = 0;
-    virtual inline idsType getParamIds() = 0;
+    virtual float getScreenArea() = 0;
+    virtual window getScreenBounds() = 0;
+    virtual vec2<float> getCenterPix() = 0;
+    virtual bool isPixInShape(vec2<float> p) = 0;
+    virtual bool isEdge(vec2<float> p) = 0;
+    virtual float getDepth(vec2<float> p) = 0;
+    virtual float getWeight(vec2<float> p) = 0;
+    virtual vec2<float> getPix(vec2<float> p, ShapeBase *shape) = 0;
+    virtual float getDepth(vec2<float> p, ShapeBase *shape) = 0;
+    virtual jacType getParamJacobian(vec2<float> p) = 0;
+    virtual idsType getParamIds() = 0;
 };
 */
 
@@ -57,17 +57,17 @@ public:
         return win;
     }
 
-    inline vec2<float> getCenterPix()
+    vec2<float> getCenterPix()
     {
         return m_vert.pix;
     }
 
-    // inline void prepareForRay(vec3<float> r) override
+    // void prepareForRay(vec3<float> r) override
     //{
     //     ray_diff = r - ray;
     // }
 
-    inline bool isPixInShape(vec2<float> p)
+    bool isPixInShape(vec2<float> p)
     {
         return true;
     }
@@ -77,18 +77,18 @@ public:
         return false;
     }
 
-    // inline vec3<float> getRay(ShapeBase *shape)
+    // vec3<float> getRay(ShapeBase *shape)
     //{
     //     ShapePatch *sh = (ShapePatch *)shape;
     //     return sh->ray + ray_diff;
     // }
 
-    // inline void prepareForPix(vec2<float> p)
+    // void prepareForPix(vec2<float> p)
     //{
     //     pix_diff = p - centerPix;
     // }
 
-    inline vec2<float> getPix(vec2<float> p, ShapePatch &shape)
+    vec2<float> getPix(vec2<float> p, ShapePatch &shape)
     {
         if (!(currentPix == p))
         {
@@ -99,27 +99,27 @@ public:
         return shape.m_vert.pix + pix_diff;
     }
 
-    inline float getDepth(vec2<float> p)
+    float getDepth(vec2<float> p)
     {
         return m_vert.ver(2);
     }
 
-    inline float getWeight(vec2<float> p)
+    float getWeight(vec2<float> p)
     {
         return weight;
     }
 
-    inline float getDepth(vec2<float> p, ShapePatch &shape)
+    float getDepth(vec2<float> p, ShapePatch &shape)
     {
         return shape.m_vert.ver(2);
     }
 
-    inline float getParamJacobian(vec2<float> p)
+    float getParamJacobian(vec2<float> p)
     {
         return d_z_d_param;
     }
 
-    inline int getParamIds()
+    int getParamIds()
     {
         return paramId;
     }
@@ -162,12 +162,12 @@ public:
         return area;
     }
 
-    //inline void prepareForRay(vec3<float> r) override
+    //void prepareForRay(vec3<float> r) override
     //{
     //    ray = r;
     //}
 
-    inline float getDepth(vec2<float> p) override
+    float getDepth(vec2<float> p) override
     {
         float ray_depth = centerVert_dot_normal / ray.dot(normal);
         return ray_depth;
@@ -182,7 +182,7 @@ public:
     //    return area;
     //}
 
-    inline bool hitsShape(vec2<float> p) override
+    bool hitsShape(vec2<float> p) override
     {
         // float depth = getRayDepth(ray);
         // Eigen::Vector3f point = ray * depth;
@@ -228,7 +228,7 @@ public:
         return win;
     };
 
-    inline vec3<float> getJacobian()
+    vec3<float> getJacobian()
     {
         float kf_ray_dot_normal = ray.dot(normal);
 
@@ -314,17 +314,17 @@ public:
         // return normal.norm() / 2.0;
     }
 
-    // inline void prepareForRay(vec3<float> r) override
+    // void prepareForRay(vec3<float> r) override
     //{
     //     computeBarycentric(r);
     // }
 
-    // inline void prepareForPix(vec2<float> p) override
+    // void prepareForPix(vec2<float> p) override
     //{
     //     computeBarycentric(p);
     // }
 
-    inline float getDepth(vec2<float> p)
+    float getDepth(vec2<float> p)
     {
         if (!(m_currentPix == p))
         {
@@ -339,13 +339,13 @@ public:
         return ray_depth;
     }
 
-    // inline vec3<float> getRay(ShapeBase *shape) override
+    // vec3<float> getRay(ShapeBase *shape) override
     //{
     //     ShapeTriangleFlat *sh = (ShapeTriangleFlat *)shape;
     //     return *sh->m_ray0 * barycentric(0) + *sh->m_ray1 * barycentric(1) + *sh->m_ray2 * barycentric(2);
     // }
 
-    inline vec2<float> getPix(vec2<float> p, ShapeTriangleFlat &shape)
+    vec2<float> getPix(vec2<float> p, ShapeTriangleFlat &shape)
     {
         if (!(m_currentPix == p))
         {
@@ -356,7 +356,7 @@ public:
         return shape.m_vert0.pix * m_barycentric(0) + shape.m_vert1.pix * m_barycentric(1) + shape.m_vert2.pix * m_barycentric(2);
     }
 
-    inline float getDepth(vec2<float> p, ShapeTriangleFlat &shape)
+    float getDepth(vec2<float> p, ShapeTriangleFlat &shape)
     {
         if (!(m_currentPix == p))
         {
@@ -397,7 +397,7 @@ public:
      }
      */
 
-    inline bool isPixInShape(vec2<float> p)
+    bool isPixInShape(vec2<float> p)
     {
         if (!(m_currentPix == p))
         {
@@ -428,7 +428,7 @@ public:
     }
 
     /*
-    inline window getScreenBounds(camera cam) override
+    window getScreenBounds(camera cam) override
     {
         vec2<float> screencoords[3];
         screencoords[0] = cam.rayToPix(*m_ray0);
@@ -446,7 +446,7 @@ public:
     };
     */
 
-    inline window getScreenBounds()
+    window getScreenBounds()
     {
         int min_x = std::min(std::min((int)m_vert0.pix(0), (int)m_vert1.pix(0)), (int)m_vert2.pix(0)) - 1;
         int max_x = std::max(std::max((int)m_vert0.pix(0), (int)m_vert1.pix(0)), (int)m_vert2.pix(0)) + 1;
@@ -458,13 +458,13 @@ public:
         return win;
     };
 
-    inline vec2<float> getCenterPix()
+    vec2<float> getCenterPix()
     {
         vec2<float> center = (m_vert0.pix + m_vert1.pix + m_vert2.pix)/3.0;
         return center;
     };
 
-    inline vec3<float> getParamJacobian(vec2<float> p)
+    vec3<float> getParamJacobian(vec2<float> p)
     {
         if (!(m_currentPix == p))
         {
@@ -483,7 +483,7 @@ public:
         return jac;
     }
 
-    inline vec3<int> getParamIds()
+    vec3<int> getParamIds()
     {
         vec3<int> ids;
 
@@ -508,7 +508,7 @@ private:
     }
     */
     /*
-    inline void computeBarycentric(vec3<float> ray)
+    void computeBarycentric(vec3<float> ray)
     {
         // barycentric(0) = (((*m_ray1)(1) - (*m_ray2)(1)) * (ray(0) - (*m_ray2)(0)) +
         //                  ((*m_ray2)(0) - (*m_ray1)(0)) * (ray(1) - (*m_ray2)(1))) /
@@ -525,7 +525,7 @@ private:
     }
     */
 
-    inline void computeBarycentric(vec2<float> pix)
+    void computeBarycentric(vec2<float> pix)
     {
         // barycentric(0) = (((*m_ray1)(1) - (*m_ray2)(1)) * (ray(0) - (*m_ray2)(0)) +
         //                  ((*m_ray2)(0) - (*m_ray1)(0)) * (ray(1) - (*m_ray2)(1))) /
@@ -590,13 +590,13 @@ public:
         return ((vertices[1] - vertices[0]).cross(vertices[2] - vertices[0])).norm() / 2.0;
     }
 
-    //inline void prepareForRay(vec3<float> r) override
+    //void prepareForRay(vec3<float> r) override
     //{
     //    ray = r;
     //    computeBarycentric(ray);
     //}
 
-    inline float getDepth() override
+    float getDepth() override
     {
 
         //float depth_0 = vertices[0].dot(normals[0]) / ray.dot(normals[0]);
@@ -621,7 +621,7 @@ public:
         return depth;
     }
 
-    inline vec3<float> getRay(ShapeBase *shape)
+    vec3<float> getRay(ShapeBase *shape)
     {
         ShapeTriangleSmooth *sh = (ShapeTriangleSmooth *)shape;
         return sh->rays[0] * barycentric(0) + sh->rays[1] * barycentric(1) + sh->rays[2] * barycentric(2);
@@ -657,7 +657,7 @@ public:
     // }
 
 
-    inline bool hitsShape() override
+    bool hitsShape() override
     {
         if (barycentric(0) < -0.0 || barycentric(1) < -0.0 || barycentric(2) < -0.0)
             return false;
@@ -692,7 +692,7 @@ public:
         return win;
     };
 
-    inline std::vector<float> getJacobian(float d_f_i_d_kf_depth) override
+    std::vector<float> getJacobian(float d_f_i_d_kf_depth) override
     {
         vec3<float> d_kf_depth_d_z;
         d_kf_depth_d_z(0) = barycentric(0); // * rays[0].dot(normals[0]) / ray.dot(normals[0]);

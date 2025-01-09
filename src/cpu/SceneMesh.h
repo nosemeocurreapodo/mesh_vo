@@ -14,25 +14,28 @@
 class SceneMesh
 {
 public:
-    SceneMesh() 
-    {
+    SceneMesh() {
 
     };
 
-    void init(std::vector<vec3<float>> &vertices, camera cam)
+    void init(std::vector<vec3<float>> &vertices, camera cam, Sophus::SE3f globalPose)
     {
+        m_globalPose = globalPose;
         m_geometry.init(vertices, cam);
         buildTriangles();
     }
 
-    void init(std::vector<vec2<float>> &texcoords, std::vector<float> idepths, camera cam)
+    void init(std::vector<vec2<float>> &texcoords, std::vector<float> idepths, camera cam, Sophus::SE3f globalPose)
     {
+        m_globalPose = globalPose;
         m_geometry.init(texcoords, idepths, cam);
         buildTriangles();
     }
 
-    void init(dataCPU<float> &idepth, camera cam)
+    void init(dataCPU<float> &idepth, camera cam, Sophus::SE3f globalPose)
     {
+        m_globalPose = globalPose;
+
         std::vector<vec2<float>> texcoords;
         std::vector<float> idepths;
 
@@ -433,8 +436,10 @@ public:
     }
     */
 
-    void transform(camera cam, Sophus::SE3f relativePose)
+    void transform(camera cam, Sophus::SE3f globalPose)
     {
+        Sophus::SE3f relativePose = globalPose*m_globalPose.inverse();
+        m_globalPose = globalPose;
         m_geometry.transform(relativePose);
         m_geometry.project(cam);
     }
@@ -648,8 +653,7 @@ private:
     */
 
     triangle m_triangles[MAX_TRIANGLE_SIZE];
-    // int m_trianglesBufferSize;
-    DelaunayTriangulation m_triangulator;
-
     GeometryVertices m_geometry;
+    Sophus::SE3f m_globalPose;
+    DelaunayTriangulation m_triangulator;
 };

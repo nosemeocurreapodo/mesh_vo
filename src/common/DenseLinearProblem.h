@@ -30,6 +30,35 @@ public:
         m_count = 0;
     }
 
+    //for vector error (not scalar error like pixel errors)
+    template <typename jacType, typename errType, typename idsType>
+    void add(jacType J, errType error, float weight, idsType ids)
+    {
+        assert(jacType::size() == idsType::size());
+        assert(errType::size() == jacType::size());
+        assert(jacType::size() <= m_numPoseParams + m_numMapParams);
+
+        m_count++;
+
+        idsType inIds = ids + idsType(m_numPoseParams);
+
+        // G += J * error;
+        // H += J * J.transpose();
+
+        for (int i = 0; i < jacType::size(); i++)
+        {
+            m_G(inIds(i)) += J(i) * error(i) * weight;
+            m_H(inIds(i), inIds(i)) += J(i) * J(i) * weight;
+
+            for (int j = i + 1; j < jacType::size(); j++)
+            {
+                float jj = J(i) * J(j) * weight;
+                m_H(inIds(i), inIds(j)) += jj;
+                m_H(inIds(j), inIds(i)) += jj;
+            }
+        }
+    }
+
     template <typename jacType>
     void add(jacType J, float error, float weight)
     {
@@ -246,17 +275,6 @@ public:
         return (solver.info() == Eigen::Success);
     }
 
-    bool prepareH_2(float lambda)
-    {
-        m_lH.setZero();
-        for (int j = 0; j < m_G.size(); j++)
-        {
-            m_lH(j, j) = m_H(j, j)*(1.0 + lambda);
-        } 
-        solver.compute(m_lH);
-        return (solver.info() == Eigen::Success);
-    }
-
     Eigen::VectorXf solve()
     {
         Eigen::VectorXf res = solver.solve(m_G);
@@ -422,8 +440,8 @@ private:
     // Eigen::Matrix<float, 6, 1> G;
     int m_count;
 
-    Eigen::LLT<Eigen::MatrixXf> solver;
-    //Eigen::LDLT<Eigen::MatrixXf> solver;
+    //Eigen::LLT<Eigen::MatrixXf> solver;
+    Eigen::LDLT<Eigen::MatrixXf> solver;
 
     //Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> ssolver;
     //Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;

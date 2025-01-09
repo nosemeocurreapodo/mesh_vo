@@ -5,8 +5,8 @@
 
 #include "common/camera.h"
 #include "common/DenseLinearProblem.h"
-//#include "common/SparseLinearProblem.h"
-//#include "common/DenseSparseLinearProblem.h"
+// #include "common/SparseLinearProblem.h"
+// #include "common/DenseSparseLinearProblem.h"
 #include "common/HGMapped.h"
 #include "common/Error.h"
 #include "common/common.h"
@@ -53,11 +53,11 @@ public:
                 window win = {min_x, max_x, min_y, max_y};
 
                 reduceErrorWindow(win, residual, partialerr[tx + ty * divi_x]);
-                //pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, win, &residual, &weights, &partialerr[tx + ty * divi_x], lvl));
+                // pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, win, &residual, &weights, &partialerr[tx + ty * divi_x], lvl));
             }
         }
 
-        //pool.waitUntilDone();
+        // pool.waitUntilDone();
 
         for (int i = 1; i < divi_y * divi_x; i++)
         {
@@ -96,11 +96,11 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 reduceHGLightAffineWindow(win, jlightaffine_buffer, err_buffer, partialhg[tx + ty * divi_x]);
-                //pool.enqueue(std::bind(&reduceCPU::reduceHGLightAffineWindow, this, win, &jlightaffine_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x]));
+                // pool.enqueue(std::bind(&reduceCPU::reduceHGLightAffineWindow, this, win, &jlightaffine_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x]));
             }
         }
 
-        //pool.waitUntilDone();
+        // pool.waitUntilDone();
 
         DenseLinearProblem hg(2, 0);
         for (int i = 0; i < divi_y * divi_x; i++)
@@ -150,11 +150,11 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 reduceHGPoseWindow(win, jpose_buffer, err_buffer, partialhg[tx + ty * divi_x]);
-                //pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x]), lvl);
+                // pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x]), lvl);
             }
         }
 
-        //pool.waitUntilDone();
+        // pool.waitUntilDone();
 
         for (int i = 1; i < divi_y * divi_x; i++)
         {
@@ -205,11 +205,11 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 reduceHGMapWindow(win, j_buffer, err_buffer, pId_buffer, partialhg[tx + ty * divi_x]);
-                //pool.enqueue(std::bind(&reduceCPU::reduceHGMapWindow<Type1, Type2>, this, win, &j_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
+                // pool.enqueue(std::bind(&reduceCPU::reduceHGMapWindow<Type1, Type2>, this, win, &j_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
 
-        //pool.waitUntilDone();
+        // pool.waitUntilDone();
 
         HGMapped hg;
         for (int i = 0; i < divi_y * divi_x; i++)
@@ -250,11 +250,11 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 reduceHGMapWindow(win, j_buffer, err_buffer, partialhg[tx + ty * divi_x]);
-                //pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x]), lvl);
+                // pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x]), lvl);
             }
         }
 
-        //pool.waitUntilDone();
+        // pool.waitUntilDone();
 
         DenseLinearProblem hg(maxNumParams);
         for (int i = 0; i < divi_y * divi_x; i++)
@@ -306,11 +306,11 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 reduceHGPoseMapWindow(win, frameId, numMapParams, jpose_buffer, jmap_buffer, err_buffer, pId_buffer, partialhg[tx + ty * divi_x]);
-                //pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow<Type1, Type2>, this, win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
+                // pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow<Type1, Type2>, this, win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
 
-        //pool.waitUntilDone();
+        // pool.waitUntilDone();
 
         HGMapped hg;
         for (int i = 0; i < divi_y * divi_x; i++)
@@ -335,7 +335,7 @@ public:
         // for each index of array
         for (int i = 0; i < divi_x * divi_y; i++)
         {
-            partialhg.push_back(DenseLinearProblem(numFrames*8, numMapParams));
+            partialhg.push_back(DenseLinearProblem(numFrames * 8, numMapParams));
         }
 
         int width = jpose_buffer.width / divi_x;
@@ -353,11 +353,11 @@ public:
                 window win(min_x, max_x, min_y, max_y);
 
                 reduceHGPoseMapWindow(win, frameId, jpose_buffer, jmap_buffer, err_buffer, pId_buffer, partialhg[tx + ty * divi_x]);
-                //pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow<Type1, Type2>, this, win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
+                // pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow<Type1, Type2>, this, win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
             }
         }
 
-        //pool.waitUntilDone();
+        // pool.waitUntilDone();
 
         for (int i = 1; i < divi_y * divi_x; i++)
         {
@@ -368,7 +368,6 @@ public:
     }
 
 private:
-
     void reduceErrorWindow(window win, dataCPU<float> &residual, Error &err)
     {
         for (int y = win.min_y; y < win.max_y; y++)
@@ -436,7 +435,7 @@ private:
                 float res = res_buffer.get(y, x);
                 idsType ids = pId_buffer.get(y, x);
 
-                if (res == res_buffer.nodata)// jac == jmap_buffer->nodata || ids == pId_buffer->nodata || jac == Type1::zero())
+                if (res == res_buffer.nodata) // jac == jmap_buffer->nodata || ids == pId_buffer->nodata || jac == Type1::zero())
                     continue;
 
                 float absres = std::fabs(res);
@@ -460,7 +459,7 @@ private:
                 float res = res_buffer.get(y, x);
                 idsType ids = pId_buffer.get(y, x);
 
-                if (res == res_buffer.nodata)// jac == jmap_buffer->nodata || || ids == pId_buffer->nodata || jac == Type1::zero())
+                if (res == res_buffer.nodata) // jac == jmap_buffer->nodata || || ids == pId_buffer->nodata || jac == Type1::zero())
                     continue;
 
                 float absres = std::fabs(res);
@@ -485,7 +484,7 @@ private:
                 float res = res_buffer.get(y, x);
                 idsType map_ids = pId_buffer.get(y, x);
 
-                if (J_pose == jpose_buffer.nodata || res == res_buffer.nodata)// || J_map == jmap_buffer->nodata || J_pose == vec8<float>::zero() || J_map == Type1::zero())
+                if (J_pose == jpose_buffer.nodata || res == res_buffer.nodata) // || J_map == jmap_buffer->nodata || J_pose == vec8<float>::zero() || J_map == Type1::zero())
                     continue;
 
                 vec8<int> pose_ids;
@@ -495,12 +494,12 @@ private:
                 vecx<8 + jmapType::size(), float> J(0);
                 vecx<8 + jmapType::size(), int> ids(0);
 
-                for(int i = 0; i < 8; i++)
+                for (int i = 0; i < 8; i++)
                 {
                     J(i) = J_pose(i);
                     ids(i) = pose_ids(i);
                 }
-                for(int i = 0; i < jmapType::size(); i++)
+                for (int i = 0; i < jmapType::size(); i++)
                 {
                     J(i + 8) = J_map(i);
                     ids(i + 8) = map_ids(i);
@@ -528,7 +527,7 @@ private:
                 float res = res_buffer.get(y, x);
                 idsType map_ids = pId_buffer.get(y, x);
 
-                if (res == res_buffer.nodata || J_pose == vec8<float>(0.0))// J_pose == jpose_buffer->nodata || J_map == vecx<float>::zero())
+                if (res == res_buffer.nodata || J_pose == vec8<float>(0.0)) // J_pose == jpose_buffer->nodata || J_map == vecx<float>::zero())
                     continue;
 
                 float absres = std::fabs(res);
