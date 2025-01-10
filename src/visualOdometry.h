@@ -107,6 +107,7 @@ private:
     float getViewPercent(frameCPU &frame)
     {
         int lvl = 1;
+        /*
         sceneType scene1 = scene;
         scene1.transform(cam[lvl], frame.getPose());
         std::vector<int> shapeIds = scene1.getShapesIds();
@@ -117,13 +118,17 @@ private:
             auto shape = scene1.getShape(shapeId);
             vec2<float> pix = shape.getCenterPix();
             float depth = shape.getDepth(pix);
-            if (depth <= 0.0)
-                continue;
-            if (cam[lvl].isPixVisible(pix))
+            if (cam[lvl].isPixVisible(pix) && depth > 0.0f)
                 numVisible++;
         }
-
         return float(numVisible) / shapeIds.size();
+
+        */
+
+        dataCPU<float> idepth(cam[lvl].width, cam[lvl].height, -1);
+        renderer.renderIdepthParallel(scene, frame.getPose(), cam[lvl], idepth);
+        float pnodata = idepth.getPercentNoData();
+        return 1.0 - pnodata;
     }
 
     float checkInfo(frameCPU &frame)

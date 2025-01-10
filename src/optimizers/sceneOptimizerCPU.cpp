@@ -18,7 +18,6 @@ sceneOptimizerCPU<sceneType, jmapType, idsType>::sceneOptimizerCPU(camera &_cam)
 {
     cam = _cam;
 
-    multiThreading = false;
     meshRegularization = 10.0;
     meshInitial = 0.0;
     poseInitial = 0.0;
@@ -167,14 +166,18 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame, f
                 Eigen::VectorXf inc = hg.solve();
 
                 Sophus::SE3f new_pose = best_pose * Sophus::SE3f::exp(inc.segment(0, 6)).inverse();
-                vec2<float> new_affine = best_affine; // - vec2<float>(inc(6), inc(7));
+                vec2<float> new_affine = best_affine - vec2<float>(inc(6), inc(7));
                 frame.setPose(new_pose);
                 frame.setAffine(new_affine);
                 float inc_mag = inc.dot(inc);
 
                 e = computeError(frame, kframe, scene, lvl);
                 if (e.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
-                    continue;
+                {
+                    //too few pixels, unreliable, set to large error
+                    e.setZero();
+                    e += last_error;
+                }
                 e *= 1.0 / e.getCount();
 
                 float error = e.getError();
@@ -222,13 +225,13 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
 {
     int numMapParams = scene.getParamIds().size();
 
-    for (int lvl = 0; lvl >= 0; lvl--)
+    for (int lvl = 2; lvl >= 2; lvl--)
     {
         Error e;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
             Error ef = computeError(frames[i], kframe, scene, lvl);
-            assert(ef.getCount() > 0);
+            assert(ef.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
             e += ef;
         }
         e *= 1.0 / e.getCount();
@@ -255,7 +258,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
             for (std::size_t i = 0; i < frames.size(); i++)
             {
                 DenseLinearProblem fhg = computeHGMap2(frames[i], kframe, scene, lvl);
-                assert(fhg.getCount() > 0);
+                assert(fhg.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
                 hg += fhg;
             }
             hg *= 1.0 / hg.getCount();
@@ -311,18 +314,18 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
                 map_inc_mag /= map_inc_mag_count;
 
                 e.setZero();
-                bool someProblemWithUpdate = false;
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
                     Error fe = computeError(frames[i], kframe, scene, lvl);
                     if (fe.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
-                        someProblemWithUpdate = true;
+                    {
+                        //too few pixels, unreliable, set to large error
+                        fe.setZero();
+                        fe += last_error;
+                    }
                     e += fe;
                 }
                 e *= 1.0 / e.getCount();
-
-                if (someProblemWithUpdate)
-                    continue;
 
                 if (meshRegularization > 0.0)
                 {
@@ -472,8 +475,8 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
             // saveH(hg, "H.png");
 
             int n_try = 0;
-            lambda = 0.0;
-            // lambda *= 0.5;
+            //lambda = 0.0;
+            lambda *= 0.75;
             while (true)
             {
                 if (n_try > 0)
@@ -500,17 +503,18 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                     Eigen::Matrix<float, 8, 1> pose_inc = inc.segment(i * 8, 8);
 
                     pose_inc_mag += pose_inc.dot(pose_inc);
+
                     best_poses.push_back(frames[i].getPose());
                     best_affines.push_back(frames[i].getAffine());
-                    // Sophus::SE3f new_pose = frames[i].getPose() * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
-                    Sophus::SE3f new_pose = ((frames[i].getPose() * kframe.getPose().inverse()) * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse()) * kframe.getPose();
+                    
+                    Sophus::SE3f new_pose = frames[i].getPose() * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
+                    //Sophus::SE3f new_pose = ((frames[i].getPose() * kframe.getPose().inverse()) * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse()) * kframe.getPose();
 
                     // if (i == frames.size() - 1)
                     //     new_pose.translation() = new_pose.translation().normalized() * frames[i].getPose().translation().norm();
-                    vec2<float> new_affine = frames[i].getAffine(); // - vec2<float>(pose_inc(6), pose_inc(7));
+                    vec2<float> new_affine = frames[i].getAffine() - vec2<float>(pose_inc(6), pose_inc(7));
                     frames[i].setPose(new_pose);
                     frames[i].setAffine(new_affine);
-                    // frames[i].pose = Sophus::SE3f::exp(pose_inc).inverse() * frames[i].pose;
                 }
                 pose_inc_mag /= frames.size();
 
@@ -533,23 +537,26 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                     // if(std::fabs(inc_param/best_param) > 0.4)
                     //     solverSucceded = false;
                     best_params[mapParamId] = best_param;
+                    
                     scene.setParam(new_param, mapParamId);
+                    
                     map_inc_mag += inc_param * inc_param;
                     map_inc_mag_count += 1;
                 }
                 map_inc_mag /= map_inc_mag_count;
 
                 e.setZero();
-                bool someProblemWithUpdate = false;
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
                     Error fe = computeError(frames[i], kframe, scene, lvl);
                     if (fe.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
-                        someProblemWithUpdate = true;
+                    {
+                        //too few pixels, unreliable, set to large error
+                        fe.setZero();
+                        fe += last_error;
+                    }
                     e += fe;
                 }
-                if (someProblemWithUpdate)
-                    continue;
 
                 e *= 1.0 / e.getCount();
 

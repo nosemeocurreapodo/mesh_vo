@@ -26,7 +26,8 @@ void visualOdometry<sceneType>::init(dataCPU<float> &image, Sophus::SE3f globalP
     int lvl = 1;
 
     dataCPU<float> buffer(cam[lvl].width, cam[lvl].height, -1.0);
-    renderer.renderSmooth(cam[lvl], buffer, 0.1, 1.0);
+    renderer.renderRandom(cam[lvl], buffer, 0.1, 1.0);
+    //renderer.renderSmooth(cam[lvl], buffer, 0.1, 1.0);
 
     kframe = newFrame;
     scene.init(buffer, cam[lvl], globalPose);
@@ -125,7 +126,7 @@ void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
         // std::cout << "view percent " << viewPercent << std::endl;
         // std::cout << "percent nodata " << percentNoData << std::endl;
 
-        if (lastViewAngle > LAST_MAX_ANGLE) //(percentNoData > 0.2) //(viewPercent < 0.8)
+        if (lastViewAngle > LAST_MIN_ANGLE) //(percentNoData > 0.2) //(viewPercent < 0.8)
         {
             lastFrames.push_back(newFrame);
             if (lastFrames.size() > NUM_FRAMES)
@@ -135,7 +136,7 @@ void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
         if ((viewPercent < MIN_VIEW_PERC || keyframeViewAngle > KEY_MAX_ANGLE) && lastFrames.size() > 1)
         // if((viewPercent < 0.9 || meanViewAngle > M_PI / 64.0) && lastFrames.size() > 1)
         {
-            // int newKeyframeIndex = int(lastFrames.size() / 2);
+            //int newKeyframeIndex = int(lastFrames.size() / 2);
             int newKeyframeIndex = int(lastFrames.size() - 1);
             frameCPU newKeyframe = lastFrames[newKeyframeIndex];
 
@@ -144,8 +145,8 @@ void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
 
             int lvl = 0;
             dataCPU<float> idepth_buffer(cam[lvl].width, cam[lvl].height, -1);
-            renderer.renderIdepthParallel(scene, newKeyframe.getPose(), cam[lvl], idepth_buffer);
-            renderer.renderInterpolate(cam[lvl], idepth_buffer);
+            //renderer.renderIdepthParallel(scene, newKeyframe.getPose(), cam[lvl], idepth_buffer);
+            //renderer.renderInterpolate(cam[lvl], idepth_buffer);
             init(newKeyframe, idepth_buffer);
 
             optimize = true;
@@ -212,7 +213,7 @@ void visualOdometry<sceneType>::localization(dataCPU<float> &image)
     frameCPU newFrame(cam[0].width, cam[0].height);
     newFrame.setImage(image, lastId);
     newFrame.setPose(lastMovement * lastPose);
-    newFrame.setAffine(vec2<float>(0.0, 0.0));
+    newFrame.setAffine(lastAffine);
     lastId++;
 
     t.tic();
@@ -260,7 +261,7 @@ void visualOdometry<sceneType>::mapping(dataCPU<float> &image, Sophus::SE3f glob
         // std::cout << "view percent " << viewPercent << std::endl;
         // std::cout << "percent nodata " << percentNoData << std::endl;
 
-        if (lastViewAngle > LAST_MAX_ANGLE) //(percentNoData > 0.2) //(viewPercent < 0.8)
+        if (lastViewAngle > LAST_MIN_ANGLE) //(percentNoData > 0.2) //(viewPercent < 0.8)
         {
             lastFrames.push_back(newFrame);
             if (lastFrames.size() > NUM_FRAMES)
@@ -272,7 +273,7 @@ void visualOdometry<sceneType>::mapping(dataCPU<float> &image, Sophus::SE3f glob
         {
             // int newKeyframeIndex = 0;
             int newKeyframeIndex = int(lastFrames.size() / 2);
-            // int newKeyframeIndex = int(lastFrames.size() - 1);
+            //int newKeyframeIndex = int(lastFrames.size() - 1);
             frameCPU newKeyframe = lastFrames[newKeyframeIndex];
 
             keyFrames = lastFrames;

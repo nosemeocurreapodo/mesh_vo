@@ -146,6 +146,26 @@ public:
         return mipmap;
     }
 
+    std::array<Type, 2> getMinMax()
+    {
+        Type min = nodata;
+        Type max = nodata;
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                Type d = get(y, x);
+                if (d == nodata)
+                    continue;
+                if (d == nodata || d < min)
+                    min = d;
+                if (d == nodata || d > max)
+                    max = d;
+            }
+        }
+        return {min, max};
+    }
+
     /*
     dataCPU add(dataCPU &other, int lvl)
     {
@@ -203,10 +223,18 @@ private:
         float weight_bl = (1.0 - dx) * (dy);
         float weight_br = (dx) * (dy);
 
-        Type pix = get(_y, _x) * weight_tl +
-                   get(_y, _x + 1) * weight_tr +
-                   get(_y + 1, _x) * weight_bl +
-                   get(_y + 1, _x + 1) * weight_br;
+        Type tl = get(_y, _x);
+        Type tr = get(_y, _x + 1);
+        Type bl = get(_y + 1, _x);
+        Type br = get(_y + 1, _x + 1);
+
+        if(tl == nodata || tr == nodata || bl == nodata || br == nodata)
+            return nodata;
+
+        Type pix = tl * weight_tl +
+                   tr * weight_tr +
+                   bl * weight_bl +
+                   br * weight_br;
 
         return pix;
     }
@@ -219,11 +247,15 @@ private:
         if (y > height - 2 || x > width - 2)
             return get(y, x);
 
-        Type pix = (get(y, x) +
-                    get(y, x + 1) +
-                    get(y + 1, x) +
-                    get(y + 1, x + 1)) /
-                   4.0;
+        Type tl = get(y, x);
+        Type tr = get(y, x + 1);
+        Type bl = get(y + 1, x);
+        Type br = get(y + 1, x + 1);
+
+        if(tl == nodata || tr == nodata || bl == nodata || br == nodata)
+            return nodata;
+
+        Type pix = (tl + tr + bl + br) / 4.0;
 
         return pix;
     }

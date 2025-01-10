@@ -55,8 +55,17 @@ public:
     void renderInterpolate(camera cam, dataCPU<float> &buffer)
     {
         window win(0, cam.width - 1, 0, cam.height - 1);
+        //renderInterpolateWindow(cam, win, buffer);
 
-        renderInterpolateWindow(cam, win, buffer);
+        dataCPU<float> buffer2 = buffer;
+
+        float nodata = buffer.getPercentNoData();
+        while(nodata > 0.0)
+        {
+            renderInterpolateWindow(cam, win, buffer, buffer2);
+            buffer = buffer2;
+            nodata = buffer.getPercentNoData();
+        }
     }
 
     void renderImageParallel(sceneType &scene, dataCPU<float> &kimage, vec2<float> kimageAffine, Sophus::SE3f kimagePose, Sophus::SE3f imagePose, camera cam, dataCPU<float> &buffer)
@@ -210,6 +219,8 @@ public:
         scene1.transform(cam, kimagePose);
         scene2.transform(cam, imagePose);
 
+        Sophus::SE3f relativePose = imagePose * kimagePose.inverse();
+
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
@@ -227,7 +238,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderJPoseMapWindow(kimage, kimageAffine, image, imageAffine, d_image_d_pix, imagePose, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer);
+                renderJPoseMapWindow(kimage, kimageAffine, image, imageAffine, d_image_d_pix, relativePose, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer);
                 // pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow, this, kimage, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
@@ -451,60 +462,49 @@ private:
         }
     }
 
-    void renderRandomWindow(window win, dataCPU<float> *buffer, float min = 1.0, float max = 2.0)
+    void renderRandomWindow(window win, dataCPU<float> &buffer, float min = 1.0, float max = 2.0)
     {
         for (int y = win.min_y; y <= win.max_y; y++)
         {
             for (int x = win.min_x; x <= win.max_x; x++)
             {
-                if (buffer->get(y, x) == buffer->nodata)
-                {
-                    float val = (max - min) * float(rand() % 1000) / 1000.0 + min;
-                    buffer->set(val, y, x);
-                }
+                float val = (max - min) * float(rand() % 1000) / 1000.0 + min;
+                buffer.set(val, y, x);
             }
         }
     }
 
-    void renderInterpolateWindow(camera cam, window win, dataCPU<float> &buffer)
+    void renderInterpolateWindow(camera cam, window win, dataCPU<float> &src_buffer, dataCPU<float> &dst_buffer)
     {
         for (int y = win.min_y; y <= win.max_y; y++)
         {
             for (int x = win.min_x; x <= win.max_x; x++)
             {
-                if (buffer.get(y, x) == buffer.nodata)
+                if (src_buffer.get(y, x) == src_buffer.nodata)
                 {
-                    int size = 10;
+                    int size = 1;
                     float acc = 0.0;
                     int count = 0;
-                    while (true)
+
+                    for (int y_ = y - size; y_ <= y + size; y_ += 1)
                     {
-                        for (int y_ = y - size; y_ <= y + size; y_ += 1)
+                        for (int x_ = x - size; x_ <= x + size; x_ += 1)
                         {
-                            for (int x_ = x - size; x_ <= x + size; x_ += 1)
-                            {
-                                if (!cam.isPixVisible(x_, y_))
-                                    continue;
+                            if (!cam.isPixVisible(x_, y_))
+                                continue;
 
-                                auto val = buffer.get(y_, x_);
-                                if (val == buffer.nodata)
-                                    continue;
+                            auto val = src_buffer.get(y_, x_);
+                            if (val == src_buffer.nodata)
+                                continue;
 
-                                acc += val;
-                                count += 1;
-                            }
-                        }
-                        if (count == 0)
-                        {
-                            size *= 2;
-                        }
-                        else
-                        {
-                            acc /= count;
-                            break;
+                            acc += val;
+                            count += 1;
                         }
                     }
-                    buffer.set(acc, y, x);
+                    if (count > 0)
+                    {
+                        dst_buffer.set(acc / count, y, x);
+                    }
                 }
             }
         }
@@ -1216,7 +1216,7 @@ private:
                     auto f_i = image.get(y, x);
                     vec2<float> d_f_i_d_pix = d_image_d_pix.get(y, x);
 
-                    if (kf_i == kimage.nodata || f_i == image.nodata) // || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
                         continue;
 
                     vec3<float> f_ray = cam.pixToRay(f_pix);

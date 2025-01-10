@@ -182,7 +182,6 @@ private:
     }
 
     // params
-    bool multiThreading;
     float meshRegularization;
     float meshInitial;
     float poseInitial;

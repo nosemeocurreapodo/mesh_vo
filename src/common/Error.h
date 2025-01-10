@@ -12,7 +12,7 @@ public:
     void setZero()
     {
         error = 0.0;
-        count = 0.0;
+        count = 0;
     }
 
     Error operator+(Error a)

@@ -34,32 +34,39 @@ public:
 
     void init(dataCPU<float> &idepth, camera cam, Sophus::SE3f globalPose)
     {
+        assert(idepth.width == cam.width && idepth.height == cam.height);
+
         m_globalPose = globalPose;
 
         std::vector<vec2<float>> texcoords;
         std::vector<float> idepths;
 
-        int i = 0;
+        std::array<float, 2> minMax = idepth.getMinMax();
+        if(minMax[0] == idepth.nodata)
+            minMax[0] = 0.1;
+        if(minMax[1] == idepth.nodata)
+            minMax[1] = 1.0;
+
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
             for (float x = 0.0; x < MESH_WIDTH; x++)
             {
-                if (i >= MAX_VERTEX_SIZE)
-                    return;
-
                 vec2<float> pix;
                 pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
                 pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
 
                 float idph = idepth.get(pix(1), pix(0));
 
-                assert(idph != idepth.nodata);
+                // assert(idph != idepth.nodata);
+                if (idph == idepth.nodata)
+                    idph = (minMax[1] - minMax[0]) * float(rand() % 1000) / 1000.0 + minMax[0];
+
                 assert(idph > 0.0);
 
                 texcoords.push_back(pix);
                 idepths.push_back(idph);
 
-                i++;
+                assert(idepths.size() <= MAX_VERTEX_SIZE);
             }
         }
         m_geometry.init(texcoords, idepths, cam);
@@ -438,7 +445,7 @@ public:
 
     void transform(camera cam, Sophus::SE3f globalPose)
     {
-        Sophus::SE3f relativePose = globalPose*m_globalPose.inverse();
+        Sophus::SE3f relativePose = globalPose * m_globalPose.inverse();
         m_globalPose = globalPose;
         m_geometry.transform(relativePose);
         m_geometry.project(cam);

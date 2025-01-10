@@ -25,12 +25,13 @@ public:
     void setZero()
     {
         m_H.setZero();
+        m_lH.setZero();
         m_G.setZero();
         m_sH = Eigen::SparseMatrix<float>(1, 1);
         m_count = 0;
     }
 
-    //for vector error (not scalar error like pixel errors)
+    // for vector error (not scalar error like pixel errors)
     template <typename jacType, typename errType, typename idsType>
     void add(jacType J, errType error, float weight, idsType ids)
     {
@@ -114,7 +115,7 @@ public:
     void add(jacPoseType jacPose, jacMapType jacMap, float error, float weight, int poseId, idsType mapIds)
     {
         assert(jacMapType::size() == idsType::size());
-        assert(m_numPoseParams > jacPoseType::size() - 1 + poseId*jacPoseType::size());
+        assert(m_numPoseParams > jacPoseType::size() - 1 + poseId * jacPoseType::size());
 
         m_count++;
 
@@ -122,14 +123,14 @@ public:
 
         for (int i = 0; i < jacPoseType::size(); i++)
         {
-            int poseParamId1 = i + poseId*jacPoseType::size();
+            int poseParamId1 = i + poseId * jacPoseType::size();
 
             m_G(poseParamId1) += jacPose(i) * error * weight;
             m_H(poseParamId1, poseParamId1) += jacPose(i) * jacPose(i) * weight;
 
             for (int j = i + 1; j < jacPoseType::size(); j++)
             {
-                int poseParamId2 = j + poseId*jacPoseType::size();
+                int poseParamId2 = j + poseId * jacPoseType::size();
 
                 float jj = jacPose(i) * jacPose(j) * weight;
                 m_H(poseParamId1, poseParamId2) += jj;
@@ -139,11 +140,11 @@ public:
 
         for (int i = 0; i < jacPoseType::size(); i++)
         {
-            int poseParamId = i + poseId*jacPoseType::size();
+            int poseParamId = i + poseId * jacPoseType::size();
 
-            for(int j = 0; j < jacMapType::size(); j++)
+            for (int j = 0; j < jacMapType::size(); j++)
             {
-                assert(m_numMapParams + m_numPoseParams >  intMapIds(j));
+                assert(m_numMapParams + m_numPoseParams > intMapIds(j));
 
                 float value = jacPose(i) * jacMap(j) * weight;
                 m_H(poseParamId, intMapIds(j)) += value;
@@ -171,12 +172,12 @@ public:
         assert(m_numPoseParams == a.m_numPoseParams && m_numMapParams == a.m_numMapParams);
 
         DenseLinearProblem sum(m_numPoseParams, m_numMapParams);
-        
+
         /*
         if(m_count == 0)
         {
             sum.m_H = a.m_H/a.m_count;
-            sum.m_G = a.m_G/a.m_count;   
+            sum.m_G = a.m_G/a.m_count;
         }
         else
         {
@@ -191,8 +192,6 @@ public:
         sum.m_G = m_G + a.m_G;
         sum.m_count = m_count + a.m_count;
 
-        sum.m_numPoseParams = m_numPoseParams;
-        sum.m_numMapParams = m_numMapParams;
         return sum;
     }
 
@@ -204,14 +203,14 @@ public:
         if(m_count == 0)
         {
             m_H = a.m_H/a.m_count;
-            m_G = a.m_G/a.m_count;   
+            m_G = a.m_G/a.m_count;
         }
         else
         {
             m_H = m_H/m_count + a.m_H/a.m_count;
             m_G = m_G/m_count + a.m_G/a.m_count;
         }
-        
+
         m_count = 1;
         */
 
@@ -230,7 +229,7 @@ public:
     std::vector<int> removeUnobservedParams()
     {
         std::vector<int> indicesToKeep;
-        
+
         for (int i = 0; i < m_G.size(); ++i)
         {
             if (m_G[i] != 0.0)
@@ -242,7 +241,7 @@ public:
         Eigen::VectorXi indicesToKeepVector(indicesToKeep.size());
 
         for (int i = 0; i < indicesToKeep.size(); i++)
-        {     
+        {
             indicesToKeepVector(i) = indicesToKeep[i];
         }
 
@@ -255,7 +254,7 @@ public:
     std::vector<int> getParamIds()
     {
         std::vector<int> indicesToKeep;
-        
+
         for (int i = 0; i < m_G.size(); ++i)
         {
             indicesToKeep.push_back(i);
@@ -270,7 +269,7 @@ public:
         for (int j = 0; j < m_G.size(); j++)
         {
             m_lH(j, j) *= (1.0 + lambda);
-        } 
+        }
         solver.compute(m_lH);
         return (solver.info() == Eigen::Success);
     }
@@ -278,15 +277,15 @@ public:
     Eigen::VectorXf solve()
     {
         Eigen::VectorXf res = solver.solve(m_G);
-        assert (solver.info() == Eigen::Success);
+        assert(solver.info() == Eigen::Success);
         return res;
     }
 
     Eigen::VectorXf ssolve(float lambda)
     {
-        if(m_sH.cols() == 1 || m_sH.rows() == 1)
+        if (m_sH.cols() == 1 || m_sH.rows() == 1)
         {
-            m_sH = toSparseMatrix(m_H);     
+            m_sH = toSparseMatrix(m_H);
         }
 
         Eigen::SparseMatrix<float> H = m_sH;
@@ -296,12 +295,12 @@ public:
             H.coeffRef(j, j) *= (1.0 + lambda);
         }
 
-        //int numParams = m_numPoseParams + m_numMapParams;
-        //Eigen::Matrix<float, numParams, numParams> H = m_H;
-        //return m_H.llt().solve(m_G);
-        //return m_H.ldlt().solve(m_G);
-        //solver.compute(m_H);
-        //return solver.solve(m_G);
+        // int numParams = m_numPoseParams + m_numMapParams;
+        // Eigen::Matrix<float, numParams, numParams> H = m_H;
+        // return m_H.llt().solve(m_G);
+        // return m_H.ldlt().solve(m_G);
+        // solver.compute(m_H);
+        // return solver.solve(m_G);
 
         Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> ssolver;
 
@@ -309,15 +308,14 @@ public:
         // solver.analyzePattern(H_lambda);
         // solver.factorize(H_lambda);
 
-        assert (ssolver.info() == Eigen::Success);
+        assert(ssolver.info() == Eigen::Success);
 
         Eigen::VectorXf inc = ssolver.solve(m_G);
 
-        assert (ssolver.info() == Eigen::Success);
+        assert(ssolver.info() == Eigen::Success);
 
         return inc;
     }
-
 
     /*
     void operator=(HGPose _pose)
@@ -339,7 +337,7 @@ public:
                 ids[it] = ids.size();
             }
         }
-        
+
         return ids;
     }
     */
@@ -371,12 +369,12 @@ public:
             float val = m_G(src);
             _G(dst) = val;
         }
-        
+
         //for (int id = 0; id < pIds.size(); id++)
         //{
         //    _G[id] = G[pIds[id]];
         //}
-        
+
         return _G / m_count;
     }
     */
@@ -400,8 +398,8 @@ public:
 
         for (int y = 0; y < D.rows(); y++)
         {
-            //for (Eigen::SparseMatrix<float>::InnerIterator it(m_H, src_col); it; ++it)
-            for(int x = 0; x < D.cols(); x++)
+            // for (Eigen::SparseMatrix<float>::InnerIterator it(m_H, src_col); it; ++it)
+            for (int x = 0; x < D.cols(); x++)
             {
                 // it.value();
                 // it.row();   // row index
@@ -409,10 +407,10 @@ public:
                 // it.index(); // inner index, here it is equal to it.row()
 
                 float value = D(y, x);
-                if(value == 0.0)
+                if (value == 0.0)
                     continue;
-                
-                S.insert(y, x) = value;// it.value();
+
+                S.insert(y, x) = value; // it.value();
             }
         }
 
@@ -429,7 +427,7 @@ public:
 private:
     Eigen::MatrixXf m_H;
     Eigen::VectorXf m_G;
-    
+
     Eigen::MatrixXf m_lH;
 
     Eigen::SparseMatrix<float> m_sH;
@@ -440,14 +438,14 @@ private:
     // Eigen::Matrix<float, 6, 1> G;
     int m_count;
 
-    //Eigen::LLT<Eigen::MatrixXf> solver;
+    // Eigen::LLT<Eigen::MatrixXf> solver;
     Eigen::LDLT<Eigen::MatrixXf> solver;
 
-    //Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> ssolver;
-    //Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-    //Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
-    // Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
-    // Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
-    // Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
-    // Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
+    // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> ssolver;
+    // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+    // Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+    //  Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+    //  Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+    //  Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
+    //  Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
 };
