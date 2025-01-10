@@ -26,8 +26,8 @@ void visualOdometry<sceneType>::init(dataCPU<float> &image, Sophus::SE3f globalP
     int lvl = 1;
 
     dataCPU<float> buffer(cam[lvl].width, cam[lvl].height, -1.0);
-    renderer.renderRandom(cam[lvl], buffer, 0.1, 1.0);
-    //renderer.renderSmooth(cam[lvl], buffer, 0.1, 1.0);
+    //renderer.renderRandom(cam[lvl], buffer, 0.1, 1.0);
+    renderer.renderSmooth(cam[lvl], buffer, 0.1, 1.0);
 
     kframe = newFrame;
     scene.init(buffer, cam[lvl], globalPose);
@@ -145,8 +145,8 @@ void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
 
             int lvl = 0;
             dataCPU<float> idepth_buffer(cam[lvl].width, cam[lvl].height, -1);
-            //renderer.renderIdepthParallel(scene, newKeyframe.getPose(), cam[lvl], idepth_buffer);
-            //renderer.renderInterpolate(cam[lvl], idepth_buffer);
+            renderer.renderIdepthParallel(scene, newKeyframe.getPose(), cam[lvl], idepth_buffer);
+            renderer.renderInterpolate(cam[lvl], idepth_buffer);
             init(newKeyframe, idepth_buffer);
 
             optimize = true;
@@ -156,6 +156,13 @@ void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
     if (optimize)
     {
         t.tic();
+        /*
+        sceneOptimizer.optMap(keyFrames, kframe, scene);
+        for(auto &keyframe : keyFrames)
+        {
+            sceneOptimizer.optPose(keyframe, kframe, scene);
+        }
+        */
         sceneOptimizer.optPoseMap(keyFrames, kframe, scene);
         std::cout << "optposemap time: " << t.toc() << std::endl;
 

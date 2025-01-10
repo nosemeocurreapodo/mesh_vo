@@ -18,7 +18,7 @@ sceneOptimizerCPU<sceneType, jmapType, idsType>::sceneOptimizerCPU(camera &_cam)
 {
     cam = _cam;
 
-    meshRegularization = 10.0;
+    meshRegularization = 100.0;
     meshInitial = 0.0;
     poseInitial = 0.0;
 }
@@ -225,7 +225,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
 {
     int numMapParams = scene.getParamIds().size();
 
-    for (int lvl = 2; lvl >= 2; lvl--)
+    for (int lvl = 1; lvl >= 1; lvl--)
     {
         Error e;
         for (std::size_t i = 0; i < frames.size(); i++)
