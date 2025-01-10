@@ -18,7 +18,7 @@ sceneOptimizerCPU<sceneType, jmapType, idsType>::sceneOptimizerCPU(camera &_cam)
 {
     cam = _cam;
 
-    meshRegularization = 100.0;
+    meshRegularization = 1.0;
     meshInitial = 0.0;
     poseInitial = 0.0;
 }

@@ -136,8 +136,8 @@ void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
         if ((viewPercent < MIN_VIEW_PERC || keyframeViewAngle > KEY_MAX_ANGLE) && lastFrames.size() > 1)
         // if((viewPercent < 0.9 || meanViewAngle > M_PI / 64.0) && lastFrames.size() > 1)
         {
-            //int newKeyframeIndex = int(lastFrames.size() / 2);
-            int newKeyframeIndex = int(lastFrames.size() - 1);
+            int newKeyframeIndex = int(lastFrames.size() / 2);
+            //int newKeyframeIndex = int(lastFrames.size() - 1);
             frameCPU newKeyframe = lastFrames[newKeyframeIndex];
 
             keyFrames = lastFrames;
