@@ -101,11 +101,11 @@ private:
 
     DenseLinearProblem computeHGLightAffine(frameCPU &frame, frameCPU &kframe, sceneType &scene, int lvl)
     {
-        jlightaffine_buffer.set(jlightaffine_buffer.nodata, lvl);
+        jexp_buffer.set(jexp_buffer.nodata, lvl);
         error_buffer.set(error_buffer.nodata, lvl);
 
-        renderer.renderJLightAffineParallel(scene, kframe.getRawImage(lvl), kframe.getAffine(), kframe.getPose(), frame.getRawImage(lvl), frame.getAffine(), frame.getPose(), cam[lvl], jlightaffine_buffer.get(lvl), error_buffer.get(lvl));
-        DenseLinearProblem hg = reducer.reduceHGLightAffineParallel(jlightaffine_buffer.get(lvl), error_buffer.get(lvl));
+        renderer.renderJExpParallel(scene, kframe.getRawImage(lvl), kframe.getAffine(), kframe.getPose(), frame.getRawImage(lvl), frame.getAffine(), frame.getPose(), cam[lvl], jexp_buffer.get(lvl), error_buffer.get(lvl));
+        DenseLinearProblem hg = reducer.reduceHGExpParallel(jexp_buffer.get(lvl), error_buffer.get(lvl));
 
         return hg;
     }
@@ -121,23 +121,7 @@ private:
         return hg;
     }
 
-    /*
-    HGMapped computeHGMap(frameCPU *frame, int lvl)
-    {
-        error_buffer.set(error_buffer.nodata, lvl);
-        jmap_buffer.set(jmap_buffer.nodata, lvl);
-        pId_buffer.set(pId_buffer.nodata, lvl);
-
-        // renderer.renderJMap(scene, cam[lvl], kframe, frame, jmap_buffer, error_buffer, pId_buffer, lvl);
-        renderer.renderJMapParallel(&kscene, &kimage, frame, cam[lvl], &jmap_buffer, &error_buffer, &pId_buffer, lvl);
-        // HGMapped hg = reducer.reduceHGMap(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
-        HGMapped hg = reducer.reduceHGMapParallel(cam[lvl], jmap_buffer, error_buffer, pId_buffer, lvl);
-
-        return hg;
-    }
-    */
-
-    DenseLinearProblem computeHGMap2(frameCPU &frame, frameCPU &kframe, sceneType &scene, int lvl)
+    DenseLinearProblem computeHGMap(frameCPU &frame, frameCPU &kframe, sceneType &scene, int lvl)
     {
         error_buffer.set(error_buffer.nodata, lvl);
         jmap_buffer.set(jmap_buffer.nodata, lvl);
@@ -146,26 +130,12 @@ private:
         int numMapParams = scene.getParamIds().size();
 
         renderer.renderJMapParallel(scene, kframe.getRawImage(lvl), kframe.getAffine(), kframe.getPose(), frame.getRawImage(lvl), frame.getAffine(), frame.getdIdpixImage(lvl), frame.getPose(), cam[lvl], jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
-        DenseLinearProblem hg = reducer.reduceHGMap2(numMapParams, jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
+        DenseLinearProblem hg = reducer.reduceHGMapParallel(numMapParams, jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
 
         return hg;
     }
-    /*
-    HGMapped computeHGPoseMap(frameCPU *frame, int frameIndex, int numFrames, int lvl)
-    {
-        jpose_buffer.set(jpose_buffer.nodata, lvl);
-        jmap_buffer.set(jmap_buffer.nodata, lvl);
-        error_buffer.set(error_buffer.nodata, lvl);
-        pId_buffer.set(pId_buffer.nodata, lvl);
 
-        renderer.renderJPoseMapParallel(&kscene, &kimage, frame, cam[lvl], &jpose_buffer, &jmap_buffer, &error_buffer, &pId_buffer, lvl);
-        HGMapped hg = reducer.reduceHGPoseMapParallel(cam[lvl], frameIndex, numFrames, kscene.getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
-
-        return hg;
-    }
-    */
-
-    DenseLinearProblem computeHGPoseMap2(frameCPU &frame, frameCPU &kframe, sceneType &scene, int frameIndex, int numFrames, int lvl)
+    DenseLinearProblem computeHGPoseMap(frameCPU &frame, frameCPU &kframe, sceneType &scene, int frameIndex, int numFrames, int lvl)
     {
         jpose_buffer.set(jpose_buffer.nodata, lvl);
         jmap_buffer.set(jmap_buffer.nodata, lvl);
@@ -175,8 +145,7 @@ private:
         int numMapParams = scene.getParamIds().size();
 
         renderer.renderJPoseMapParallel(scene, kframe.getRawImage(lvl), kframe.getAffine(), kframe.getPose(), frame.getRawImage(lvl), frame.getAffine(), frame.getdIdpixImage(lvl), frame.getPose(), cam[lvl], jpose_buffer.get(lvl), jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
-        // HGEigenSparse hg = reducer.reduceHGPoseMap2(cam[lvl], frameIndex, numFrames, scene->getNumParams(), jpose_buffer, jmap_buffer, error_buffer, pId_buffer, lvl);
-        DenseLinearProblem hg = reducer.reduceHGPoseMapParallel2(frameIndex, numFrames, numMapParams, jpose_buffer.get(lvl), jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
+        DenseLinearProblem hg = reducer.reduceHGPoseMapParallel(frameIndex, numFrames, numMapParams, jpose_buffer.get(lvl), jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
 
         return hg;
     }
@@ -190,8 +159,8 @@ private:
     dataMipMapCPU<float> idepth_buffer;
     dataMipMapCPU<float> error_buffer;
 
-    dataMipMapCPU<vec2<float>> jlightaffine_buffer;
-    dataMipMapCPU<vec8<float>> jpose_buffer;
+    dataMipMapCPU<vec2<float>> jexp_buffer;
+    dataMipMapCPU<vec6<float>> jpose_buffer;
 
     dataMipMapCPU<jmapType> jmap_buffer;
     dataMipMapCPU<idsType> pId_buffer;

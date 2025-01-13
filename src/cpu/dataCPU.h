@@ -72,6 +72,11 @@ public:
         //         set(value, y, x);
     }
 
+    void setToNoData()
+    {
+        set(nodata);
+    }
+
     void set(Type *data)
     {
         std::memcpy(m_data, data, sizeof(Type) * width * height);
@@ -327,6 +332,11 @@ public:
     void set(Type value, int lvl)
     {
         data[lvl].set(value);
+    }
+
+    void setToNoData(int lvl)
+    {
+        set(nodata, lvl);
     }
 
     void set(Type *data, int lvl)
