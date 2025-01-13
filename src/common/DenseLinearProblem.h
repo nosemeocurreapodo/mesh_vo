@@ -33,7 +33,7 @@ public:
 
     // for vector error (not scalar error like pixel errors)
     template <typename jacType, typename errType, typename idsType>
-    void add(jacType J, errType error, float weight, idsType ids)
+    void add(jacType jacMap, errType error, float weight, idsType mapIds)
     {
         assert(jacType::size() == idsType::size());
         assert(errType::size() == jacType::size());
@@ -41,21 +41,21 @@ public:
 
         m_count++;
 
-        idsType inIds = ids + idsType(m_numPoseParams);
+        idsType intMapIds = mapIds + idsType(m_numPoseParams);
 
         // G += J * error;
         // H += J * J.transpose();
 
         for (int i = 0; i < jacType::size(); i++)
         {
-            m_G(inIds(i)) += J(i) * error(i) * weight;
-            m_H(inIds(i), inIds(i)) += J(i) * J(i) * weight;
+            m_G(intMapIds(i)) += jacMap(i) * error(i) * weight;
+            m_H(intMapIds(i), intMapIds(i)) += jacMap(i) * jacMap(i) * weight;
 
             for (int j = i + 1; j < jacType::size(); j++)
             {
-                float jj = J(i) * J(j) * weight;
-                m_H(inIds(i), inIds(j)) += jj;
-                m_H(inIds(j), inIds(i)) += jj;
+                float jj = jacMap(i) * jacMap(j) * weight;
+                m_H(intMapIds(i), intMapIds(j)) += jj;
+                m_H(intMapIds(j), intMapIds(i)) += jj;
             }
         }
     }
@@ -85,28 +85,28 @@ public:
     }
 
     template <typename jacType, typename idsType>
-    void add(jacType J, float error, float weight, idsType ids)
+    void add(jacType jacMap, float error, float weight, idsType mapIds)
     {
         assert(jacType::size() == idsType::size());
         assert(jacType::size() <= m_numPoseParams + m_numMapParams);
 
         m_count++;
 
-        idsType inIds = ids + idsType(m_numPoseParams);
+        idsType intMapIds = mapIds + idsType(m_numPoseParams);
 
         // G += J * error;
         // H += J * J.transpose();
 
         for (int i = 0; i < jacType::size(); i++)
         {
-            m_G(inIds(i)) += J(i) * error * weight;
-            m_H(inIds(i), inIds(i)) += J(i) * J(i) * weight;
+            m_G(intMapIds(i)) += jacMap(i) * error * weight;
+            m_H(intMapIds(i), intMapIds(i)) += jacMap(i) * jacMap(i) * weight;
 
             for (int j = i + 1; j < jacType::size(); j++)
             {
-                float jj = J(i) * J(j) * weight;
-                m_H(inIds(i), inIds(j)) += jj;
-                m_H(inIds(j), inIds(i)) += jj;
+                float jj = jacMap(i) * jacMap(j) * weight;
+                m_H(intMapIds(i), intMapIds(j)) += jj;
+                m_H(intMapIds(j), intMapIds(i)) += jj;
             }
         }
     }

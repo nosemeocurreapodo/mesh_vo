@@ -39,7 +39,7 @@ public:
 
     void setMeshRegu(float mr)
     {
-        meshRegularization = mr;
+        sceneRegularization = mr;
     }
 
     /*
@@ -182,8 +182,8 @@ private:
     }
 
     // params
-    float meshRegularization;
-    float meshInitial;
+    float sceneRegularization;
+    float sceneInitial;
     float poseInitial;
 
     dataMipMapCPU<float> image_buffer;

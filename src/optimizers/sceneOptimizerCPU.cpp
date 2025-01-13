@@ -18,8 +18,8 @@ sceneOptimizerCPU<sceneType, jmapType, idsType>::sceneOptimizerCPU(camera &_cam)
 {
     cam = _cam;
 
-    meshRegularization = 1.0;
-    meshInitial = 0.0;
+    sceneRegularization = 0.0;
+    sceneInitial = 10.0;
     poseInitial = 0.0;
 }
 
@@ -174,7 +174,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame, f
                 e = computeError(frame, kframe, scene, lvl);
                 if (e.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
                 {
-                    //too few pixels, unreliable, set to large error
+                    // too few pixels, unreliable, set to large error
                     e.setZero();
                     e += last_error;
                 }
@@ -223,7 +223,15 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPose(frameCPU &frame, f
 template <typename sceneType, typename jmapType, typename idsType>
 void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCPU> &frames, frameCPU &kframe, sceneType &scene)
 {
-    int numMapParams = scene.getParamIds().size();
+    std::vector<int> sceneParamsIds = scene.getParamIds();
+    int numMapParams = sceneParamsIds.size();
+
+    std::vector<float> init_sceneParams;
+    for (int i = 0; i < sceneParamsIds.size(); i++)
+    {
+        float param = scene.getParam(sceneParamsIds[i]);
+        init_sceneParams.push_back(param);
+    }
 
     for (int lvl = 1; lvl >= 1; lvl--)
     {
@@ -236,13 +244,35 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
         }
         e *= 1.0 / e.getCount();
 
-        if (meshRegularization > 0.0)
+        if (sceneRegularization > 0.0)
         {
             Error e_regu = scene.errorRegu();
             assert(e_regu.getCount() > 0);
             e_regu *= 1.0 / e_regu.getCount();
-            e_regu *= meshRegularization;
+            e_regu *= sceneRegularization;
             e += e_regu;
+        }
+
+        if (sceneInitial > 0.0)
+        {
+            Error sceneInitialError;
+
+            for (size_t index = 0; index < sceneParamsIds.size(); index++)
+            {
+                int sceneParamId = sceneParamsIds[index];
+                float res = scene.getParam(sceneParamId) - init_sceneParams[sceneParamId];
+
+                float absres = std::fabs(res);
+                float hw = 1.0;
+                if (absres > HUBER_THRESH_PARM)
+                    hw = HUBER_THRESH_PARM / absres;
+
+                sceneInitialError += res * hw;
+            }
+
+            sceneInitialError *= 1.0 / sceneParamsIds.size();
+            sceneInitialError *= sceneInitial;
+            e += sceneInitialError;
         }
 
         float last_error = e.getError();
@@ -263,18 +293,40 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
             }
             hg *= 1.0 / hg.getCount();
 
-            if (meshRegularization > 0.0)
+            if (sceneRegularization > 0.0)
             {
                 DenseLinearProblem hg_regu = scene.HGRegu(0);
                 assert(hg_regu.getCount() > 0);
                 hg_regu *= 1.0 / hg_regu.getCount();
-                hg_regu *= meshRegularization;
+                hg_regu *= sceneRegularization;
                 hg += hg_regu;
             }
+
+            if (sceneInitial > 0.0)
+            {
+                for (size_t index = 0; index < sceneParamsIds.size(); index++)
+                {
+                    int sceneParamId = sceneParamsIds[index];
+                    int linearProblemParamId = sceneParamId;
+
+                    float res = scene.getParam(sceneParamId) - init_sceneParams[sceneParamId];
+
+                    float absres = std::fabs(res);
+                    float hw = 1.0;
+                    if (absres > HUBER_THRESH_PARM)
+                        hw = HUBER_THRESH_PARM / absres;
+                    hw *= sceneInitial / sceneParamsIds.size();
+
+                    vec1<float> jacobian = 1.0;
+                    vec1<int> ids = linearProblemParamId;
+                    hg.add(jacobian, res, hw, ids);
+                }
+            }
+
             // saveH(hg, "H.png");
 
             // std::vector<int> paramIds = hg.removeUnobservedParams();
-            std::vector<int> paramIds = hg.getParamIds();
+            std::vector<int> linearProbleParamIds = hg.getParamIds();
 
             int n_try = 0;
             lambda = 0.0;
@@ -296,9 +348,9 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
                 std::vector<float> best_params;
                 float map_inc_mag = 0.0;
                 int map_inc_mag_count = 0;
-                for (size_t index = 0; index < paramIds.size(); index++)
+                for (size_t index = 0; index < linearProbleParamIds.size(); index++)
                 {
-                    int paramId = paramIds[index];
+                    int paramId = linearProbleParamIds[index];
 
                     float best_param = scene.getParam(paramId);
                     float inc_param = inc(index);
@@ -319,7 +371,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
                     Error fe = computeError(frames[i], kframe, scene, lvl);
                     if (fe.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
                     {
-                        //too few pixels, unreliable, set to large error
+                        // too few pixels, unreliable, set to large error
                         fe.setZero();
                         fe += last_error;
                     }
@@ -327,13 +379,35 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
                 }
                 e *= 1.0 / e.getCount();
 
-                if (meshRegularization > 0.0)
+                if (sceneRegularization > 0.0)
                 {
                     Error e_regu = scene.errorRegu();
                     assert(e_regu.getCount() > 0);
                     e_regu *= 1.0 / e_regu.getCount();
-                    e_regu *= meshRegularization;
+                    e_regu *= sceneRegularization;
                     e += e_regu;
+                }
+
+                if (sceneInitial > 0.0)
+                {
+                    Error sceneInitialError;
+
+                    for (size_t index = 0; index < sceneParamsIds.size(); index++)
+                    {
+                        int sceneParamId = sceneParamsIds[index];
+                        float res = scene.getParam(sceneParamId) - init_sceneParams[sceneParamId];
+
+                        float absres = std::fabs(res);
+                        float hw = 1.0;
+                        if (absres > HUBER_THRESH_PARM)
+                            hw = HUBER_THRESH_PARM / absres;
+
+                        sceneInitialError += res * hw;
+                    }
+
+                    sceneInitialError *= 1.0 / sceneParamsIds.size();
+                    sceneInitialError *= sceneInitial;
+                    e += sceneInitialError;
                 }
 
                 float error = e.getError();
@@ -360,9 +434,9 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
                 }
                 else
                 {
-                    for (size_t index = 0; index < paramIds.size(); index++)
+                    for (size_t index = 0; index < linearProbleParamIds.size(); index++)
                     {
-                        scene.setParam(best_params[index], paramIds[index]);
+                        scene.setParam(best_params[index], linearProbleParamIds[index]);
                     }
 
                     // reject update, increase lambda, use un-updated data
@@ -384,13 +458,22 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
 {
     assert(frames.size() > 0);
 
-    int numMapParams = scene.getParamIds().size();
+    std::vector<int> sceneParamsIds = scene.getParamIds();
+
+    int numSceneParams = sceneParamsIds.size();
     int numFrameParams = frames.size() * 8;
 
     std::vector<Eigen::Matrix<float, 6, 1>> init_poses;
     for (auto &frame : frames)
     {
         init_poses.push_back(frame.getPose().log());
+    }
+
+    std::vector<float> init_sceneParams;
+    for (int i = 0; i < sceneParamsIds.size(); i++)
+    {
+        float param = scene.getParam(sceneParamsIds[i]);
+        init_sceneParams.push_back(param);
     }
 
     for (int lvl = 1; lvl >= 1; lvl--)
@@ -404,12 +487,12 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
         }
         e *= 1.0 / e.getCount();
 
-        if (meshRegularization > 0.0)
+        if (sceneRegularization > 0.0)
         {
             Error e_regu = scene.errorRegu();
             assert(e_regu.getCount() > 0);
             e_regu *= 1.0 / e_regu.getCount();
-            e_regu *= meshRegularization;
+            e_regu *= sceneRegularization;
             e += e_regu;
         }
 
@@ -426,6 +509,28 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
             e += poseInitialError;
         }
 
+        if (sceneInitial > 0.0)
+        {
+            Error sceneInitialError;
+
+            for (size_t index = 0; index < sceneParamsIds.size(); index++)
+            {
+                int sceneParamId = sceneParamsIds[index];
+                float res = scene.getParam(sceneParamId) - init_sceneParams[sceneParamId];
+
+                float absres = std::fabs(res);
+                float hw = 1.0;
+                if (absres > HUBER_THRESH_PARM)
+                    hw = HUBER_THRESH_PARM / absres;
+
+                sceneInitialError += res * hw;
+            }
+
+            sceneInitialError *= 1.0 / sceneParamsIds.size();
+            sceneInitialError *= sceneInitial;
+            e += sceneInitialError;
+        }
+
         float last_error = e.getError();
 
         std::cout << "optPoseMap initial error " << last_error << " lvl: " << lvl << std::endl;
@@ -435,7 +540,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
         float lambda = 0.0;
         for (int it = 0; it < maxIterations; it++)
         {
-            DenseLinearProblem hg(numFrameParams, numMapParams);
+            DenseLinearProblem hg(numFrameParams, numSceneParams);
             for (std::size_t i = 0; i < frames.size(); i++)
             {
                 DenseLinearProblem fhg = computeHGPoseMap2(frames[i], kframe, scene, i, frames.size(), lvl);
@@ -444,12 +549,12 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
             }
             hg *= 1.0 / hg.getCount();
 
-            if (meshRegularization > 0.0)
+            if (sceneRegularization > 0.0)
             {
                 DenseLinearProblem hg_regu = scene.HGRegu(frames.size());
                 assert(hg_regu.getCount() > 0);
                 hg_regu *= 1.0 / hg_regu.getCount();
-                hg_regu *= meshRegularization;
+                hg_regu *= sceneRegularization;
                 hg += hg_regu;
             }
 
@@ -470,12 +575,34 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                 }
             }
 
+            if (sceneInitial > 0.0)
+            {
+                for (size_t index = 0; index < sceneParamsIds.size(); index++)
+                {
+                    int sceneParamId = sceneParamsIds[index];
+                    int linearProblemParamId = sceneParamId;
+
+                    float res = scene.getParam(sceneParamId) - init_sceneParams[sceneParamId];
+
+                    float absres = std::fabs(res);
+                    float hw = 1.0;
+                    if (absres > HUBER_THRESH_PARM)
+                        hw = HUBER_THRESH_PARM / absres;
+
+                    hw = hw * sceneInitial / sceneParamsIds.size();
+
+                    vec1<float> jacobian = 1.0;
+                    vec1<int> ids = linearProblemParamId;
+                    hg.add(jacobian, res, hw, ids);
+                }
+            }
+
             // std::vector<int> paramIds = hg.removeUnobservedParams();
-            std::vector<int> paramIds = hg.getParamIds();
+            std::vector<int> linearProblemParamIds = hg.getParamIds();
             // saveH(hg, "H.png");
 
             int n_try = 0;
-            //lambda = 0.0;
+            // lambda = 0.0;
             lambda *= 0.75;
             while (true)
             {
@@ -506,9 +633,9 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
 
                     best_poses.push_back(frames[i].getPose());
                     best_affines.push_back(frames[i].getAffine());
-                    
+
                     Sophus::SE3f new_pose = frames[i].getPose() * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse();
-                    //Sophus::SE3f new_pose = ((frames[i].getPose() * kframe.getPose().inverse()) * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse()) * kframe.getPose();
+                    // Sophus::SE3f new_pose = ((frames[i].getPose() * kframe.getPose().inverse()) * Sophus::SE3f::exp(pose_inc.segment(0, 6)).inverse()) * kframe.getPose();
 
                     // if (i == frames.size() - 1)
                     //     new_pose.translation() = new_pose.translation().normalized() * frames[i].getPose().translation().norm();
@@ -522,9 +649,9 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                 std::map<unsigned int, float> best_params;
                 float map_inc_mag = 0.0;
                 int map_inc_mag_count = 0;
-                for (size_t index = 0; index < paramIds.size(); index++)
+                for (size_t index = 0; index < linearProblemParamIds.size(); index++)
                 {
-                    int paramId = paramIds[index];
+                    int paramId = linearProblemParamIds[index];
                     // negative ids are for the poses
                     if (paramId < numFrameParams)
                         continue;
@@ -537,9 +664,9 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                     // if(std::fabs(inc_param/best_param) > 0.4)
                     //     solverSucceded = false;
                     best_params[mapParamId] = best_param;
-                    
+
                     scene.setParam(new_param, mapParamId);
-                    
+
                     map_inc_mag += inc_param * inc_param;
                     map_inc_mag_count += 1;
                 }
@@ -551,7 +678,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                     Error fe = computeError(frames[i], kframe, scene, lvl);
                     if (fe.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
                     {
-                        //too few pixels, unreliable, set to large error
+                        // too few pixels, unreliable, set to large error
                         fe.setZero();
                         fe += last_error;
                     }
@@ -560,11 +687,11 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
 
                 e *= 1.0 / e.getCount();
 
-                if (meshRegularization > 0.0)
+                if (sceneRegularization > 0.0)
                 {
                     Error e_regu = scene.errorRegu();
                     e_regu *= 1.0 / e_regu.getCount();
-                    e_regu *= meshRegularization;
+                    e_regu *= sceneRegularization;
                     e += e_regu;
                 }
 
@@ -579,6 +706,28 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                     poseInitialError *= 1.0 / frames.size();
                     poseInitialError *= poseInitial;
                     e += poseInitialError;
+                }
+
+                if (sceneInitial > 0.0)
+                {
+                    Error sceneInitialError;
+
+                    for (size_t index = 0; index < sceneParamsIds.size(); index++)
+                    {
+                        int sceneParamId = sceneParamsIds[index];
+                        float res = scene.getParam(sceneParamId) - init_sceneParams[sceneParamId];
+
+                        float absres = std::fabs(res);
+                        float hw = 1.0;
+                        if (absres > HUBER_THRESH_PARM)
+                            hw = HUBER_THRESH_PARM / absres;
+
+                        sceneInitialError += res * hw;
+                    }
+
+                    sceneInitialError *= 1.0 / sceneParamsIds.size();
+                    sceneInitialError *= sceneInitial;
+                    e += sceneInitialError;
                 }
 
                 float error = e.getError();
@@ -611,9 +760,9 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
                         frames[index].setAffine(best_affines[index]);
                     }
 
-                    for (int index = 0; index < paramIds.size(); index++)
+                    for (int index = 0; index < linearProblemParamIds.size(); index++)
                     {
-                        int paramId = paramIds[index];
+                        int paramId = linearProblemParamIds[index];
                         if (paramId < numFrameParams)
                             continue;
 
