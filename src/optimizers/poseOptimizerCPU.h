@@ -72,12 +72,11 @@ public:
                 {
                     //error = diff * (H * diff)
                     //jacobian = ones * (H * diff) + diff ( H * ones)
-                    Eigen::Matrix<float, 6, 1> _res = init_invcovariance * (frame.getPose().log() - init_pose);
-                    Eigen::Matrix<float, 6, 1> ones = Eigen::Matrix<float, 6, 1>::Ones();
-                    Eigen::Matrix<float, 6, 1> _jacobian = init_invcovariance * ones;
+                    Eigen::Matrix<float, 6, 1> _res = init_invcovariancesqrt * (frame.getPose().log() - init_pose);
+                    Eigen::Matrix<float, 6, 6> _jacobian = init_invcovariancesqrt;
                     float weight = priorWeight / 6;
-                    vec6<float> res(_res(0), _res(1), _res(2), _res(3), _res(4), _res(5));
-                    vec6<float> jacobian(_jacobian(0), _jacobian(1), _jacobian(2), _jacobian(3), _jacobian(4), _jacobian(5));
+                    vec6<float> res(_res);
+                    mat6<float> jacobian(_jacobian);
                     problem.add(jacobian, res, weight);
                 }
 

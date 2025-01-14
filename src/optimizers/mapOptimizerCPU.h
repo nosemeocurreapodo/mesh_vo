@@ -141,9 +141,9 @@ public:
 
                     Eigen::VectorXf _res = init_invcovariancesqrt*(sceneParams - init_sceneParams);
                     Eigen::VectorXf ones = Eigen::VectorXf::Ones(numMapParams);
-                    Eigen::VectorXf _jacobian = init_invcovariancesqrt * ones;
+                    Eigen::MatrixXf _jacobian = init_invcovariancesqrt;
                     vecx<float> res(_res);
-                    vecx<float> jacobian(_jacobian);
+                    matx<float> jacobian(_jacobian);
                     float weight = priorWeight / numMapParams;
                     problem.add(jacobian, res, weight);
                 }

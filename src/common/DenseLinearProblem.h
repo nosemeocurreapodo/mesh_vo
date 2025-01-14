@@ -29,81 +29,40 @@ public:
     }
 
     // for vector error (not scalar error like pixel errors)
+    // and matrix jacobian (not vector)
     template <typename jacType, typename errType>
     void add(jacType jac, errType error, float weight)
     {
-        assert(error.size() == jac.size());
-        assert(jac.size() == m_numParams);
+        assert(error.cols() == 1);
+        assert(error.rows() == jac.rows());
+        assert(jac.cols() == m_numParams);
+        assert(jac.rows() == m_numParams);
 
         m_count++;
 
-        // G += J * error;
-        // H += J * J.transpose();
+        jacType J = jac.dot(jac.transpose());
+        errType G = jac.dot(error);
 
-        for (int i = 0; i < jac.size(); i++)
-        {
-            m_G(i) += jac(i) * error(i) * weight;
-            m_H(i, i) += jac(i) * jac(i) * weight;
-
-            for (int j = i + 1; j < jac.size(); j++)
-            {
-                float jj = jac(i) * jac(j) * weight;
-                m_H(i, j) += jj;
-                m_H(j, i) += jj;
-            }
-        }
+        //m_G += G * weight;
+        //m_H += J * weight;
     }
 
     // for vector error (not scalar error like pixel errors)
     template <typename jacType, typename errType, typename idsType>
     void add(jacType jac, errType error, float weight, idsType ids)
     {
-        assert(jac.size() == ids.size());
-        assert(error.size() == jac.size());
-        assert(jac.size() == m_numParams);
+        assert(error.cols() == 1);
+        assert(error.rows() == jac.rows());
+        assert(jac.cols() == m_numParams);
+        assert(jac.rows() == m_numParams);
 
         m_count++;
 
-        // G += J * error;
-        // H += J * J.transpose();
+        jacType J = jac.dot(jac.transpose());
+        errType G = jac.dot(error);
 
-        for (int i = 0; i < jacType::size(); i++)
-        {
-            m_G(ids(i)) += jac(i) * error(i) * weight;
-            m_H(ids(i), ids(i)) += jac(i) * jac(i) * weight;
-
-            for (int j = i + 1; j < jacType::size(); j++)
-            {
-                float jj = jac(i) * jac(j) * weight;
-                m_H(ids(i), ids(j)) += jj;
-                m_H(ids(j), ids(i)) += jj;
-            }
-        }
-    }
-
-    template <typename jacType, typename idsType>
-    void add(jacType jac, float error, float weight, idsType ids)
-    {
-        assert(jac.size() == ids.size());
-        assert(jac.size() <= m_numParams);
-
-        m_count++;
-
-        // G += J * error;
-        // H += J * J.transpose();
-
-        for (int i = 0; i < jac.size(); i++)
-        {
-            m_G(ids(i)) += jac(i) * error * weight;
-            m_H(ids(i), ids(i)) += jac(i) * jac(i) * weight;
-
-            for (int j = i + 1; j < jac.size(); j++)
-            {
-                float jj = jac(i) * jac(j) * weight;
-                m_H(ids(i), ids(j)) += jj;
-                m_H(ids(j), ids(i)) += jj;
-            }
-        }
+        //m_G += G * weight;
+        //m_H += J * weight;
     }
 
     template <typename jacType>
@@ -116,16 +75,43 @@ public:
         // G += J * error;
         // H += J * J.transpose();
 
-        for (int i = 0; i < jac.size(); i++)
+        for (int i = 0; i < jac.rows(); i++)
         {
             m_G(i) += jac(i) * error * weight;
             m_H(i, i) += jac(i) * jac(i) * weight;
 
-            for (int j = i + 1; j < jac.size(); j++)
+            for (int j = i + 1; j < jac.rows(); j++)
             {
                 float jj = jac(i) * jac(j) * weight;
                 m_H(i, j) += jj;
                 m_H(j, i) += jj;
+            }
+        }
+    }
+
+    template <typename jacType, typename idsType>
+    void add(jacType jac, float error, float weight, idsType ids)
+    {
+        assert(jac.rows() == ids.rows());
+        assert(jac.cols() == 1);
+        assert(ids.cols() == 1);
+        assert(jac.size() <= m_numParams);
+
+        m_count++;
+
+        // G += J * error;
+        // H += J * J.transpose();
+
+        for (int i = 0; i < jac.rows(); i++)
+        {
+            m_G(ids(i)) += jac(i) * error * weight;
+            m_H(ids(i), ids(i)) += jac(i) * jac(i) * weight;
+
+            for (int j = i + 1; j < jac.rows(); j++)
+            {
+                float jj = jac(i) * jac(j) * weight;
+                m_H(ids(i), ids(j)) += jj;
+                m_H(ids(j), ids(i)) += jj;
             }
         }
     }

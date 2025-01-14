@@ -2,353 +2,119 @@
 
 #include <Eigen/Core>
 
-template <typename type>
-struct vec1
+template <typename type, int _rows, int _cols>
+struct mat;
+
+template <typename type, int _rows>
+struct vec
 {
-    vec1()
+    vec()
     {
+        for (int i = 0; i < _rows; i++)
+            data[i] = 0;
     }
 
-    vec1(const vec1 &other)
+    vec(const vec &other)
     {
-        data = other.data;
+        for (int i = 0; i < _rows; i++)
+            data[i] = other.data[i];
     }
 
-    vec1(type x)
+    static constexpr vec zero()
     {
-        data = x;
-    }
-
-    static constexpr vec1 zero()
-    {
-        vec1 v;
-        v(0) = 0;
+        vec v;
+        for (int i = 0; i < _rows; i++)
+            v(i) = 0;
         return v;
     }
 
-    static constexpr int size()
+    static constexpr int rows()
+    {
+        return _rows;
+    }
+
+    static constexpr int cols()
     {
         return 1;
     }
 
-    vec1 &operator=(const vec1 &other)
-    {
-        if (this != &other)
-        {
-            data = other.data;
-        }
-        return *this;
-    }
-
-    template <typename type2>
-    vec1<type> operator*(type2 c)
-    {
-        vec1<type> result;
-        result(0) = data * c;
-        return result;
-    }
-
-    vec1<type> operator+(vec1<type> c)
-    {
-        vec1<type> result;
-        result(0) = data + c(0);
-        return result;
-    }
-
-    vec1<type> operator-(vec1<type> c)
-    {
-        vec1<type> result;
-        result(0) = data[0] - c(0);
-        return result;
-    }
-
-    type dot(vec1<type> c)
-    {
-        return data * c(0);
-    }
-
-    bool operator==(vec1<type> c)
-    {
-        if (data == c(0))
-            return true;
-        return false;
-    }
-
-    void operator=(vec1<type> c)
-    {
-        data = c(0);
-    }
-
-    type &operator()(int c)
-    {
-        return data;
-    }
-
-    type operator()(int c) const
-    {
-        return data;
-    }
-
-private:
-    type data;
-};
-
-template <typename type>
-struct vec2
-{
-    vec2()
-    {
-    }
-
-    vec2(const vec2 &other)
-    {
-        for (int i = 0; i < 2; i++)
-            data[i] = other.data[i];
-    }
-
-    template <typename type2>
-    vec2(type2 x, type2 y)
-    {
-        data[0] = x;
-        data[1] = y;
-    }
-
-    static constexpr vec2 zero()
-    {
-        vec2 v;
-        for(int i = 0; i < 2; i++)  
-            v(i) = 0;
-        return v;
-    }
-
-    static constexpr int size()
-    {
-        return 2;
-    }
-
     type norm()
     {
-        return sqrt(data[0] * data[0] + data[1] * data[1]);
+        type sum = 0;
+        for (int i = 0; i < _rows; i++)
+            sum += data[i] * data[i];
+        return sqrt(sum);
     }
 
-    vec2 &operator=(const vec2 &other)
+    template <typename type2>
+    vec operator*(type2 c)
+    {
+        vec result;
+        for (int i = 0; i < _rows; i++)
+            result(i) = data[i] * c;
+        return result;
+    }
+
+    template <typename type2>
+    vec operator/(type2 c)
+    {
+        vec result;
+        for (int i = 0; i < _rows; i++)
+            result(i) = data[i] / c;
+        return result;
+    }
+
+    vec operator+(vec c)
+    {
+        vec result;
+        for (int i = 0; i < _rows; i++)
+            result(i) = data[i] + c(i);
+        return result;
+    }
+
+    vec operator-(vec c)
+    {
+        vec result;
+        for (int i = 0; i < _rows; i++)
+            result(i) = data[i] - c(i);
+        return result;
+    }
+
+    type dot(vec c)
+    {
+        type sum = 0;
+        for (int i = 0; i < _rows; i++)
+            sum += data[i] * c(i);
+        return sum;
+    }
+
+    mat<type, _rows, _rows> outer(vec a)
+    {
+        mat<type, _rows, _rows> result;
+        for (int y = 0; y < _rows; y++)
+            for (int x = 0; x < _rows; x++)
+                result(y, x) = data[y] * a(x);
+
+        return result;
+    }
+
+    bool operator==(vec c)
+    {
+        bool equal = true;
+        for (int i = 0; i < _rows; i++)
+            if (data[i] != c(i))
+                equal = false;
+        return equal;
+    }
+
+    vec &operator=(const vec &other)
     {
         if (this != &other)
         {
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < _rows; i++)
                 data[i] = other.data[i];
         }
         return *this;
-    }
-
-    template <typename type2>
-    vec2<type> operator*(type2 c)
-    {
-        vec2<type> result;
-        result(0) = data[0] * c;
-        result(1) = data[1] * c;
-        return result;
-    }
-
-    template <typename type2>
-    vec2<type> operator/(type2 c)
-    {
-        vec2<type> result;
-        result(0) = data[0] / c;
-        result(1) = data[1] / c;
-        return result;
-    }
-
-    vec2<type> operator+(vec2<type> c)
-    {
-        vec2<type> result;
-        result(0) = data[0] + c(0);
-        result(1) = data[1] + c(1);
-        return result;
-    }
-
-    vec2<type> operator-(vec2<type> c)
-    {
-        vec2<type> result;
-        result(0) = data[0] - c(0);
-        result(1) = data[1] - c(1);
-        return result;
-    }
-
-    type dot(vec2<type> c)
-    {
-        return data[0] * c(0) + data[1] * c(1);
-    }
-
-    bool operator==(vec2<type> c)
-    {
-        if (data[0] == c(0) && data[1] == c(1))
-            return true;
-        return false;
-    }
-
-    /*
-    void operator=(vec2<type> c)
-    {
-        data[0] = c(0);
-        data[1] = c(1);
-    }
-    */
-
-    type &operator()(int c)
-    {
-        return data[c];
-    }
-
-    type operator()(int c) const
-    {
-        return data[c];
-    }
-
-private:
-    type data[2];
-};
-
-template <typename type>
-struct mat3;
-
-template <typename type>
-struct vec3
-{
-    vec3()
-    {
-    }
-
-    vec3(const vec3 &other)
-    {
-        for (int i = 0; i < 3; i++)
-            data[i] = other.data[i];
-    }
-
-    vec3(type x, type y, type z)
-    {
-        data[0] = x;
-        data[1] = y;
-        data[2] = z;
-    }
-
-    static constexpr vec3 zero()
-    {
-        vec3 v;
-        for(int i = 0; i < 3; i++)  
-            v(i) = 0;
-        return v;
-    }
-
-    static constexpr int size()
-    {
-        return 3;
-    }
-
-    type dot(vec3<type> a)
-    {
-        type result = data[0] * a(0) + data[1] * a(1) + data[2] * a(2);
-        return result;
-    }
-
-    vec3<type> cross(vec3<type> a)
-    {
-        vec3<type> result;
-        result(0) = data[1] * a(2) - data[2] * a(1);
-        result(1) = data[2] * a(0) - data[0] * a(2);
-        result(2) = data[0] * a(1) - data[1] * a(0);
-        return result;
-    }
-
-    mat3<type> outer(vec3<type> a)
-    {
-        mat3<type> result;
-        // for (int y = 0; y < 3; y++)
-        //   for (int x = 0; x < 3; x++)
-        //     result(y, x) = data[y] * a(x);
-
-        result(0, 0) = data[0] * a(0);
-        result(0, 1) = data[0] * a(1);
-        result(0, 2) = data[0] * a(2);
-
-        result(1, 0) = data[1] * a(0);
-        result(1, 1) = data[1] * a(1);
-        result(1, 2) = data[1] * a(2);
-
-        result(2, 0) = data[2] * a(0);
-        result(2, 1) = data[2] * a(1);
-        result(2, 2) = data[2] * a(2);
-
-        return result;
-    }
-
-    type norm()
-    {
-        return sqrt(data[0] * data[0] + data[1] * data[1] + data[2] * data[2]);
-    }
-
-    vec3 &operator=(const vec3 &other)
-    {
-        if (this != &other)
-        {
-            for (int i = 0; i < 3; i++)
-                data[i] = other.data[i];
-        }
-        return *this;
-    }
-
-    template <typename type2>
-    vec3<type> operator*(type2 c)
-    {
-        vec3<type> result;
-        result(0) = type(data[0] * c);
-        result(1) = type(data[1] * c);
-        result(2) = type(data[2] * c);
-        return result;
-    }
-
-    template <typename type2>
-    vec3<type> operator/(type2 c)
-    {
-        vec3<type> result;
-        result(0) = type(data[0] / c);
-        result(1) = type(data[1] / c);
-        result(2) = type(data[2] / c);
-        return result;
-    }
-
-    vec3<type> operator+(vec3<type> c)
-    {
-        vec3<type> result;
-        result(0) = type(data[0] + c(0));
-        result(1) = type(data[1] + c(1));
-        result(2) = type(data[2] + c(2));
-        return result;
-    }
-
-    vec3<type> operator-(vec3<type> c)
-    {
-        vec3<type> result;
-        result(0) = type(data[0] - c(0));
-        result(1) = type(data[1] - c(1));
-        result(2) = type(data[2] - c(2));
-        return result;
-    }
-
-    /*
-    void operator=(vec3<type> c)
-    {
-        data[0] = c(0);
-        data[1] = c(1);
-        data[2] = c(2);
-    }
-    */
-
-    bool operator==(vec3<type> c)
-    {
-        if (data[0] == c(0) && data[1] == c(1) && data[2] == c(2))
-            return true;
-        return false;
     }
 
     type &operator()(int c)
@@ -361,311 +127,8 @@ struct vec3
         return data[c];
     }
 
-private:
-    type data[3];
-};
-
-template <typename type>
-struct mat6;
-
-template <typename type>
-struct vec6
-{
-    vec6()
-    {
-    }
-
-    vec6(const vec6 &other)
-    {
-        for (int i = 0; i < 6; i++)
-            data[i] = other.data[i];
-    }
-
-    vec6(type x, type y, type z, type a, type b, type c)
-    {
-        data[0] = x;
-        data[1] = y;
-        data[2] = z;
-        data[3] = a;
-        data[4] = b;
-        data[5] = c;
-    }
-
-    static constexpr vec6 zero()
-    {
-        vec6 v;
-        for(int i = 0; i < 6; i++)  
-            v(i) = 0;
-        return v;
-    }
-
-    static int size()
-    {
-        return 6;
-    }
-
-    type dot(vec6<type> b)
-    {
-        type result;
-        /*
-        for (int x = 0; x < 6; x++)
-        {
-          result += data[x] * b(x);
-        }
-        */
-        result = data[0] * b(0) + data[1] * b(1) + data[2] * b(2) + data[3] * b(3) + data[4] * b(4) + data[5] * b(5);
-        return result;
-    }
-
-    vec6 &operator=(const vec6 &other)
-    {
-        if (this != &other)
-        {
-            for (int i = 0; i < 6; i++)
-                data[i] = other.data[i];
-        }
-        return *this;
-    }
-
-    vec6<type> operator+(vec6<type> c)
-    {
-        vec6<type> result;
-        result(0) = data[0] + c(0);
-        result(1) = data[1] + c(1);
-        result(2) = data[2] + c(2);
-        result(3) = data[3] + c(3);
-        result(4) = data[4] + c(4);
-        result(5) = data[5] + c(5);
-        return result;
-    }
-
-    template <typename type2>
-    vec6 operator/(type2 c)
-    {
-        vec6 result;
-        result(0) = type(data[0] / c);
-        result(1) = type(data[1] / c);
-        result(2) = type(data[2] / c);
-        result(3) = type(data[3] / c);
-        result(4) = type(data[4] / c);
-        result(5) = type(data[5] / c);
-        return result;
-    }
-
-    template <typename type2>
-    vec6 operator*(type2 c)
-    {
-        vec6 result;
-        result(0) = data[0] * c;
-        result(1) = data[1] * c;
-        result(2) = data[2] * c;
-        result(3) = data[3] * c;
-        result(4) = data[4] * c;
-        result(5) = data[5] * c;
-        return result;
-    }
-
-    mat6<type> outer(mat6<type> a)
-    {
-        mat6<type> result;
-
-        for (int y = 0; y < 6; y++)
-        {
-            for (int x = 0; x < 6; x++)
-                result(y, x) = this->operator()(y) * a(x);
-        }
-        return result;
-    }
-
-    /*
-    void operator=(vec6<type> c)
-    {
-        data[0] = c(0);
-        data[1] = c(1);
-        data[2] = c(2);
-        data[3] = c(3);
-        data[4] = c(4);
-        data[5] = c(5);
-    }
-    */
-
-    bool operator==(vec6<type> c)
-    {
-        if (data[0] == c(0) && data[1] == c(1) && data[2] == c(2) &&
-            data[3] == c(3) && data[4] == c(4) && data[5] == c(5))
-            return true;
-        return false;
-    }
-
-    type &operator()(int c)
-    {
-        return data[c];
-    }
-
-    type operator()(int c) const
-    {
-        return data[c];
-    }
-
-private:
-    type data[6];
-};
-
-template <typename type>
-struct mat8;
-
-template <typename type>
-struct vec8
-{
-    vec8()
-    {
-    }
-
-    vec8(const vec8 &other)
-    {
-        for (int i = 0; i < 8; i++)
-            data[i] = other.data[i];
-    }
-
-    vec8(type x, type y, type z, type a, type b, type c, type d, type e)
-    {
-        data[0] = x;
-        data[1] = y;
-        data[2] = z;
-        data[3] = a;
-        data[4] = b;
-        data[5] = c;
-        data[6] = d;
-        data[7] = e;
-    }
-
-    static constexpr vec8 zero()
-    {
-        vec8 v;
-        for(int i = 0; i < 8; i++)  
-            v(i) = 0;
-        return v;
-    }
-
-    static constexpr int size()
-    {
-        return 8;
-    }
-
-    type dot(vec8<type> b)
-    {
-        type result;
-        /*
-        for (int x = 0; x < 6; x++)
-        {
-          result += data[x] * b(x);
-        }
-        */
-        result = data[0] * b(0) + data[1] * b(1) + data[2] * b(2) + data[3] * b(3) + data[4] * b(4) + data[5] * b(5) + data[6] * b(6) + data[7] * b(7);
-        return result;
-    }
-
-    vec8 &operator=(const vec8 &other)
-    {
-        if (this != &other)
-        {
-            for (int i = 0; i < 8; i++)
-                data[i] = other.data[i];
-        }
-        return *this;
-    }
-
-    vec8<type> operator+(vec8<type> c)
-    {
-        vec8<type> result;
-        result(0) = data[0] + c(0);
-        result(1) = data[1] + c(1);
-        result(2) = data[2] + c(2);
-        result(3) = data[3] + c(3);
-        result(4) = data[4] + c(4);
-        result(5) = data[5] + c(5);
-        result(6) = data[6] + c(6);
-        result(7) = data[7] + c(7);
-        return result;
-    }
-
-    template <typename type2>
-    vec8 operator/(type2 c)
-    {
-        vec8 result;
-        result(0) = type(data[0] / c);
-        result(1) = type(data[1] / c);
-        result(2) = type(data[2] / c);
-        result(3) = type(data[3] / c);
-        result(4) = type(data[4] / c);
-        result(5) = type(data[5] / c);
-        result(6) = type(data[6] / c);
-        result(7) = type(data[7] / c);
-        return result;
-    }
-
-    template <typename type2>
-    vec8 operator*(type2 c)
-    {
-        vec8 result;
-        result(0) = data[0] * c;
-        result(1) = data[1] * c;
-        result(2) = data[2] * c;
-        result(3) = data[3] * c;
-        result(4) = data[4] * c;
-        result(5) = data[5] * c;
-        result(6) = data[6] * c;
-        result(7) = data[7] * c;
-        return result;
-    }
-
-    mat8<type> outer(mat8<type> a)
-    {
-        mat8<type> result;
-
-        for (int y = 0; y < 8; y++)
-        {
-            for (int x = 0; x < 8; x++)
-                result(y, x) = this->operator()(y) * a(x);
-        }
-        return result;
-    }
-
-    /*
-    void operator=(vec8<type> c)
-    {
-        data[0] = c(0);
-        data[1] = c(1);
-        data[2] = c(2);
-        data[3] = c(3);
-        data[4] = c(4);
-        data[5] = c(5);
-        data[6] = c(6);
-        data[7] = c(7);
-    }
-    */
-
-    bool operator==(vec8<type> c)
-    {
-        if (data[0] == c(0) && data[1] == c(1) && data[2] == c(2) &&
-            data[3] == c(3) && data[4] == c(4) && data[5] == c(5) &&
-            data[6] == c(6) && data[7] == c(7))
-            return true;
-        return false;
-    }
-
-    type &operator()(int c)
-    {
-        return data[c];
-    }
-
-    type operator()(int c) const
-    {
-        return data[c];
-    }
-
-private:
-    type data[8];
+protected:
+    type data[_rows];
 };
 
 template <typename type>
@@ -674,44 +137,57 @@ struct vecx
     vecx()
     {
         data = nullptr;
-        data_size = 0;
+        _rows = 0;
     }
 
     vecx(int size)
     {
-        data_size = size;
-        data = new type[data_size];
+        _rows = size;
+        data = new type[_rows];
     }
 
     vecx(const vecx &other)
-    {        
-        data_size = other.size();
-        data = new type[data_size];
+    {
+        _rows = other.rows();
+        data = new type[_rows];
 
-        for (int i = 0; i < data_size; i++)
+        for (int i = 0; i < _rows; i++)
             data[i] = other.data[i];
     }
 
     vecx(Eigen::VectorXf a)
     {
-        data_size = a.size();
-        data = new type[data_size];
+        _rows = a.size();
+        data = new type[_rows];
 
-        for (int i = 0; i < data_size; i++)
+        for (int i = 0; i < _rows; i++)
             data[i] = a(i);
     }
 
-    static constexpr vecx zero(int size)
+    static constexpr vecx zero(int _rows)
     {
-        vecx v(size);
-        for(int i = 0; i < size; i++)  
+        vecx v(_rows);
+        for (int i = 0; i < _rows; i++)
             v(i) = 0;
         return v;
     }
-    
-    int size() const
+
+    int rows()
     {
-        return data_size;
+        return _rows;
+    }
+
+    static constexpr cols()
+    {
+        return 1;
+    }
+
+    type dot(vecx c)
+    {
+        type sum = 0;
+        for (int i = 0; i < _rows; i++)
+            sum += data[i] * c(i);
+        return sum;
     }
 
     /*
@@ -728,13 +204,13 @@ struct vecx
     {
         if (this != &other)
         {
-            if(data != nullptr)
+            if (data != nullptr)
                 delete[] data;
 
-            data_size = other.size();
-            data = new type[data_size];
+            _rows = other.rows();
+            data = new type[_rows];
 
-            for (int i = 0; i < data_size; i++)
+            for (int i = 0; i < _rows; i++)
                 data[i] = other.data[i];
         }
         return *this;
@@ -743,9 +219,9 @@ struct vecx
     template <typename type2>
     vecx operator*(type2 c)
     {
-        vecx result = vecx(data_size);
+        vecx result = vecx(_rows);
 
-        for (int i = 0; i < data_size; i++)
+        for (int i = 0; i < _rows; i++)
         {
             result(i) = data[i] * c;
         }
@@ -764,93 +240,407 @@ struct vecx
 
 private:
     type *data;
-    int data_size;
+    int _rows;
 };
 
-template <typename type>
-struct mat3
+template <typename type, int _rows, int _cols>
+struct mat
 {
-    mat3()
+    mat()
     {
+        for (int y = 0; y < _rows; y++)
+            for (int x = 0; x < _cols; x++)
+            {
+                data[y][x] = 0.0;
+            }
     }
 
-    mat3(type d00, type d01, type d02, type d10, type d11, type d12, type d20, type d21, type d22)
+    static constexpr mat zero()
     {
-        data[0][0] = d00;
-        data[0][1] = d01;
-        data[0][2] = d02;
-        data[1][0] = d10;
-        data[1][1] = d11;
-        data[1][2] = d12;
-        data[2][0] = d20;
-        this->operator()(2, 1) = d21;
-        this->operator()(2, 2) = d22;
-    }
+        mat result;
 
-    void zero()
-    {
-        /*
-        for (int y = 0; y < 3; y++)
-          for (int x = 0; x < 3; x++)
-          {
-            data[y][x] = 0.0;
-          }
-          */
-
-        data[0][0] = 0.0;
-        data[0][1] = 0.0;
-        data[0][2] = 0.0;
-
-        data[1][0] = 0.0;
-        data[1][1] = 0.0;
-        data[1][2] = 0.0;
-
-        data[2][0] = 0.0;
-        this->operator()(2, 1) = 0.0;
-        this->operator()(2, 2) = 0.0;
-    }
-
-    void identity()
-    {
-        /*
-        for (int y = 0; y < 3; y++)
-          for (int x = 0; x < 3; x++)
-          {
-            if (x == y)
-              data[y][x] = 1.0;
-            else
-              data[y][x] = 0.0;
-          }
-          */
-
-        data[0][0] = 1.0;
-        data[0][1] = 0.0;
-        data[0][2] = 0.0;
-
-        data[1][0] = 0.0;
-        data[1][1] = 1.0;
-        data[1][2] = 0.0;
-
-        data[2][0] = 0.0;
-        this->operator()(2, 1) = 0.0;
-        this->operator()(2, 2) = 1.0;
-    }
-
-    mat3 transpose()
-    {
-        mat3<type> result;
-        result(0, 0) = data[0][0];
-        result(0, 1) = data[1][0];
-        result(0, 2) = data[2][0];
-        result(1, 0) = data[0][1];
-        result(1, 1) = data[1][1];
-        result(1, 2) = this->operator()(2, 1);
-        result(2, 0) = data[0][2];
-        result(2, 1) = data[1][2];
-        result(2, 2) = this->operator()(2, 2);
+        for (int y = 0; y < _rows; y++)
+            for (int x = 0; x < _cols; x++)
+            {
+                result.data[y][x] = 0.0;
+            }
         return result;
     }
 
+    static constexpr int rows()
+    {
+        return _rows;
+    }
+
+    static constexpr int cols()
+    {
+        return _cols;
+    }
+
+    static constexpr mat identity()
+    {
+        mat result;
+
+        for (int y = 0; y < _rows; y++)
+            for (int x = 0; x < _cols; x++)
+            {
+                if (x == y)
+                    result.data[y][x] = 1.0;
+                else
+                    result.data[y][x] = 0.0;
+            }
+
+        return result;
+    }
+
+    mat<type, _cols, _rows> transpose()
+    {
+        mat<type, _cols, _rows> result;
+
+        for (int y = 0; y < _rows; y++)
+        {
+            for (int x = 0; x < _cols; x++)
+            {
+                result.data[x][y] = data[y][x];
+            }
+        }
+
+        return result;
+    }
+
+    template <typename type2>
+    mat operator/(type2 c)
+    {
+        mat result;
+
+        for (int y = 0; y < _rows; y++)
+            for (int x = 0; x < _cols; x++)
+            {
+                result.data[y][x] = data[y][x] / c;
+            }
+
+        return result;
+    }
+
+    template <typename type2>
+    mat operator*(type2 c)
+    {
+        mat result;
+
+        for (int y = 0; y < _rows; y++)
+            for (int x = 0; x < _cols; x++)
+            {
+                result.data[y][x] = data[y][x] * c;
+            }
+
+        return result;
+    }
+
+    mat dot(mat c)
+    {
+        mat result;
+
+        for (int y = 0; y < _rows; y++)
+            for (int x = 0; x < _cols; x++)
+            {
+                for (int z = 0; z < _cols; z++)
+                {
+                    result.data[y][x] += data[y][z] * c(z, x);
+                }
+            }
+
+        return result;
+    }
+
+    vec<type, _rows> dot(vec<type, _rows> c)
+    {
+        vec<type, _rows> result;
+
+        for (int y = 0; y < _rows; y++)
+            for (int z = 0; z < _cols; z++)
+                result(y) += data[y][z] * c(z);
+
+        return result;
+    }
+
+    void operator=(mat c)
+    {
+        for (int i = 0; i < _rows; i++)
+        {
+            for (int j = 0; j < _cols; j++)
+            {
+                data[i][j] = c(i, j);
+            }
+        }
+    }
+
+    type &operator()(int b, int c)
+    {
+        return data[b][c];
+    }
+
+    type operator()(int b, int c) const
+    {
+        return data[b][c];
+    }
+
+protected:
+    type data[_rows][_cols];
+};
+
+template <typename type>
+struct matx
+{
+    matx()
+    {
+        data = nullptr;
+        _rows = 0;
+        _cols = 0;
+    }
+
+    matx(int __rows, int __cols)
+    {
+        _rows = __rows;
+        _cols = __cols;
+        data = new type[_rows][_cols];
+    }
+
+    matx(const matx &other)
+    {
+        _rows = other.rows();
+        _cols = other.cols();
+
+        data = new type[_rows][_cols];
+
+        for (int y = 0; y < _rows; y++)
+            for (int x = 0; x < _cols; x++)
+                data[y][x] = other.data[y][x];
+    }
+
+    matx(Eigen::MatrixXf a)
+    {
+        _rows = a.rows();
+        _cols = a.cols();
+
+        data = new type[_rows][_cols];
+
+        for (int y = 0; y < _rows; y++)
+            for (int x = 0; x < _cols; x++)
+                data[y][x] = a(y, x);
+    }
+
+    static constexpr matx zero(int __rows, int __cols)
+    {
+        matx v(__rows, __cols);
+        for (int y = 0; y < __rows; y++)
+            for (int x = 0; x < __cols; x++)
+                v(y, x) = 0;
+        return v;
+    }
+
+    int rows()
+    {
+        return _rows;
+    }
+
+    int cols()
+    {
+        return _cols;
+    }
+
+    matx transpose()
+    {
+        matx result(_cols, _rows);
+
+        for (int y = 0; y < _rows; y++)
+        {
+            for (int x = 0; x < _cols; x++)
+            {
+                result(x, y) = data[y][x];
+            }
+        }
+
+        return result;
+    }
+
+    matx dot(matx c)
+    {
+        assert(_cols == c.rows());
+        assert(_rows == c.cols());
+
+        matx result(_rows, c.cols());
+
+        for (int y = 0; y < _rows; y++)
+            for (int x = 0; x < c.cols(); x++)
+            {
+                for (int z = 0; z < _cols; z++)
+                {
+                    result(y, x) += data[y][z] * c(z, x);
+                }
+            }
+
+        return result;
+    }
+
+    vecx<type> dot(vecx<type> c)
+    {
+        vecx<type> result(_rows);
+
+        for (int y = 0; y < _rows; y++)
+            for (int z = 0; z < _cols; z++)
+                result(y) += data[y][z] * c(z);
+
+        return result;
+    }
+
+    matx &operator=(const matx &other)
+    {
+        if (this != &other)
+        {
+            if (data != nullptr)
+                delete[] data;
+
+            _rows = other.rows();
+            _cols = other.cols();
+
+            data = new type[_rows][_cols];
+
+            for (int y = 0; y < _rows; y++)
+                for (int x = 0; x < _cols; x++)
+                    data[y][x] = other.data[y][x];
+        }
+        return *this;
+    }
+
+    template <typename type2>
+    matx operator*(type2 c)
+    {
+        matx result = matx(_rows, _cols);
+
+        for (int y = 0; y < _rows; y++)
+            for (int x = 0; x < _cols; x++)
+                result(y, x) = data[y][x] * c;
+
+        return result;
+    }
+
+    type &operator()(int c, int d)
+    {
+        return data[c][d];
+    }
+
+    type operator()(int c, int d) const
+    {
+        return data[c][d];
+    }
+
+private:
+    type *data;
+    int _rows;
+    int _cols;
+};
+
+template <typename type>
+struct vec1 : public vec<type, 1>
+{
+    vec1() : vec<type, 1>()
+    {
+    }
+
+    vec1(type x)
+    {
+        vec<type, 1>::data[0] = x;
+    }
+};
+
+template <typename type>
+struct vec2 : public vec<type, 2>
+{
+    vec2() : vec<type, 2>()
+    {
+    }
+
+    vec2(type x, type y)
+    {
+        vec<type, 2>::data[0] = x;
+        vec<type, 2>::data[1] = y;
+    }
+};
+
+template <typename type>
+struct mat3;
+
+template <typename type>
+struct vec3 : public vec<type, 3>
+{
+    vec3() : vec<type, 3>()
+    {
+    }
+
+    vec3(type x, type y, type z)
+    {
+        vec<type, 3>::data[0] = x;
+        vec<type, 3>::data[1] = y;
+        vec<type, 3>::data[2] = z;
+    }
+
+    vec3<type> cross(vec3<type> a)
+    {
+        vec3<type> result;
+        result(0) = vec<type, 3>::data[1] * a(2) - vec<type, 3>::data[2] * a(1);
+        result(1) = vec<type, 3>::data[2] * a(0) - vec<type, 3>::data[0] * a(2);
+        result(2) = vec<type, 3>::data[0] * a(1) - vec<type, 3>::data[1] * a(0);
+        return result;
+    }
+};
+
+template <typename type>
+struct mat6;
+
+template <typename type>
+struct vec6 : public vec<type, 6>
+{
+    vec6() : vec<type, 6>()
+    {
+    }
+
+    vec6(type x, type y, type z, type a, type b, type c)
+    {
+        vec<type, 6>::data[0] = x;
+        vec<type, 6>::data[1] = y;
+        vec<type, 6>::data[2] = z;
+        vec<type, 6>::data[3] = a;
+        vec<type, 6>::data[4] = b;
+        vec<type, 6>::data[5] = c;
+    }
+};
+
+template <typename type>
+struct mat8;
+
+template <typename type>
+struct vec8 : public vec<type, 8>
+{
+    vec8() : vec<type, 8>()
+    {
+    }
+
+    vec8(type x, type y, type z, type a, type b, type c, type d, type e)
+    {
+        vec<type, 8>::data[0] = x;
+        vec<type, 8>::data[1] = y;
+        vec<type, 8>::data[2] = z;
+        vec<type, 8>::data[3] = a;
+        vec<type, 8>::data[4] = b;
+        vec<type, 8>::data[5] = c;
+        vec<type, 8>::data[6] = d;
+        vec<type, 8>::data[7] = e;
+    }
+};
+
+template <typename type>
+struct mat3 : public mat<type, 3, 3>
+{
     /*
         mat3 inverse()
         {
@@ -869,424 +659,16 @@ struct mat3
     result(2,2) =  (A(0,0)*A(1,1)-A(1,0)*A(0,1))*invdet;
         }
         */
-
-    template <typename type2>
-    mat3 operator/(type2 c)
-    {
-        mat3<type> result;
-        /*
-        for (int y = 0; y < 3; y++)
-          for (int x = 0; x < 3; x++)
-          {
-            result.data[y][x] = data[y][x] / c;
-          }
-          */
-        result(0, 0) = data[0][0] / c;
-        result(0, 1) = data[0][1] / c;
-        result(0, 2) = data[0][2] / c;
-
-        result(1, 0) = data[1][0] / c;
-        result(1, 1) = data[1][1] / c;
-        result(1, 2) = data[1][2] / c;
-
-        result(2, 0) = data[2][0] / c;
-        result(2, 1) = this->operator()(2, 1) / c;
-        result(2, 2) = this->operator()(2, 2) / c;
-
-        return result;
-    }
-
-    template <typename type2>
-    mat3 operator*(type2 c)
-    {
-        mat3<type> result;
-        /*
-        for (int y = 0; y < 3; y++)
-          for (int x = 0; x < 3; x++)
-          {
-            result.data[y][x] = data[y][x] * c;
-          }
-          */
-
-        result(0, 0) = data[0][0] * c;
-        result(0, 1) = data[0][1] * c;
-        result(0, 2) = data[0][2] * c;
-
-        result(1, 0) = data[1][0] * c;
-        result(1, 1) = data[1][1] * c;
-        result(1, 2) = data[1][2] * c;
-
-        result(2, 0) = data[2][0] * c;
-        result(2, 1) = this->operator()(2, 1) * c;
-        result(2, 2) = this->operator()(2, 2) * c;
-
-        return result;
-    }
-
-    mat3 dot(mat3 c)
-    {
-        mat3<type> result;
-        /*
-        for (int y = 0; y < 3; y++)
-          for (int x = 0; x < 3; x++)
-          {
-            result.data[y][x] = data[y][0] * c(0, x) + data[y][1] * c(1, x) + data[y][2] * c(2, x);
-          }
-          */
-
-        result(0, 0) = data[0][0] * c(0, 0) + data[0][1] * c(1, 0) + data[0][2] * c(2, 0);
-        result(0, 1) = data[0][0] * c(0, 1) + data[0][1] * c(1, 1) + data[0][2] * c(2, 1);
-        result(0, 2) = data[0][0] * c(0, 2) + data[0][1] * c(1, 2) + data[0][2] * c(2, 2);
-
-        result(1, 0) = data[1][0] * c(0, 0) + data[1][1] * c(1, 0) + data[1][2] * c(2, 0);
-        result(1, 1) = data[1][0] * c(0, 1) + data[1][1] * c(1, 1) + data[1][2] * c(2, 1);
-        result(1, 2) = data[1][0] * c(0, 2) + data[1][1] * c(1, 2) + data[1][2] * c(2, 2);
-
-        result(2, 0) = data[2][0] * c(0, 0) + this->operator()(2, 1) * c(1, 0) + this->operator()(2, 2) * c(2, 0);
-        result(2, 1) = data[2][0] * c(0, 1) + this->operator()(2, 1) * c(1, 1) + this->operator()(2, 2) * c(2, 1);
-        result(2, 2) = data[2][0] * c(0, 2) + this->operator()(2, 1) * c(1, 2) + this->operator()(2, 2) * c(2, 2);
-
-        return result;
-    }
-
-    vec3<type> dot(vec3<type> c) const
-    {
-        vec3<type> result;
-        /*
-        for (int y = 0; y < 3; y++)
-          result(y) = data[y][0] * c(0) + data[y][1] * c(1) + data[y][2] * c(2);
-          */
-        result(0) = data[0][0] * c(0) + data[0][1] * c(1) + data[0][2] * c(2);
-        result(1) = data[1][0] * c(0) + data[1][1] * c(1) + data[1][2] * c(2);
-        result(2) = data[2][0] * c(0) + this->operator()(2, 1) * c(1) + this->operator()(2, 2) * c(2);
-
-        return result;
-    }
-
-    void operator=(mat3<type> c)
-    {
-        for (int i = 0; i < 3; i++)
-        {
-            for (int j = 0; j < 3; j++)
-            {
-                this->operator()(i, j) = c(i, j);
-            }
-        }
-    }
-
-    type &operator()(int b, int c)
-    {
-        return data[b][c];
-    }
-
-    type operator()(int b, int c) const
-    {
-        return data[b][c];
-    }
-
-private:
-    type data[3][3];
 };
 
 template <typename type>
-struct mat6
+struct mat6 : public mat<type, 6, 6>
 {
-    mat6()
-    {
-    }
-
-    mat6(type *data)
-    {
-        data[0][0] = data[0];
-        data[0][1] = data[1];
-        data[0][2] = data[2];
-        data[0][3] = data[3];
-        data[0][4] = data[4];
-        data[0][5] = data[5];
-
-        data[1][0] = data[6];
-        data[1][1] = data[7];
-        data[1][2] = data[8];
-        data[1][3] = data[9];
-        data[1][4] = data[10];
-        data[1][5] = data[11];
-
-        data[2][0] = data[12];
-        this->operator()(2, 1) = data[13];
-        this->operator()(2, 2) = data[14];
-        this->operator()(2, 3) = data[15];
-        this->operator()(2, 4) = data[16];
-        this->operator()(2, 5) = data[17];
-
-        this->operator()(3, 0) = data[18];
-        this->operator()(3, 1) = data[19];
-        this->operator()(3, 2) = data[20];
-        this->operator()(3, 3) = data[21];
-        this->operator()(3, 4) = data[22];
-        this->operator()(3, 5) = data[23];
-
-        this->operator()(4, 0) = data[24];
-        this->operator()(4, 1) = data[25];
-        this->operator()(4, 2) = data[26];
-        this->operator()(4, 3) = data[27];
-        this->operator()(4, 4) = data[28];
-        this->operator()(4, 5) = data[29];
-
-        this->operator()(5, 0) = data[30];
-        this->operator()(5, 1) = data[31];
-        this->operator()(5, 2) = data[32];
-        this->operator()(5, 3) = data[33];
-        this->operator()(5, 4) = data[34];
-        this->operator()(5, 5) = data[35];
-    }
-
-    void zero()
-    {
-
-        for (int y = 0; y < 6; y++)
-        {
-
-            for (int x = 0; x < 6; x++)
-            {
-                this->operator()(y, x) = 0.0;
-            }
-        }
-    }
-
-    void identity()
-    {
-
-        for (int y = 0; y < 6; y++)
-        {
-
-            for (int x = 0; x < 6; x++)
-            {
-                if (x == y)
-                    this->operator()(y, x) = 1.0;
-                else
-                    this->operator()(y, x) = 0.0;
-            }
-        }
-    }
-
-    template <typename type2>
-    mat6 operator/(type2 c)
-    {
-        mat6<type> result;
-        for (int y = 0; y < 6; y++)
-            for (int x = 0; x < 6; x++)
-            {
-                result(y, x) = this->operator()(y, x) / c;
-            }
-        return result;
-    }
-
-    template <typename type2>
-    mat6 operator*(type2 c)
-    {
-        mat6<type> result;
-        for (int y = 0; y < 6; y++)
-            for (int x = 0; x < 6; x++)
-            {
-                result(y, x) = type(this->operator()(y, x) * c);
-            }
-        return result;
-    }
-
-    mat6 operator+(mat6 c)
-    {
-        mat6<type> result;
-
-        for (int y = 0; y < 6; y++)
-        {
-
-            for (int x = 0; x < 6; x++)
-            {
-                result(y, x) = this->operator()(y, x) + c(y, x);
-            }
-        }
-        return result;
-    }
-
-    mat6 dot(mat6 c)
-    {
-        mat6<type> result;
-        for (int y = 0; y < 6; y++)
-            for (int x = 0; x < 6; x++)
-            {
-                for (int z = 0; z < 6; z++)
-                    result(y, x) += this->operator()(y, z) * c(z, y);
-            }
-
-        return result;
-    }
-
-    vec6<type> dot(vec6<type> c)
-    {
-        vec6<type> result;
-
-        for (int y = 0; y < 6; y++)
-        {
-
-            for (int x = 0; x < 6; x++)
-            {
-                result(y) += this->operator()(y, x) * c(x);
-            }
-        }
-        return result;
-    }
-
-    void operator=(mat6<type> c)
-    {
-
-        for (int i = 0; i < 6; i++)
-        {
-
-            for (int j = 0; j < 6; j++)
-            {
-                this->operator()(i, j) = c(i, j);
-            }
-        }
-    }
-
-    type &operator()(int b, int c)
-    {
-        return data[b][c];
-    }
-
-    type operator()(int b, int c) const
-    {
-        return data[b][c];
-    }
-
-private:
-    type data[6][6];
 };
 
 template <typename type>
 struct mat8
 {
-    mat8()
-    {
-    }
-
-    void zero()
-    {
-        for (int y = 0; y < 8; y++)
-        {
-            for (int x = 0; x < 8; x++)
-            {
-                data[y][x] = 0.0;
-            }
-        }
-    }
-
-    void identity()
-    {
-        for (int y = 0; y < 8; y++)
-        {
-            for (int x = 0; x < 8; x++)
-            {
-                if (x == y)
-                    data[y][x] = 1.0;
-                else
-                    data[y][x] = 0.0;
-            }
-        }
-    }
-
-    template <typename type2>
-    mat8 operator/(type2 c)
-    {
-        mat8<type> result;
-        for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 8; x++)
-            {
-                result(y, x) = data[y][x] / c;
-            }
-        return result;
-    }
-
-    template <typename type2>
-    mat8 operator*(type2 c)
-    {
-        mat8<type> result;
-        for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 8; x++)
-            {
-                result(y, x) = data[y][x] * c;
-            }
-        return result;
-    }
-
-    mat8 operator+(mat8 c)
-    {
-        mat8<type> result;
-
-        for (int y = 0; y < 8; y++)
-        {
-
-            for (int x = 0; x < 8; x++)
-            {
-                result(y, x) = data[y][x] + c(y, x);
-            }
-        }
-        return result;
-    }
-
-    mat8 dot(mat8 c)
-    {
-        mat8<type> result;
-        for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 8; x++)
-            {
-                for (int z = 0; z < 8; z++)
-                    result(y, x) += data[y][z] * c(z, y);
-            }
-
-        return result;
-    }
-
-    vec8<type> dot(vec8<type> c)
-    {
-        vec8<type> result;
-
-        for (int y = 0; y < 8; y++)
-        {
-
-            for (int x = 0; x < 8; x++)
-            {
-                result(y) += data[y][x] * c(x);
-            }
-        }
-        return result;
-    }
-
-    void operator=(mat8<type> c)
-    {
-
-        for (int i = 0; i < 8; i++)
-        {
-
-            for (int j = 0; j < 8; j++)
-            {
-                data[i][j] = c(i, j);
-            }
-        }
-    }
-
-    type &operator()(int b, int c)
-    {
-        return data[b][c];
-    }
-
-    type operator()(int b, int c) const
-    {
-        return data[b][c];
-    }
-
-private:
-    type data[8][8];
 };
 
 template <typename type>
@@ -1305,19 +687,6 @@ struct SO3
     SO3(mat3<type> mat)
     {
         matrix = mat;
-    }
-
-    SO3(type *r)
-    {
-        matrix(0, 0) = r[0];
-        matrix(0, 1) = r[1];
-        matrix(0, 2) = r[2];
-        matrix(1, 0) = r[3];
-        matrix(1, 1) = r[4];
-        matrix(1, 2) = r[5];
-        matrix(2, 0) = r[6];
-        matrix(2, 1) = r[7];
-        matrix(2, 2) = r[8];
     }
 
     void fromQuaternion(type qw, type qx, type qy, type qz)
