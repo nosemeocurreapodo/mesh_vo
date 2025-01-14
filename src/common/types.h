@@ -20,6 +20,14 @@ struct vec
             data[i] = other.data[i];
     }
 
+    vec(Eigen::VectorXf a)
+    {
+        assert(a.size() == _rows);
+
+        for (int i = 0; i < _rows; i++)
+            data[i] = a(i);
+    }
+
     static constexpr vec zero()
     {
         vec v;
@@ -172,12 +180,12 @@ struct vecx
         return v;
     }
 
-    int rows()
+    int rows() const
     {
         return _rows;
     }
 
-    static constexpr cols()
+    static constexpr int cols()
     {
         return 1;
     }
@@ -253,6 +261,16 @@ struct mat
             {
                 data[y][x] = 0.0;
             }
+    }
+
+    mat(Eigen::MatrixXf a)
+    {
+        assert(a.rows() == _rows);
+        assert(a.cols() == _cols);
+
+        for (int y = 0; y < _rows; y++)
+            for (int x = 0; x < _cols; x++)
+                data[y][x] = a(y, x);
     }
 
     static constexpr mat zero()
@@ -402,7 +420,7 @@ struct matx
     {
         _rows = __rows;
         _cols = __cols;
-        data = new type[_rows][_cols];
+        data = new type[_rows * _cols];
     }
 
     matx(const matx &other)
@@ -410,11 +428,11 @@ struct matx
         _rows = other.rows();
         _cols = other.cols();
 
-        data = new type[_rows][_cols];
+        data = new type[_rows * _cols];
 
         for (int y = 0; y < _rows; y++)
             for (int x = 0; x < _cols; x++)
-                data[y][x] = other.data[y][x];
+                data[y + _rows * x] = other(y, x);
     }
 
     matx(Eigen::MatrixXf a)
@@ -422,11 +440,11 @@ struct matx
         _rows = a.rows();
         _cols = a.cols();
 
-        data = new type[_rows][_cols];
+        data = new type[_rows * _cols];
 
         for (int y = 0; y < _rows; y++)
             for (int x = 0; x < _cols; x++)
-                data[y][x] = a(y, x);
+                data[y + _rows * x] = a(y, x);
     }
 
     static constexpr matx zero(int __rows, int __cols)
@@ -438,12 +456,12 @@ struct matx
         return v;
     }
 
-    int rows()
+    int rows() const
     {
         return _rows;
     }
 
-    int cols()
+    int cols() const
     {
         return _cols;
     }
@@ -456,7 +474,7 @@ struct matx
         {
             for (int x = 0; x < _cols; x++)
             {
-                result(x, y) = data[y][x];
+                result(x, y) = data[y + _rows * x];
             }
         }
 
@@ -475,7 +493,7 @@ struct matx
             {
                 for (int z = 0; z < _cols; z++)
                 {
-                    result(y, x) += data[y][z] * c(z, x);
+                    result(y, x) += data[y + _rows * z] * c(z, x);
                 }
             }
 
@@ -488,7 +506,7 @@ struct matx
 
         for (int y = 0; y < _rows; y++)
             for (int z = 0; z < _cols; z++)
-                result(y) += data[y][z] * c(z);
+                result(y) += data[y + _rows * z] * c(z);
 
         return result;
     }
@@ -503,11 +521,11 @@ struct matx
             _rows = other.rows();
             _cols = other.cols();
 
-            data = new type[_rows][_cols];
+            data = new type[_rows * _cols];
 
             for (int y = 0; y < _rows; y++)
                 for (int x = 0; x < _cols; x++)
-                    data[y][x] = other.data[y][x];
+                    data[y + _rows * x] = other(y, x);
         }
         return *this;
     }
@@ -519,19 +537,19 @@ struct matx
 
         for (int y = 0; y < _rows; y++)
             for (int x = 0; x < _cols; x++)
-                result(y, x) = data[y][x] * c;
+                result(y, x) = data[y + _rows * x] * c;
 
         return result;
     }
 
     type &operator()(int c, int d)
     {
-        return data[c][d];
+        return data[c + _rows * d];
     }
 
     type operator()(int c, int d) const
     {
-        return data[c][d];
+        return data[c + _rows * d];
     }
 
 private:
@@ -560,10 +578,20 @@ struct vec2 : public vec<type, 2>
     {
     }
 
+    vec2(const vec<type, 2> &other) : vec<type, 2>(other)
+    {
+    }
+
     vec2(type x, type y)
     {
         vec<type, 2>::data[0] = x;
         vec<type, 2>::data[1] = y;
+    }
+
+    vec2(Eigen::Vector2f a)
+    {
+        vec<type, 2>::data[0] = a(0);
+        vec<type, 2>::data[1] = a(1);
     }
 };
 
@@ -577,11 +605,22 @@ struct vec3 : public vec<type, 3>
     {
     }
 
+    vec3(const vec<type, 3> &other) : vec<type, 3>(other)
+    {
+    }
+
     vec3(type x, type y, type z)
     {
         vec<type, 3>::data[0] = x;
         vec<type, 3>::data[1] = y;
         vec<type, 3>::data[2] = z;
+    }
+
+    vec3(Eigen::Vector3f a)
+    {
+        vec<type, 3>::data[0] = a(0);
+        vec<type, 3>::data[1] = a(1);
+        vec<type, 3>::data[2] = a(2);
     }
 
     vec3<type> cross(vec3<type> a)
@@ -604,6 +643,10 @@ struct vec6 : public vec<type, 6>
     {
     }
 
+    vec6(const vec<type, 6> &other) : vec<type, 6>(other)
+    {
+    }
+
     vec6(type x, type y, type z, type a, type b, type c)
     {
         vec<type, 6>::data[0] = x;
@@ -612,6 +655,16 @@ struct vec6 : public vec<type, 6>
         vec<type, 6>::data[3] = a;
         vec<type, 6>::data[4] = b;
         vec<type, 6>::data[5] = c;
+    }
+
+    vec6(Eigen::Matrix<float, 6, 1> a)
+    {
+        vec<type, 6>::data[0] = a(0);
+        vec<type, 6>::data[1] = a(1);
+        vec<type, 6>::data[2] = a(2);
+        vec<type, 6>::data[3] = a(3);
+        vec<type, 6>::data[4] = a(4);
+        vec<type, 6>::data[5] = a(5);
     }
 };
 
@@ -622,6 +675,10 @@ template <typename type>
 struct vec8 : public vec<type, 8>
 {
     vec8() : vec<type, 8>()
+    {
+    }
+
+    vec8(const vec<type, 8> &other) : vec<type, 8>(other)
     {
     }
 
@@ -636,11 +693,38 @@ struct vec8 : public vec<type, 8>
         vec<type, 8>::data[6] = d;
         vec<type, 8>::data[7] = e;
     }
+
+    vec8(Eigen::Matrix<float, 8, 1> a)
+    {
+        vec<type, 8>::data[0] = a(0);
+        vec<type, 8>::data[1] = a(1);
+        vec<type, 8>::data[2] = a(2);
+        vec<type, 8>::data[3] = a(3);
+        vec<type, 8>::data[4] = a(4);
+        vec<type, 8>::data[5] = a(5);
+        vec<type, 8>::data[6] = a(6);
+        vec<type, 8>::data[7] = a(7);
+    }
 };
 
 template <typename type>
 struct mat3 : public mat<type, 3, 3>
 {
+    mat3() : mat<type, 3, 3>()
+    {
+    }
+
+    mat3(const mat<type, 3, 3> &other) : mat<type, 3, 3>(other)
+    {
+    }
+
+    mat3(Eigen::Matrix3f a)
+    {
+        for (int y = 0; y < 3; y++)
+            for (int x = 0; x < 3; x++)
+                mat<type, 3, 3>::data[y][x] = a(y, x);
+    }
+
     /*
         mat3 inverse()
         {
@@ -664,11 +748,39 @@ struct mat3 : public mat<type, 3, 3>
 template <typename type>
 struct mat6 : public mat<type, 6, 6>
 {
+    mat6() : mat<type, 6, 6>()
+    {
+    }
+
+    mat6(const mat<type, 6, 6> &other) : mat<type, 6, 6>(other)
+    {
+    }
+
+    mat6(Eigen::Matrix<float, 6, 6> a)
+    {
+        for (int y = 0; y < 6; y++)
+            for (int x = 0; x < 6; x++)
+                mat<type, 6, 6>::data[y][x] = a(y, x);
+    }
 };
 
 template <typename type>
-struct mat8
+struct mat8 : public mat<type, 8, 8>
 {
+    mat8() : mat<type, 8, 8>()
+    {
+    }
+
+    mat8(const mat<type, 8, 8> &other) : mat<type, 8, 8>(other)
+    {
+    }
+
+    mat8(Eigen::Matrix<float, 8, 8> a)
+    {
+        for (int y = 0; y < 8; y++)
+            for (int x = 0; x < 8; x++)
+                mat<type, 8, 8>::data[y][x] = a(y, x);
+    }
 };
 
 template <typename type>

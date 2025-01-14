@@ -27,12 +27,13 @@
 #include "params.h"
 
 template <typename sceneType, typename jmapType, typename idsType>
-class mapOptimizerCPU : public baseOptimizerCPU<sceneType>
+class poseMapOptimizerCPU : public baseOptimizerCPU<sceneType>
 {
 public:
-    mapOptimizerCPU(camera &_cam)
+    poseMapOptimizerCPU(camera &_cam)
         : baseOptimizerCPU<sceneType>(_cam),
-          j_buffer(_cam.width, _cam.height, jmapType::zero()),
+          jpose_buffer(_cam.width, _cam.height, vec6<float>::zero()),
+          jmap_buffer(_cam.width, _cam.height, jmapType::zero()),
           pId_buffer(_cam.width, _cam.height, idsType::zero())
     {
         reguWeight = 1.0;
@@ -42,20 +43,28 @@ public:
     void optimize(std::vector<frameCPU> &frames, frameCPU &kframe, sceneType &scene)
     {
         std::vector<int> sceneParamsIds = scene.getParamIds();
-        int numParams = sceneParamsIds.size();
+        int numPoseParams = frames.size() * 6;
+        int numMapParams = sceneParamsIds.size();
+        int numParams = numPoseParams + numMapParams;
 
         Eigen::VectorXf init_params = Eigen::VectorXf::Zero(numParams);
+
+        for(size_t i = 0; i < frames.size(); i++)
+        {
+            Eigen::Matrix<float, 6, 1> pose = frames[i].getPose().log();
+            init_params.segment<6>(i*6) = pose;
+        }
+
         for (size_t i = 0; i < sceneParamsIds.size(); i++)
         {
             float param = scene.getParam(sceneParamsIds[i]);
-            init_params(i) = param;
+            init_params(i + frames.size() * 6) = param;
         }
 
-        if (invCovariance.rows() != numParams || invCovariance.cols() != numParams)
-        {
-            invCovariance = Eigen::MatrixXf::Identity(numParams, numParams) / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
-        }
-
+        invCovariance = Eigen::MatrixXf::Identity(numParams, numParams);
+        invCovariance.segment(0, 0, numPoseParams, numPoseParams) *= 1.0 / (INITIAL_POSE_STD * INITIAL_POSE_STD);
+        invCovariance.segment(numPoseParams, numPoseParams, numMapParams, numMapParams) *= 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+        
         Eigen::MatrixXf init_invcovariance = invCovariance;
         Eigen::MatrixXf init_invcovariancesqrt = invCovariance.sqrt();
 
@@ -83,9 +92,15 @@ public:
             if (priorWeight > 0.0)
             {
                 Eigen::VectorXf params(numParams);
+                for(size_t index = 0; index < frames.size(); index++)
+                {
+                    Eigen::Matrix<float, 6, 1> pose = frames[index].getPose().log();
+                    params.segment(index*6, 6) = pose;
+                }
+
                 for (size_t index = 0; index < sceneParamsIds.size(); index++)
                 {
-                    params(index) = scene.getParam(sceneParamsIds[index]);
+                    params(index + numPoseParams) = scene.getParam(sceneParamsIds[index]);
                 }
 
                 Eigen::VectorXf res = params - init_params;
@@ -117,7 +132,7 @@ public:
 
                 if (reguWeight > 0.0)
                 {
-                    DenseLinearProblem hg_regu = scene.HGRegu(0);
+                    DenseLinearProblem hg_regu = scene.HGRegu(numPoseParams);
                     assert(hg_regu.getCount() > 0);
                     hg_regu *= 1.0 / hg_regu.getCount();
                     hg_regu *= reguWeight;
@@ -127,10 +142,17 @@ public:
                 if (priorWeight > 0.0)
                 {
                     Eigen::VectorXf params = Eigen::VectorXf::Zero(numParams);
+                    
+                    for(size_t index = 0; index < frames.size(); index++)
+                    {
+                        Eigen::Matrix<float, 6, 1> pose = frames[index].getPose().log();
+                        params.segment(index*6, 6) = pose;
+                    }
+
                     for (size_t i = 0; i < numParams; i++)
                     {
                         float param = scene.getParam(sceneParamsIds[i]);
-                        params(i) = param;
+                        sceneParams(i + numPoseParams) = param;
                     }
                     // error = (sqrt(H)*diff)**2
                     // jacobian = sqrt(H)*ones
@@ -211,9 +233,16 @@ public:
                     if (priorWeight > 0.0)
                     {
                         Eigen::VectorXf params(numParams);
+
+                        for(size_t index = 0; index < frames.size(); index++)
+                        {
+                            Eigen::Matrix<float, 6, 1> pose = frames[index].getPose().log();
+                            params.segment(index*6, 6) = pose;
+                        }
+
                         for (size_t index = 0; index < sceneParamsIds.size(); index++)
                         {
-                            params(index) = scene.getParam(sceneParamsIds[index]);
+                            sceneParams(index + numPoseParams) = scene.getParam(sceneParamsIds[index]);
                         }
 
                         Eigen::VectorXf res = params - init_params;
@@ -276,8 +305,8 @@ private:
 
         int numMapParams = scene.getParamIds().size();
 
-        baseOptimizerCPU<sceneType>::renderer.renderJMapParallel(scene, kframe.getRawImage(lvl), kframe.getAffine(), kframe.getPose(), frame.getRawImage(lvl), frame.getAffine(), frame.getdIdpixImage(lvl), frame.getPose(), baseOptimizerCPU<sceneType>::cam[lvl], j_buffer.get(lvl), baseOptimizerCPU<sceneType>::error_buffer.get(lvl), pId_buffer.get(lvl));
-        DenseLinearProblem problem = baseOptimizerCPU<sceneType>::reducer.reduceHGMapParallel(numMapParams, j_buffer.get(lvl), baseOptimizerCPU<sceneType>::error_buffer.get(lvl), pId_buffer.get(lvl));
+        baseOptimizerCPU<sceneType>::renderer.renderJPoseMapParallel(scene, kframe.getRawImage(lvl), kframe.getAffine(), kframe.getPose(), frame.getRawImage(lvl), frame.getAffine(), frame.getdIdpixImage(lvl), frame.getPose(), baseOptimizerCPU<sceneType>::cam[lvl], jmap_buffer.get(lvl), baseOptimizerCPU<sceneType>::error_buffer.get(lvl), pId_buffer.get(lvl));
+        DenseLinearProblem problem = baseOptimizerCPU<sceneType>::reducer.reduceHGPoseMapParallel(numMapParams, jmap_buffer.get(lvl), baseOptimizerCPU<sceneType>::error_buffer.get(lvl), pId_buffer.get(lvl));
 
         return problem;
     }
@@ -285,7 +314,8 @@ private:
     float reguWeight;
     float priorWeight;
 
-    dataMipMapCPU<jmapType> j_buffer;
+    dataMipMapCPU<vec6<float>> jpose_buffer;
+    dataMipMapCPU<jmapType> jmap_buffer;
     dataMipMapCPU<idsType> pId_buffer;
 
     Eigen::MatrixXf invCovariance;

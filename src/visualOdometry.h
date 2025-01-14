@@ -16,6 +16,7 @@
 
 #include "optimizers/poseOptimizerCPU.h"
 #include "optimizers/mapOptimizerCPU.h"
+#include "optimizers/poseMapOptimizerCPU.h"
 #include "optimizers/sceneOptimizerCPU.h"
 
 template <typename sceneType>
@@ -56,7 +57,8 @@ private:
 
     poseOptimizerCPU<SceneMesh> poseOptimizer;
     mapOptimizerCPU<SceneMesh, vec3<float>, vec3<int>> mapOptimizer;
-    sceneOptimizerCPU<SceneMesh, vec3<float>, vec3<int>> sceneOptimizer;
+    poseMapOptimizerCPU<SceneMesh, vec3<float>, vec3<int>> poseMapOptimizer;
+    //sceneOptimizerCPU<SceneMesh, vec3<float>, vec3<int>> sceneOptimizer;
     
     renderCPU<sceneType> renderer;
 };

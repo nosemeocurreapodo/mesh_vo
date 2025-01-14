@@ -21,8 +21,6 @@ sceneOptimizerCPU<sceneType, jmapType, idsType>::sceneOptimizerCPU(camera &_cam)
     sceneRegularization = 0.0;
     sceneInitial = 10.0;
     poseInitial = 0.0;
-
-
 }
 
 template <typename sceneType, typename jmapType, typename idsType>
@@ -535,16 +533,22 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
             {
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
-                    Eigen::Matrix<float, 6, 1> _pose_error = frames[i].getPose().log() - init_poses[i];
-                    vec8<float> pose_error = vec8<float>(_pose_error(0), _pose_error(1), _pose_error(2), _pose_error(3),
-                                                         _pose_error(4), _pose_error(5), 0.0, 0.0) *
-                                             poseInitial / frames.size();
-                    vec8<float> pose_jac = vec8<float>(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0) * poseInitial / frames.size();
+                    Eigen::Matrix<float, 6, 1> pose_error = frames[i].getPose().log() - init_poses[i];                    
+                    Eigen::Matrix<float, 6, 6> pose_jac;
+                    pose_jac(0, 0) = 1.0;
+                    pose_jac(1, 1) = 1.0;
+                    pose_jac(2, 2) = 1.0;
+                    pose_jac(3, 3) = 1.0;
+                    pose_jac(4, 4) = 1.0;
+                    pose_jac(5, 5) = 1.0;
+
+                    float weights = poseInitial / frames.size();
+
                     vec8<int> pose_ids;
                     for (int j = 0; j < 8; j++)
                         pose_ids(j) = i * 8 + j - frames.size() * 8;
 
-                    hg.add(pose_jac, pose_error, 1.0, pose_ids);
+                    hg.add(pose_jac, pose_error, weights, pose_ids);
                 }
             }
 

@@ -40,11 +40,11 @@ public:
 
         m_count++;
 
-        jacType J = jac.dot(jac.transpose());
-        errType G = jac.dot(error);
+        jacType J = jac * jac.transpose();
+        errType G = jac * error;
 
-        //m_G += G * weight;
-        //m_H += J * weight;
+        m_G += G * weight;
+        m_H += J * weight;
     }
 
     // for vector error (not scalar error like pixel errors)
@@ -58,17 +58,17 @@ public:
 
         m_count++;
 
-        jacType J = jac.dot(jac.transpose());
-        errType G = jac.dot(error);
+        jacType J = jac * jac.transpose();
+        errType G = jac * error;
 
-        //m_G += G * weight;
-        //m_H += J * weight;
+        m_G += G * weight;
+        m_H += J * weight;
     }
 
     template <typename jacType>
     void add(jacType jac, float error, float weight)
     {
-        assert(jac.size() == m_numParams);
+        assert(jac.rows() == m_numParams);
 
         m_count++;
 
@@ -95,7 +95,7 @@ public:
         assert(jac.rows() == ids.rows());
         assert(jac.cols() == 1);
         assert(ids.cols() == 1);
-        assert(jac.size() <= m_numParams);
+        assert(jac.rows() <= m_numParams);
 
         m_count++;
 

@@ -254,14 +254,7 @@ void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
     if (optimize)
     {
         t.tic();
-        /*
-        sceneOptimizer.optMap(keyFrames, kframe, scene);
-        for(auto &keyframe : keyFrames)
-        {
-            sceneOptimizer.optPose(keyframe, kframe, scene);
-        }
-        */
-        sceneOptimizer.optPoseMap(keyFrames, kframe, scene);
+        poseMapOptimizer.optPoseMap(keyFrames, kframe, scene);
         std::cout << "optposemap time: " << t.toc() << std::endl;
 
         // sync the updated keyframe poses present in lastframes

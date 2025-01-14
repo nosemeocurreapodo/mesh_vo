@@ -33,13 +33,15 @@ public:
         : baseOptimizerCPU<sceneType>(_cam),
           j_buffer(_cam.width, _cam.height, vec6<float>::zero())
     {
-        priorWeight = 10.0;
+        priorWeight = 0.0;
+        invCovariance = Eigen::Matrix<float, 6, 6>::Identity();
     }
 
     void optimize(frameCPU &frame, frameCPU &kframe, sceneType &scene)
     {
         Eigen::Matrix<float, 6, 1> init_pose = frame.getPose().log();
         Eigen::Matrix<float, 6, 6> init_invcovariance = invCovariance;
+        Eigen::Matrix<float, 6, 6> init_invcovariancesqrt = invCovariance.sqrt();
 
         for (int lvl = 2; lvl >= 2; lvl--)
         {
@@ -70,13 +72,13 @@ public:
 
                 if (priorWeight > 0.0)
                 {
-                    //error = diff * (H * diff)
-                    //jacobian = ones * (H * diff) + diff ( H * ones)
-                    Eigen::Matrix<float, 6, 1> _res = init_invcovariancesqrt * (frame.getPose().log() - init_pose);
-                    Eigen::Matrix<float, 6, 6> _jacobian = init_invcovariancesqrt;
+                    // error = diff * (H * diff)
+                    // jacobian = ones * (H * diff) + diff ( H * ones)
+                    Eigen::Matrix<float, 6, 1> res = init_invcovariancesqrt * (frame.getPose().log() - init_pose);
+                    Eigen::Matrix<float, 6, 6> jacobian = init_invcovariancesqrt;
                     float weight = priorWeight / 6;
-                    vec6<float> res(_res);
-                    mat6<float> jacobian(_jacobian);
+                    // vec6<float> res(_res);
+                    // mat6<float> jacobian(_jacobian);
                     problem.add(jacobian, res, weight);
                 }
 
