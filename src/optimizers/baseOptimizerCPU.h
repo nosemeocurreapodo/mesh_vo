@@ -86,12 +86,12 @@ protected:
         return e;
     }
 
+    cameraMipMap cam;
+
     dataMipMapCPU<float> image_buffer;
     dataMipMapCPU<float> idepth_buffer;
     dataMipMapCPU<float> error_buffer;
 
     renderCPU<sceneType> renderer;
     reduceCPU reducer;
-
-    cameraMipMap cam;
 };

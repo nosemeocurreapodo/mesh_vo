@@ -10,7 +10,10 @@ public:
         width = _width;
         height = _height;
         m_data = new (std::nothrow) Type[width * height];
-        assert(m_data != nullptr);
+        if (m_data == nullptr)
+        {
+            throw std::bad_alloc();
+        }
         set(_nodata_value);
     }
 
@@ -20,7 +23,10 @@ public:
         width = other.width;
         height = other.height;
         m_data = new (std::nothrow) Type[width * height];
-        std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
+        //std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
+        for(int y = 0; y < height; y++)
+            for(int x = 0; x < width; x++)
+                set(other.get(y, x), y, x);
     }
 
     dataCPU &operator=(const dataCPU &other)
@@ -33,17 +39,21 @@ public:
             width = other.width;
             height = other.height;
 
-            std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
+            //std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
+            for(int y = 0; y < height; y++)
+                for(int x = 0; x < width; x++)
+                    set(other.get(y, x), y, x);
         }
         return *this;
     }
 
     ~dataCPU()
     {
-        delete m_data;
+        delete[] m_data;
+        m_data = nullptr;
     }
 
-    void set(Type value, int y, int x)
+    void set(const Type value, int y, int x)
     {
         assert(y >= 0 && x >= 0 && y < height && x < width);
 
@@ -51,19 +61,19 @@ public:
         m_data[address] = value;
     }
 
-    void set(Type value, float y, float x)
+    void set(const Type value, float y, float x)
     {
         set(value, int(y), int(x));
     }
 
-    void setNormalized(Type value, float norm_y, float norm_x)
+    void setNormalized(const Type value, float norm_y, float norm_x)
     {
         float y = norm_y * height;
         float x = norm_x * width;
         set(value, int(y), int(x));
     }
 
-    void set(Type value)
+    void set(const Type value)
     {
         std::fill_n(m_data, width * height, value);
 
@@ -82,7 +92,7 @@ public:
         std::memcpy(m_data, data, sizeof(Type) * width * height);
     }
 
-    Type get(int y, int x)
+    Type get(int y, int x) const
     {
         assert(y >= 0 && x >= 0 && y < height && x < width);
 
@@ -90,12 +100,12 @@ public:
         return m_data[address];
     }
 
-    Type get(float y, float x)
+    Type get(float y, float x) const
     {
         return bilinear(y, x);
     }
 
-    Type getNormalized(float norm_y, float norm_x)
+    Type getNormalized(float norm_y, float norm_x) const
     {
         float x = norm_x * width;
         float y = norm_y * height;
@@ -210,7 +220,7 @@ public:
     int height;
 
 private:
-    inline Type bilinear(float y, float x)
+    Type bilinear(float y, float x) const
     {
         // bilinear interpolation (-2 because the read the next pixel)
         // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
@@ -244,7 +254,7 @@ private:
         return pix;
     }
 
-    Type area(int y, int x)
+    Type area(int y, int x) const
     {
         // bilinear interpolation (-2 because the read the next pixel)
         // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
@@ -293,7 +303,7 @@ public:
 
     dataMipMapCPU(const dataMipMapCPU &other)
     {
-        for (int lvl = 0; lvl < other.data.size(); lvl++)
+        for (size_t lvl = 0; lvl < other.data.size(); lvl++)
         {
             dataCPU<Type> lvlData = other.data[lvl];
             data.push_back(lvlData);
@@ -306,7 +316,7 @@ public:
         {
             assert(data.size() == other.data.size());
 
-            for (int lvl = 0; lvl < other.data.size(); lvl++)
+            for (size_t lvl = 0; lvl < other.data.size(); lvl++)
             {
                 data[lvl] = other.data[lvl];
             }
@@ -372,7 +382,7 @@ public:
 
     void generateMipmaps(int baselvl = 0)
     {
-        for (int lvl = baselvl + 1; lvl < data.size(); lvl++)
+        for (size_t lvl = baselvl + 1; lvl < data.size(); lvl++)
         {
             dataCPU<Type> d = data[lvl - 1].generateMipmap();
             data[lvl] = d;

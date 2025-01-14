@@ -18,12 +18,12 @@ public:
     {
         assert(vertices.size() <= MAX_VERTEX_SIZE);
 
-        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (size_t i = 0; i < MAX_VERTEX_SIZE; i++)
         {
             m_vertices[i].used = false;
         }
 
-        for (int i = 0; i < vertices.size(); i++)
+        for (size_t i = 0; i < vertices.size(); i++)
         {
             vec3<float> vertice = vertices[i];
             vec3<float> ray = vertice/vertice(2);
@@ -37,13 +37,12 @@ public:
     {
         assert(texcoords.size() == idepths.size() && texcoords.size() <= MAX_VERTEX_SIZE);
 
-
-        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (size_t i = 0; i < MAX_VERTEX_SIZE; i++)
         {
             m_vertices[i].used = false;
         }
 
-        for (int i = 0; i < texcoords.size(); i++)
+        for (size_t i = 0; i < texcoords.size(); i++)
         {
             vec2<float> pix = texcoords[i];
             float idph = idepths[i];

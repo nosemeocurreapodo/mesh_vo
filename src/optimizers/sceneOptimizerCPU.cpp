@@ -9,10 +9,10 @@ sceneOptimizerCPU<sceneType, jmapType, idsType>::sceneOptimizerCPU(camera &_cam)
       image_buffer(_cam.width, _cam.height, -1.0),
       idepth_buffer(_cam.width, _cam.height, -1.0),
       error_buffer(_cam.width, _cam.height, -1.0),
-      jexp_buffer(_cam.width, _cam.height, vec2<float>(0.0)),
-      jpose_buffer(_cam.width, _cam.height, vec6<float>(0.0)),
-      jmap_buffer(_cam.width, _cam.height, jmapType(0.0)),
-      pId_buffer(_cam.width, _cam.height, idsType(-1)),
+      jexp_buffer(_cam.width, _cam.height, vec2<float>::zero()),
+      jpose_buffer(_cam.width, _cam.height, vec6<float>::zero()),
+      jmap_buffer(_cam.width, _cam.height, jmapType::zero()),
+      pId_buffer(_cam.width, _cam.height, idsType::zero()),
       debug_buffer(_cam.width, _cam.height, -1.0),
       renderer(_cam.width, _cam.height)
 {
@@ -302,8 +302,8 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optMap(std::vector<frameCP
 
                     float res = scene.getParam(sceneParamId) - init_sceneParams[sceneParamId];
 
-                    vec1<float> jacobian = 1.0;
-                    vec1<int> ids = linearProblemParamId;
+                    vec1<float> jacobian = vec1<float>(1.0f);
+                    vec1<int> ids = vec1<int>(linearProblemParamId);
                     hg.add(jacobian, res, 1.0, ids);
                 }
             }

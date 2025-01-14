@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vector>
+#include <Eigen/Core>
 
 template <typename type>
 struct vec1
@@ -9,15 +9,35 @@ struct vec1
     {
     }
 
-    template <typename type2>
-    vec1(type2 x)
+    vec1(const vec1 &other)
+    {
+        data = other.data;
+    }
+
+    vec1(type x)
     {
         data = x;
+    }
+
+    static constexpr vec1 zero()
+    {
+        vec1 v;
+        v(0) = 0;
+        return v;
     }
 
     static constexpr int size()
     {
         return 1;
+    }
+
+    vec1 &operator=(const vec1 &other)
+    {
+        if (this != &other)
+        {
+            data = other.data;
+        }
+        return *this;
     }
 
     template <typename type2>
@@ -80,11 +100,10 @@ struct vec2
     {
     }
 
-    template <typename type2>
-    vec2(type2 x)
+    vec2(const vec2 &other)
     {
-        data[0] = x;
-        data[1] = x;
+        for (int i = 0; i < 2; i++)
+            data[i] = other.data[i];
     }
 
     template <typename type2>
@@ -92,6 +111,14 @@ struct vec2
     {
         data[0] = x;
         data[1] = y;
+    }
+
+    static constexpr vec2 zero()
+    {
+        vec2 v;
+        for(int i = 0; i < 2; i++)  
+            v(i) = 0;
+        return v;
     }
 
     static constexpr int size()
@@ -102,6 +129,16 @@ struct vec2
     type norm()
     {
         return sqrt(data[0] * data[0] + data[1] * data[1]);
+    }
+
+    vec2 &operator=(const vec2 &other)
+    {
+        if (this != &other)
+        {
+            for (int i = 0; i < 2; i++)
+                data[i] = other.data[i];
+        }
+        return *this;
     }
 
     template <typename type2>
@@ -182,11 +219,10 @@ struct vec3
     {
     }
 
-    vec3(type x)
+    vec3(const vec3 &other)
     {
-        data[0] = x;
-        data[1] = x;
-        data[2] = x;
+        for (int i = 0; i < 3; i++)
+            data[i] = other.data[i];
     }
 
     vec3(type x, type y, type z)
@@ -194,6 +230,14 @@ struct vec3
         data[0] = x;
         data[1] = y;
         data[2] = z;
+    }
+
+    static constexpr vec3 zero()
+    {
+        vec3 v;
+        for(int i = 0; i < 3; i++)  
+            v(i) = 0;
+        return v;
     }
 
     static constexpr int size()
@@ -241,6 +285,16 @@ struct vec3
     type norm()
     {
         return sqrt(data[0] * data[0] + data[1] * data[1] + data[2] * data[2]);
+    }
+
+    vec3 &operator=(const vec3 &other)
+    {
+        if (this != &other)
+        {
+            for (int i = 0; i < 3; i++)
+                data[i] = other.data[i];
+        }
+        return *this;
     }
 
     template <typename type2>
@@ -321,14 +375,10 @@ struct vec6
     {
     }
 
-    vec6(type x)
+    vec6(const vec6 &other)
     {
-        data[0] = x;
-        data[1] = x;
-        data[2] = x;
-        data[3] = x;
-        data[4] = x;
-        data[5] = x;
+        for (int i = 0; i < 6; i++)
+            data[i] = other.data[i];
     }
 
     vec6(type x, type y, type z, type a, type b, type c)
@@ -339,6 +389,14 @@ struct vec6
         data[3] = a;
         data[4] = b;
         data[5] = c;
+    }
+
+    static constexpr vec6 zero()
+    {
+        vec6 v;
+        for(int i = 0; i < 6; i++)  
+            v(i) = 0;
+        return v;
     }
 
     static int size()
@@ -357,6 +415,16 @@ struct vec6
         */
         result = data[0] * b(0) + data[1] * b(1) + data[2] * b(2) + data[3] * b(3) + data[4] * b(4) + data[5] * b(5);
         return result;
+    }
+
+    vec6 &operator=(const vec6 &other)
+    {
+        if (this != &other)
+        {
+            for (int i = 0; i < 6; i++)
+                data[i] = other.data[i];
+        }
+        return *this;
     }
 
     vec6<type> operator+(vec6<type> c)
@@ -453,16 +521,10 @@ struct vec8
     {
     }
 
-    vec8(type x)
+    vec8(const vec8 &other)
     {
-        data[0] = x;
-        data[1] = x;
-        data[2] = x;
-        data[3] = x;
-        data[4] = x;
-        data[5] = x;
-        data[6] = x;
-        data[7] = x;
+        for (int i = 0; i < 8; i++)
+            data[i] = other.data[i];
     }
 
     vec8(type x, type y, type z, type a, type b, type c, type d, type e)
@@ -475,6 +537,14 @@ struct vec8
         data[5] = c;
         data[6] = d;
         data[7] = e;
+    }
+
+    static constexpr vec8 zero()
+    {
+        vec8 v;
+        for(int i = 0; i < 8; i++)  
+            v(i) = 0;
+        return v;
     }
 
     static constexpr int size()
@@ -493,6 +563,16 @@ struct vec8
         */
         result = data[0] * b(0) + data[1] * b(1) + data[2] * b(2) + data[3] * b(3) + data[4] * b(4) + data[5] * b(5) + data[6] * b(6) + data[7] * b(7);
         return result;
+    }
+
+    vec8 &operator=(const vec8 &other)
+    {
+        if (this != &other)
+        {
+            for (int i = 0; i < 8; i++)
+                data[i] = other.data[i];
+        }
+        return *this;
     }
 
     vec8<type> operator+(vec8<type> c)
@@ -588,22 +668,50 @@ private:
     type data[8];
 };
 
-template <int s, typename type>
+template <typename type>
 struct vecx
 {
     vecx()
     {
+        data = nullptr;
+        data_size = 0;
     }
 
-    vecx(type a)
+    vecx(int size)
     {
-        for (int i = 0; i < s; i++)
-            data[i] = a;
+        data_size = size;
+        data = new type[data_size];
     }
 
-    static int size()
+    vecx(const vecx &other)
+    {        
+        data_size = other.size();
+        data = new type[data_size];
+
+        for (int i = 0; i < data_size; i++)
+            data[i] = other.data[i];
+    }
+
+    vecx(Eigen::VectorXf a)
     {
-        return s;
+        data_size = a.size();
+        data = new type[data_size];
+
+        for (int i = 0; i < data_size; i++)
+            data[i] = a(i);
+    }
+
+    static constexpr vecx zero(int size)
+    {
+        vecx v(size);
+        for(int i = 0; i < size; i++)  
+            v(i) = 0;
+        return v;
+    }
+    
+    int size() const
+    {
+        return data_size;
     }
 
     /*
@@ -616,11 +724,28 @@ struct vecx
     }
     */
 
+    vecx &operator=(const vecx &other)
+    {
+        if (this != &other)
+        {
+            if(data != nullptr)
+                delete[] data;
+
+            data_size = other.size();
+            data = new type[data_size];
+
+            for (int i = 0; i < data_size; i++)
+                data[i] = other.data[i];
+        }
+        return *this;
+    }
+
     template <typename type2>
     vecx operator*(type2 c)
     {
-        vecx result;
-        for (int i = 0; i < s; i++)
+        vecx result = vecx(data_size);
+
+        for (int i = 0; i < data_size; i++)
         {
             result(i) = data[i] * c;
         }
@@ -638,7 +763,8 @@ struct vecx
     }
 
 private:
-    type data[s];
+    type *data;
+    int data_size;
 };
 
 template <typename type>
@@ -1444,14 +1570,14 @@ struct vertex
         ver = v;
         ray = r;
         pix = p;
-        //weight = w;
+        // weight = w;
         used = true;
     }
 
     vec3<float> ver;
     vec3<float> ray;
     vec2<float> pix;
-    //float weight;
+    // float weight;
     bool used;
 };
 

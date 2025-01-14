@@ -29,12 +29,38 @@ public:
     }
 
     // for vector error (not scalar error like pixel errors)
+    template <typename jacType, typename errType>
+    void add(jacType jac, errType error, float weight)
+    {
+        assert(error.size() == jac.size());
+        assert(jac.size() == m_numParams);
+
+        m_count++;
+
+        // G += J * error;
+        // H += J * J.transpose();
+
+        for (int i = 0; i < jac.size(); i++)
+        {
+            m_G(i) += jac(i) * error(i) * weight;
+            m_H(i, i) += jac(i) * jac(i) * weight;
+
+            for (int j = i + 1; j < jac.size(); j++)
+            {
+                float jj = jac(i) * jac(j) * weight;
+                m_H(i, j) += jj;
+                m_H(j, i) += jj;
+            }
+        }
+    }
+
+    // for vector error (not scalar error like pixel errors)
     template <typename jacType, typename errType, typename idsType>
     void add(jacType jac, errType error, float weight, idsType ids)
     {
-        assert(jacType::size() == idsType::size());
-        assert(errType::size() == jacType::size());
-        assert(jacType::size() <= m_numParams);
+        assert(jac.size() == ids.size());
+        assert(error.size() == jac.size());
+        assert(jac.size() == m_numParams);
 
         m_count++;
 
@@ -58,20 +84,20 @@ public:
     template <typename jacType, typename idsType>
     void add(jacType jac, float error, float weight, idsType ids)
     {
-        assert(jacType::size() == idsType::size());
-        assert(jacType::size() <= m_numParams);
+        assert(jac.size() == ids.size());
+        assert(jac.size() <= m_numParams);
 
         m_count++;
 
         // G += J * error;
         // H += J * J.transpose();
 
-        for (int i = 0; i < jacType::size(); i++)
+        for (int i = 0; i < jac.size(); i++)
         {
             m_G(ids(i)) += jac(i) * error * weight;
             m_H(ids(i), ids(i)) += jac(i) * jac(i) * weight;
 
-            for (int j = i + 1; j < jacType::size(); j++)
+            for (int j = i + 1; j < jac.size(); j++)
             {
                 float jj = jac(i) * jac(j) * weight;
                 m_H(ids(i), ids(j)) += jj;
@@ -83,19 +109,19 @@ public:
     template <typename jacType>
     void add(jacType jac, float error, float weight)
     {
-        assert(jacType::size() == m_numParams);
+        assert(jac.size() == m_numParams);
 
         m_count++;
 
         // G += J * error;
         // H += J * J.transpose();
 
-        for (int i = 0; i < jacType::size(); i++)
+        for (int i = 0; i < jac.size(); i++)
         {
             m_G(i) += jac(i) * error * weight;
             m_H(i, i) += jac(i) * jac(i) * weight;
 
-            for (int j = i + 1; j < jacType::size(); j++)
+            for (int j = i + 1; j < jac.size(); j++)
             {
                 float jj = jac(i) * jac(j) * weight;
                 m_H(i, j) += jj;
@@ -177,7 +203,7 @@ public:
 
         Eigen::VectorXi indicesToKeepVector(indicesToKeep.size());
 
-        for (int i = 0; i < indicesToKeep.size(); i++)
+        for (size_t i = 0; i < indicesToKeep.size(); i++)
         {
             indicesToKeepVector(i) = indicesToKeep[i];
         }

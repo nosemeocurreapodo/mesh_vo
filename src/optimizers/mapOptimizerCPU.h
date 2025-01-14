@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <unsupported/Eigen/MatrixFunctions>
 // #include <Eigen/CholmodSupport>
 //  #include <Eigen/SPQRSupport>
 // #include <thread>
@@ -31,11 +32,11 @@ class mapOptimizerCPU : public baseOptimizerCPU<sceneType>
 public:
     mapOptimizerCPU(camera &_cam)
         : baseOptimizerCPU<sceneType>(_cam),
-          j_buffer(_cam.width, _cam.height, jmapType(0.0)),
-          pId_buffer(_cam.width, _cam.height, idsType(-1))
+          j_buffer(_cam.width, _cam.height, jmapType::zero()),
+          pId_buffer(_cam.width, _cam.height, idsType::zero())
     {
-        reguWeight = 10.0;
-        priorWeight = 0.0;
+        reguWeight = 0.0;
+        priorWeight = 1000.0;
     }
 
     void optimize(std::vector<frameCPU> &frames, frameCPU &kframe, sceneType &scene)
@@ -43,23 +44,24 @@ public:
         std::vector<int> sceneParamsIds = scene.getParamIds();
         int numMapParams = sceneParamsIds.size();
 
-        Eigen::Matrix<float, numMapParams, 1>() init_sceneParams;
-        for (int i = 0; i < sceneParamsIds.size(); i++)
+        Eigen::VectorXf init_sceneParams = Eigen::VectorXf::Zero(numMapParams);
+        for (size_t i = 0; i < sceneParamsIds.size(); i++)
         {
             float param = scene.getParam(sceneParamsIds[i]);
             init_sceneParams(i) = param;
         }
 
-        if(invCovariance.rows() != numMapParams || invCovariance.cols() != numMapParams)
+        if (invCovariance.rows() != numMapParams || invCovariance.cols() != numMapParams)
         {
-            invCovariance = Eigen::Matrix<float, numMapParams, numMapParams>();
-            for(int i = 0; i < numMapParams; i++)
+            invCovariance = Eigen::MatrixXf::Zero(numMapParams, numMapParams);
+            for (int i = 0; i < numMapParams; i++)
             {
-                invCovariance(i, i) = 0.0001;
+                invCovariance(i, i) = 0.1;
             }
         }
 
-        Eigen::Matrix<float, numMapParams, numMapParams> init_invcovariance = invCovariance;
+        Eigen::MatrixXf init_invcovariance = invCovariance;
+        Eigen::MatrixXf init_invcovariancesqrt = invCovariance.sqrt();
 
         for (int lvl = 1; lvl >= 1; lvl--)
         {
@@ -84,15 +86,16 @@ public:
 
             if (priorWeight > 0.0)
             {
-                Eigen::Matrix<float, numMapParams, 1> sceneParams;
+                Eigen::VectorXf sceneParams(numMapParams);
                 for (size_t index = 0; index < sceneParamsIds.size(); index++)
                 {
-                    sceneParams(i) = scene.getParam(sceneParamId);
+                    sceneParams(index) = scene.getParam(sceneParamsIds[index]);
                 }
 
-                Eigen::Matrix<float, numMapParams, 1> res = sceneParams - init_sceneParams;
-                Eigen::Matrix<float, numMapParams, 1> conv_dot_res = init_invcovariance * res;
-                float priorError = priorWeight * (res.dot(conv_dot_res)) / numMapParams;
+                Eigen::VectorXf res = sceneParams - init_sceneParams;
+                Eigen::VectorXf conv_dot_res = init_invcovariance * res;
+                float weight = priorWeight / numMapParams;
+                float priorError = weight * (res.dot(conv_dot_res));
 
                 e += priorError;
             }
@@ -106,14 +109,15 @@ public:
             float lambda = 0.0;
             for (int it = 0; it < maxIterations; it++)
             {
-                DenseLinearProblem hg(numMapParams);
+                DenseLinearProblem problem(numMapParams);
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
                     DenseLinearProblem fhg = computeProblem(frames[i], kframe, scene, lvl);
                     assert(fhg.getCount() > 0.5 * baseOptimizerCPU<sceneType>::cam[lvl].width * baseOptimizerCPU<sceneType>::cam[lvl].height);
-                    hg += fhg;
+                    fhg *= 1.0 / fhg.getCount();
+                    problem += fhg;
                 }
-                hg *= 1.0 / hg.getCount();
+                problem *= 1.0 / frames.size();
 
                 if (reguWeight > 0.0)
                 {
@@ -121,28 +125,32 @@ public:
                     assert(hg_regu.getCount() > 0);
                     hg_regu *= 1.0 / hg_regu.getCount();
                     hg_regu *= reguWeight;
-                    hg += hg_regu;
+                    problem += hg_regu;
                 }
 
                 if (priorWeight > 0.0)
                 {
-                    for (size_t index = 0; index < sceneParamsIds.size(); index++)
+                    Eigen::VectorXf sceneParams = Eigen::VectorXf::Zero(numMapParams);
+                    for (size_t i = 0; i < numMapParams; i++)
                     {
-                        int sceneParamId = sceneParamsIds[index];
-                        int linearProblemParamId = sceneParamId;
-
-                        float res = scene.getParam(sceneParamId) - init_sceneParams[sceneParamId];
-
-                        vec1<float> jacobian = 1.0;
-                        vec1<int> ids = linearProblemParamId;
-                        hg.add(jacobian, res, 1.0, ids);
+                        float param = scene.getParam(sceneParamsIds[i]);
+                        sceneParams(i) = param;
                     }
+                    //error = (sqrt(H)*diff)**2
+                    //jacobian = sqrt(H)*ones
+
+                    Eigen::VectorXf _res = init_invcovariancesqrt*(sceneParams - init_sceneParams);
+                    Eigen::VectorXf ones = Eigen::VectorXf::Ones(numMapParams);
+                    Eigen::VectorXf _jacobian = init_invcovariancesqrt * ones;
+                    vecx<float> res(_res);
+                    vecx<float> jacobian(_jacobian);
+                    float weight = priorWeight / numMapParams;
+                    problem.add(jacobian, res, weight);
                 }
 
                 // saveH(hg, "H.png");
 
-                // std::vector<int> paramIds = hg.removeUnobservedParams();
-                std::vector<int> linearProbleParamIds = hg.getParamIds();
+                std::vector<int> linearProbleParamIds = problem.getParamIds();
 
                 int n_try = 0;
                 lambda = 0.0;
@@ -156,10 +164,10 @@ public:
                     }
                     n_try++;
 
-                    if (!hg.prepareH(lambda))
+                    if (!problem.prepareH(lambda))
                         continue;
 
-                    Eigen::VectorXf inc = hg.solve();
+                    Eigen::VectorXf inc = problem.solve();
 
                     std::vector<float> best_params;
                     float map_inc_mag = 0.0;
@@ -191,9 +199,10 @@ public:
                             fe.setZero();
                             fe += last_error;
                         }
+                        fe *= 1.0 / fe.getCount();
                         e += fe;
                     }
-                    e *= 1.0 / e.getCount();
+                    e *= 1.0 / frames.size();
 
                     if (reguWeight > 0.0)
                     {
@@ -206,18 +215,18 @@ public:
 
                     if (priorWeight > 0.0)
                     {
-                        Error sceneInitialError;
-
+                        Eigen::VectorXf sceneParams(numMapParams);
                         for (size_t index = 0; index < sceneParamsIds.size(); index++)
                         {
-                            int sceneParamId = sceneParamsIds[index];
-                            float res = scene.getParam(sceneParamId) - init_sceneParams[sceneParamId];
-                            sceneInitialError += res;
+                            sceneParams(index) = scene.getParam(sceneParamsIds[index]);
                         }
 
-                        sceneInitialError *= 1.0 / sceneParamsIds.size();
-                        sceneInitialError *= priorWeight;
-                        e += sceneInitialError;
+                        Eigen::VectorXf res = sceneParams - init_sceneParams;
+                        Eigen::VectorXf conv_dot_res = init_invcovariance * res;
+                        float weight = priorWeight / numMapParams;
+                        float priorError = weight * (res.dot(conv_dot_res));
+
+                        e += priorError;
                     }
 
                     float error = e.getError();

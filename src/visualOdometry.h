@@ -54,9 +54,9 @@ private:
     SceneMesh scene;
     frameCPU kframe;
 
-    sceneOptimizerCPU<SceneMesh, vec3<float>, vec3<int>> sceneOptimizer;
     poseOptimizerCPU<SceneMesh> poseOptimizer;
     mapOptimizerCPU<SceneMesh, vec3<float>, vec3<int>> mapOptimizer;
+    sceneOptimizerCPU<SceneMesh, vec3<float>, vec3<int>> sceneOptimizer;
     
     renderCPU<sceneType> renderer;
 };

@@ -6,11 +6,11 @@ template class visualOdometry<SceneMesh>;
 template <typename sceneType>
 visualOdometry<sceneType>::visualOdometry(camera &_cam)
     : cam(_cam),
+      kframe(_cam.width, _cam.height),
       poseOptimizer(_cam),
       mapOptimizer(_cam),
       sceneOptimizer(_cam),
-      renderer(_cam.width, _cam.height),
-      kframe(_cam.width, _cam.height)
+      renderer(_cam.width, _cam.height)
 {
     lastId = 0;
 }

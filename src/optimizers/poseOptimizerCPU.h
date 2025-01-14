@@ -31,7 +31,7 @@ class poseOptimizerCPU : public baseOptimizerCPU<sceneType>
 public:
     poseOptimizerCPU(camera &_cam)
         : baseOptimizerCPU<sceneType>(_cam),
-          j_buffer(_cam.width, _cam.height, vec6<float>(0.0))
+          j_buffer(_cam.width, _cam.height, vec6<float>::zero())
     {
         priorWeight = 10.0;
     }
@@ -50,7 +50,8 @@ public:
             {
                 Eigen::Matrix<float, 6, 1> res = frame.getPose().log() - init_pose;
                 Eigen::Matrix<float, 6, 1> conv_dot_res = init_invcovariance * res;
-                last_error += priorWeight * (res.dot(conv_dot_res));
+                float weight = priorWeight / 6;
+                last_error += weight * (res.dot(conv_dot_res));
             }
 
             std::cout << "initial error " << last_error.getError() << " " << lvl << std::endl;
@@ -69,12 +70,15 @@ public:
 
                 if (priorWeight > 0.0)
                 {
-                    Eigen::Matrix<float, 6, 1> _res = frame.getPose().log() - init_pose;
-                    Eigen::Matrix<float, 6, 1> _jacobian = init_invcovariance * frame.getPose().log();
+                    //error = diff * (H * diff)
+                    //jacobian = ones * (H * diff) + diff ( H * ones)
+                    Eigen::Matrix<float, 6, 1> _res = init_invcovariance * (frame.getPose().log() - init_pose);
+                    Eigen::Matrix<float, 6, 1> ones = Eigen::Matrix<float, 6, 1>::Ones();
+                    Eigen::Matrix<float, 6, 1> _jacobian = init_invcovariance * ones;
+                    float weight = priorWeight / 6;
                     vec6<float> res(_res(0), _res(1), _res(2), _res(3), _res(4), _res(5));
                     vec6<float> jacobian(_jacobian(0), _jacobian(1), _jacobian(2), _jacobian(3), _jacobian(4), _jacobian(5));
-                    vec6<int> ids(0, 1, 2, 3, 4, 5);
-                    problem.add(jacobian, res, 1.0, ids);
+                    problem.add(jacobian, res, weight);
                 }
 
                 int n_try = 0;
@@ -108,6 +112,14 @@ public:
                         new_error += last_error;
                     }
                     new_error *= 1.0 / new_error.getCount();
+
+                    if (priorWeight > 0.0)
+                    {
+                        Eigen::Matrix<float, 6, 1> res = frame.getPose().log() - init_pose;
+                        Eigen::Matrix<float, 6, 1> conv_dot_res = init_invcovariance * res;
+                        float weight = priorWeight / 6;
+                        new_error += weight * (res.dot(conv_dot_res));
+                    }
 
                     std::cout << "new error " << new_error.getError() << " " << lambda << " " << " " << lvl << std::endl;
                     std::vector<frameCPU> frames;

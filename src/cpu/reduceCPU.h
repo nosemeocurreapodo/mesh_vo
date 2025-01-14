@@ -337,8 +337,8 @@ private:
 
                 //hg.add(J_pose, J_map, res, hw, frameId, map_ids);
 
-                vecx<6 + jmapType::size(), float> J(0);
-                vecx<6 + jmapType::size(), int> ids(0);
+                vecx<float> J(6 + jmapType::size());
+                vecx<int> ids(6 + jmapType::size());
 
                 for(int i = 0; i < 6; i++)
                 {
