@@ -1,7 +1,6 @@
 #pragma once
+
 #include <memory>
-#include <Eigen/Core>
-#include "sophus/se3.hpp"
 #include "cpu/SceneVerticesNormalsBase.h"
 #include "cpu/Shapes.h"
 #include "common/common.h"

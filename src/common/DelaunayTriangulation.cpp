@@ -1,6 +1,6 @@
 #include "common/DelaunayTriangulation.h"
 
-std::array<vec2<float>, 3> DelaunayTriangulation::getSuperTriangle()
+std::array<vec2f, 3> DelaunayTriangulation::getSuperTriangle()
 {
     double minX = std::numeric_limits<double>::max();
     double minY = std::numeric_limits<double>::max();
@@ -10,7 +10,7 @@ std::array<vec2<float>, 3> DelaunayTriangulation::getSuperTriangle()
     for (auto it = vertices.begin(); it != vertices.end(); ++it)
     // for (const auto &point : points)
     {
-        vec2<float> point = *it;
+        vec2f point = *it;
 
         if (point(0) < minX)
             minX = point(0);
@@ -28,32 +28,32 @@ std::array<vec2<float>, 3> DelaunayTriangulation::getSuperTriangle()
     double midX = (minX + maxX) / 2;
     double midY = (minY + maxY) / 2;
 
-    std::array<vec2<float>, 3> superTriangle;
+    std::array<vec2f, 3> superTriangle;
 
-    superTriangle[0] = vec2<float>(midX - 2 * deltaMax, midY - deltaMax);
-    superTriangle[1] = vec2<float>(midX, midY + 2 * deltaMax);
-    superTriangle[2] = vec2<float>(midX + 2 * deltaMax, midY - deltaMax);
+    superTriangle[0] = vec2f(midX - 2 * deltaMax, midY - deltaMax);
+    superTriangle[1] = vec2f(midX, midY + 2 * deltaMax);
+    superTriangle[2] = vec2f(midX + 2 * deltaMax, midY - deltaMax);
 
     return superTriangle;
 }
 
-std::pair<vec2<float>, double> DelaunayTriangulation::circumcircle(vec3<int> &tri)
+std::pair<vec2f, double> DelaunayTriangulation::circumcircle(vec3i &tri)
 {
-    vec2<float> A = vertices[tri(0)];
-    vec2<float> B = vertices[tri(1)];
-    vec2<float> C = vertices[tri(2)];
+    vec2f A = vertices[tri(0)];
+    vec2f B = vertices[tri(1)];
+    vec2f C = vertices[tri(2)];
 
     double D = 2 * (A(0) * (B(1) - C(1)) + B(0) * (C(1) - A(1)) + C(0) * (A(1) - B(1)));
     double Ux = ((A(0) * A(0) + A(1) * A(1)) * (B(1) - C(1)) + (B(0) * B(0) + B(1) * B(1)) * (C(1) - A(1)) + (C(0) * C(0) + C(1) * C(1)) * (A(1) - B(1))) / D;
     double Uy = ((A(0) * A(0) + A(1) * A(1)) * (C(0) - B(0)) + (B(0) * B(0) + B(1) * B(1)) * (A(0) - C(0)) + (C(0) * C(0) + C(1) * C(1)) * (B(0) - A(0))) / D;
 
-    vec2<float> circumcenter(Ux, Uy);
+    vec2f circumcenter(Ux, Uy);
     double circumradius = std::sqrt((circumcenter(0) - A(0)) * (circumcenter(0) - A(0)) + (circumcenter(1) - A(1)) * (circumcenter(1) - A(1)));
 
     return {circumcenter, circumradius};
 }
 
-bool DelaunayTriangulation::isPointInCircumcircle(vec2<float> &point, vec3<int> &tri)
+bool DelaunayTriangulation::isPointInCircumcircle(vec2f &point, vec3i &tri)
 {
     auto [circumcenter, circumradius] = circumcircle(tri);
     double dist = std::sqrt((point(0) - circumcenter(0)) * (point(0) - circumcenter(0)) + (point(1) - circumcenter(1)) * (point(1) - circumcenter(1)));
@@ -62,9 +62,9 @@ bool DelaunayTriangulation::isPointInCircumcircle(vec2<float> &point, vec3<int> 
 
 void DelaunayTriangulation::triangulateVertice(int v_id)
 {
-    std::vector<vec3<int>> goodTriangles;
-    std::vector<vec3<int>> badTriangles;
-    std::vector<vec2<int>> polygon;
+    std::vector<vec3i> goodTriangles;
+    std::vector<vec3i> badTriangles;
+    std::vector<vec2i> polygon;
 
     // check for bad triangles
     for (auto it = triangles.begin(); it != triangles.end(); ++it)
@@ -77,18 +77,18 @@ void DelaunayTriangulation::triangulateVertice(int v_id)
 
     for (const auto &tri : badTriangles)
     {
-        std::array<vec2<int>, 3> edges;
+        std::array<vec2i, 3> edges;
         edges[0] = {tri(0), tri(1)};
         edges[1] = {tri(1), tri(2)};
         edges[2] = {tri(2), tri(0)};
 
         for (size_t j = 0; j < edges.size(); j++)
         {
-            vec2<int> edge = edges[j];
+            vec2i edge = edges[j];
             int edge_index = -1;
             for (size_t k = 0; k < polygon.size(); k++)
             {
-                vec2<int> pol = polygon[k];
+                vec2i pol = polygon[k];
 
                 if (isEdgeEqual(edge, pol))
                 {
@@ -112,7 +112,7 @@ void DelaunayTriangulation::triangulateVertice(int v_id)
 
     for (const auto &edge : polygon)
     {
-        vec3<int> tri;
+        vec3i tri;
         tri(0) = edge(0);
         tri(1) = edge(1);
         tri(2) = v_id;
@@ -134,8 +134,8 @@ void DelaunayTriangulation::triangulateVertice(int v_id)
 void DelaunayTriangulation::triangulate()
 {
     triangles.clear();
-    std::array<vec2<float>, 3> superTriangleVertices = getSuperTriangle();
-    vec3<int> superTriangleIndices;
+    std::array<vec2f, 3> superTriangleVertices = getSuperTriangle();
+    vec3i superTriangleIndices;
 
     superTriangleIndices(0) = vertices.size();
     vertices.push_back(superTriangleVertices[0]);
@@ -175,7 +175,7 @@ void DelaunayTriangulation::removeVertice(int v_id)
     std::vector<int> to_remove;
     for (int it = 0; it < (int)triangles.size(); it++)
     {
-        vec3<int> tri = triangles[it];
+        vec3i tri = triangles[it];
 
         if (v_id == tri(0) || v_id == tri(1) || v_id == tri(2))
         {

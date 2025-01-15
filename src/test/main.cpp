@@ -6,13 +6,10 @@
 #include <opencv2/imgproc.hpp>
 
 #include "utils/convertAhandaPovRayToStandard.h"
-#include "visualOdometry.h"
 #include "common/camera.h"
-#include "cpu/frameCPU.h"
 #include "cpu/dataCPU.h"
-
-#include <Eigen/Core>
-#include "sophus/se3.hpp"
+#include "cpu/frameCPU.h"
+#include "visualOdometry.h"
 
 inline bool fileExist(const std::string& name) {
     std::ifstream f(name.c_str());
@@ -94,11 +91,11 @@ int main(int argc, char * argv[])
     }
     */
 
-    visualOdometry<SceneMesh> odometry(cam);
+    visualOdometry odometry(cam);
 
     //odometry.initScene(image, pixels, idepths, Sophus::SE3f());
     //odometry.init(image, idepth, Sophus::SE3f());
-    odometry.init(image, Sophus::SE3f());
+    odometry.init(image, SE3f());
 
     while(1){
         framesTracked++;
@@ -121,7 +118,7 @@ int main(int argc, char * argv[])
         std::string pose_path = dataset_path + RT_filename;
 
         cv::Mat imageMat = cv::imread(image_path, cv::IMREAD_GRAYSCALE);
-        Sophus::SE3f realPose = readPose(pose_path)*initPose.inverse();
+        SE3f realPose = readPose(pose_path)*initPose.inverse();
         //realPose.translation() = (realPose.translation()/realPose.translation()(2))/(1.0/realPose.translation()(2) - alpha)*beta;
 
         imageMat.convertTo(imageMat, CV_32FC1);
@@ -131,8 +128,8 @@ int main(int argc, char * argv[])
 
         //odometry.localization(image);
         //odometry.lightaffine(image, estPose);
-        odometry.mapping(image, realPose, vec2<float>(0.0, 0.0));
-        //odometry.locAndMap(image);
+        //odometry.mapping(image, realPose, vec2<float>(0.0, 0.0));
+        odometry.locAndMap(image);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();

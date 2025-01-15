@@ -1,17 +1,16 @@
 #pragma once
 
-#include <Eigen/Core>
 #include <thread>
 
-#include "common/camera.h"
+#include "params.h"
 #include "common/types.h"
-#include "common/common.h"
+#include "common/types2.h"
+#include "common/camera.h"
+#include "common/window.h"
 #include "cpu/dataCPU.h"
 #include "cpu/frameCPU.h"
 #include "threadpoolCPU.h"
-#include "params.h"
 
-template <typename sceneType>
 class renderCPU
 {
 public:
@@ -68,7 +67,7 @@ public:
         }
     }
 
-    void renderImageParallel(sceneType &scene, dataCPU<float> &kimage, vec2<float> kimageAffine, Sophus::SE3f kimagePose, Sophus::SE3f imagePose, camera cam, dataCPU<float> &buffer)
+    void renderImageParallel(sceneType &scene, dataCPU<float> &kimage, vec2f kimageExp, SE3f kimagePose, SE3f imagePose, camera cam, dataCPU<float> &buffer)
     {
         scene1 = scene;
         scene2 = scene;
@@ -94,7 +93,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderImageWindow(kimage, kimageAffine, cam, win, buffer);
+                renderImageWindow(kimage, cam, win, buffer);
                 // pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kimage, cam, win, buffer, lvl));
             }
         }
@@ -102,11 +101,11 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderDebugParallel(sceneType &scene, dataCPU<float> &image, vec2<float> imageAffine, Sophus::SE3f pose, camera cam, dataCPU<float> &buffer)
+    void renderDebugParallel(sceneType &scene, dataCPU<float> &image, vec2f imageExp, SE3f pose, camera cam, dataCPU<float> &buffer)
     {
         scene1 = scene;
         scene2 = scene;
-        scene1.transform(cam, Sophus::SE3f());
+        scene1.transform(cam, SE3f());
         scene2.transform(cam, pose);
 
         z_buffer.set(z_buffer.nodata);
@@ -128,7 +127,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderDebugWindow(image, imageAffine, win, buffer);
+                renderDebugWindow(image, win, buffer);
                 // pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, image, win, buffer, lvl));
             }
         }
@@ -136,15 +135,14 @@ public:
         // pool.waitUntilDone();
     }
 
-    template <typename jmapType, typename idsType>
-    void renderJMapParallel(sceneType &scene, dataCPU<float> &kimage, vec2<float> kimageExp, Sophus::SE3f kimagePose, dataCPU<float> &image, vec2<float> imageExp, dataCPU<vec2<float>> &d_image_d_pix, Sophus::SE3f imagePose, camera cam, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
+    void renderJMapParallel(sceneType &scene, dataCPU<float> &kimage, vec2f kimageExp, SE3f kimagePose, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, camera cam, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
     {
         scene1 = scene;
         scene2 = scene;
         scene1.transform(cam, kimagePose);
         scene2.transform(cam, imagePose);
 
-        Sophus::SE3f relativePose = imagePose * kimagePose.inverse();
+        SE3f relativePose = imagePose * kimagePose.inverse();
 
         z_buffer.set(z_buffer.nodata);
 
@@ -173,8 +171,7 @@ public:
         // pool.waitUntilDone();
     }
 
-    template <typename jmapType, typename idsType>
-    void renderJPoseMapParallel(sceneType &kscene, dataCPU<float> &kimage, vec2<float> kimageExp, Sophus::SE3f kimagePose, dataCPU<float> &image, vec2<float> imageExp, dataCPU<vec2<float>> &d_image_d_pix, Sophus::SE3f imagePose, camera cam, dataCPU<vec6<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
+    void renderJPoseMapParallel(sceneType &kscene, dataCPU<float> &kimage, vec2f kimageExp, SE3f kimagePose, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, camera cam, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
     {
         z_buffer.set(z_buffer.nodata);
 
@@ -183,7 +180,7 @@ public:
         scene1.transform(cam, kimagePose);
         scene2.transform(cam, imagePose);
 
-        Sophus::SE3f relativePose = imagePose * kimagePose.inverse();
+        SE3f relativePose = imagePose * kimagePose.inverse();
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
@@ -210,7 +207,7 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderJExpParallel(sceneType &scene, dataCPU<float> &kimage, vec2<float> kimageExp, Sophus::SE3f kimagePose, dataCPU<float> &image, vec2<float> imageExp, Sophus::SE3f imagePose, camera cam, dataCPU<vec2<float>> &jexp_buffer, dataCPU<float> &e_buffer)
+    void renderJExpParallel(sceneType &scene, dataCPU<float> &kimage, vec2f kimageExp, SE3f kimagePose, dataCPU<float> &image, vec2f imageExp, SE3f imagePose, camera cam, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer)
     {
         z_buffer.set(z_buffer.nodata);
 
@@ -244,7 +241,7 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderJPoseParallel(sceneType &scene, dataCPU<float> &kimage, vec2<float> kexp, Sophus::SE3f kpose, dataCPU<float> &image, vec2<float> exp, dataCPU<vec2<float>> &d_image_d_pix, Sophus::SE3f pose, camera cam, dataCPU<vec6<float>> &jpose_buffer, dataCPU<float> &e_buffer)
+    void renderJPoseParallel(sceneType &scene, dataCPU<float> &kimage, vec2f kexp, SE3f kpose, dataCPU<float> &image, vec2f exp, dataCPU<vec2f> &d_image_d_pix, SE3f pose, camera cam, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &e_buffer)
     {
         z_buffer.set(z_buffer.nodata);
 
@@ -278,7 +275,7 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderResidualParallel(sceneType &scene, dataCPU<float> &kimage, vec2<float> kexp, Sophus::SE3f kpose, dataCPU<float> &image, vec2<float> exp, Sophus::SE3f pose, camera cam, dataCPU<float> &e_buffer)
+    void renderResidualParallel(sceneType &scene, dataCPU<float> &kimage, vec2f kexp, SE3f kpose, dataCPU<float> &image, vec2f exp, SE3f pose, camera cam, dataCPU<float> &e_buffer)
     {
         z_buffer.set(z_buffer.nodata);
 
@@ -312,7 +309,7 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderIdepthParallel(sceneType &scene, Sophus::SE3f pose, camera cam, dataCPU<float> &buffer)
+    void renderIdepthParallel(sceneType &scene, SE3f pose, camera cam, dataCPU<float> &buffer)
     {
         z_buffer.set(z_buffer.nodata);
 
@@ -344,7 +341,7 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderWeightParallel(sceneType &scene, Sophus::SE3f pose, camera cam, dataCPU<float> &buffer, int lvl)
+    void renderWeightParallel(sceneType &scene, SE3f pose, camera cam, dataCPU<float> &buffer)
     {
         z_buffer.set(z_buffer.nodata);
 
@@ -368,7 +365,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderWeightWindow(win, buffer, lvl);
+                renderWeightWindow(win, buffer);
                 // pool.enqueue(std::bind(&renderCPU::renderWeightWindow, this, win, buffer, lvl));
             }
         }
@@ -437,10 +434,10 @@ private:
         }
     }
 
-    void renderIdepthLineSearchWindow(dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, window win, dataCPU<float> &buffer)
+    void renderIdepthLineSearchWindow(dataCPU<float> &kimage, dataCPU<float> &image, SE3f imagePose, camera cam, window win, dataCPU<float> &buffer)
     {
-        Sophus::SE3f kfTofPose = imagePose; // * kframe->getPose().inverse();
-        Sophus::SE3f fTokfPose = kfTofPose.inverse();
+        SE3f kfTofPose = imagePose; // * kframe->getPose().inverse();
+        SE3f fTokfPose = kfTofPose.inverse();
 
         int size = 5;
 
@@ -455,34 +452,32 @@ private:
                 if (f_i == corrFrame.nodata)
                     continue;
 
-                vec2<float> f_pix(x, y);
+                vec2f f_pix(x, y);
                 // if (!cam.isPixVisible(f_pix))
                 //     continue;
 
-                vec3<float> f_ray = cam.pixToRay(x, y);
+                vec3f f_ray = cam.pixToRay(x, y);
 
                 float depth_min = 0.1;
                 float depth_max = 10.0;
 
-                vec3<float> f_ver_min = f_ray * depth_min;
-                Eigen::Vector3f kf_ver_min_e = fTokfPose * Eigen::Vector3f(f_ver_min(0), f_ver_min(1), f_ver_min(2));
-                vec3<float> kf_ver_min(kf_ver_min_e(0), kf_ver_min_e(1), kf_ver_min_e(2));
-                vec3<float> kf_ray_min = kf_ver_min / kf_ver_min(2);
-                vec2<float> kf_pix_min = cam.rayToPix(kf_ray_min);
+                vec3f f_ver_min = f_ray * depth_min;
+                vec3f kf_ver_min = fTokfPose * f_ver_min;
+                vec3f kf_ray_min = kf_ver_min / kf_ver_min(2);
+                vec2f kf_pix_min = cam.rayToPix(kf_ray_min);
 
-                vec3<float> f_ver_max = f_ray * depth_max;
-                Eigen::Vector3f kf_ver_max_e = fTokfPose * Eigen::Vector3f(f_ver_max(0), f_ver_max(1), f_ver_max(2));
-                vec3<float> kf_ver_max(kf_ver_max_e(0), kf_ver_max_e(1), kf_ver_max_e(2));
-                vec3<float> kf_ray_max = kf_ver_max / kf_ver_max(2);
-                vec2<float> kf_pix_max = cam.rayToPix(kf_ray_max);
+                vec3f f_ver_max = f_ray * depth_max;
+                vec3f kf_ver_max = fTokfPose * f_ver_max;
+                vec3f kf_ray_max = kf_ver_max / kf_ver_max(2);
+                vec2f kf_pix_max = cam.rayToPix(kf_ray_max);
 
-                vec2<float> kf_pix_diff = kf_pix_max - kf_pix_min;
+                vec2f kf_pix_diff = kf_pix_max - kf_pix_min;
                 float kf_pix_diff_norm = kf_pix_diff.norm();
                 kf_pix_diff = kf_pix_diff / kf_pix_diff_norm;
 
                 for (int i = 0; i < kf_pix_diff_norm; i++)
                 {
-                    vec2<float> kf_pix = kf_pix_min + kf_pix_diff * i;
+                    vec2f kf_pix = kf_pix_min + kf_pix_diff * i;
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -503,11 +498,9 @@ private:
                     {
                         buffer.set(error, y, x);
 
-                        vec3<float> kf_ray = cam.pixToRay(kf_pix);
-                        Eigen::Vector3f Y_e = fTokfPose * Eigen::Vector3f(f_ray(0), f_ray(1), f_ray(2));
-                        vec3<float> Y(Y_e(0), Y_e(1), Y_e(2));
-                        Eigen::Vector3f C_e = fTokfPose.translation();
-                        vec3<float> C(C_e(0), C_e(1), C_e(2));
+                        vec3f kf_ray = cam.pixToRay(kf_pix);
+                        vec3f Y = fTokfPose * f_ray;
+                        vec3f C = fTokfPose.translation();
 
                         float f_depth = (C(1) / kf_ray(1) - C(2)) / (Y(2) - Y(1) / kf_ray(1));
                         // float f_depth = depth_min + i * (depth_max - depth_min) / kf_pix_diff_norm;
@@ -520,21 +513,21 @@ private:
         }
     }
 
-    void renderImageWindow(dataCPU<float> &image, camera cam, window win, dataCPU<float> &buffer)
+    void renderImageWindow(dataCPU<imageType> &image, camera cam, window win, dataCPU<float> &buffer)
     {
         std::vector<int> ids = scene2.getShapesIds();
 
         for (auto t_id : ids)
         {
-            auto f_pol = scene2.getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
-            if (!win.isPixInWindow(f_pol->getCenterPix()))
+            if (!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
 
-            if (f_pol->getScreenArea() < 0.0)
+            if (f_pol.getScreenArea() < 0.0)
                 continue;
 
-            auto kf_pol = scene1.getShape(t_id);
+            shapeType kf_pol = scene1.getShape(t_id);
 
             window pol_win = f_pol.getScreenBounds();
 
@@ -544,12 +537,12 @@ private:
             {
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
-                    vec2<float> f_pix(x, y);
+                    vec2f f_pix(x, y);
 
-                    if (!f_pol->isPixInShape(f_pix))
+                    if (!f_pol.isPixInShape(f_pix))
                         continue;
 
-                    float f_depth = f_pol->getDepth(f_pix);
+                    float f_depth = f_pol.getDepth(f_pix);
                     if (f_depth <= 0.0)
                         continue;
 
@@ -557,12 +550,12 @@ private:
                     if (z_depth < f_depth && z_depth != z_buffer.nodata)
                         continue;
 
-                    vec2<float> kf_pix = f_pol->getPix(f_pix, kf_pol.get());
+                    vec2f kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = image.get(kf_pix(1), kf_pix(0));
+                    imageType kf_i = image.get(kf_pix(1), kf_pix(0));
                     if (kf_i == image.nodata)
                         continue;
 
@@ -596,7 +589,7 @@ private:
             {
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
-                    vec2<float> f_pix(x, y);
+                    vec2f f_pix(x, y);
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -639,7 +632,7 @@ private:
             {
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
-                    vec2<float> f_pix(x, y);
+                    vec2f f_pix(x, y);
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -653,7 +646,8 @@ private:
                     if (z_depth <= f_depth && z_depth != z_buffer.nodata)
                         continue;
 
-                    float f_weight = f_pol.getWeight(f_pix);
+                    //float f_weight = f_pol.getWeight(f_pix);
+                    float f_weight = 1.0;
 
                     buffer.set(f_weight, y, x);
                     z_buffer.set(f_depth, y, x);
@@ -662,7 +656,7 @@ private:
         }
     }
 
-    void renderResidualWindow(dataCPU<float> &kimage, vec2<float> kimageExp, dataCPU<float> &image, vec2<float> imageExp, camera cam, window win, dataCPU<float> &e_buffer)
+    void renderResidualWindow(dataCPU<float> &kimage, vec2f kimageExp, dataCPU<float> &image, vec2f imageExp, camera cam, window win, dataCPU<float> &e_buffer)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
 
@@ -694,7 +688,7 @@ private:
             {
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
-                    vec2<float> f_pix(x, y);
+                    vec2f f_pix(x, y);
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -708,7 +702,7 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    vec2<float> kf_pix = f_pol.getPix(f_pix, kf_pol);
+                    vec2f kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -731,7 +725,7 @@ private:
         }
     }
 
-    void renderJPoseWindow(dataCPU<float> &kimage, vec2<float> kimageAffine, dataCPU<float> &image, vec2<float> imageAffine, dataCPU<vec2<float>> &d_image_d_pix, camera cam, window win, dataCPU<vec6<float>> &jpose_buffer, dataCPU<float> &e_buffer)
+    void renderJPoseWindow(dataCPU<float> &kimage, vec2f kimageAffine, dataCPU<float> &image, vec2f imageAffine, dataCPU<vec2f> &d_image_d_pix, camera cam, window win, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &e_buffer)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
 
@@ -763,7 +757,7 @@ private:
             {
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
-                    vec2<float> f_pix(x, y);
+                    vec2f f_pix(x, y);
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -777,32 +771,32 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    vec2<float> kf_pix = f_pol.getPix(f_pix, kf_pol);
+                    vec2f kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    vec3<float> f_ray = cam.pixToRay(x, y);
-                    vec3<float> f_ver = f_ray * f_depth;
+                    vec3f f_ray = cam.pixToRay(x, y);
+                    vec3f f_ver = f_ray * f_depth;
                     // vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
                     auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
                     auto f_i = image.get(y, x);
-                    vec2<float> d_f_i_d_pix = d_image_d_pix.get(y, x);
+                    vec2f d_f_i_d_pix = d_image_d_pix.get(y, x);
 
-                    if (kf_i == kimage.nodata || f_i == image.nodata) // || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
                         continue;
 
                     float v0 = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                     float v1 = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                     float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
-                    vec3<float> d_f_i_d_tra(v0, v1, v2);
-                    vec3<float> d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+                    vec3f d_f_i_d_tra(v0, v1, v2);
+                    vec3f d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
                     float f_i_cor = alpha * (f_i - beta);
                     float kf_i_cor = kalpha * (kf_i - kbeta);
 
-                    vec6<float> j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
+                    vec6f j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
 
                     float residual = (f_i_cor - kf_i_cor);
 
@@ -814,7 +808,7 @@ private:
         }
     }
 
-    void renderJPoseExpWindow(dataCPU<float> &kimage, vec2<float> kimageExp, dataCPU<float> &image, vec2<float> imageExp, dataCPU<vec2<float>> &d_image_d_pix, camera cam, window win, dataCPU<vec6<float>> &jpose_buffer, dataCPU<vec2<float>> &jexp_buffer, dataCPU<float> &e_buffer)
+    void renderJPoseExpWindow(dataCPU<float> &kimage, vec2f kimageExp, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, camera cam, window win, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
 
@@ -846,7 +840,7 @@ private:
             {
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
-                    vec2<float> f_pix(x, y);
+                    vec2f f_pix(x, y);
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -860,35 +854,35 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    vec2<float> kf_pix = f_pol.getPix(f_pix, kf_pol);
+                    vec2f kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    vec3<float> f_ray = cam.pixToRay(x, y);
-                    vec3<float> f_ver = f_ray * f_depth;
+                    vec3f f_ray = cam.pixToRay(x, y);
+                    vec3f f_ver = f_ray * f_depth;
                     // vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
                     auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
                     auto f_i = image.get(y, x);
-                    vec2<float> d_f_i_d_pix = d_image_d_pix.get(y, x);
+                    vec2f d_f_i_d_pix = d_image_d_pix.get(y, x);
 
-                    if (kf_i == kimage.nodata || f_i == image.nodata) // || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
                         continue;
 
                     float v0 = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                     float v1 = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                     float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
-                    vec3<float> d_f_i_d_tra(v0, v1, v2);
-                    vec3<float> d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+                    vec3f d_f_i_d_tra(v0, v1, v2);
+                    vec3f d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
                     float f_i_cor = alpha * (f_i - beta);
                     float kf_i_cor = kalpha * (kf_i - kbeta);
 
-                    vec2<float> d_f_i_d_exp(-f_i_cor, -alpha);
+                    vec2f d_f_i_d_exp(-f_i_cor, -alpha);
 
-                    vec6<float> j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
-                    vec2<float> j_exp = {d_f_i_d_exp(0), d_f_i_d_exp(1)};
+                    vec6f j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
+                    vec2f j_exp = {d_f_i_d_exp(0), d_f_i_d_exp(1)};
 
                     float residual = (f_i_cor - kf_i_cor);
 
@@ -901,7 +895,7 @@ private:
         }
     }
 
-    void renderJExpWindow(dataCPU<float> &kimage, vec2<float> kimageExp, dataCPU<float> &image, vec2<float> imageExp, camera cam, window win, dataCPU<vec2<float>> &jexp_buffer, dataCPU<float> &e_buffer)
+    void renderJExpWindow(dataCPU<float> &kimage, vec2f kimageExp, dataCPU<float> &image, vec2f imageExp, camera cam, window win, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
 
@@ -933,7 +927,7 @@ private:
             {
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
-                    vec2<float> f_pix(x, y);
+                    vec2f f_pix(x, y);
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -947,7 +941,7 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    vec2<float> kf_pix = f_pol.getPix(f_pix, kf_pol);
+                    vec2f kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -961,7 +955,7 @@ private:
                     float f_i_cor = alpha * (f_i - beta);
                     float kf_i_cor = kalpha * (kf_i - kbeta);
 
-                    vec2<float> jexp(-f_i_cor, -alpha);
+                    vec2f jexp(-f_i_cor, -alpha);
 
                     float residual = f_i_cor - kf_i_cor;
 
@@ -973,12 +967,11 @@ private:
         }
     }
 
-    template <typename jmapType, typename idsType>
-    void renderJMapWindow(dataCPU<float> &kimage, vec2<float> kimageAffine, dataCPU<float> &image, vec2<float> imageAffine, dataCPU<vec2<float>> &d_image_d_pix, Sophus::SE3f imagePose, camera cam, window win, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
+    void renderJMapWindow(dataCPU<float> &kimage, vec2f kimageAffine, dataCPU<float> &image, vec2f imageAffine, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, camera cam, window win, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
     {
         float min_area = 0.0; //(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3 / 4;
 
-        Sophus::SE3f kfTofPose = imagePose;
+        SE3f kfTofPose = imagePose;
         // Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         float kalpha = std::exp(-kimageAffine(0));
@@ -1018,7 +1011,7 @@ private:
             {
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
-                    vec2<float> f_pix(x, y);
+                    vec2f f_pix(x, y);
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -1032,20 +1025,20 @@ private:
                     if (l_idepth < f_depth && l_idepth != z_buffer.nodata)
                         continue;
 
-                    vec2<float> kf_pix = f_pol.getPix(f_pix, kf_pol);
+                    vec2f kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    vec3<float> f_ray = cam.pixToRay(f_pix);
-                    vec3<float> f_ver = f_ray * f_depth;
-                    vec3<float> kf_ray = cam.pixToRay(kf_pix);
+                    vec3f f_ray = cam.pixToRay(f_pix);
+                    vec3f f_ver = f_ray * f_depth;
+                    vec3f kf_ray = cam.pixToRay(kf_pix);
 
-                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
-                    auto f_i = image.get(y, x);
-                    vec2<float> d_f_i_d_pix = d_image_d_pix.get(y, x);
+                    imageType kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    imageType f_i = image.get(y, x);
+                    vec2f d_f_i_d_pix = d_image_d_pix.get(y, x);
 
-                    if (kf_i == kimage.nodata || f_i == image.nodata) // || d_f_i_d_pix == frame->getdIdpixImage().nodata)
+                    if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
                         continue;
 
                     float f_i_cor = alpha * (f_i - beta);
@@ -1053,14 +1046,12 @@ private:
 
                     float residual = f_i_cor - kf_i_cor;
 
-                    vec3<float> d_f_i_d_f_ver;
+                    vec3f d_f_i_d_f_ver;
                     d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                     d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                     d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-                    Eigen::Vector3f d_f_ver_d_kf_depth_e = kfTofPose.rotationMatrix() * Eigen::Vector3f(kf_ray(0), kf_ray(1), kf_ray(2));
-
-                    vec3<float> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_e(0), d_f_ver_d_kf_depth_e(1), d_f_ver_d_kf_depth_e(2));
+                    vec3f d_f_ver_d_kf_depth = kfTofPose.rotationMatrix() * kf_ray;
 
                     float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
@@ -1076,12 +1067,11 @@ private:
         }
     }
 
-    template <typename jmapType, typename idsType>
-    void renderJPoseMapWindow(dataCPU<float> &kimage, vec2<float> kimageExp, dataCPU<float> &image, vec2<float> imageExp, dataCPU<vec2<float>> &d_image_d_pix, Sophus::SE3f imagePose, camera cam, window win, dataCPU<vec6<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
+    void renderJPoseMapWindow(dataCPU<float> &kimage, vec2f kimageExp, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, camera cam, window win, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
     {
         float min_area = 0.0; //(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3.0 / 4.0;
 
-        Sophus::SE3f kfTofPose = imagePose;
+        SE3f kfTofPose = imagePose;
         // Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         float kalpha = std::exp(-kimageExp(0));
@@ -1095,7 +1085,7 @@ private:
 
         for (auto t_id : t_ids)
         {
-            auto f_pol = scene2.getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
             if (!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -1104,7 +1094,7 @@ private:
             if (f_pol_area <= min_area)
                 continue;
 
-            auto kf_pol = scene1.getShape(t_id);
+            shapeType kf_pol = scene1.getShape(t_id);
 
             float kf_pol_area = kf_pol.getScreenArea();
             if (kf_pol_area <= min_area)
@@ -1131,7 +1121,7 @@ private:
             {
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
-                    vec2<float> f_pix(x, y);
+                    vec2f f_pix(x, y);
 
                     // if (!cam.isPixVisible(f_pix))
                     //     continue;
@@ -1148,38 +1138,37 @@ private:
                     if (l_idepth < f_depth && l_idepth != z_buffer.nodata)
                         continue;
 
-                    vec2<float> kf_pix = f_pol.getPix(f_pix, kf_pol);
+                    vec2f kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
-                    auto f_i = image.get(y, x);
-                    vec2<float> d_f_i_d_pix = d_image_d_pix.get(y, x);
+                    imageType kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    imageType f_i = image.get(y, x);
+                    vec2f d_f_i_d_pix = d_image_d_pix.get(y, x);
 
                     if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
                         continue;
 
-                    vec3<float> f_ray = cam.pixToRay(f_pix);
-                    vec3<float> f_ver = f_ray * f_depth;
-                    vec3<float> kf_ray = cam.pixToRay(kf_pix);
+                    vec3f f_ray = cam.pixToRay(f_pix);
+                    vec3f f_ver = f_ray * f_depth;
+                    vec3f kf_ray = cam.pixToRay(kf_pix);
 
-                    vec3<float> d_f_i_d_f_ver;
+                    vec3f d_f_i_d_f_ver;
                     d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                     d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                     d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-                    vec3<float> d_f_i_d_tra(d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2));
-                    vec3<float> d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
+                    vec3f d_f_i_d_tra(d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2));
+                    vec3f d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
                     float f_i_cor = alpha * (f_i - beta);
                     float kf_i_cor = kalpha * (kf_i - kbeta);
 
-                    vec6<float> jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
+                    vec6f jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
 
-                    Eigen::Vector3f d_f_ver_d_kf_depth_e = kfTofPose.rotationMatrix() * Eigen::Vector3f(kf_ray(0), kf_ray(1), kf_ray(2));
+                    vec3f d_f_ver_d_kf_depth = kfTofPose.rotationMatrix() * kf_ray;
 
-                    vec3<float> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_e(0), d_f_ver_d_kf_depth_e(1), d_f_ver_d_kf_depth_e(2));
                     float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
                     jmapType jacs = kf_pol.getParamJacobian(kf_pix) * d_f_i_d_kf_depth;
@@ -1195,12 +1184,11 @@ private:
         }
     }
 
-    template <typename jmapType, typename idsType>
-    void renderJPoseExpMapWindow(dataCPU<float> &kimage, vec2<float> kimageExp, dataCPU<float> &image, vec2<float> imageExp, dataCPU<vec2<float>> &d_image_d_pix, Sophus::SE3f imagePose, camera cam, window win, dataCPU<vec6<float>> &jpose_buffer, dataCPU<vec2<float>> &jexp_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
+    void renderJPoseExpMapWindow(dataCPU<imageType> &kimage, vec2f kimageExp, dataCPU<imageType> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, camera cam, window win, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
     {
         float min_area = 0.0; //(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3.0 / 4.0;
 
-        Sophus::SE3f kfTofPose = imagePose;
+        SE3f kfTofPose = imagePose;
         // Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
         float kalpha = std::exp(-kimageExp(0));
@@ -1214,7 +1202,7 @@ private:
 
         for (auto t_id : t_ids)
         {
-            auto f_pol = scene2.getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
             if (!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -1223,7 +1211,7 @@ private:
             if (f_pol_area <= min_area)
                 continue;
 
-            auto kf_pol = scene1.getShape(t_id);
+            shapeType kf_pol = scene1.getShape(t_id);
 
             float kf_pol_area = kf_pol.getScreenArea();
             if (kf_pol_area <= min_area)
@@ -1250,7 +1238,7 @@ private:
             {
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
-                    vec2<float> f_pix(x, y);
+                    vec2f f_pix(x, y);
 
                     // if (!cam.isPixVisible(f_pix))
                     //     continue;
@@ -1267,41 +1255,40 @@ private:
                     if (l_idepth < f_depth && l_idepth != z_buffer.nodata)
                         continue;
 
-                    vec2<float> kf_pix = f_pol.getPix(f_pix, kf_pol);
+                    vec2f kf_pix = f_pol.getPix(f_pix, kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
-                    auto f_i = image.get(y, x);
-                    vec2<float> d_f_i_d_pix = d_image_d_pix.get(y, x);
+                    imageType kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    imageType f_i = image.get(y, x);
+                    vec2f d_f_i_d_pix = d_image_d_pix.get(y, x);
 
                     if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
                         continue;
 
-                    vec3<float> f_ray = cam.pixToRay(f_pix);
-                    vec3<float> f_ver = f_ray * f_depth;
-                    vec3<float> kf_ray = cam.pixToRay(kf_pix);
+                    vec3f f_ray = cam.pixToRay(f_pix);
+                    vec3f f_ver = f_ray * f_depth;
+                    vec3f kf_ray = cam.pixToRay(kf_pix);
 
-                    vec3<float> d_f_i_d_f_ver;
+                    vec3f d_f_i_d_f_ver;
                     d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
                     d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
                     d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
-                    vec3<float> d_f_i_d_tra(d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2));
-                    vec3<float> d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
+                    vec3f d_f_i_d_tra(d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2));
+                    vec3f d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
                     float f_i_cor = alpha * (f_i - beta);
                     float kf_i_cor = kalpha * (kf_i - kbeta);
 
-                    vec2<float> d_f_i_d_f_exp(-f_i_cor, -alpha);
+                    vec2f d_f_i_d_f_exp(-f_i_cor, -alpha);
 
-                    vec6<float> jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
-                    vec2<float> jexp = {d_f_i_d_f_exp(0), d_f_i_d_f_exp(1)};
+                    vec6f jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
+                    vec2f jexp = {d_f_i_d_f_exp(0), d_f_i_d_f_exp(1)};
 
-                    Eigen::Vector3f d_f_ver_d_kf_depth_e = kfTofPose.rotationMatrix() * Eigen::Vector3f(kf_ray(0), kf_ray(1), kf_ray(2));
+                    vec3f d_f_ver_d_kf_depth = kfTofPose.rotationMatrix() * kf_ray;
 
-                    vec3<float> d_f_ver_d_kf_depth(d_f_ver_d_kf_depth_e(0), d_f_ver_d_kf_depth_e(1), d_f_ver_d_kf_depth_e(2));
                     float d_f_i_d_kf_depth = d_f_i_d_f_ver.dot(d_f_ver_d_kf_depth);
 
                     jmapType jacs = kf_pol.getParamJacobian(kf_pix) * d_f_i_d_kf_depth;
@@ -1318,13 +1305,13 @@ private:
         }
     }
 
-    void renderDebugWindow(dataCPU<float> &image, window win, dataCPU<float> &buffer)
+    void renderDebugWindow(dataCPU<imageType> &image, window win, dataCPU<imageType> &buffer)
     {
         std::vector<int> ids = scene2.getShapesIds();
 
         for (auto t_id : ids)
         {
-            auto f_pol = scene2.getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
             if (!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -1340,7 +1327,7 @@ private:
             {
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
-                    vec2<float> f_pix(x, y);
+                    vec2f f_pix(x, y);
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -1348,7 +1335,7 @@ private:
                     // float f_depth = f_pol.getDepth(f_pix);
                     bool isLine = f_pol.isEdge(f_pix);
 
-                    float f_i = image.get(y, x);
+                    imageType f_i = image.get(y, x);
                     f_i /= 255.0;
 
                     // z buffer

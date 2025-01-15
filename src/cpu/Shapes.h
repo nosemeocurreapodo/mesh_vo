@@ -2,6 +2,8 @@
 
 #include "common/types.h"
 #include "common/camera.h"
+#include "common/window.h"
+#include "common/depthParam.h"
 
 /*
 template <typename jacType, typename idsType>
@@ -57,7 +59,7 @@ public:
         return win;
     }
 
-    vec2<float> getCenterPix()
+    vec2f getCenterPix()
     {
         return m_vert.pix;
     }
@@ -67,12 +69,12 @@ public:
     //     ray_diff = r - ray;
     // }
 
-    bool isPixInShape(vec2<float> p)
+    bool isPixInShape(vec2f p)
     {
         return true;
     }
 
-    bool isEdge(vec2<float> p)
+    bool isEdge(vec2f p)
     {
         return false;
     }
@@ -88,7 +90,7 @@ public:
     //     pix_diff = p - centerPix;
     // }
 
-    vec2<float> getPix(vec2<float> p, ShapePatch &shape)
+    vec2f getPix(vec2f p, ShapePatch &shape)
     {
         if (!(currentPix == p))
         {
@@ -99,22 +101,22 @@ public:
         return shape.m_vert.pix + pix_diff;
     }
 
-    float getDepth(vec2<float> p)
+    float getDepth(vec2f p)
     {
         return m_vert.ver(2);
     }
 
-    float getWeight(vec2<float> p)
+    float getWeight(vec2f p)
     {
         return weight;
     }
 
-    float getDepth(vec2<float> p, ShapePatch &shape)
+    float getDepth(vec2f p, ShapePatch &shape)
     {
         return shape.m_vert.ver(2);
     }
 
-    float getParamJacobian(vec2<float> p)
+    float getParamJacobian(vec2f p)
     {
         return d_z_d_param;
     }
@@ -132,9 +134,9 @@ private:
     float width;
     float height;
 
-    vec2<float> currentPix;
+    vec2f currentPix;
     // vec3<float> ray_diff;
-    vec2<float> pix_diff;
+    vec2f pix_diff;
 
     float d_z_d_param;
 };
@@ -324,7 +326,7 @@ public:
     //     computeBarycentric(p);
     // }
 
-    float getDepth(vec2<float> p)
+    float getDepth(vec2f p)
     {
         if (!(m_currentPix == p))
         {
@@ -345,7 +347,7 @@ public:
     //     return *sh->m_ray0 * barycentric(0) + *sh->m_ray1 * barycentric(1) + *sh->m_ray2 * barycentric(2);
     // }
 
-    vec2<float> getPix(vec2<float> p, ShapeTriangleFlat &shape)
+    vec2f getPix(vec2f p, ShapeTriangleFlat &shape)
     {
         if (!(m_currentPix == p))
         {
@@ -356,7 +358,7 @@ public:
         return shape.m_vert0.pix * m_barycentric(0) + shape.m_vert1.pix * m_barycentric(1) + shape.m_vert2.pix * m_barycentric(2);
     }
 
-    float getDepth(vec2<float> p, ShapeTriangleFlat &shape)
+    float getDepth(vec2f p, ShapeTriangleFlat &shape)
     {
         if (!(m_currentPix == p))
         {
@@ -397,7 +399,7 @@ public:
      }
      */
 
-    bool isPixInShape(vec2<float> p)
+    bool isPixInShape(vec2f p)
     {
         if (!(m_currentPix == p))
         {
@@ -412,7 +414,7 @@ public:
         return true;
     };
 
-    bool isEdge(vec2<float> p)
+    bool isEdge(vec2f p)
     {
         if (!(m_currentPix == p))
         {
@@ -458,13 +460,13 @@ public:
         return win;
     };
 
-    vec2<float> getCenterPix()
+    vec2f getCenterPix()
     {
-        vec2<float> center = (m_vert0.pix + m_vert1.pix + m_vert2.pix)/3.0;
+        vec2f center = (m_vert0.pix + m_vert1.pix + m_vert2.pix)/3.0;
         return center;
     };
 
-    vec3<float> getParamJacobian(vec2<float> p)
+    vec3f getParamJacobian(vec2f p)
     {
         if (!(m_currentPix == p))
         {
@@ -472,9 +474,9 @@ public:
             computeBarycentric(m_currentPix);
         }
 
-        vec3<float> jac;
+        vec3f jac;
 
-        vec3<float> d_depth_d_kf_depth = m_barycentric;
+        vec3f d_depth_d_kf_depth = m_barycentric;
 
         jac(0) = d_depth_d_kf_depth(0) * m_d_kf_depth_d_param(0);
         jac(1) = d_depth_d_kf_depth(1) * m_d_kf_depth_d_param(1);
@@ -483,9 +485,9 @@ public:
         return jac;
     }
 
-    vec3<int> getParamIds()
+    vec3i getParamIds()
     {
-        vec3<int> ids;
+        vec3i ids;
 
         ids(0) = m_paramId0;
         ids(1) = m_paramId1;
@@ -494,7 +496,7 @@ public:
         return ids;
     }
 
-    vec3<float> getBarycentric()
+    vec3f getBarycentric()
     {
         return m_barycentric;
     }
@@ -525,7 +527,7 @@ private:
     }
     */
 
-    void computeBarycentric(vec2<float> pix)
+    void computeBarycentric(vec2f pix)
     {
         // barycentric(0) = (((*m_ray1)(1) - (*m_ray2)(1)) * (ray(0) - (*m_ray2)(0)) +
         //                  ((*m_ray2)(0) - (*m_ray1)(0)) * (ray(1) - (*m_ray2)(1))) /
@@ -533,7 +535,7 @@ private:
         // barycentric(1) = (((*m_ray2)(1) - (*m_ray0)(1)) * (ray(0) - (*m_ray2)(0)) +
         //                  ((*m_ray0)(0) - (*m_ray2)(0)) * (ray(1) - (*m_ray2)(1))) /
         //                 denominator;
-        vec2<float> diff = pix - m_vert2.pix;
+        vec2f diff = pix - m_vert2.pix;
         m_barycentric(0) = m_p_m1.dot(diff) / m_p_denominator;
         m_barycentric(1) = m_p_m2.dot(diff) / m_p_denominator;
         m_barycentric(2) = 1.0f - m_barycentric(0) - m_barycentric(1);
@@ -547,19 +549,19 @@ private:
     int m_paramId1;
     int m_paramId2;
 
-    vec2<float> m_currentPix;
+    vec2f m_currentPix;
 
-    vec3<float> m_barycentric;
+    vec3f m_barycentric;
 
     //vec2<float> r_m1;
     //vec2<float> r_m2;
     //float r_denominator;
 
-    vec2<float> m_p_m1;
-    vec2<float> m_p_m2;
+    vec2f m_p_m1;
+    vec2f m_p_m2;
     float m_p_denominator;
 
-    vec3<float> m_d_kf_depth_d_param;
+    vec3f m_d_kf_depth_d_param;
 };
 
 /*

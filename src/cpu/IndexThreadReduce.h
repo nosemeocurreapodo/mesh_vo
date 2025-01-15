@@ -22,6 +22,7 @@
  */
 
 #pragma once
+
 #include "cpu/paramsCPU.h"
 #include "boost/thread.hpp"
 #include <stdio.h>

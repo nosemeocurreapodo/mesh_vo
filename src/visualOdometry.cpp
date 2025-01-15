@@ -1,10 +1,7 @@
 #include "visualOdometry.h"
 #include "utils/tictoc.h"
 
-template class visualOdometry<SceneMesh>;
-
-template <typename sceneType>
-visualOdometry<sceneType>::visualOdometry(camera &_cam)
+visualOdometry::visualOdometry(camera &_cam)
     : cam(_cam),
       kframe(_cam.width, _cam.height),
       poseOptimizer(_cam),
@@ -15,15 +12,14 @@ visualOdometry<sceneType>::visualOdometry(camera &_cam)
     lastId = 0;
 }
 
-template <typename sceneType>
-void visualOdometry<sceneType>::init(dataCPU<float> &image, Sophus::SE3f globalPose)
+void visualOdometry::init(dataCPU<float> &image, SE3f globalPose)
 {
     assert(image.width == cam[0].width && image.height == cam[0].height);
 
     frameCPU newFrame(cam[0].width, cam[0].height);
     newFrame.setImage(image, 0);
     newFrame.setPose(globalPose);
-    newFrame.setAffine(vec2<float>(0.0, 0.0));
+    newFrame.setExposure(vec2f(0.0, 0.0));
 
     int lvl = 1;
 
@@ -36,23 +32,21 @@ void visualOdometry<sceneType>::init(dataCPU<float> &image, Sophus::SE3f globalP
     // lastPose = globalPose;
 }
 
-template <typename sceneType>
-void visualOdometry<sceneType>::init(dataCPU<float> &image, dataCPU<float> &idepth, Sophus::SE3f globalPose)
+void visualOdometry::init(dataCPU<float> &image, dataCPU<float> &idepth, SE3f globalPose)
 {
     assert(image.width == idepth.width && image.height == idepth.height && image.width == cam[0].width && image.height == cam[0].height);
 
     frameCPU newFrame(cam[0].width, cam[0].height);
     newFrame.setImage(image, 0);
     newFrame.setPose(globalPose);
-    newFrame.setAffine(vec2<float>(0.0, 0.0));
+    newFrame.setExposure(vec2f(0.0, 0.0));
 
     kframe = newFrame;
     scene.init(idepth, cam[0], globalPose);
     // lastPose = globalPose;
 }
 
-template <typename sceneType>
-void visualOdometry<sceneType>::init(frameCPU &frame)
+void visualOdometry::init(frameCPU &frame)
 {
     int lvl = 1;
 
@@ -67,8 +61,7 @@ void visualOdometry<sceneType>::init(frameCPU &frame)
     // lastPose = frame.getPose();
 }
 
-template <typename sceneType>
-void visualOdometry<sceneType>::init(frameCPU &frame, dataCPU<float> &idepth)
+void visualOdometry::init(frameCPU &frame, dataCPU<float> &idepth)
 {
     assert(frame.getRawImage(0).width == idepth.width && frame.getRawImage(0).height == idepth.height);
 
@@ -77,8 +70,7 @@ void visualOdometry<sceneType>::init(frameCPU &frame, dataCPU<float> &idepth)
     // lastPose = frame.getPose();
 }
 
-template <typename sceneType>
-void visualOdometry<sceneType>::init(frameCPU &frame, std::vector<vec2<float>> &pixels, std::vector<float> &idepths)
+void visualOdometry::init(frameCPU &frame, std::vector<vec2f> &pixels, std::vector<float> &idepths)
 {
     assert(frame.getRawImage(0).width == cam[0].width && frame.getRawImage(0).height == cam[0].height);
 
@@ -87,8 +79,7 @@ void visualOdometry<sceneType>::init(frameCPU &frame, std::vector<vec2<float>> &
     // lastPose = frame.getPose();
 }
 
-template <typename sceneType>
-dataCPU<float> visualOdometry<sceneType>::getIdepth(Sophus::SE3f pose, int lvl)
+dataCPU<float> visualOdometry::getIdepth(SE3f pose, int lvl)
 {
     dataCPU<float> buffer(cam[lvl].width, cam[lvl].height, -1);
 
@@ -97,8 +88,7 @@ dataCPU<float> visualOdometry<sceneType>::getIdepth(Sophus::SE3f pose, int lvl)
     return buffer;
 }
 
-template <typename sceneType>
-float visualOdometry<sceneType>::meanViewAngle(Sophus::SE3f pose1, Sophus::SE3f pose2)
+float visualOdometry::meanViewAngle(SE3f pose1, SE3f pose2)
 {
     int lvl = 1;
 
@@ -108,16 +98,13 @@ float visualOdometry<sceneType>::meanViewAngle(Sophus::SE3f pose1, Sophus::SE3f 
     sceneType scene2 = scene;
     scene2.transform(cam[lvl], pose2);
 
-    Sophus::SE3f relativePose = pose1 * pose2.inverse();
+    SE3f relativePose = pose1 * pose2.inverse();
 
-    Sophus::SE3f frame1PoseInv = relativePose.inverse();
-    Sophus::SE3f frame2PoseInv = Sophus::SE3f();
+    SE3f frame1PoseInv = relativePose.inverse();
+    SE3f frame2PoseInv = SE3f();
 
-    Eigen::Vector3f frame1Tra = frame1PoseInv.translation();
-    Eigen::Vector3f frame2Tra = frame2PoseInv.translation();
-
-    vec3<float> frame1Translation(frame1Tra(0), frame1Tra(1), frame1Tra(2));
-    vec3<float> frame2Translation(frame2Tra(0), frame2Tra(1), frame2Tra(2));
+    vec3f frame1Translation = frame1PoseInv.translation();
+    vec3f frame2Translation = frame2PoseInv.translation();
 
     std::vector<int> sIds = scene2.getShapesIds();
 
@@ -128,21 +115,21 @@ float visualOdometry<sceneType>::meanViewAngle(Sophus::SE3f pose1, Sophus::SE3f 
         auto shape1 = scene1.getShape(sId);
         auto shape2 = scene2.getShape(sId);
 
-        vec2<float> centerPix1 = shape1.getCenterPix();
-        vec2<float> centerPix2 = shape2.getCenterPix();
+        vec2f centerPix1 = shape1.getCenterPix();
+        vec2f centerPix2 = shape2.getCenterPix();
 
         float centerDepth2 = shape2.getDepth(centerPix2);
 
         if (!cam[lvl].isPixVisible(centerPix1) || !cam[lvl].isPixVisible(centerPix2))
             continue;
 
-        vec3<float> centerRay2 = cam[lvl].pixToRay(centerPix2);
-        vec3<float> centerPoint2 = centerRay2 * centerDepth2;
+        vec3f centerRay2 = cam[lvl].pixToRay(centerPix2);
+        vec3f centerPoint2 = centerRay2 * centerDepth2;
 
-        vec3<float> diff1 = frame1Translation - centerPoint2;
-        vec3<float> diff2 = frame2Translation - centerPoint2;
-        vec3<float> diff1Normalized = diff1 / diff1.norm();
-        vec3<float> diff2Normalized = diff2 / diff2.norm();
+        vec3f diff1 = frame1Translation - centerPoint2;
+        vec3f diff2 = frame2Translation - centerPoint2;
+        vec3f diff1Normalized = diff1 / diff1.norm();
+        vec3f diff2Normalized = diff2 / diff2.norm();
 
         float cos_angle = diff1Normalized.dot(diff2Normalized);
         float angle = std::acos(cos_angle);
@@ -154,8 +141,7 @@ float visualOdometry<sceneType>::meanViewAngle(Sophus::SE3f pose1, Sophus::SE3f 
     return accAngle / count;
 }
 
-template <typename sceneType>
-float visualOdometry<sceneType>::getViewPercent(frameCPU &frame)
+float visualOdometry::getViewPercent(frameCPU &frame)
 {
     int lvl = 1;
     /*
@@ -182,8 +168,7 @@ float visualOdometry<sceneType>::getViewPercent(frameCPU &frame)
     return 1.0 - pnodata;
 }
 
-template <typename sceneType>
-void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
+void visualOdometry::locAndMap(dataCPU<float> &image)
 {
     assert(image.width == cam[0].width && image.height == cam[0].height);
 
@@ -193,7 +178,7 @@ void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
     frameCPU newFrame(cam[0].width, cam[0].height);
     newFrame.setImage(image, lastId);
     newFrame.setPose(lastMovement * lastPose);
-    newFrame.setAffine(lastAffine);
+    newFrame.setExposure(lastExposure);
     lastId++;
 
     t.tic();
@@ -263,14 +248,14 @@ void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
             if (newFrame.getId() == keyframe.getId())
             {
                 newFrame.setPose(keyframe.getPose());
-                newFrame.setAffine(keyframe.getAffine());
+                newFrame.setExposure(keyframe.getExposure());
             }
             for (int i = 0; i < (int)lastFrames.size(); i++)
             {
                 if (keyframe.getId() == lastFrames[i].getId())
                 {
                     lastFrames[i].setPose(keyframe.getPose());
-                    lastFrames[i].setAffine(keyframe.getAffine());
+                    lastFrames[i].setExposure(keyframe.getExposure());
                 }
             }
         }
@@ -278,11 +263,10 @@ void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
 
     lastMovement = newFrame.getPose() * lastPose.inverse();
     lastPose = newFrame.getPose();
-    lastAffine = newFrame.getAffine();
+    lastExposure = newFrame.getExposure();
 }
 
-template <typename sceneType>
-void visualOdometry<sceneType>::lightaffine(dataCPU<float> &image, Sophus::SE3f pose)
+void visualOdometry::lightaffine(dataCPU<float> &image, SE3f pose)
 {
     assert(image.width == cam[0].width && image.height == cam[0].height);
 
@@ -291,18 +275,17 @@ void visualOdometry<sceneType>::lightaffine(dataCPU<float> &image, Sophus::SE3f 
     frameCPU newFrame(cam[0].width, cam[0].height);
     newFrame.setImage(image, lastId);
     newFrame.setPose(pose);
-    newFrame.setAffine(lastAffine);
+    newFrame.setExposure(lastExposure);
     lastId++;
 
     t.tic();
     //sceneOptimizer.optLightAffine(newFrame, kframe, scene);
     std::cout << "optmap time " << t.toc() << std::endl;
 
-    lastAffine = newFrame.getAffine();
+    lastExposure = newFrame.getExposure();
 }
 
-template <typename sceneType>
-void visualOdometry<sceneType>::localization(dataCPU<float> &image)
+void visualOdometry::localization(dataCPU<float> &image)
 {
     assert(image.width == cam[0].width && image.height == cam[0].height);
 
@@ -311,7 +294,7 @@ void visualOdometry<sceneType>::localization(dataCPU<float> &image)
     frameCPU newFrame(cam[0].width, cam[0].height);
     newFrame.setImage(image, lastId);
     newFrame.setPose(lastMovement * lastPose);
-    newFrame.setAffine(lastAffine);
+    newFrame.setExposure(lastExposure);
     lastId++;
 
     t.tic();
@@ -319,15 +302,14 @@ void visualOdometry<sceneType>::localization(dataCPU<float> &image)
     poseOptimizer.optimize(newFrame, kframe, scene);
     std::cout << "estimated pose " << t.toc() << std::endl;
     std::cout << newFrame.getPose().matrix() << std::endl;
-    std::cout << newFrame.getAffine()(0) << " " << newFrame.getAffine()(1) << std::endl;
+    std::cout << newFrame.getExposure()(0) << " " << newFrame.getExposure()(1) << std::endl;
 
     lastMovement = newFrame.getPose() * lastPose.inverse();
     lastPose = newFrame.getPose();
-    lastAffine = newFrame.getAffine();
+    lastExposure = newFrame.getExposure();
 }
 
-template <typename sceneType>
-void visualOdometry<sceneType>::mapping(dataCPU<float> &image, Sophus::SE3f globalPose, vec2<float> exp)
+void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
 {
     assert(image.width == cam[0].width && image.height == cam[0].height);
 
@@ -337,7 +319,7 @@ void visualOdometry<sceneType>::mapping(dataCPU<float> &image, Sophus::SE3f glob
     frameCPU newFrame(cam[0].width, cam[0].height);
     newFrame.setImage(image, lastId);
     newFrame.setPose(globalPose);
-    newFrame.setAffine(exp);
+    newFrame.setExposure(exp);
     lastId++;
 
     if (lastFrames.size() == 0)

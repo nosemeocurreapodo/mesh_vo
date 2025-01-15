@@ -25,8 +25,7 @@
 
 #include "opencv2/opencv.hpp"
 
-#include "sophus/se3.hpp"
-
+#include "common/types.h"
 #include "common/camera.h"
 #include "visualOdometry.h"
 
@@ -166,7 +165,7 @@ int main(int argc, char **argv)
 	// cams[0].resize(int(1241/2), int(376/2));
 	// cams[1].resize(int(1241/2), int(376/2));
 
-	visualOdometry<SceneMesh> odometry(cams[0]);
+	visualOdometry odometry(cams[0]);
 
 	// open image files: first try to open as file.
 	std::string source_left = argv[2];
@@ -238,8 +237,8 @@ int main(int argc, char **argv)
 		{
 			frameCPU frame(cams[0].width, cams[0].height);
 			frame.setImage(imageData_left, 0);
-			frame.setPose(Sophus::SE3f());
-			frame.setAffine(vec2<float>(0.0, 0.0));
+			frame.setPose(SE3f());
+			frame.setExposure(vec2f(0.0, 0.0));
 			odometry.init(frame);
 			odometry.locAndMap(imageData_right);
 		}

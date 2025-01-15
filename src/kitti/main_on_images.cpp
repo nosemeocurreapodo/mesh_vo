@@ -165,7 +165,7 @@ int main(int argc, char **argv)
 
 	cam.resize(IMAGE_WIDTH, IMAGE_HEIGHT);
 
-	visualOdometry<SceneMesh> odometry(cam);
+	visualOdometry odometry(cam);
 
 	// open image files: first try to open as file.
 	std::string source = argv[2];
@@ -224,8 +224,8 @@ int main(int argc, char **argv)
 		{
 			frameCPU frame(cam.width, cam.height);
 			frame.setImage(imageData, 0);
-			frame.setPose(Sophus::SE3f());
-			frame.setAffine(vec2<float>(0.0, 0.0));
+			frame.setPose(SE3f());
+			frame.setExposure(vec2f(0.0, 0.0));
 			odometry.init(frame);
 		// system->randomInit(image.data, fakeTimeStamp, runningIDX);
 		}

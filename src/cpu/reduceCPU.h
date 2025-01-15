@@ -1,18 +1,13 @@
 #pragma once
 
-#include <Eigen/Core>
 #include <thread>
 
-#include "common/camera.h"
-#include "common/DenseLinearProblem.h"
-// #include "common/SparseLinearProblem.h"
-// #include "common/DenseSparseLinearProblem.h"
-#include "common/HGMapped.h"
+#include "params.h"
+#include "common/window.h"
 #include "common/Error.h"
-#include "common/common.h"
 #include "cpu/dataCPU.h"
 #include "cpu/frameCPU.h"
-#include "params.h"
+#include "common/DenseLinearProblem.h"
 
 class reduceCPU
 {
@@ -57,7 +52,7 @@ public:
         return partialerr[0];
     }
 
-    DenseLinearProblem reduceHGExpParallel(dataCPU<vec2<float>> &jexp_buffer, dataCPU<float> &err_buffer)
+    DenseLinearProblem reduceHGExpParallel(dataCPU<vec2f> &jexp_buffer, dataCPU<float> &err_buffer)
     {
         const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
         const int divi_x = 1;
@@ -100,7 +95,7 @@ public:
         return partialhg[0];
     }
 
-    DenseLinearProblem reduceHGPoseParallel(dataCPU<vec6<float>> &jpose_buffer, dataCPU<float> &err_buffer)
+    DenseLinearProblem reduceHGPoseParallel(dataCPU<vec6f> &jpose_buffer, dataCPU<float> &err_buffer)
     {
         const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
         const int divi_x = 1;
@@ -143,7 +138,6 @@ public:
         return partialhg[0];
     }
 
-    template <typename jmapType, typename idsType>
     DenseLinearProblem reduceHGMapParallel(int maxNumParams, dataCPU<jmapType> &j_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer)
     {
         const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
@@ -188,8 +182,7 @@ public:
         return hg;
     }
 
-    template <typename jmapType, typename idsType>
-    DenseLinearProblem reduceHGPoseMapParallel(int frameId, int numFrames, int numMapParams, dataCPU<vec6<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer)
+    DenseLinearProblem reduceHGPoseMapParallel(int frameId, int numFrames, int numMapParams, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer)
     {
         const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
         const int divi_x = 1;
@@ -251,13 +244,13 @@ private:
             }
     }
 
-    void reduceHGExpWindow(window win, dataCPU<vec2<float>> &jexp_buffer, dataCPU<float> &res_buffer, DenseLinearProblem &hg)
+    void reduceHGExpWindow(window win, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &res_buffer, DenseLinearProblem &hg)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
             for (int x = win.min_x; x < win.max_x; x++)
             {
-                vec2<float> J = jexp_buffer.get(y, x);
+                vec2f J = jexp_buffer.get(y, x);
                 float res = res_buffer.get(y, x);
                 if (J == jexp_buffer.nodata || res == res_buffer.nodata)
                     continue;
@@ -271,13 +264,13 @@ private:
         }
     }
 
-    void reduceHGPoseWindow(window win, dataCPU<vec6<float>> &jpose_buffer, dataCPU<float> &res_buffer, DenseLinearProblem &hg)
+    void reduceHGPoseWindow(window win, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &res_buffer, DenseLinearProblem &hg)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
             for (int x = win.min_x; x < win.max_x; x++)
             {
-                vec6<float> J = jpose_buffer.get(y, x);
+                vec6f J = jpose_buffer.get(y, x);
                 float res = res_buffer.get(y, x);
                 if (J == jpose_buffer.nodata || res == res_buffer.nodata)
                     continue;
@@ -291,7 +284,6 @@ private:
         }
     }
 
-    template <typename jmapType, typename idsType>
     void reduceHGMapWindow(window win, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
     {
         for (int y = win.min_y; y < win.max_y; y++)
@@ -315,14 +307,13 @@ private:
         }
     }
 
-    template <typename jmapType, typename idsType>
-    void reduceHGPoseMapWindow(window win, int frameId, int numFrames, dataCPU<vec6<float>> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
+    void reduceHGPoseMapWindow(window win, int frameId, int numFrames, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
     {
         for (int y = win.min_y; y < win.max_y; y++)
         {
             for (int x = win.min_x; x < win.max_x; x++)
             {
-                vec6<float> J_pose = jpose_buffer.get(y, x);
+                vec6f J_pose = jpose_buffer.get(y, x);
                 jmapType J_map = jmap_buffer.get(y, x);
                 float res = res_buffer.get(y, x);
                 idsType map_ids = pId_buffer.get(y, x);
@@ -337,8 +328,8 @@ private:
 
                 //hg.add(J_pose, J_map, res, hw, frameId, map_ids);
 
-                vecx<float> J(6 + J_map.rows());
-                vecx<int> ids(6 + J_map.rows());
+                vecxf J(6 + J_map.rows());
+                vecxi ids(6 + J_map.rows());
 
                 for(int i = 0; i < 6; i++)
                 {

@@ -23,11 +23,8 @@
 #include <dirent.h>
 #include <algorithm>
 
-#include "Undistorter.h"
-
 #include "opencv2/opencv.hpp"
-
-#include "sophus/se3.hpp"
+#include "Undistorter.h"
 
 #include "visualOdometry.h"
 
@@ -157,7 +154,7 @@ int main(int argc, char **argv)
 	camera cam(fx, fy, cx, cy, w, h);
 	cam.resize(IMAGE_WIDTH, IMAGE_WIDTH);
 
-	visualOdometry<SceneMesh> odometry(cam);
+	visualOdometry odometry(cam);
 
 	// open image files: first try to open as file.
 	std::string source = argv[2];
@@ -215,8 +212,8 @@ int main(int argc, char **argv)
 		{
 			frameCPU frame(cam.width, cam.height);
 			frame.setImage(imageData, 0);
-			frame.setPose(Sophus::SE3f());
-			frame.setAffine(vec2<float>(0.0, 0.0));
+			frame.setPose(SE3f());
+			frame.setExposure(vec2f(0.0, 0.0));
 			odometry.init(frame);
 			// system->randomInit(image.data, fakeTimeStamp, runningIDX);
 		}

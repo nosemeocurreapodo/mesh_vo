@@ -2,39 +2,6 @@
 
 #include <vector>
 #include "common/types.h"
-#include "params.h"
-
-class window
-{
-public:
-    window(int minx, int maxx, int miny, int maxy)
-    {
-        min_x = minx;
-        min_y = miny;
-        max_x = maxx;
-        max_y = maxy;
-    }
-
-    inline bool isPixInWindow(vec2<float> pix)
-    {
-        if (pix(0) > min_x && pix(0) < max_x && pix(1) > min_y && pix(1) < max_y)
-            return true;
-        return false;
-    }
-
-    void intersect(window win)
-    {
-        min_x = std::max(min_x, win.min_x);
-        max_x = std::min(max_x, win.max_x);
-        min_y = std::max(min_y, win.min_y);
-        max_y = std::min(max_y, win.max_y);
-    }
-
-    int min_x;
-    int max_x;
-    int min_y;
-    int max_y;
-};
 
 class camera
 {
@@ -59,14 +26,14 @@ public:
 
     void computeKinv()
     {
-        Eigen::Matrix3f K = Eigen::Matrix3f::Zero();
+        mat3f K = mat3f::Zero();
         K(0, 0) = fx;
         K(1, 1) = fy;
         K(2, 2) = 1.0f;
         K(0, 2) = cx;
         K(1, 2) = cy;
 
-        Eigen::Matrix3f KInv = K.inverse();
+        mat3f KInv = K.inverse();
 
         fxinv = KInv(0, 0);
         fyinv = KInv(1, 1);
@@ -102,7 +69,7 @@ public:
         resize(new_width, new_height);
     }
 
-    inline bool isPixVisible(vec2<float> pix)
+    bool isPixVisible(vec2f pix)
     {
         // the idea here is that if we have 3 pixels
         // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
@@ -114,7 +81,7 @@ public:
         return true;
     }
 
-    inline bool isPixVisible(int x, int y)
+    bool isPixVisible(int x, int y)
     {
         // the idea here is that if we have 3 pixels
         // the first goes from 0 to 1, the second 1 to 2, the third 2 to 3, and the forth from 3 to 4
@@ -135,44 +102,44 @@ public:
     }
     */
 
-    inline vec2<float> pointToPix(vec3<float> point)
+    vec2f pointToPix(vec3f point)
     {
-        vec2<float> pix;
+        vec2f pix;
         pix(0) = fx * point(0) / point(2) + cx;
         pix(1) = fy * point(1) / point(2) + cy;
         return pix;
     }
 
-    inline vec2<float> rayToPix(vec3<float> ray)
+    vec2f rayToPix(vec3f ray)
     {
-        vec2<float> pix;
+        vec2f pix;
         pix(0) = fx * ray(0) + cx;
         pix(1) = fy * ray(1) + cy;
         return pix;
         // return vec2<float>(fx * ray(0) + cx, fy * ray(1) + cy);
     }
 
-    inline vec3<float> pixToRay(vec2<float> pix)
+    vec3f pixToRay(vec2f pix)
     {
-        vec3<float> ray;
+        vec3f ray;
         ray(0) = fxinv * pix(0) + cxinv;
         ray(1) = fyinv * pix(1) + cyinv;
         ray(2) = 1.0;
         return ray;
     }
 
-    inline vec3<float> pixToRay(int x, int y)
+    vec3f pixToRay(int x, int y)
     {
         // vec3<float> ray;
         // ray(0) = fxinv * x + cxinv;
         // ray(1) = fyinv * y + cyinv;
         // ray(2) = 1.0;
-        return vec3<float>(fxinv * x + cxinv, fyinv * y + cyinv, 1.0);
+        return vec3f(fxinv * x + cxinv, fyinv * y + cyinv, 1.0);
     }
 
-    inline vec3<float> d_f_i_d_f_ver(vec2<float> d_f_i_d_pix, vec3<float> f_ver)
+    vec3f d_f_i_d_f_ver(vec2f d_f_i_d_pix, vec3f f_ver)
     {
-        vec3<float> d_f_i_d_f_ver;
+        vec3f d_f_i_d_f_ver;
         d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * fx / f_ver(2);
         d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * fy / f_ver(2);
         d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);

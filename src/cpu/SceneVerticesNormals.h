@@ -1,7 +1,5 @@
 #pragma once
 
-#include <Eigen/Core>
-#include "sophus/se3.hpp"
 #include "common/common.h"
 #include "cpu/SceneVerticesBase.h"
 

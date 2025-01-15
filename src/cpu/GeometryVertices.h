@@ -1,10 +1,9 @@
 #pragma once
-#include <memory>
-#include <Eigen/Core>
-#include "sophus/se3.hpp"
-#include "common/common.h"
-// #include "cpu/GeometryBase.h"
-#include "cpu/Shapes.h"
+
+#include "params.h"
+#include "common/types2.h"
+#include "common/camera.h"
+#include "common/depthParam.h"
 #include "cpu/frameCPU.h"
 
 class GeometryVertices // : public SceneBase
@@ -14,7 +13,7 @@ public:
     {
     }
 
-    void init(std::vector<vec3<float>> &vertices, camera cam)
+    void init(std::vector<vec3f> &vertices, camera cam)
     {
         assert(vertices.size() <= MAX_VERTEX_SIZE);
 
@@ -25,15 +24,15 @@ public:
 
         for (size_t i = 0; i < vertices.size(); i++)
         {
-            vec3<float> vertice = vertices[i];
-            vec3<float> ray = vertice/vertice(2);
-            vec2<float> pix = cam.rayToPix(ray);
+            vec3f vertice = vertices[i];
+            vec3f ray = vertice/vertice(2);
+            vec2f pix = cam.rayToPix(ray);
 
             m_vertices[i] = vertex(vertice, ray, pix);
         }
     }
 
-    void init(std::vector<vec2<float>> &texcoords, std::vector<float> idepths, camera cam)
+    void init(std::vector<vec2f> &texcoords, std::vector<float> idepths, camera cam)
     {
         assert(texcoords.size() == idepths.size() && texcoords.size() <= MAX_VERTEX_SIZE);
 
@@ -44,20 +43,20 @@ public:
 
         for (size_t i = 0; i < texcoords.size(); i++)
         {
-            vec2<float> pix = texcoords[i];
+            vec2f pix = texcoords[i];
             float idph = idepths[i];
 
             assert(idph > 0.0);
             assert(pix(0) >= 0 && pix(0) < cam.width && pix(1) >= 0 && pix(1) < cam.height);
 
-            vec3<float> ray = cam.pixToRay(pix);
-            vec3<float> vertice = ray / idph;
+            vec3f ray = cam.pixToRay(pix);
+            vec3f vertice = ray / idph;
 
             m_vertices[i] = vertex(vertice, ray, pix);
         }
     }
 
-    vec2<float> meanStdDepthParam()
+    vec2f meanStdDepthParam()
     {
         float old_m = 0;
         float new_m = 0;
@@ -89,14 +88,14 @@ public:
             }
         }
 
-        vec2<float> results;
+        vec2f results;
         results(0) = new_m;
         results(1) = new_s / (n - 1);
 
         return results;
     }
 
-    void scaleDepthParam(vec2<float> affine)
+    void scaleDepthParam(vec2f affine)
     {
         for (int i = 0; i < MAX_VERTEX_SIZE; i++)
         {
@@ -155,8 +154,7 @@ public:
         {
             if (!m_vertices[it].used)
                 continue;
-            Eigen::Vector3f _vert = pose * Eigen::Vector3f(m_vertices[it].ver(0), m_vertices[it].ver(1), m_vertices[it].ver(2));
-            vec3<float> ver(_vert(0), _vert(1), _vert(2));
+            vec3f ver = pose * m_vertices[it].ver;
             m_vertices[it].ver = ver;
             m_vertices[it].ray = ver/ver(2);
         }

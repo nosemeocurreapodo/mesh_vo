@@ -1,7 +1,6 @@
 #pragma once
+
 #include <memory>
-#include <Eigen/Core>
-#include "sophus/se3.hpp"
 #include "common/common.h"
 #include "common/camera.h"
 #include "cpu/Shapes.h"

@@ -1,57 +1,47 @@
 #pragma once
 
-#include <Eigen/Core>
-// #include <Eigen/CholmodSupport>
-//  #include <Eigen/SPQRSupport>
-// #include <thread>
-
+#include "params.h"
 #include "common/camera.h"
 #include "common/types.h"
-#include "common/DenseLinearProblem.h"
-// #include "common/SparseLinearProblem.h"
-//  #include "common/HGMapped.h"
 #include "common/Error.h"
-#include "common/common.h"
 #include "cpu/dataCPU.h"
 #include "cpu/frameCPU.h"
 #include "cpu/renderCPU.h"
 #include "cpu/reduceCPU.h"
-// #include "cpu/SceneBase.h"
-// #include "cpu/ScenePatches.h"
 #include "cpu/SceneMesh.h"
-// #include "cpu/SceneSurfels.h"
-// #include "cpu/SceneMeshSmooth.h"
+#include "common/DenseLinearProblem.h"
 #include "optimizers/baseOptimizerCPU.h"
 #include "cpu/OpenCVDebug.h"
-#include "params.h"
 
-template <typename sceneType>
-class poseOptimizerCPU : public baseOptimizerCPU<sceneType>
+class poseOptimizerCPU : public baseOptimizerCPU
 {
 public:
     poseOptimizerCPU(camera &_cam)
-        : baseOptimizerCPU<sceneType>(_cam),
-          j_buffer(_cam.width, _cam.height, vec6<float>::zero())
+        : baseOptimizerCPU(_cam),
+          j_buffer(_cam.width, _cam.height, vec6f::Zero())
     {
-        priorWeight = 1.0;
-        invCovariance = Eigen::Matrix<float, 6, 6>::Identity() / (INITIAL_POSE_STD * INITIAL_POSE_STD);
+        priorWeight = 0.0;
+        invCovariance = mat6f::Identity() / (INITIAL_POSE_STD * INITIAL_POSE_STD);
     }
 
     void optimize(frameCPU &frame, frameCPU &kframe, sceneType &scene)
     {
-        Eigen::Matrix<float, 6, 1> init_pose = frame.getPose().log();
-        Eigen::Matrix<float, 6, 6> init_invcovariance = invCovariance;
-        Eigen::Matrix<float, 6, 6> init_invcovariancesqrt = invCovariance.sqrt();
+        vec6f init_pose = frame.getPose().log();
+        mat6f init_invcovariance = invCovariance;
+        mat6f init_invcovariancesqrt;
+        
+        if(priorWeight > 0.0)
+            init_invcovariancesqrt = invCovariance.sqrt();
 
         for (int lvl = 2; lvl >= 2; lvl--)
         {
-            Error last_error = baseOptimizerCPU<sceneType>::computeError(frame, kframe, scene, lvl);
+            Error last_error = computeError(frame, kframe, scene, lvl);
             last_error *= 1.0 / last_error.getCount();
 
             if (priorWeight > 0.0)
             {
-                Eigen::Matrix<float, 6, 1> res = frame.getPose().log() - init_pose;
-                Eigen::Matrix<float, 6, 1> conv_dot_res = init_invcovariance * res;
+                vec6f res = frame.getPose().log() - init_pose;
+                vec6f conv_dot_res = init_invcovariance * res;
                 float weight = priorWeight / 6;
                 last_error += weight * (res.dot(conv_dot_res));
             }
@@ -59,7 +49,7 @@ public:
             std::cout << "initial error " << last_error.getError() << " " << lvl << std::endl;
             std::vector<frameCPU> frames;
             frames.push_back(frame);
-            baseOptimizerCPU<sceneType>::plotDebug(scene, kframe, frames);
+            plotDebug(scene, kframe, frames);
 
             float lambda = 0.0;
             bool keepIterating = true;
@@ -72,8 +62,8 @@ public:
                 {
                     // error = diff * (H * diff)
                     // jacobian = ones * (H * diff) + diff ( H * ones)
-                    Eigen::Matrix<float, 6, 1> res = init_invcovariancesqrt * (frame.getPose().log() - init_pose);
-                    Eigen::Matrix<float, 6, 6> jacobian = init_invcovariancesqrt;
+                    vec6f res = init_invcovariancesqrt * (frame.getPose().log() - init_pose);
+                    mat6f jacobian = init_invcovariancesqrt;
                     float weight = priorWeight / 6;
                     // vec6<float> res(_res);
                     // mat6<float> jacobian(_jacobian);
@@ -95,14 +85,14 @@ public:
                     if (!problem.prepareH(lambda))
                         continue;
 
-                    Eigen::VectorXf inc = problem.solve();
+                    vecxf inc = problem.solve();
 
-                    Sophus::SE3f best_pose = frame.getPose();
-                    Sophus::SE3f new_pose = frame.getPose() * Sophus::SE3f::exp(inc).inverse();
+                    SE3f best_pose = frame.getPose();
+                    SE3f new_pose = frame.getPose() * SE3f::exp(inc).inverse();
                     frame.setPose(new_pose);
 
-                    Error new_error = baseOptimizerCPU<sceneType>::computeError(frame, kframe, scene, lvl);
-                    if (new_error.getCount() < 0.5 * baseOptimizerCPU<sceneType>::cam[lvl].width * baseOptimizerCPU<sceneType>::cam[lvl].height)
+                    Error new_error = computeError(frame, kframe, scene, lvl);
+                    if (new_error.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
                     {
                         // too few pixels, unreliable, set to large error
                         new_error.setZero();
@@ -112,8 +102,8 @@ public:
 
                     if (priorWeight > 0.0)
                     {
-                        Eigen::Matrix<float, 6, 1> res = frame.getPose().log() - init_pose;
-                        Eigen::Matrix<float, 6, 1> conv_dot_res = init_invcovariance * res;
+                        vec6f res = frame.getPose().log() - init_pose;
+                        vec6f conv_dot_res = init_invcovariance * res;
                         float weight = priorWeight / 6;
                         new_error += weight * (res.dot(conv_dot_res));
                     }
@@ -121,7 +111,7 @@ public:
                     std::cout << "new error " << new_error.getError() << " " << lambda << " " << " " << lvl << std::endl;
                     std::vector<frameCPU> frames;
                     frames.push_back(frame);
-                    baseOptimizerCPU<sceneType>::plotDebug(scene, kframe, frames);
+                    plotDebug(scene, kframe, frames);
 
                     if (new_error.getError() < last_error.getError())
                     {
@@ -157,14 +147,14 @@ private:
     DenseLinearProblem computeProblem(frameCPU &frame, frameCPU &kframe, sceneType &scene, int lvl)
     {
         j_buffer.set(j_buffer.nodata, lvl);
-        baseOptimizerCPU<sceneType>::error_buffer.setToNoData(lvl);
+        error_buffer.setToNoData(lvl);
 
-        baseOptimizerCPU<sceneType>::renderer.renderJPoseParallel(scene, kframe.getRawImage(lvl), kframe.getAffine(), kframe.getPose(), frame.getRawImage(lvl), frame.getAffine(), frame.getdIdpixImage(lvl), frame.getPose(), baseOptimizerCPU<sceneType>::cam[lvl], j_buffer.get(lvl), baseOptimizerCPU<sceneType>::error_buffer.get(lvl));
-        DenseLinearProblem problem = baseOptimizerCPU<sceneType>::reducer.reduceHGPoseParallel(j_buffer.get(lvl), baseOptimizerCPU<sceneType>::error_buffer.get(lvl));
+        renderer.renderJPoseParallel(scene, kframe.getRawImage(lvl), kframe.getExposure(), kframe.getPose(), frame.getRawImage(lvl), frame.getExposure(), frame.getdIdpixImage(lvl), frame.getPose(), cam[lvl], j_buffer.get(lvl), error_buffer.get(lvl));
+        DenseLinearProblem problem = reducer.reduceHGPoseParallel(j_buffer.get(lvl), error_buffer.get(lvl));
         return problem;
     }
 
     float priorWeight;
-    dataMipMapCPU<vec6<float>> j_buffer;
-    Eigen::Matrix<float, 6, 6> invCovariance;
+    dataMipMapCPU<vec6f> j_buffer;
+    mat6f invCovariance;
 };

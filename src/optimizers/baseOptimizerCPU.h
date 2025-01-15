@@ -1,30 +1,17 @@
 #pragma once
 
-#include <Eigen/Core>
-// #include <Eigen/CholmodSupport>
-//  #include <Eigen/SPQRSupport>
-// #include <thread>
-
+#include "params.h"
 #include "common/camera.h"
 #include "common/types.h"
-#include "common/DenseLinearProblem.h"
-// #include "common/SparseLinearProblem.h"
-//  #include "common/HGMapped.h"
 #include "common/Error.h"
-#include "common/common.h"
 #include "cpu/dataCPU.h"
 #include "cpu/frameCPU.h"
 #include "cpu/renderCPU.h"
 #include "cpu/reduceCPU.h"
-// #include "cpu/SceneBase.h"
-// #include "cpu/ScenePatches.h"
 #include "cpu/SceneMesh.h"
-// #include "cpu/SceneSurfels.h"
-// #include "cpu/SceneMeshSmooth.h"
+#include "common/DenseLinearProblem.h"
 #include "cpu/OpenCVDebug.h"
-#include "params.h"
 
-template <typename sceneType>
 class baseOptimizerCPU
 {
 public:
@@ -57,7 +44,7 @@ protected:
             for (int i = 0; i < (int)frames.size(); i++)
             {
                 error_buffer.set(error_buffer.nodata);
-                renderer.renderResidualParallel(scene, kframe.getRawImage(lvl), kframe.getAffine(), kframe.getPose(), frames[i].getRawImage(lvl), frames[i].getAffine(), frames[i].getPose(), cam[lvl], error_buffer);
+                renderer.renderResidualParallel(scene, kframe.getRawImage(lvl), kframe.getExposure(), kframe.getPose(), frames[i].getRawImage(lvl), frames[i].getExposure(), frames[i].getPose(), cam[lvl], error_buffer);
 
                 for (int y = 0; y < cam[1].height; y++)
                 {
@@ -81,7 +68,7 @@ protected:
     Error computeError(frameCPU &frame, frameCPU &kframe, sceneType &scene, int lvl)
     {
         error_buffer.set(error_buffer.nodata, lvl);
-        renderer.renderResidualParallel(scene, kframe.getRawImage(lvl), kframe.getAffine(), kframe.getPose(), frame.getRawImage(lvl), frame.getAffine(), frame.getPose(), cam[lvl], error_buffer.get(lvl));
+        renderer.renderResidualParallel(scene, kframe.getRawImage(lvl), kframe.getExposure(), kframe.getPose(), frame.getRawImage(lvl), frame.getExposure(), frame.getPose(), cam[lvl], error_buffer.get(lvl));
         Error e = reducer.reduceErrorParallel(error_buffer.get(lvl));
         return e;
     }
@@ -92,6 +79,6 @@ protected:
     dataMipMapCPU<float> idepth_buffer;
     dataMipMapCPU<float> error_buffer;
 
-    renderCPU<sceneType> renderer;
+    renderCPU renderer;
     reduceCPU reducer;
 };

@@ -1,22 +1,20 @@
 #pragma once
 
-#include "sophus/se3.hpp"
-
+#include "params.h"
 #include "common/types.h"
 #include "dataCPU.h"
-#include "params.h"
 
 class frameCPU
 {
 public:
     frameCPU(int width, int height)
-        : raw_image(width, height, -1.0f),
-          dIdpix_image(width, height, vec2<float>(0.0f, 0.0f))
+        : raw_image(width, height, imageType(-1.0f)),
+          dIdpix_image(width, height, vec2f(0.0f, 0.0f))
     // idepth_image(width, height, -1.0f),
     // residual_image(width, height, -1.0f)
     {
         id = 0;
-        affine = {0.0f, 0.0f};
+        exposure = {0.0f, 0.0f};
     };
 
     frameCPU(const frameCPU &other) : raw_image(other.raw_image),
@@ -26,7 +24,7 @@ public:
     {
         id = other.id;
         pose = other.pose;
-        affine = other.affine;
+        exposure = other.exposure;
     }
 
     frameCPU &operator=(const frameCPU &other)
@@ -35,7 +33,7 @@ public:
         {
             id = other.id;
             pose = other.pose;
-            affine = other.affine;
+            exposure = other.exposure;
 
             raw_image = other.raw_image;
             dIdpix_image = other.dIdpix_image;
@@ -60,22 +58,22 @@ public:
         id = _id;
     }
 
-    void setAffine(vec2<float> _affine)
+    void setExposure(vec2f exp)
     {
-        affine = _affine;
+        exposure = exp;
     }
 
-    vec2<float> getAffine()
+    vec2f getExposure()
     {
-        return affine;
+        return exposure;
     }
 
-    void setPose(Sophus::SE3f p)
+    void setPose(SE3f p)
     {
         pose = p;
     }
 
-    Sophus::SE3f getPose()
+    SE3f getPose()
     {
         return pose;
     }
@@ -85,7 +83,7 @@ public:
         return raw_image.get(lvl);
     }
 
-    dataCPU<vec2<float>> &getdIdpixImage(int lvl)
+    dataCPU<vec2f> &getdIdpixImage(int lvl)
     {
         return dIdpix_image.get(lvl);
     }
@@ -113,7 +111,7 @@ private:
         // dx.set(dx.nodata, lvl);
         // dy.set(dy.nodata, lvl);
 
-        dataCPU<float> image = raw_image.get(lvl);
+        dataCPU<imageType> image = raw_image.get(lvl);
 
         int width = image.width;
         int height = image.height;
@@ -125,25 +123,25 @@ private:
                 {
                     // dx.set(0.0, y, x, lvl);
                     // dy.set(0.0, y, x, lvl);
-                    dIdpix_image.set(vec2<float>(0.0f, 0.0f), y, x, lvl);
+                    dIdpix_image.set(vec2f(0.0f, 0.0f), y, x, lvl);
                     continue;
                 }
 
                 float _dx = (float(image.get(y, x + 1)) - float(image.get(y, x - 1))) / 2.0;
                 float _dy = (float(image.get(y + 1, x)) - float(image.get(y - 1, x))) / 2.0;
 
-                dIdpix_image.set(vec2<float>(_dx, _dy), y, x, lvl);
+                dIdpix_image.set(vec2f(_dx, _dy), y, x, lvl);
                 // dx.set(_dx, y, x, lvl);
                 // dy.set(_dy, y, x, lvl);
             }
     }
 
-    dataMipMapCPU<float> raw_image;
-    dataMipMapCPU<vec2<float>> dIdpix_image;
+    dataMipMapCPU<imageType> raw_image;
+    dataMipMapCPU<vec2f> dIdpix_image;
     // dataMipMapCPU<float> idepth_image;
     // dataMipMapCPU<float> residual_image;
 
     Sophus::SE3f pose;
-    vec2<float> affine;
+    vec2f exposure;
     int id;
 };

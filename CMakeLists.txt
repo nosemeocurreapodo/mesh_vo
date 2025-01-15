@@ -37,7 +37,6 @@ include_directories( ${CSPARSE_INCLUDE_DIR} ${CHOLMOD_INCLUDE_DIR})
 #)
 
 set(VISUALODOMETRY_SRCS
-      "src/common/common.cpp"
       "src/common/DelaunayTriangulation.cpp"
       #"src/optimizers/sceneOptimizerCPU.cpp"
       "src/visualOdometry.cpp")
@@ -76,11 +75,11 @@ add_executable(testapp ${TESTAPP_SRCS} ${VISUALODOMETRY_SRCS})
 #target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})
 target_link_libraries(testapp ${OpenCV_LIBS} glfw pthread ${CMAKE_DL_LIBS})
 
-#add_executable(tum_dataset ${TUMDATASET_SRCS} ${VISUALODOMETRY_SRCS})
-#target_link_libraries(tum_dataset ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
+add_executable(tum_dataset ${TUMDATASET_SRCS} ${VISUALODOMETRY_SRCS})
+target_link_libraries(tum_dataset ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
 
-#add_executable(kitti_dataset ${KITTI_SRCS} ${VISUALODOMETRY_SRCS})
-#target_link_libraries(kitti_dataset ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
+add_executable(kitti_dataset ${KITTI_SRCS} ${VISUALODOMETRY_SRCS})
+target_link_libraries(kitti_dataset ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
 
-#add_executable(kitti_binocular ${KITTI_BINOCULAR_SRCS} ${VISUALODOMETRY_SRCS})
-#target_link_libraries(kitti_binocular ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
+add_executable(kitti_binocular ${KITTI_BINOCULAR_SRCS} ${VISUALODOMETRY_SRCS})
+target_link_libraries(kitti_binocular ${OpenCV_LIBS} glfw ${CMAKE_DL_LIBS})
