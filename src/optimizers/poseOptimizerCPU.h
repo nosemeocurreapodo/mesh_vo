@@ -33,8 +33,8 @@ public:
         : baseOptimizerCPU<sceneType>(_cam),
           j_buffer(_cam.width, _cam.height, vec6<float>::zero())
     {
-        priorWeight = 0.0;
-        invCovariance = Eigen::Matrix<float, 6, 6>::Identity();
+        priorWeight = 1.0;
+        invCovariance = Eigen::Matrix<float, 6, 6>::Identity() / (INITIAL_POSE_STD * INITIAL_POSE_STD);
     }
 
     void optimize(frameCPU &frame, frameCPU &kframe, sceneType &scene)
@@ -68,8 +68,6 @@ public:
                 DenseLinearProblem problem = computeProblem(frame, kframe, scene, lvl);
                 problem *= 1.0 / problem.getCount();
 
-                invCovariance = problem.getH();
-
                 if (priorWeight > 0.0)
                 {
                     // error = diff * (H * diff)
@@ -97,13 +95,11 @@ public:
                     if (!problem.prepareH(lambda))
                         continue;
 
-                    Eigen::VectorXf poseUpdate = problem.solve();
+                    Eigen::VectorXf inc = problem.solve();
 
                     Sophus::SE3f best_pose = frame.getPose();
-                    Sophus::SE3f new_pose = frame.getPose() * Sophus::SE3f::exp(poseUpdate).inverse();
+                    Sophus::SE3f new_pose = frame.getPose() * Sophus::SE3f::exp(inc).inverse();
                     frame.setPose(new_pose);
-
-                    float update_mag = poseUpdate.dot(poseUpdate);
 
                     Error new_error = baseOptimizerCPU<sceneType>::computeError(frame, kframe, scene, lvl);
                     if (new_error.getCount() < 0.5 * baseOptimizerCPU<sceneType>::cam[lvl].width * baseOptimizerCPU<sceneType>::cam[lvl].height)
@@ -144,7 +140,7 @@ public:
                     {
                         frame.setPose(best_pose);
 
-                        if (update_mag < 1e-16)
+                        if (inc.dot(inc) < 1e-16)
                         {
                             // std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations and " << t_try << " total tries, with lambda " << lambda << std::endl;
                             // if too small, do next level!

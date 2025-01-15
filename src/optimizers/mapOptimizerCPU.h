@@ -35,8 +35,8 @@ public:
           j_buffer(_cam.width, _cam.height, jmapType::zero()),
           pId_buffer(_cam.width, _cam.height, idsType::zero())
     {
-        reguWeight = 1.0;
-        priorWeight = 0.0;
+        reguWeight = 0.0;
+        priorWeight = 1.0;
     }
 
     void optimize(std::vector<frameCPU> &frames, frameCPU &kframe, sceneType &scene)
@@ -47,8 +47,7 @@ public:
         Eigen::VectorXf init_params = Eigen::VectorXf::Zero(numParams);
         for (size_t i = 0; i < sceneParamsIds.size(); i++)
         {
-            float param = scene.getParam(sceneParamsIds[i]);
-            init_params(i) = param;
+            init_params(i) = scene.getParam(sceneParamsIds[i]);
         }
 
         if (invCovariance.rows() != numParams || invCovariance.cols() != numParams)
@@ -83,6 +82,7 @@ public:
             if (priorWeight > 0.0)
             {
                 Eigen::VectorXf params(numParams);
+
                 for (size_t index = 0; index < sceneParamsIds.size(); index++)
                 {
                     params(index) = scene.getParam(sceneParamsIds[index]);
@@ -127,10 +127,10 @@ public:
                 if (priorWeight > 0.0)
                 {
                     Eigen::VectorXf params = Eigen::VectorXf::Zero(numParams);
+
                     for (size_t i = 0; i < numParams; i++)
                     {
-                        float param = scene.getParam(sceneParamsIds[i]);
-                        params(i) = param;
+                        params(i) = scene.getParam(sceneParamsIds[i]);
                     }
                     // error = (sqrt(H)*diff)**2
                     // jacobian = sqrt(H)*ones
@@ -165,24 +165,16 @@ public:
                     Eigen::VectorXf inc = problem.solve();
 
                     std::vector<float> best_params;
-                    float map_inc_mag = 0.0;
-                    int map_inc_mag_count = 0;
+
                     for (size_t index = 0; index < linearProbleParamIds.size(); index++)
                     {
                         int paramId = linearProbleParamIds[index];
 
-                        float best_param = scene.getParam(paramId);
-                        float inc_param = inc(index);
-                        float new_param = best_param - inc_param;
-
-                        best_params.push_back(best_param);
+                        best_params.push_back(scene.getParam(paramId));
                         // the derivative is with respecto to the keyframe pose
                         // the update should take this into account
-                        scene.setParam(new_param, paramId);
-                        map_inc_mag += inc_param * inc_param;
-                        map_inc_mag_count += 1;
+                        scene.setParam(scene.getParam(paramId) - inc(index), paramId);
                     }
-                    map_inc_mag /= map_inc_mag_count;
 
                     e.setZero();
                     for (std::size_t i = 0; i < frames.size(); i++)
@@ -255,7 +247,7 @@ public:
 
                         // reject update, increase lambda, use un-updated data
 
-                        if (map_inc_mag < 1e-16)
+                        if (inc.dot(inc) < 1e-16)
                         {
                             // if too small, do next level!
                             it = maxIterations;

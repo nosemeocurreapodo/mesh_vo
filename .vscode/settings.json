@@ -107,7 +107,9 @@
         "source_location": "cpp",
         "shared_mutex": "cpp",
         "stdfloat": "cpp",
-        "__memory": "cpp"
+        "__memory": "cpp",
+        "callback": "cpp",
+        "image": "cpp"
     },
     "cmake.configureOnOpen": true
 }
