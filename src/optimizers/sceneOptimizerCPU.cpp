@@ -522,7 +522,7 @@ void sceneOptimizerCPU<sceneType, jmapType, idsType>::optPoseMap(std::vector<fra
 
             if (sceneRegularization > 0.0)
             {
-                DenseLinearProblem hg_regu = scene.HGRegu(frames.size());
+                DenseLinearProblem hg_regu = scene.HGRegu(numFrameParams);
                 assert(hg_regu.getCount() > 0);
                 hg_regu *= 1.0 / hg_regu.getCount();
                 hg_regu *= sceneRegularization;

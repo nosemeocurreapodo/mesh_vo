@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_map>
+#include <map>
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 #include "params.h"

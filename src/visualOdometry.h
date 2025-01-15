@@ -17,7 +17,7 @@
 #include "optimizers/poseOptimizerCPU.h"
 #include "optimizers/mapOptimizerCPU.h"
 #include "optimizers/poseMapOptimizerCPU.h"
-#include "optimizers/sceneOptimizerCPU.h"
+//#include "optimizers/sceneOptimizerCPU.h"
 
 template <typename sceneType>
 class visualOdometry

@@ -9,7 +9,7 @@ visualOdometry<sceneType>::visualOdometry(camera &_cam)
       kframe(_cam.width, _cam.height),
       poseOptimizer(_cam),
       mapOptimizer(_cam),
-      sceneOptimizer(_cam),
+      poseMapOptimizer(_cam),
       renderer(_cam.width, _cam.height)
 {
     lastId = 0;
@@ -254,7 +254,7 @@ void visualOdometry<sceneType>::locAndMap(dataCPU<float> &image)
     if (optimize)
     {
         t.tic();
-        poseMapOptimizer.optPoseMap(keyFrames, kframe, scene);
+        poseMapOptimizer.optimize(keyFrames, kframe, scene);
         std::cout << "optposemap time: " << t.toc() << std::endl;
 
         // sync the updated keyframe poses present in lastframes
@@ -295,7 +295,7 @@ void visualOdometry<sceneType>::lightaffine(dataCPU<float> &image, Sophus::SE3f 
     lastId++;
 
     t.tic();
-    sceneOptimizer.optLightAffine(newFrame, kframe, scene);
+    //sceneOptimizer.optLightAffine(newFrame, kframe, scene);
     std::cout << "optmap time " << t.toc() << std::endl;
 
     lastAffine = newFrame.getAffine();

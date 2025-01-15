@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include "common/types.h"
 #include "params.h"
 

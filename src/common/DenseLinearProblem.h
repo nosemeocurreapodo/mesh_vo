@@ -175,6 +175,7 @@ public:
         m_G *= a;
     }
 
+    /*
     std::vector<int> removeUnobservedParams()
     {
         std::vector<int> indicesToKeep;
@@ -199,6 +200,7 @@ public:
 
         return indicesToKeep;
     }
+    */
 
     std::vector<int> getParamIds()
     {

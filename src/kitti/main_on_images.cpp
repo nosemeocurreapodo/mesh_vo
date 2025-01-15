@@ -22,6 +22,7 @@
 #include <fstream>
 #include <dirent.h>
 #include <algorithm>
+#include <functional>
 
 #include "opencv2/opencv.hpp"
 

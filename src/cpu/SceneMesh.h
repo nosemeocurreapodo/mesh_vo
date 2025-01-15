@@ -297,12 +297,12 @@ public:
         return error;
     }
 
-    DenseLinearProblem HGRegu(int numFrames)
+    DenseLinearProblem HGRegu(int numPoseParams)
     {
         std::vector<int> triIds = getTrianglesIds();
         std::vector<int> vecIds = m_geometry.getVerticesIds();
 
-        DenseLinearProblem hg(numFrames * 8 + vecIds.size());
+        DenseLinearProblem hg(numPoseParams + vecIds.size());
 
         for (size_t i = 0; i < triIds.size(); i++)
         {
