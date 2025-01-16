@@ -1,5 +1,6 @@
 #pragma once
 
+/*
 #include <Eigen/Core>
 #include <unsupported/Eigen/MatrixFunctions>
 #include "sophus/se3.hpp"
@@ -19,6 +20,26 @@ using vecxi = Eigen::VectorXi;
 
 using SE3f = Sophus::SE3f;
 
+using solverType = Eigen::LDLT<Eigen::MatrixXf>;
+*/
+
+#include "common/lingalglib.h"
+
+using vec2f = vec2<float>;
+using vec3f = vec3<float>;
+using vec6f = vec6<float>;
+using vecxf = vecx<float>;
+
+using mat3f = mat3<float>;
+using mat6f = mat6<float>;
+using matxf = matx<float>;
+
+using vec2i = vec2<int>;
+using vec3i = vec3<int>;
+using vecxi = vecx<int>;
+
+using SE3f = SE3<float>;
+
 using imageType = float;
 using jmapType = vec3f;
 using idsType = vec3i;
@@ -28,6 +49,7 @@ class SceneMesh;
 
 using shapeType = ShapeTriangleFlat;
 using sceneType = SceneMesh;
+using solverType = LDLT<matxf>;
 
 struct vertex
 {

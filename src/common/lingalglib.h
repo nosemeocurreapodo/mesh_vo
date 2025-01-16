@@ -1,6 +1,7 @@
 #pragma once
 
-#include <Eigen/Core>
+#include <cmath>
+#include <cassert>
 
 template <typename type, int _rows, int _cols>
 struct mat;
@@ -10,8 +11,7 @@ struct vec
 {
     vec()
     {
-        for (int i = 0; i < _rows; i++)
-            data[i] = 0;
+        setZero();
     }
 
     vec(const vec &other)
@@ -20,15 +20,13 @@ struct vec
             data[i] = other.data[i];
     }
 
-    vec(Eigen::VectorXf a)
+    void setZero()
     {
-        assert(a.size() == _rows);
-
         for (int i = 0; i < _rows; i++)
-            data[i] = a(i);
+            data[i] = 0;
     }
 
-    static constexpr vec zero()
+    static constexpr vec Zero()
     {
         vec v;
         for (int i = 0; i < _rows; i++)
@@ -44,6 +42,11 @@ struct vec
     static constexpr int cols()
     {
         return 1;
+    }
+
+    static constexpr int size()
+    {
+        return _rows;
     }
 
     type norm()
@@ -153,8 +156,7 @@ struct vecx
         _rows = size;
         data = new type[_rows];
 
-        for (int i = 0; i < _rows; i++)
-            data[i] = 0.0;
+        setZero();
     }
 
     vecx(const vecx &other)
@@ -166,16 +168,13 @@ struct vecx
             data[i] = other.data[i];
     }
 
-    vecx(Eigen::VectorXf a)
+    void setZero()
     {
-        _rows = a.size();
-        data = new type[_rows];
-
         for (int i = 0; i < _rows; i++)
-            data[i] = a(i);
+            data[i] = 0;
     }
 
-    static constexpr vecx zero(int _rows)
+    static constexpr vecx Zero(int _rows)
     {
         vecx v(_rows);
         for (int i = 0; i < _rows; i++)
@@ -193,6 +192,11 @@ struct vecx
         return 1;
     }
 
+    int size()
+    {
+        return _rows;
+    }
+
     type dot(vecx c)
     {
         type sum = 0;
@@ -200,16 +204,6 @@ struct vecx
             sum += data[i] * c(i);
         return sum;
     }
-
-    /*
-    void operator=(vecx<s, type> c)
-    {
-        for (int i = 0; i < s; i++)
-        {
-            data[i] = c(i);
-        }
-    }
-    */
 
     vecx &operator=(const vecx &other)
     {
@@ -259,6 +253,11 @@ struct mat
 {
     mat()
     {
+        setZero();
+    }
+
+    void setZero()
+    {
         for (int y = 0; y < _rows; y++)
             for (int x = 0; x < _cols; x++)
             {
@@ -266,19 +265,9 @@ struct mat
             }
     }
 
-    mat(Eigen::MatrixXf a)
+    static constexpr mat<type, _rows, _cols> Zero()
     {
-        assert(a.rows() == _rows);
-        assert(a.cols() == _cols);
-
-        for (int y = 0; y < _rows; y++)
-            for (int x = 0; x < _cols; x++)
-                data[y][x] = a(y, x);
-    }
-
-    static constexpr mat zero()
-    {
-        mat result;
+        mat<type, _rows, _cols> result;
 
         for (int y = 0; y < _rows; y++)
             for (int x = 0; x < _cols; x++)
@@ -298,9 +287,14 @@ struct mat
         return _cols;
     }
 
-    static constexpr mat identity()
+    static constexpr int size()
     {
-        mat result;
+        return _rows * _cols;
+    }
+
+    static constexpr mat<type, _rows, _cols> identity()
+    {
+        mat<type, _rows, _cols> result;
 
         for (int y = 0; y < _rows; y++)
             for (int x = 0; x < _cols; x++)
@@ -329,8 +323,7 @@ struct mat
         return result;
     }
 
-    template <typename type2>
-    mat operator/(type2 c)
+    mat operator/(type c)
     {
         mat result;
 
@@ -343,10 +336,9 @@ struct mat
         return result;
     }
 
-    template <typename type2>
-    mat operator*(type2 c)
+    mat<type, _rows, _cols> operator*(type c)
     {
-        mat result;
+        mat<type, _rows, _cols> result;
 
         for (int y = 0; y < _rows; y++)
             for (int x = 0; x < _cols; x++)
@@ -357,9 +349,9 @@ struct mat
         return result;
     }
 
-    mat dot(mat c)
+    mat<type, _rows, _cols> operator*(mat<type, _rows, _cols> c)
     {
-        mat result;
+        mat<type, _rows, _cols> result;
 
         for (int y = 0; y < _rows; y++)
             for (int x = 0; x < _cols; x++)
@@ -373,7 +365,7 @@ struct mat
         return result;
     }
 
-    vec<type, _rows> dot(vec<type, _rows> c)
+    vec<type, _rows> operator*(vec<type, _rows> c)
     {
         vec<type, _rows> result;
 
@@ -425,11 +417,7 @@ struct matx
         _cols = __cols;
         data = new type[_rows * _cols];
 
-        for (int y = 0; y < _rows; y++)
-            for (int x = 0; x < _cols; x++)
-            {
-                data[y + _rows * x] = 0.0;
-            }
+        setZero();
     }
 
     matx(const matx &other)
@@ -444,19 +432,16 @@ struct matx
                 data[y + _rows * x] = other(y, x);
     }
 
-    matx(Eigen::MatrixXf a)
+    void setZero()
     {
-        _rows = a.rows();
-        _cols = a.cols();
-
-        data = new type[_rows * _cols];
-
         for (int y = 0; y < _rows; y++)
             for (int x = 0; x < _cols; x++)
-                data[y + _rows * x] = a(y, x);
+            {
+                data[y + _rows * x] = 0.0;
+            }
     }
 
-    static constexpr matx zero(int __rows, int __cols)
+    static constexpr matx Zero(int __rows, int __cols)
     {
         matx v(__rows, __cols);
         for (int y = 0; y < __rows; y++)
@@ -475,6 +460,11 @@ struct matx
         return _cols;
     }
 
+    int size()
+    {
+        return _rows * _cols;
+    }
+
     matx transpose()
     {
         matx result(_cols, _rows);
@@ -490,7 +480,7 @@ struct matx
         return result;
     }
 
-    matx dot(matx c)
+    matx operator*(matx c)
     {
         assert(_cols == c.rows());
         assert(_rows == c.cols());
@@ -509,7 +499,7 @@ struct matx
         return result;
     }
 
-    vecx<type> dot(vecx<type> c)
+    vecx<type> operator*(vecx<type> c)
     {
         vecx<type> result(_rows);
 
@@ -539,8 +529,7 @@ struct matx
         return *this;
     }
 
-    template <typename type2>
-    matx operator*(type2 c)
+    matx operator*(type c)
     {
         matx result = matx(_rows, _cols);
 
@@ -596,12 +585,6 @@ struct vec2 : public vec<type, 2>
         vec<type, 2>::data[0] = x;
         vec<type, 2>::data[1] = y;
     }
-
-    vec2(Eigen::Vector2f a)
-    {
-        vec<type, 2>::data[0] = a(0);
-        vec<type, 2>::data[1] = a(1);
-    }
 };
 
 template <typename type>
@@ -623,13 +606,6 @@ struct vec3 : public vec<type, 3>
         vec<type, 3>::data[0] = x;
         vec<type, 3>::data[1] = y;
         vec<type, 3>::data[2] = z;
-    }
-
-    vec3(Eigen::Vector3f a)
-    {
-        vec<type, 3>::data[0] = a(0);
-        vec<type, 3>::data[1] = a(1);
-        vec<type, 3>::data[2] = a(2);
     }
 
     vec3<type> cross(vec3<type> a)
@@ -665,16 +641,6 @@ struct vec6 : public vec<type, 6>
         vec<type, 6>::data[4] = b;
         vec<type, 6>::data[5] = c;
     }
-
-    vec6(Eigen::Matrix<float, 6, 1> a)
-    {
-        vec<type, 6>::data[0] = a(0);
-        vec<type, 6>::data[1] = a(1);
-        vec<type, 6>::data[2] = a(2);
-        vec<type, 6>::data[3] = a(3);
-        vec<type, 6>::data[4] = a(4);
-        vec<type, 6>::data[5] = a(5);
-    }
 };
 
 template <typename type>
@@ -702,18 +668,6 @@ struct vec8 : public vec<type, 8>
         vec<type, 8>::data[6] = d;
         vec<type, 8>::data[7] = e;
     }
-
-    vec8(Eigen::Matrix<float, 8, 1> a)
-    {
-        vec<type, 8>::data[0] = a(0);
-        vec<type, 8>::data[1] = a(1);
-        vec<type, 8>::data[2] = a(2);
-        vec<type, 8>::data[3] = a(3);
-        vec<type, 8>::data[4] = a(4);
-        vec<type, 8>::data[5] = a(5);
-        vec<type, 8>::data[6] = a(6);
-        vec<type, 8>::data[7] = a(7);
-    }
 };
 
 template <typename type>
@@ -727,31 +681,38 @@ struct mat3 : public mat<type, 3, 3>
     {
     }
 
-    mat3(Eigen::Matrix3f a)
+    type determinant()
     {
-        for (int y = 0; y < 3; y++)
-            for (int x = 0; x < 3; x++)
-                mat<type, 3, 3>::data[y][x] = a(y, x);
+        return mat<type, 3, 3>::data[0][0] * (mat<type, 3, 3>::data[1][1] * mat<type, 3, 3>::data[2][2] - mat<type, 3, 3>::data[1][2] * mat<type, 3, 3>::data[2][1]) - mat<type, 3, 3>::data[0][1] * (mat<type, 3, 3>::data[1][0] * mat<type, 3, 3>::data[2][2] - mat<type, 3, 3>::data[1][2] * mat<type, 3, 3>::data[2][0]) + mat<type, 3, 3>::data[0][2] * (mat<type, 3, 3>::data[1][0] * mat<type, 3, 3>::data[2][1] - mat<type, 3, 3>::data[1][1] * mat<type, 3, 3>::data[2][0]);
     }
 
-    /*
-        mat3 inverse()
+    mat3<type> inverse()
+    {
+        mat3<type> inv;
+
+        type det = determinant();
+
+        if(std::fabs(det) < 1e-12)
         {
-        double determinant =    +A(0,0)*(A(1,1)*A(2,2)-A(2,1)*A(1,2))
-                            -A(0,1)*(A(1,0)*A(2,2)-A(1,2)*A(2,0))
-                            +A(0,2)*(A(1,0)*A(2,1)-A(1,1)*A(2,0));
-    double invdet = 1/determinant;
-    result(0,0) =  (A(1,1)*A(2,2)-A(2,1)*A(1,2))*invdet;
-    result(1,0) = -(A(0,1)*A(2,2)-A(0,2)*A(2,1))*invdet;
-    result(2,0) =  (A(0,1)*A(1,2)-A(0,2)*A(1,1))*invdet;
-    result(0,1) = -(A(1,0)*A(2,2)-A(1,2)*A(2,0))*invdet;
-    result(1,1) =  (A(0,0)*A(2,2)-A(0,2)*A(2,0))*invdet;
-    result(2,1) = -(A(0,0)*A(1,2)-A(1,0)*A(0,2))*invdet;
-    result(0,2) =  (A(1,0)*A(2,1)-A(2,0)*A(1,1))*invdet;
-    result(1,2) = -(A(0,0)*A(2,1)-A(2,0)*A(0,1))*invdet;
-    result(2,2) =  (A(0,0)*A(1,1)-A(1,0)*A(0,1))*invdet;
+            throw std::runtime_error("Encountered near-zero determinant.");
         }
-        */
+
+        double invDet = 1.0 / det;
+
+        inv.data[0][0] = (mat<type, 3, 3>::data[1][1] * mat<type, 3, 3>::data[2][2] - mat<type, 3, 3>::data[1][2] * mat<type, 3, 3>::data[2][1]) * invDet;
+        inv.data[0][1] = -(mat<type, 3, 3>::data[0][1] * mat<type, 3, 3>::data[2][2] - mat<type, 3, 3>::data[0][2] * mat<type, 3, 3>::data[2][1]) * invDet;
+        inv.data[0][2] = (mat<type, 3, 3>::data[0][1] * mat<type, 3, 3>::data[1][2] - mat<type, 3, 3>::data[0][2] * mat<type, 3, 3>::data[1][1]) * invDet;
+
+        inv.data[1][0] = -(mat<type, 3, 3>::data[1][0] * mat<type, 3, 3>::data[2][2] - mat<type, 3, 3>::data[1][2] * mat<type, 3, 3>::data[2][0]) * invDet;
+        inv.data[1][1] = (mat<type, 3, 3>::data[0][0] * mat<type, 3, 3>::data[2][2] - mat<type, 3, 3>::data[0][2] * mat<type, 3, 3>::data[2][0]) * invDet;
+        inv.data[1][2] = -(mat<type, 3, 3>::data[0][0] * mat<type, 3, 3>::data[1][2] - mat<type, 3, 3>::data[0][2] * mat<type, 3, 3>::data[1][0]) * invDet;
+
+        inv.data[2][0] = (mat<type, 3, 3>::data[1][0] * mat<type, 3, 3>::data[2][1] - mat<type, 3, 3>::data[1][1] * mat<type, 3, 3>::data[2][0]) * invDet;
+        inv.data[2][1] = -(mat<type, 3, 3>::data[0][0] * mat<type, 3, 3>::data[2][1] - mat<type, 3, 3>::data[0][1] * mat<type, 3, 3>::data[2][0]) * invDet;
+        inv.data[2][2] = (mat<type, 3, 3>::data[0][0] * mat<type, 3, 3>::data[1][1] - mat<type, 3, 3>::data[0][1] * mat<type, 3, 3>::data[1][0]) * invDet;
+
+        return inv;
+    }
 };
 
 template <typename type>
@@ -764,13 +725,6 @@ struct mat6 : public mat<type, 6, 6>
     mat6(const mat<type, 6, 6> &other) : mat<type, 6, 6>(other)
     {
     }
-
-    mat6(Eigen::Matrix<float, 6, 6> a)
-    {
-        for (int y = 0; y < 6; y++)
-            for (int x = 0; x < 6; x++)
-                mat<type, 6, 6>::data[y][x] = a(y, x);
-    }
 };
 
 template <typename type>
@@ -782,13 +736,6 @@ struct mat8 : public mat<type, 8, 8>
 
     mat8(const mat<type, 8, 8> &other) : mat<type, 8, 8>(other)
     {
-    }
-
-    mat8(Eigen::Matrix<float, 8, 8> a)
-    {
-        for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 8; x++)
-                mat<type, 8, 8>::data[y][x] = a(y, x);
     }
 };
 

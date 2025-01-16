@@ -2,7 +2,7 @@
 
 #include "common/types.h"
 
-bool isTriangleEqual(vec3i tri_indices_1, vec3i tri_indices_2)
+static bool isTriangleEqual(vec3i tri_indices_1, vec3i tri_indices_2)
 {
     bool isIndicePresent[3];
     for (int tri_indice = 0; tri_indice < 3; tri_indice++)
@@ -16,7 +16,7 @@ bool isTriangleEqual(vec3i tri_indices_1, vec3i tri_indices_2)
     return false;
 }
 
-bool isEdgeEqual(vec2i edge_indices_1, vec2i edge_indices_2)
+static bool isEdgeEqual(vec2i edge_indices_1, vec2i edge_indices_2)
 {
     bool isIndicePresent[2];
     for (int edge_indice = 0; edge_indice < 2; edge_indice++)

@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-float fromParamToDepth(float param)
+static float fromParamToDepth(float param)
 {
     // depth
     // return param;
@@ -14,7 +14,7 @@ float fromParamToDepth(float param)
     // return 1.0 / std::exp(param);
 }
 
-float fromDepthToParam(float depth)
+static float fromDepthToParam(float depth)
 {
     //  depth
     // return depth;
@@ -26,7 +26,7 @@ float fromDepthToParam(float depth)
     // return -std::log(depth);
 }
 
-float d_depth_d_param(float depth)
+static float d_depth_d_param(float depth)
 {
     // depth
     // return 1.0;

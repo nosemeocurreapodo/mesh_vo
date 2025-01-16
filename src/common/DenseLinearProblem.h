@@ -13,9 +13,9 @@ public:
     {
         m_numParams = numParams;
 
-        m_H = Eigen::MatrixXf::Zero(numParams, numParams);
-        m_lH = Eigen::MatrixXf::Zero(numParams, numParams);
-        m_G = Eigen::VectorXf::Zero(numParams);
+        m_H = matxf::Zero(numParams, numParams);
+        m_lH = matxf::Zero(numParams, numParams);
+        m_G = vecxf::Zero(numParams);
 
         m_count = 0;
     }
@@ -225,14 +225,14 @@ public:
         return (solver.info() == Eigen::Success);
     }
 
-    Eigen::MatrixXf getH()
+    matxf getH()
     {
         return m_H;
     }
 
-    Eigen::VectorXf solve()
+    vecxf solve()
     {
-        Eigen::VectorXf res = solver.solve(m_G);
+        vecxf res = solver.solve(m_G);
         assert(solver.info() == Eigen::Success);
         return res;
     }
@@ -243,9 +243,9 @@ public:
     }
 
 private:
-    Eigen::MatrixXf m_H;
-    Eigen::VectorXf m_G;
-    Eigen::MatrixXf m_lH;
+    matxf m_H;
+    vecxf m_G;
+    matxf m_lH;
 
     int m_numParams;
     int m_count;
