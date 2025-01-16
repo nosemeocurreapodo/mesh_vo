@@ -23,6 +23,12 @@ using imageType = float;
 using jmapType = vec3f;
 using idsType = vec3i;
 
+class ShapeTriangleFlat;
+class SceneMesh;
+
+using shapeType = ShapeTriangleFlat;
+using sceneType = SceneMesh;
+
 struct vertex
 {
     vertex()

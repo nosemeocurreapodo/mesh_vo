@@ -4,7 +4,6 @@
 
 #include "params.h"
 #include "common/types.h"
-#include "common/types2.h"
 #include "common/camera.h"
 #include "common/window.h"
 #include "cpu/dataCPU.h"

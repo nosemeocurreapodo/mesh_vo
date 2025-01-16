@@ -1,7 +1,6 @@
 #pragma once
 
 #include "params.h"
-#include "common/types2.h"
 #include "common/camera.h"
 #include "common/depthParam.h"
 #include "cpu/frameCPU.h"
