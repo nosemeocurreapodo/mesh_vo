@@ -21,8 +21,8 @@ public:
           jmap_buffer(_cam.width, _cam.height, jmapType::Zero()),
           pId_buffer(_cam.width, _cam.height, idsType::Zero())
     {
-        reguWeight = 1.0;
-        priorWeight = 0.0;
+        reguWeight = 0.0;
+        priorWeight = 0.1;
     }
 
     void optimize(std::vector<frameCPU> &frames, frameCPU &kframe, sceneType &scene)

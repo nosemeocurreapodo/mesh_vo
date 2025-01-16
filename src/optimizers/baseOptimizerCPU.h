@@ -30,39 +30,24 @@ protected:
     {
         int lvl = 1;
 
-        dataCPU<float> error_buffer(cam[lvl].width, cam[lvl].height, -1);
-        dataCPU<float> idepth_buffer(cam[lvl].width, cam[lvl].height, -1);
-        renderer.renderIdepthParallel(scene, kframe.getPose(), cam[lvl], idepth_buffer);
+        std::vector<dataCPU<float>> toShow;
 
-        show(kframe.getRawImage(lvl), "keyframe image", false);
-        show(idepth_buffer, "kframe idepth", true);
+        toShow.push_back(kframe.getRawImage(lvl));
 
-        if (frames.size() > 0)
+        error_buffer.setToNoData(lvl);
+        idepth_buffer.setToNoData(lvl);
+
+        renderer.renderIdepthParallel(scene, kframe.getPose(), cam[lvl], idepth_buffer.get(lvl));
+
+        toShow.push_back(idepth_buffer.get(lvl));
+
+        for (int i = 0; i < (int)frames.size(); i++)
         {
-            dataCPU<float> frames_buffer(cam[lvl].width * frames.size(), cam[lvl].height, -1);
-            dataCPU<float> residual_buffer(cam[lvl].width * frames.size(), cam[lvl].height, -1);
-            for (int i = 0; i < (int)frames.size(); i++)
-            {
-                error_buffer.set(error_buffer.nodata);
-                renderer.renderResidualParallel(scene, kframe.getRawImage(lvl), kframe.getExposure(), kframe.getPose(), frames[i].getRawImage(lvl), frames[i].getExposure(), frames[i].getPose(), cam[lvl], error_buffer);
-
-                for (int y = 0; y < cam[1].height; y++)
-                {
-                    for (int x = 0; x < cam[1].width; x++)
-                    {
-                        float pix_val = frames[i].getRawImage(lvl).get(y, x);
-                        // float res_val = frames[i].getResidualImage().get(y, x, 1);
-                        float res_val = error_buffer.get(y, x);
-
-                        frames_buffer.set(pix_val, y, x + i * cam[lvl].width);
-                        residual_buffer.set(res_val, y, x + i * cam[lvl].width);
-                    }
-                }
-            }
-
-            show(frames_buffer, "frames", false);
-            show(residual_buffer, "residuals", false);
+            renderer.renderResidualParallel(scene, kframe.getRawImage(lvl), kframe.getExposure(), kframe.getPose(), frames[i].getRawImage(lvl), frames[i].getExposure(), frames[i].getPose(), cam[lvl], error_buffer.get(lvl));
+            toShow.push_back(error_buffer.get(lvl));
         }
+
+        show(toShow, "optimizer debug frames");
     }
 
     Error computeError(frameCPU &frame, frameCPU &kframe, sceneType &scene, int lvl)

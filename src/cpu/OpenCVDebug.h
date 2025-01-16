@@ -4,7 +4,7 @@
 #include "cpu/dataCPU.h"
 #include "common/DenseLinearProblem.h"
 
-inline void saveH(DenseLinearProblem &data, std::string file_name)
+static void saveH(DenseLinearProblem &data, std::string file_name)
 {
     /*
     std::map<int, int> obsParamIds = data.getObservedParamIds();
@@ -40,28 +40,14 @@ inline void saveH(DenseLinearProblem &data, std::string file_name)
     // cv::waitKey(30);
 }
 
-inline void show(dataCPU<float> &data, std::string window_name, bool colorize)
+static cv::Mat prepareToShow(dataCPU<float> &data, bool colorize)
 {
-    int width = data.width;
-    int height = data.height;
+    cv::Mat toShow(data.height, data.width, CV_32FC1);
 
-    cv::Mat toShow(height, width, CV_32FC1); // (uchar*)data.get(lvl))
-
-    float nodata = data.nodata;
-
-    for (int y = 0; y < height; y++)
-    {
-        for (int x = 0; x < width; x++)
-        {
-            float in_val = data.get(y, x);
-            // cv::Vec3f out_val(in_val(0), in_val(1), in_val(2));
-            // toShow.at<cv::Vec3f>(y, x) = out_val;
-            toShow.at<float>(y, x) = in_val;
-        }
-    }
+    std::memcpy(toShow.data, data.get(), sizeof(float) * data.width * data.height);
 
     cv::Mat mask, maskInv;
-    cv::inRange(toShow, nodata, nodata, mask);
+    cv::inRange(toShow, data.nodata, data.nodata, mask);
     cv::bitwise_not(mask, maskInv);
 
     cv::normalize(toShow, toShow, 255.0, 0.0, cv::NORM_MINMAX, CV_8UC1, maskInv);
@@ -77,49 +63,30 @@ inline void show(dataCPU<float> &data, std::string window_name, bool colorize)
         toShow2 = toShow;
     }
 
-    cv::imshow(window_name, toShow2);
-    cv::waitKey(30);
+    return toShow2;
 }
 
-template <typename type>
-inline void show(dataCPU<type> &data, std::string window_name, bool colorize, int channel)
+static void show(std::vector<dataCPU<float>> &data, std::string window_name)
 {
-    int width = data.width;
-    int height = data.height;
-
-    cv::Mat toShow(height, width, CV_32FC1); // (uchar*)data.get(lvl))
-
-    type nodata = data.nodata;
-
-    for (int y = 0; y < height; y++)
+    for(int i = 0; i < data.size(); i++)
     {
-        for (int x = 0; x < width; x++)
-        {
-            type in_val = data.get(y, x);
-            // cv::Vec3f out_val(in_val(0), in_val(1), in_val(2));
-            // toShow.at<cv::Vec3f>(y, x) = out_val;
-            toShow.at<float>(y, x) = in_val(channel);
-        }
+        assert(data[i].width == data[0].width && data[i].height == data[0].height);
     }
 
-    cv::Mat mask, maskInv;
-    cv::inRange(toShow, nodata(channel), nodata(channel), mask);
-    cv::bitwise_not(mask, maskInv);
+    int nImagesWidth = 4;
+    int nImagesHeight = int(data.size() / (nImagesWidth + 1)) + 1;
 
-    cv::normalize(toShow, toShow, 255.0, 0.0, cv::NORM_MINMAX, CV_8UC1, maskInv);
-    toShow.setTo(0, mask);
+    cv::Mat toShow(data[0].height * nImagesHeight, data[0].width * nImagesWidth, CV_8UC1);
 
-    cv::Mat toShow2;
-    if (colorize)
+    for (int i = 0; i < data.size(); i++)
     {
-        cv::applyColorMap(toShow, toShow2, cv::COLORMAP_JET);
-    }
-    else
-    {
-        toShow2 = toShow;
+        cv::Mat toShow2 = prepareToShow(data[i], false);
+        toShow2.copyTo(toShow(cv::Rect((i % nImagesWidth) * toShow2.cols, int(i / nImagesWidth) * toShow2.rows, toShow2.cols, toShow2.rows)));
+        //toShow(cv::Rect((i % nImagesWidth) * data[0].width, int(i / nImagesWidth) * data[0].height, data[0].width, data[0].height)) = toShow2;
     }
 
-    cv::imshow(window_name, toShow2);
+    //cv::Mat toShow = prepareToShow(data[0], false);
+
+    cv::imshow(window_name, toShow);
     cv::waitKey(30);
 }
-

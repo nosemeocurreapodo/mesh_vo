@@ -1,11 +1,9 @@
 #pragma once
 
-/*
-#include <Eigen/Core>
 #include <Eigen/Core>
 #include <Eigen/Dense>
-#include <Eigen/Cholesky>
-#include <Eigen/Sparse>
+//#include <Eigen/Cholesky>
+//#include <Eigen/Sparse>
 #include <unsupported/Eigen/MatrixFunctions>
 #include "sophus/se3.hpp"
 
@@ -25,21 +23,20 @@ using vecxi = Eigen::VectorXi;
 using SE3f = Sophus::SE3f;
 
 using solverType = Eigen::LDLT<Eigen::MatrixXf>;
+//using solverType = Eigen::LLT<Eigen::MatrixXf>;
 
-    // Eigen::LLT<Eigen::MatrixXf> solver;
-    Eigen::LDLT<Eigen::MatrixXf> solver;
+// Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> ssolver;
+// Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
+// Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
+// Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
+// Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
+// Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
+// Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
 
-    // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> ssolver;
-    // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-    // Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
-    //  Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
-    //  Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
-    //  Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
-    //  Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
 
-*/
-
+/*
 #include "common/lingalglib.h"
+#include "common/ldlt_solver.h"
 
 using vec2f = vec2<float>;
 using vec3f = vec3<float>;
@@ -56,6 +53,9 @@ using vecxi = vecx<int>;
 
 using SE3f = SE3<float>;
 
+using solverType = LDLT<matxf>;
+*/
+
 using imageType = float;
 using jmapType = vec3f;
 using idsType = vec3i;
@@ -65,7 +65,6 @@ class SceneMesh;
 
 using shapeType = ShapeTriangleFlat;
 using sceneType = SceneMesh;
-using solverType = LDLT<matxf>;
 
 struct vertex
 {
