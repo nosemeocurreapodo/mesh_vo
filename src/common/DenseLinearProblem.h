@@ -1,10 +1,6 @@
 #pragma once
 
-#include <map>
-#include <Eigen/Core>
-#include <Eigen/Dense>
-#include <Eigen/Cholesky>
-#include <Eigen/Sparse>
+#include "common/types.h"
 
 class DenseLinearProblem
 {
@@ -247,17 +243,8 @@ private:
     vecxf m_G;
     matxf m_lH;
 
+    solverType solver;
+
     int m_numParams;
     int m_count;
-
-    // Eigen::LLT<Eigen::MatrixXf> solver;
-    Eigen::LDLT<Eigen::MatrixXf> solver;
-
-    // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> ssolver;
-    // Eigen::SparseLU<Eigen::SparseMatrix<float>> solver;
-    // Eigen::SparseQR<Eigen::SparseMatrix<float>, Eigen::AMDOrdering<int> > solver;
-    //  Eigen::ConjugateGradient<Eigen::SparseMatrix<float>> solver;
-    //  Eigen::BiCGSTAB<Eigen::SparseMatrix<float> > solver;
-    //  Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<float>, Eigen::Lower> solver;
-    //  Eigen::SPQR<Eigen::SparseMatrix<float>> solver;
 };
