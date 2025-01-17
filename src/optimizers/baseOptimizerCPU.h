@@ -43,6 +43,7 @@ protected:
 
         for (int i = 0; i < (int)frames.size(); i++)
         {
+            idepth_buffer.setToNoData(lvl);
             renderer.renderResidualParallel(scene, kframe.getRawImage(lvl), kframe.getExposure(), kframe.getPose(), frames[i].getRawImage(lvl), frames[i].getExposure(), frames[i].getPose(), cam[lvl], error_buffer.get(lvl));
             toShow.push_back(error_buffer.get(lvl));
         }

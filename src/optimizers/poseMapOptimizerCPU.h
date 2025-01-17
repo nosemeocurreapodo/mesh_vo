@@ -51,7 +51,7 @@ public:
         matxf init_invcovariance = invCovariance;
         matxf init_invcovariancesqrt;
 
-        if(priorWeight > 0)
+        if(priorWeight > 0.0)
             init_invcovariancesqrt = invCovariance.sqrt();
 
         for (int lvl = 1; lvl >= 1; lvl--)
@@ -70,8 +70,7 @@ public:
             {
                 Error e_regu = scene.errorRegu();
                 assert(e_regu.getCount() > 0);
-                e_regu *= 1.0 / e_regu.getCount();
-                e_regu *= reguWeight;
+                e_regu *= reguWeight / e_regu.getCount();
                 e += e_regu;
             }
 
@@ -119,8 +118,7 @@ public:
                 {
                     DenseLinearProblem hg_regu = scene.HGRegu(numPoseParams);
                     assert(hg_regu.getCount() > 0);
-                    hg_regu *= 1.0 / hg_regu.getCount();
-                    hg_regu *= reguWeight;
+                    hg_regu *= reguWeight / hg_regu.getCount();
                     problem += hg_regu;
                 }
 
@@ -206,8 +204,7 @@ public:
                     {
                         Error e_regu = scene.errorRegu();
                         assert(e_regu.getCount() > 0);
-                        e_regu *= 1.0 / e_regu.getCount();
-                        e_regu *= reguWeight;
+                        e_regu *= reguWeight / e_regu.getCount();
                         e += e_regu;
                     }
 
