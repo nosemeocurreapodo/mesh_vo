@@ -112,22 +112,23 @@ float visualOdometry::meanViewAngle(SE3f pose1, SE3f pose2)
     int count = 0;
     for (auto sId : sIds)
     {
-        auto shape1 = scene1.getShape(sId);
+        //auto shape1 = scene1.getShape(sId);
         auto shape2 = scene2.getShape(sId);
 
-        vec2f centerPix1 = shape1.getCenterPix();
+        //vec2f centerPix1 = shape1.getCenterPix();
         vec2f centerPix2 = shape2.getCenterPix();
 
-        float centerDepth2 = shape2.getDepth(centerPix2);
+        //if (!cam[lvl].isPixVisible(centerPix1) || !cam[lvl].isPixVisible(centerPix2))
+        //    continue;
 
-        if (!cam[lvl].isPixVisible(centerPix1) || !cam[lvl].isPixVisible(centerPix2))
-            continue;
+        //float centerDepth1 = shape1.getDepth(centerPix1);
+        float centerDepth2 = shape2.getDepth(centerPix2);
 
         vec3f centerRay2 = cam[lvl].pixToRay(centerPix2);
         vec3f centerPoint2 = centerRay2 * centerDepth2;
 
-        vec3f diff1 = frame1Translation - centerPoint2;
-        vec3f diff2 = frame2Translation - centerPoint2;
+        vec3f diff1 = centerPoint2 - frame1Translation;
+        vec3f diff2 = centerPoint2 - frame2Translation;
         vec3f diff1Normalized = diff1 / diff1.norm();
         vec3f diff2Normalized = diff2 / diff2.norm();
 
@@ -199,7 +200,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     else
     {
         float lastViewAngle = meanViewAngle(lastFrames[lastFrames.size() - 1].getPose(), newFrame.getPose());
-        float keyframeViewAngle = meanViewAngle(newFrame.getPose(), kframe.getPose());
+        float keyframeViewAngle = meanViewAngle(kframe.getPose(), newFrame.getPose());
         // dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
         // float percentNoData = idepth.getPercentNoData(1);
 
@@ -220,7 +221,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         // if((viewPercent < 0.9 || meanViewAngle > M_PI / 64.0) && lastFrames.size() > 1)
         {
             int newKeyframeIndex = int(lastFrames.size() / 2);
-            // int newKeyframeIndex = int(lastFrames.size() - 1);
+            //int newKeyframeIndex = int(lastFrames.size() - 1);
             frameCPU newKeyframe = lastFrames[newKeyframeIndex];
 
             keyFrames = lastFrames;
@@ -353,7 +354,7 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
         {
             // int newKeyframeIndex = 0;
             int newKeyframeIndex = int(lastFrames.size() / 2);
-            // int newKeyframeIndex = int(lastFrames.size() - 1);
+            //int newKeyframeIndex = int(lastFrames.size() - 1);
             frameCPU newKeyframe = lastFrames[newKeyframeIndex];
 
             keyFrames = lastFrames;

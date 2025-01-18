@@ -26,29 +26,27 @@ public:
     }
 
 protected:
-    void plotDebug(sceneType &scene, frameCPU &kframe, std::vector<frameCPU> &frames)
+    void plotDebug(sceneType &scene, frameCPU &kframe, std::vector<frameCPU> &frames, std::string window_name)
     {
-        int lvl = 1;
+        int lvl = 2;
 
         std::vector<dataCPU<float>> toShow;
 
         toShow.push_back(kframe.getRawImage(lvl));
 
-        error_buffer.setToNoData(lvl);
         idepth_buffer.setToNoData(lvl);
-
         renderer.renderIdepthParallel(scene, kframe.getPose(), cam[lvl], idepth_buffer.get(lvl));
 
         toShow.push_back(idepth_buffer.get(lvl));
 
         for (int i = 0; i < (int)frames.size(); i++)
         {
-            idepth_buffer.setToNoData(lvl);
+            error_buffer.setToNoData(lvl);
             renderer.renderResidualParallel(scene, kframe.getRawImage(lvl), kframe.getExposure(), kframe.getPose(), frames[i].getRawImage(lvl), frames[i].getExposure(), frames[i].getPose(), cam[lvl], error_buffer.get(lvl));
             toShow.push_back(error_buffer.get(lvl));
         }
 
-        show(toShow, "optimizer debug frames");
+        show(toShow, window_name);
     }
 
     Error computeError(frameCPU &frame, frameCPU &kframe, sceneType &scene, int lvl)

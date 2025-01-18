@@ -23,9 +23,9 @@ public:
         width = other.width;
         height = other.height;
         m_data = new (std::nothrow) Type[width * height];
-        //std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
-        for(int y = 0; y < height; y++)
-            for(int x = 0; x < width; x++)
+        // std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
                 set(other.get(y, x), y, x);
     }
 
@@ -39,9 +39,9 @@ public:
             width = other.width;
             height = other.height;
 
-            //std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
-            for(int y = 0; y < height; y++)
-                for(int x = 0; x < width; x++)
+            // std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
+            for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
                     set(other.get(y, x), y, x);
         }
         return *this;
@@ -181,6 +181,43 @@ public:
         return {min, max};
     }
 
+    std::array<Type, 2> getMeanStd()
+    {
+        int n = 0;
+        float old_m = 0.0;
+        float new_m = 0.0;
+        float old_s = 0.0;
+        float new_s = 0.0;
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                Type d = get(y, x);
+                if (d == nodata)
+                    continue;
+
+                n += 1;
+
+                if (n == 1)
+                {
+                    old_m = x;
+                    new_m = x;
+                    old_s = 0;
+                }
+                else
+                {
+                    new_m = old_m + (x - old_m) / n;
+                    new_s = old_s + (x - old_m) * (x - new_m);
+
+                    old_m = new_m;
+                    old_s = new_s;
+                }
+            }
+        }
+        return {new_m, sqrt(new_s / (n - 1))};
+    }
+
     /*
     dataCPU add(dataCPU &other, int lvl)
     {
@@ -243,7 +280,7 @@ private:
         Type bl = get(_y + 1, _x);
         Type br = get(_y + 1, _x + 1);
 
-        if(tl == nodata || tr == nodata || bl == nodata || br == nodata)
+        if (tl == nodata || tr == nodata || bl == nodata || br == nodata)
             return nodata;
 
         Type pix = tl * weight_tl +
@@ -267,7 +304,7 @@ private:
         Type bl = get(y + 1, x);
         Type br = get(y + 1, x + 1);
 
-        if(tl == nodata || tr == nodata || bl == nodata || br == nodata)
+        if (tl == nodata || tr == nodata || bl == nodata || br == nodata)
             return nodata;
 
         Type pix = (tl + tr + bl + br) / 4.0;

@@ -49,7 +49,7 @@ public:
             std::cout << "initial error " << last_error.getError() << " " << lvl << std::endl;
             std::vector<frameCPU> frames;
             frames.push_back(frame);
-            plotDebug(scene, kframe, frames);
+            plotDebug(scene, kframe, frames, "poseOptimizerCPU");
 
             float lambda = 0.0;
             bool keepIterating = true;
@@ -111,7 +111,7 @@ public:
                     std::cout << "new error " << new_error.getError() << " " << lambda << " " << " " << lvl << std::endl;
                     std::vector<frameCPU> frames;
                     frames.push_back(frame);
-                    plotDebug(scene, kframe, frames);
+                    plotDebug(scene, kframe, frames, "poseOptimizerCPU");
 
                     if (new_error.getError() < last_error.getError())
                     {

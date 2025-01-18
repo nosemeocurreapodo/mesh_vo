@@ -97,8 +97,8 @@ public:
 
             float last_error = e.getError();
 
-            std::cout << "optMap initial error " << last_error << " " << lvl << std::endl;
-            plotDebug(scene, kframe, frames);
+            std::cout << "optPoseMap initial error " << last_error << " " << lvl << std::endl;
+            plotDebug(scene, kframe, frames, "poseMapOptimizerCPU");
 
             int maxIterations = 1000;
             float lambda = 0.0;
@@ -233,7 +233,7 @@ public:
                     float error = e.getError();
 
                     std::cout << "new error " << error << " " << lambda << " " << it << " " << n_try << " lvl: " << lvl << std::endl;
-                    plotDebug(scene, kframe, frames);
+                    plotDebug(scene, kframe, frames, "poseMapOptimizerCPU");
 
                     if (error < last_error)
                     {
@@ -247,6 +247,7 @@ public:
                             // std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
                             //  if converged, do next level
                             it = maxIterations;
+                            std::cout << "converged p:" << p << std::endl;
                         }
 
                         // if update accepted, do next iteration
@@ -270,6 +271,7 @@ public:
                         {
                             // if too small, do next level!
                             it = maxIterations;
+                            std::cout << "too small " << poseInc.dot(poseInc) << " " << mapInc.dot(mapInc) << std::endl;
                             break;
                         }
                     }

@@ -14,6 +14,7 @@ public:
     // residual_image(width, height, -1.0f)
     {
         id = 0;
+        pose = SE3f();
         exposure = {0.0f, 0.0f};
     };
 

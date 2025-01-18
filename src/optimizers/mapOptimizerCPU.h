@@ -21,8 +21,8 @@ public:
           j_buffer(_cam.width, _cam.height, jmapType::Zero()),
           pId_buffer(_cam.width, _cam.height, idsType::Zero())
     {
-        reguWeight = 1.0;
-        priorWeight = 0.0;
+        reguWeight = 0.0;
+        priorWeight = 0.1;
     }
 
     void optimize(std::vector<frameCPU> &frames, frameCPU &kframe, sceneType &scene)
@@ -63,8 +63,7 @@ public:
             {
                 Error e_regu = scene.errorRegu();
                 assert(e_regu.getCount() > 0);
-                e_regu *= 1.0 / e_regu.getCount();
-                e_regu *= reguWeight;
+                e_regu *= reguWeight / e_regu.getCount();
                 e += e_regu;
             }
 
@@ -88,7 +87,7 @@ public:
             float last_error = e.getError();
 
             std::cout << "optMap initial error " << last_error << " " << lvl << std::endl;
-            plotDebug(scene, kframe, frames);
+            plotDebug(scene, kframe, frames, "mapOptimizerCPU");
 
             int maxIterations = 1000;
             float lambda = 0.0;
@@ -108,8 +107,7 @@ public:
                 {
                     DenseLinearProblem hg_regu = scene.HGRegu(0);
                     assert(hg_regu.getCount() > 0);
-                    hg_regu *= 1.0 / hg_regu.getCount();
-                    hg_regu *= reguWeight;
+                    hg_regu *= reguWeight / hg_regu.getCount();
                     problem += hg_regu;
                 }
 
@@ -184,8 +182,7 @@ public:
                     {
                         Error e_regu = scene.errorRegu();
                         assert(e_regu.getCount() > 0);
-                        e_regu *= 1.0 / e_regu.getCount();
-                        e_regu *= reguWeight;
+                        e_regu *= reguWeight / e_regu.getCount();
                         e += e_regu;
                     }
 
@@ -208,7 +205,7 @@ public:
                     float error = e.getError();
 
                     std::cout << "new error " << error << " " << lambda << " " << it << " " << n_try << " lvl: " << lvl << std::endl;
-                    plotDebug(scene, kframe, frames);
+                    plotDebug(scene, kframe, frames, "mapOptimizerCPU");
 
                     if (error < last_error)
                     {
