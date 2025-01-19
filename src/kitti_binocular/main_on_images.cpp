@@ -235,11 +235,7 @@ int main(int argc, char **argv)
 
 		if (runningIDX == 0)
 		{
-			frameCPU frame(cams[0].width, cams[0].height);
-			frame.setImage(imageData_left, 0);
-			frame.setPose(SE3f());
-			frame.setExposure(vec2f(0.0, 0.0));
-			odometry.init(frame);
+			odometry.init(imageData_left, SE3f());
 			odometry.locAndMap(imageData_right);
 		}
 		else

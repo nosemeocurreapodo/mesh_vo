@@ -8,6 +8,7 @@
 #include "common/window.h"
 #include "cpu/dataCPU.h"
 #include "cpu/frameCPU.h"
+#include "cpu/GeometryMesh.h"
 #include "threadpoolCPU.h"
 
 class renderCPU
@@ -18,18 +19,11 @@ public:
     {
     }
 
-    dataCPU<float> &getzbuffer()
+    void renderIdepthLineSearch(dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<float> &buffer, int lvl)
     {
-        return z_buffer;
-    }
-
-    void renderIdepthLineSearch(dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<float> &buffer)
-    {
-        z_buffer.set(z_buffer.nodata);
-
         window win(0, cam.width - 1, 0, cam.height - 1);
 
-        renderIdepthLineSearchWindow(kimage, image, imagePose, cam, win, buffer);
+        renderIdepthLineSearchWindow(kimage, image, imagePose, buffer, z_buffer.get(lvl), cam, win);
     }
 
     void renderRandom(camera cam, dataCPU<float> &buffer, float min = 0.1, float max = 1.9)
@@ -38,7 +32,7 @@ public:
 
         window win(0, cam.width - 1, 0, cam.height - 1);
 
-        renderRandomWindow(win, buffer, min, max);
+        renderRandomWindow(buffer, win, min, max);
     }
 
     void renderSmooth(camera cam, dataCPU<float> &buffer, float start = 1.0, float end = 2.0)
@@ -47,7 +41,7 @@ public:
 
         window win(0, cam.width - 1, 0, cam.height - 1);
 
-        renderSmoothWindow(cam, win, buffer, start, end);
+        renderSmoothWindow(buffer, cam, win, start, end);
     }
 
     void renderInterpolate(camera cam, dataCPU<float> &buffer)
@@ -60,26 +54,30 @@ public:
         float nodata = buffer.getPercentNoData();
         while(nodata > 0.0)
         {
-            renderInterpolateWindow(cam, win, buffer, buffer2);
+            renderInterpolateWindow(buffer, buffer2, cam, win);
             buffer = buffer2;
             nodata = buffer.getPercentNoData();
         }
     }
 
-    void renderImageParallel(sceneType &scene, dataCPU<float> &kimage, vec2f kimageExp, SE3f kimagePose, SE3f imagePose, camera cam, dataCPU<float> &buffer)
+    void renderImageParallel(keyFrameCPU &kframe, SE3f localPose, dataMipMapCPU<float> &buffer, cameraMipMap cam, int lvl)
     {
-        scene1 = scene;
-        scene2 = scene;
-        scene1.transform(cam, kimagePose);
-        scene2.transform(cam, imagePose);
+        z_buffer.setToNoData(lvl);
 
-        z_buffer.set(z_buffer.nodata);
+        SE3f relativePose = localPose;
+
+        scene1 = kframe.getGeometry();
+        scene2 = kframe.getGeometry();
+
+        scene1.project(cam[lvl]);
+        scene2.transform(relativePose);
+        scene2.project(cam[lvl]);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        int width = cam.width / divi_x;
-        int height = cam.height / divi_y;
+        int width = cam[lvl].width / divi_x;
+        int height = cam[lvl].height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -92,7 +90,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderImageWindow(kimage, cam, win, buffer);
+                renderImageWindow(kframe.getRawImage(lvl), buffer.get(lvl), z_buffer.get(lvl), cam[lvl], win);
                 // pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kimage, cam, win, buffer, lvl));
             }
         }
@@ -100,20 +98,24 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderDebugParallel(sceneType &scene, dataCPU<float> &image, vec2f imageExp, SE3f pose, camera cam, dataCPU<float> &buffer)
+    void renderDebugParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<float> &buffer, cameraMipMap cam, int lvl)
     {
-        scene1 = scene;
-        scene2 = scene;
-        scene1.transform(cam, SE3f());
-        scene2.transform(cam, pose);
+        z_buffer.setToNoData(lvl);
 
-        z_buffer.set(z_buffer.nodata);
+        SE3f relativePose = frame.getLocalPose();
+
+        scene1 = kframe.getGeometry();
+        scene2 = kframe.getGeometry();
+    
+        scene1.project(cam[lvl]);
+        scene2.transform(relativePose);
+        scene2.project(cam[lvl]);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        int width = cam.width / divi_x;
-        int height = cam.height / divi_y;
+        int width = cam[lvl].width / divi_x;
+        int height = cam[lvl].height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -126,7 +128,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderDebugWindow(image, win, buffer);
+                renderDebugWindow(frame.getRawImage(lvl), buffer.get(lvl), win);
                 // pool.enqueue(std::bind(&renderCPU::renderDebugWindow, this, image, win, buffer, lvl));
             }
         }
@@ -134,22 +136,24 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderJMapParallel(sceneType &scene, dataCPU<float> &kimage, vec2f kimageExp, SE3f kimagePose, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, camera cam, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
+    void renderJMapParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<jmapType> &jmap_buffer, dataMipMapCPU<float> &e_buffer, dataMipMapCPU<idsType> &pId_buffer, cameraMipMap cam, int lvl)
     {
-        scene1 = scene;
-        scene2 = scene;
-        scene1.transform(cam, kimagePose);
-        scene2.transform(cam, imagePose);
+        z_buffer.setToNoData(lvl);
 
-        SE3f relativePose = imagePose * kimagePose.inverse();
+        SE3f relativePose = frame.getLocalPose();
+    
+        scene1 = kframe.getGeometry();
+        scene2 = kframe.getGeometry();
 
-        z_buffer.set(z_buffer.nodata);
+        scene1.project(cam[lvl]);
+        scene2.transform(relativePose);
+        scene2.project(cam[lvl]);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        int width = cam.width / divi_x;
-        int height = cam.height / divi_y;
+        int width = cam[lvl].width / divi_x;
+        int height = cam[lvl].height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -162,7 +166,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderJMapWindow(kimage, kimageExp, image, imageExp, d_image_d_pix, relativePose, cam, win, jmap_buffer, e_buffer, pId_buffer);
+                renderJMapWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), frame.getdIdpixImage(lvl), relativePose, jmap_buffer.get(lvl), e_buffer.get(lvl), pId_buffer.get(lvl), z_buffer.get(lvl), cam[lvl], win);
                 // pool.enqueue(std::bind(&renderCPU::renderJMapWindow, this, kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
@@ -170,22 +174,24 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderJPoseMapParallel(sceneType &kscene, dataCPU<float> &kimage, vec2f kimageExp, SE3f kimagePose, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, camera cam, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
+    void renderJPoseMapParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<vec6f> &jpose_buffer, dataMipMapCPU<jmapType> &jmap_buffer, dataMipMapCPU<float> &e_buffer, dataMipMapCPU<idsType> &pId_buffer, cameraMipMap cam, int lvl)
     {
-        z_buffer.set(z_buffer.nodata);
+        z_buffer.setToNoData(lvl);
 
-        scene1 = kscene;
-        scene2 = kscene;
-        scene1.transform(cam, kimagePose);
-        scene2.transform(cam, imagePose);
+        SE3f relativePose = frame.getLocalPose();
 
-        SE3f relativePose = imagePose * kimagePose.inverse();
+        scene1 = kframe.getGeometry();
+        scene2 = kframe.getGeometry();
+
+        scene1.project(cam[lvl]);
+        scene2.transform(relativePose);
+        scene2.project(cam[lvl]);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        int width = cam.width / divi_x;
-        int height = cam.height / divi_y;
+        int width = cam[lvl].width / divi_x;
+        int height = cam[lvl].height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -198,7 +204,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderJPoseMapWindow(kimage, kimageExp, image, imageExp, d_image_d_pix, relativePose, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer);
+                renderJPoseMapWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), frame.getdIdpixImage(lvl), relativePose, jpose_buffer.get(lvl), jmap_buffer.get(lvl), e_buffer.get(lvl), pId_buffer.get(lvl), z_buffer.get(lvl), cam[lvl], win);
                 // pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow, this, kimage, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
@@ -206,20 +212,24 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderJExpParallel(sceneType &scene, dataCPU<float> &kimage, vec2f kimageExp, SE3f kimagePose, dataCPU<float> &image, vec2f imageExp, SE3f imagePose, camera cam, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer)
+    void renderJExpParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<vec2f> &jexp_buffer, dataMipMapCPU<float> &e_buffer, cameraMipMap cam, int lvl)
     {
-        z_buffer.set(z_buffer.nodata);
+        z_buffer.setToNoData(lvl);
 
-        scene1 = scene;
-        scene2 = scene;
-        scene1.transform(cam, kimagePose);
-        scene2.transform(cam, imagePose);
+        SE3f relativePose = frame.getLocalPose();
+
+        scene1 = kframe.getGeometry();
+        scene2 = kframe.getGeometry();
+
+        scene1.project(cam[lvl]);
+        scene2.transform(relativePose);
+        scene2.project(cam[lvl]);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        int width = cam.width / divi_x;
-        int height = cam.height / divi_y;
+        int width = cam[lvl].width / divi_x;
+        int height = cam[lvl].height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -232,7 +242,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderJExpWindow(kimage, kimageExp, image, imageExp, cam, win, jexp_buffer, e_buffer);
+                renderJExpWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), jexp_buffer.get(lvl), e_buffer.get(lvl), z_buffer.get(lvl), cam[lvl], win);
                 // pool.enqueue(std::bind(&renderCPU::renderJLightAffineWindow, this, kimage, frame, cam, win, jlightaffine_buffer, e_buffer, lvl));
             }
         }
@@ -240,20 +250,24 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderJPoseParallel(sceneType &scene, dataCPU<float> &kimage, vec2f kexp, SE3f kpose, dataCPU<float> &image, vec2f exp, dataCPU<vec2f> &d_image_d_pix, SE3f pose, camera cam, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &e_buffer)
+    void renderJPoseParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<vec6f> &jpose_buffer, dataMipMapCPU<float> &e_buffer, cameraMipMap cam, int lvl)
     {
-        z_buffer.set(z_buffer.nodata);
+        z_buffer.setToNoData(lvl);
 
-        scene1 = scene;
-        scene2 = scene;
-        scene1.transform(cam, kpose);
-        scene2.transform(cam, pose);
+        SE3f relativePose = frame.getLocalPose();
+
+        scene1 = kframe.getGeometry();
+        scene2 = kframe.getGeometry();
+
+        scene1.project(cam[lvl]);
+        scene2.transform(relativePose);
+        scene2.project(cam[lvl]);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        int width = cam.width / divi_x;
-        int height = cam.height / divi_y;
+        int width = cam[lvl].width / divi_x;
+        int height = cam[lvl].height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -266,7 +280,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderJPoseWindow(kimage, kexp, image, exp, d_image_d_pix, cam, win, jpose_buffer, e_buffer);
+                renderJPoseWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), frame.getdIdpixImage(lvl), jpose_buffer.get(lvl), e_buffer.get(lvl), z_buffer.get(lvl), cam[lvl], win);
                 // pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kimage, frame, cam, win, jpose_buffer, e_buffer, lvl));
             }
         }
@@ -274,20 +288,24 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderResidualParallel(sceneType &scene, dataCPU<float> &kimage, vec2f kexp, SE3f kpose, dataCPU<float> &image, vec2f exp, SE3f pose, camera cam, dataCPU<float> &e_buffer)
+    void renderResidualParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<float> &e_buffer, cameraMipMap cam, int lvl)
     {
-        z_buffer.set(z_buffer.nodata);
+        z_buffer.setToNoData(lvl);
 
-        scene1 = scene;
-        scene2 = scene;
-        scene1.transform(cam, kpose);
-        scene2.transform(cam, pose);
+        SE3f relativePose = frame.getLocalPose();
+
+        scene1 = kframe.getGeometry();
+        scene2 = kframe.getGeometry();
+
+        scene1.project(cam[lvl]);
+        scene2.transform(relativePose);
+        scene2.project(cam[lvl]);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        int width = cam.width / divi_x;
-        int height = cam.height / divi_y;
+        int width = cam[lvl].width / divi_x;
+        int height = cam[lvl].height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -300,7 +318,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderResidualWindow(kimage, kexp, image, exp, cam, win, e_buffer);
+                renderResidualWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), e_buffer.get(lvl), z_buffer.get(lvl), cam[lvl], win);
                 // pool.enqueue(std::bind(&renderCPU::renderResidualWindow, this, kimage, frame, cam, win, e_buffer, lvl));
             }
         }
@@ -308,18 +326,22 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderIdepthParallel(sceneType &scene, SE3f pose, camera cam, dataCPU<float> &buffer)
+    void renderIdepthParallel(keyFrameCPU &kframe, SE3f localPose, dataMipMapCPU<float> &buffer, cameraMipMap cam, int lvl)
     {
-        z_buffer.set(z_buffer.nodata);
+        z_buffer.setToNoData(lvl);
 
-        scene2 = scene;
-        scene2.transform(cam, pose);
+        SE3f relativePose = localPose;
+
+        scene2 = kframe.getGeometry();
+
+        scene2.transform(relativePose);
+        scene2.project(cam[lvl]);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        int width = cam.width / divi_x;
-        int height = cam.height / divi_y;
+        int width = cam[lvl].width / divi_x;
+        int height = cam[lvl].height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -332,7 +354,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderIdepthWindow(win, buffer);
+                renderIdepthWindow(buffer.get(lvl), z_buffer.get(lvl), win);
                 // pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, win, buffer, lvl));
             }
         }
@@ -340,18 +362,22 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderWeightParallel(sceneType &scene, SE3f pose, camera cam, dataCPU<float> &buffer)
+    void renderWeightParallel(keyFrameCPU &kframe, SE3f localPose, dataMipMapCPU<float> &buffer, cameraMipMap cam, int lvl)
     {
-        z_buffer.set(z_buffer.nodata);
+        z_buffer.setToNoData(lvl);
 
-        scene2 = scene;
-        scene2.transform(cam, pose);
+        SE3f relativePose = localPose;
+
+        scene2 = kframe.getGeometry();
+
+        scene2.transform(relativePose);
+        scene2.project(cam[lvl]);
 
         int divi_y = pool.getNumThreads();
         int divi_x = 1;
 
-        int width = cam.width / divi_x;
-        int height = cam.height / divi_y;
+        int width = cam[lvl].width / divi_x;
+        int height = cam[lvl].height / divi_y;
 
         for (int ty = 0; ty < divi_y; ty++)
         {
@@ -364,7 +390,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderWeightWindow(win, buffer);
+                renderWeightWindow(buffer.get(lvl), z_buffer.get(lvl), win);
                 // pool.enqueue(std::bind(&renderCPU::renderWeightWindow, this, win, buffer, lvl));
             }
         }
@@ -373,7 +399,7 @@ public:
     }
 
 private:
-    void renderSmoothWindow(camera cam, window win, dataCPU<float> &buffer, float start = 1.0, float end = 2.0)
+    void renderSmoothWindow(dataCPU<float> &buffer, camera cam, window win, float start = 1.0, float end = 2.0)
     {
         for (int y = win.min_y; y <= win.max_y; y++)
         {
@@ -385,7 +411,7 @@ private:
         }
     }
 
-    void renderRandomWindow(window win, dataCPU<float> &buffer, float min = 1.0, float max = 2.0)
+    void renderRandomWindow(dataCPU<float> &buffer, window win, float min = 1.0, float max = 2.0)
     {
         for (int y = win.min_y; y <= win.max_y; y++)
         {
@@ -397,7 +423,7 @@ private:
         }
     }
 
-    void renderInterpolateWindow(camera cam, window win, dataCPU<float> &src_buffer, dataCPU<float> &dst_buffer)
+    void renderInterpolateWindow(dataCPU<float> &src_buffer, dataCPU<float> &dst_buffer, camera cam, window win)
     {
         for (int y = win.min_y; y <= win.max_y; y++)
         {
@@ -433,7 +459,7 @@ private:
         }
     }
 
-    void renderIdepthLineSearchWindow(dataCPU<float> &kimage, dataCPU<float> &image, SE3f imagePose, camera cam, window win, dataCPU<float> &buffer)
+    void renderIdepthLineSearchWindow(dataCPU<float> &kimage, dataCPU<float> &image, SE3f imagePose, dataCPU<float> &buffer, dataCPU<float> &z_buffer, camera cam, window win)
     {
         SE3f kfTofPose = imagePose; // * kframe->getPose().inverse();
         SE3f fTokfPose = kfTofPose.inverse();
@@ -512,7 +538,7 @@ private:
         }
     }
 
-    void renderImageWindow(dataCPU<imageType> &image, camera cam, window win, dataCPU<float> &buffer)
+    void renderImageWindow(dataCPU<imageType> &image, dataCPU<float> &buffer, dataCPU<float> &z_buffer, camera cam, window win)
     {
         std::vector<int> ids = scene2.getShapesIds();
 
@@ -566,7 +592,7 @@ private:
         }
     }
 
-    void renderIdepthWindow(window win, dataCPU<float> &buffer)
+    void renderIdepthWindow(dataCPU<float> &buffer, dataCPU<float> &z_buffer, window win)
     {
         std::vector<int> shapesIds = scene2.getShapesIds();
 
@@ -609,7 +635,7 @@ private:
         }
     }
 
-    void renderWeightWindow(window win, dataCPU<float> &buffer)
+    void renderWeightWindow(dataCPU<float> &buffer, dataCPU<float> &z_buffer, window win)
     {
         std::vector<int> shapesIds = scene2.getShapesIds();
 
@@ -655,14 +681,11 @@ private:
         }
     }
 
-    void renderResidualWindow(dataCPU<float> &kimage, vec2f kimageExp, dataCPU<float> &image, vec2f imageExp, camera cam, window win, dataCPU<float> &e_buffer)
+    void renderResidualWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, camera cam, window win)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
 
         std::vector<int> t_ids = scene2.getShapesIds();
-
-        float kalpha = std::exp(-kimageExp(0));
-        float kbeta = kimageExp(1);
 
         float alpha = std::exp(-imageExp(0));
         float beta = imageExp(1);
@@ -713,9 +736,8 @@ private:
                         continue;
 
                     float f_i_cor = alpha * (f_i - beta);
-                    float kf_i_cor = kalpha * (kf_i - kbeta);
 
-                    float residual = (f_i_cor - kf_i_cor);
+                    float residual = (f_i_cor - kf_i);
 
                     e_buffer.set(residual, y, x);
                     z_buffer.set(f_depth, y, x);
@@ -724,12 +746,9 @@ private:
         }
     }
 
-    void renderJPoseWindow(dataCPU<float> &kimage, vec2f kimageAffine, dataCPU<float> &image, vec2f imageAffine, dataCPU<vec2f> &d_image_d_pix, camera cam, window win, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &e_buffer)
+    void renderJPoseWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, dataCPU<vec2f> &d_image_d_pix, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, camera cam, window win)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
-
-        float kalpha = std::exp(-kimageAffine(0));
-        float kbeta = kimageAffine(1);
 
         float alpha = std::exp(-imageAffine(0));
         float beta = imageAffine(1);
@@ -793,11 +812,10 @@ private:
                     vec3f d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
                     float f_i_cor = alpha * (f_i - beta);
-                    float kf_i_cor = kalpha * (kf_i - kbeta);
 
                     vec6f j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
 
-                    float residual = (f_i_cor - kf_i_cor);
+                    float residual = (f_i_cor - kf_i);
 
                     jpose_buffer.set(j_pose, y, x);
                     e_buffer.set(residual, y, x);
@@ -807,12 +825,9 @@ private:
         }
     }
 
-    void renderJPoseExpWindow(dataCPU<float> &kimage, vec2f kimageExp, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, camera cam, window win, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer)
+    void renderJPoseExpWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, camera cam, window win)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
-
-        float kalpha = std::exp(-kimageExp(0));
-        float kbeta = kimageExp(1);
 
         float alpha = std::exp(-imageExp(0));
         float beta = imageExp(1);
@@ -876,14 +891,13 @@ private:
                     vec3f d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
                     float f_i_cor = alpha * (f_i - beta);
-                    float kf_i_cor = kalpha * (kf_i - kbeta);
 
                     vec2f d_f_i_d_exp(-f_i_cor, -alpha);
 
                     vec6f j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
                     vec2f j_exp = {d_f_i_d_exp(0), d_f_i_d_exp(1)};
 
-                    float residual = (f_i_cor - kf_i_cor);
+                    float residual = (f_i_cor - kf_i);
 
                     jpose_buffer.set(j_pose, y, x);
                     jexp_buffer.set(j_exp, y, x);
@@ -894,14 +908,11 @@ private:
         }
     }
 
-    void renderJExpWindow(dataCPU<float> &kimage, vec2f kimageExp, dataCPU<float> &image, vec2f imageExp, camera cam, window win, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer)
+    void renderJExpWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, camera cam, window win)
     {
         float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
 
         std::vector<int> t_ids = scene2.getShapesIds();
-
-        float kalpha = std::exp(-kimageExp(0));
-        float kbeta = kimageExp(1);
 
         float alpha = std::exp(-imageExp(0));
         float beta = imageExp(1);
@@ -952,11 +963,10 @@ private:
                         continue;
 
                     float f_i_cor = alpha * (f_i - beta);
-                    float kf_i_cor = kalpha * (kf_i - kbeta);
 
                     vec2f jexp(-f_i_cor, -alpha);
 
-                    float residual = f_i_cor - kf_i_cor;
+                    float residual = f_i_cor - kf_i;
 
                     jexp_buffer.set(jexp, y, x);
                     e_buffer.set(residual, y, x);
@@ -966,15 +976,12 @@ private:
         }
     }
 
-    void renderJMapWindow(dataCPU<float> &kimage, vec2f kimageAffine, dataCPU<float> &image, vec2f imageAffine, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, camera cam, window win, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
+    void renderJMapWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, dataCPU<float> &z_buffer, camera cam, window win)
     {
         float min_area = 0.0; //(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3 / 4;
 
         SE3f kfTofPose = imagePose;
         // Sophus::SE3f fTokfPose = kfTofPose.inverse();
-
-        float kalpha = std::exp(-kimageAffine(0));
-        float kbeta = kimageAffine(1);
 
         float alpha = std::exp(-imageAffine(0));
         float beta = imageAffine(1);
@@ -1041,9 +1048,8 @@ private:
                         continue;
 
                     float f_i_cor = alpha * (f_i - beta);
-                    float kf_i_cor = kalpha * (kf_i - kbeta);
 
-                    float residual = f_i_cor - kf_i_cor;
+                    float residual = f_i_cor - kf_i;
 
                     vec3f d_f_i_d_f_ver;
                     d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
@@ -1066,15 +1072,12 @@ private:
         }
     }
 
-    void renderJPoseMapWindow(dataCPU<float> &kimage, vec2f kimageExp, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, camera cam, window win, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
+    void renderJPoseMapWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, dataCPU<float> &z_buffer, camera cam, window win)
     {
         float min_area = 0.0; //(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3.0 / 4.0;
 
         SE3f kfTofPose = imagePose;
         // Sophus::SE3f fTokfPose = kfTofPose.inverse();
-
-        float kalpha = std::exp(-kimageExp(0));
-        float kbeta = kimageExp(1);
 
         float alpha = std::exp(-imageExp(0));
         float beta = imageExp(1);
@@ -1162,7 +1165,6 @@ private:
                     vec3f d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
                     float f_i_cor = alpha * (f_i - beta);
-                    float kf_i_cor = kalpha * (kf_i - kbeta);
 
                     vec6f jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
 
@@ -1172,7 +1174,7 @@ private:
 
                     jmapType jacs = kf_pol.getParamJacobian(kf_pix) * d_f_i_d_kf_depth;
 
-                    float error = f_i_cor - kf_i_cor;
+                    float error = f_i_cor - kf_i;
 
                     e_buffer.set(error, y, x);
                     jpose_buffer.set(jpose, y, x);
@@ -1183,15 +1185,12 @@ private:
         }
     }
 
-    void renderJPoseExpMapWindow(dataCPU<imageType> &kimage, vec2f kimageExp, dataCPU<imageType> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, camera cam, window win, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer)
+    void renderJPoseExpMapWindow(dataCPU<imageType> &kimage, dataCPU<imageType> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, dataCPU<float> &z_buffer, camera cam, window win)
     {
         float min_area = 0.0; //(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3.0 / 4.0;
 
         SE3f kfTofPose = imagePose;
         // Sophus::SE3f fTokfPose = kfTofPose.inverse();
-
-        float kalpha = std::exp(-kimageExp(0));
-        float kbeta = kimageExp(1);
 
         float alpha = std::exp(-imageExp(0));
         float beta = imageExp(1);
@@ -1279,7 +1278,6 @@ private:
                     vec3f d_f_i_d_rot(-f_ver(2) * d_f_i_d_f_ver(1) + f_ver(1) * d_f_i_d_f_ver(2), f_ver(2) * d_f_i_d_f_ver(0) - f_ver(0) * d_f_i_d_f_ver(2), -f_ver(1) * d_f_i_d_f_ver(0) + f_ver(0) * d_f_i_d_f_ver(1));
 
                     float f_i_cor = alpha * (f_i - beta);
-                    float kf_i_cor = kalpha * (kf_i - kbeta);
 
                     vec2f d_f_i_d_f_exp(-f_i_cor, -alpha);
 
@@ -1292,7 +1290,7 @@ private:
 
                     jmapType jacs = kf_pol.getParamJacobian(kf_pix) * d_f_i_d_kf_depth;
 
-                    float error = f_i_cor - kf_i_cor;
+                    float error = f_i_cor - kf_i;
 
                     e_buffer.set(error, y, x);
                     jpose_buffer.set(jpose, y, x);
@@ -1304,7 +1302,7 @@ private:
         }
     }
 
-    void renderDebugWindow(dataCPU<imageType> &image, window win, dataCPU<imageType> &buffer)
+    void renderDebugWindow(dataCPU<imageType> &image, dataCPU<imageType> &buffer, window win)
     {
         std::vector<int> ids = scene2.getShapesIds();
 
@@ -1352,8 +1350,8 @@ private:
         }
     }
 
-    sceneType scene1;
-    sceneType scene2;
-    dataCPU<float> z_buffer;
+    geometryType scene1;
+    geometryType scene2;
+    dataMipMapCPU<float> z_buffer;
     ThreadPool<RENDERER_NTHREADS> pool;
 };

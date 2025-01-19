@@ -8,7 +8,6 @@
 #include "cpu/frameCPU.h"
 #include "cpu/renderCPU.h"
 #include "cpu/reduceCPU.h"
-#include "cpu/SceneMesh.h"
 #include "common/DenseLinearProblem.h"
 #include "optimizers/baseOptimizerCPU.h"
 #include "cpu/OpenCVDebug.h"
@@ -25,15 +24,15 @@ public:
         priorWeight = 0.1;
     }
 
-    void optimize(std::vector<frameCPU> &frames, frameCPU &kframe, sceneType &scene)
+    void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe)
     {
-        std::vector<int> sceneParamsIds = scene.getParamIds();
+        std::vector<int> sceneParamsIds = kframe.getGeometry().getParamIds();
         int numParams = sceneParamsIds.size();
 
         Eigen::VectorXf init_params = Eigen::VectorXf::Zero(numParams);
         for (size_t i = 0; i < sceneParamsIds.size(); i++)
         {
-            init_params(i) = scene.getParam(sceneParamsIds[i]);
+            init_params(i) = kframe.getGeometry().getDepthParam(sceneParamsIds[i]);
         }
 
         if (invCovariance.rows() != numParams || invCovariance.cols() != numParams)
@@ -52,7 +51,7 @@ public:
             Error e;
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                Error ef = computeError(frames[i], kframe, scene, lvl);
+                Error ef = computeError(frames[i], kframe, lvl);
                 assert(ef.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
                 ef *= 1.0 / ef.getCount();
                 e += ef;
@@ -61,7 +60,7 @@ public:
 
             if (reguWeight > 0.0)
             {
-                Error e_regu = scene.errorRegu();
+                Error e_regu = kframe.getGeometry().errorRegu();
                 assert(e_regu.getCount() > 0);
                 e_regu *= reguWeight / e_regu.getCount();
                 e += e_regu;
@@ -73,7 +72,7 @@ public:
 
                 for (size_t index = 0; index < sceneParamsIds.size(); index++)
                 {
-                    params(index) = scene.getParam(sceneParamsIds[index]);
+                    params(index) = kframe.getGeometry().getDepthParam(sceneParamsIds[index]);
                 }
 
                 vecxf res = params - init_params;
@@ -87,7 +86,7 @@ public:
             float last_error = e.getError();
 
             std::cout << "optMap initial error " << last_error << " " << lvl << std::endl;
-            plotDebug(scene, kframe, frames, "mapOptimizerCPU");
+            plotDebug(kframe, frames, "mapOptimizerCPU");
 
             int maxIterations = 1000;
             float lambda = 0.0;
@@ -96,7 +95,7 @@ public:
                 DenseLinearProblem problem(numParams);
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
-                    DenseLinearProblem fhg = computeProblem(frames[i], kframe, scene, lvl);
+                    DenseLinearProblem fhg = computeProblem(frames[i], kframe, lvl);
                     assert(fhg.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
                     fhg *= 1.0 / fhg.getCount();
                     problem += fhg;
@@ -105,7 +104,7 @@ public:
 
                 if (reguWeight > 0.0)
                 {
-                    DenseLinearProblem hg_regu = scene.HGRegu(0);
+                    DenseLinearProblem hg_regu = kframe.getGeometry().HGRegu(0);
                     assert(hg_regu.getCount() > 0);
                     hg_regu *= reguWeight / hg_regu.getCount();
                     problem += hg_regu;
@@ -117,7 +116,7 @@ public:
 
                     for (size_t i = 0; i < numParams; i++)
                     {
-                        params(i) = scene.getParam(sceneParamsIds[i]);
+                        params(i) = kframe.getGeometry().getDepthParam(sceneParamsIds[i]);
                     }
                     // error = (sqrt(H)*diff)**2
                     // jacobian = sqrt(H)*ones
@@ -157,16 +156,16 @@ public:
                     {
                         int paramId = linearProbleParamIds[index];
 
-                        best_params.push_back(scene.getParam(paramId));
+                        best_params.push_back(kframe.getGeometry().getDepthParam(paramId));
                         // the derivative is with respecto to the keyframe pose
                         // the update should take this into account
-                        scene.setParam(scene.getParam(paramId) - inc(index), paramId);
+                        kframe.getGeometry().setDepthParam(kframe.getGeometry().getDepthParam(paramId) - inc(index), paramId);
                     }
 
                     e.setZero();
                     for (std::size_t i = 0; i < frames.size(); i++)
                     {
-                        Error fe = computeError(frames[i], kframe, scene, lvl);
+                        Error fe = computeError(frames[i], kframe, lvl);
                         if (fe.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
                         {
                             // too few pixels, unreliable, set to large error
@@ -180,7 +179,7 @@ public:
 
                     if (reguWeight > 0.0)
                     {
-                        Error e_regu = scene.errorRegu();
+                        Error e_regu = kframe.getGeometry().errorRegu();
                         assert(e_regu.getCount() > 0);
                         e_regu *= reguWeight / e_regu.getCount();
                         e += e_regu;
@@ -191,7 +190,7 @@ public:
                         Eigen::VectorXf params(numParams);
                         for (size_t index = 0; index < sceneParamsIds.size(); index++)
                         {
-                            params(index) = scene.getParam(sceneParamsIds[index]);
+                            params(index) = kframe.getGeometry().getDepthParam(sceneParamsIds[index]);
                         }
 
                         Eigen::VectorXf res = params - init_params;
@@ -205,7 +204,7 @@ public:
                     float error = e.getError();
 
                     std::cout << "new error " << error << " " << lambda << " " << it << " " << n_try << " lvl: " << lvl << std::endl;
-                    plotDebug(scene, kframe, frames, "mapOptimizerCPU");
+                    plotDebug(kframe, frames, "mapOptimizerCPU");
 
                     if (error < last_error)
                     {
@@ -228,7 +227,7 @@ public:
                     {
                         for (size_t index = 0; index < linearProbleParamIds.size(); index++)
                         {
-                            scene.setParam(best_params[index], linearProbleParamIds[index]);
+                            kframe.getGeometry().setDepthParam(best_params[index], linearProbleParamIds[index]);
                         }
 
                         // reject update, increase lambda, use un-updated data
@@ -246,15 +245,15 @@ public:
     }
 
 private:
-    DenseLinearProblem computeProblem(frameCPU &frame, frameCPU &kframe, sceneType &scene, int lvl)
+    DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, int lvl)
     {
         error_buffer.setToNoData(lvl);
         j_buffer.setToNoData(lvl);
         pId_buffer.setToNoData(lvl);
 
-        int numMapParams = scene.getParamIds().size();
+        int numMapParams = kframe.getGeometry().getParamIds().size();
 
-        renderer.renderJMapParallel(scene, kframe.getRawImage(lvl), kframe.getExposure(), kframe.getPose(), frame.getRawImage(lvl), frame.getExposure(), frame.getdIdpixImage(lvl), frame.getPose(), cam[lvl], j_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
+        renderer.renderJMapParallel(kframe, frame, j_buffer, error_buffer, pId_buffer, cam, lvl);
         DenseLinearProblem problem = reducer.reduceHGMapParallel(numMapParams, j_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
 
         return problem;

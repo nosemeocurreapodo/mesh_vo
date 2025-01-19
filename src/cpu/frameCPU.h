@@ -14,8 +14,8 @@ public:
     // residual_image(width, height, -1.0f)
     {
         id = 0;
-        pose = SE3f();
-        exposure = {0.0f, 0.0f};
+        localPose = SE3f();
+        localExp = {0.0f, 0.0f};
     };
 
     frameCPU(const frameCPU &other) : raw_image(other.raw_image),
@@ -24,8 +24,8 @@ public:
     // residual_image(other.residual_image)
     {
         id = other.id;
-        pose = other.pose;
-        exposure = other.exposure;
+        localPose = other.localPose;
+        localExp = other.localExp;
     }
 
     frameCPU &operator=(const frameCPU &other)
@@ -33,8 +33,8 @@ public:
         if (this != &other)
         {
             id = other.id;
-            pose = other.pose;
-            exposure = other.exposure;
+            localPose = other.localPose;
+            localExp = other.localExp;
 
             raw_image = other.raw_image;
             dIdpix_image = other.dIdpix_image;
@@ -59,24 +59,24 @@ public:
         id = _id;
     }
 
-    void setExposure(vec2f exp)
+    void setLocalExp(vec2f newLocalExp)
     {
-        exposure = exp;
+        localExp = newLocalExp;
     }
 
-    vec2f getExposure()
+    vec2f getLocalExp()
     {
-        return exposure;
+        return localExp;
     }
 
-    void setPose(SE3f p)
+    void setLocalPose(SE3f newLocalPose)
     {
-        pose = p;
+        localPose = newLocalPose;
     }
 
-    SE3f getPose()
+    SE3f getLocalPose()
     {
-        return pose;
+        return localPose;
     }
 
     dataCPU<float> &getRawImage(int lvl)
@@ -142,7 +142,7 @@ private:
     // dataMipMapCPU<float> idepth_image;
     // dataMipMapCPU<float> residual_image;
 
-    Sophus::SE3f pose;
-    vec2f exposure;
+    Sophus::SE3f localPose;
+    vec2f localExp;
     int id;
 };

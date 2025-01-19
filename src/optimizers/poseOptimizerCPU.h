@@ -8,7 +8,6 @@
 #include "cpu/frameCPU.h"
 #include "cpu/renderCPU.h"
 #include "cpu/reduceCPU.h"
-#include "cpu/SceneMesh.h"
 #include "common/DenseLinearProblem.h"
 #include "optimizers/baseOptimizerCPU.h"
 #include "cpu/OpenCVDebug.h"
@@ -24,9 +23,9 @@ public:
         invCovariance = mat6f::Identity() / (INITIAL_POSE_STD * INITIAL_POSE_STD);
     }
 
-    void optimize(frameCPU &frame, frameCPU &kframe, sceneType &scene)
+    void optimize(frameCPU &frame, keyFrameCPU &kframe)
     {
-        vec6f init_pose = frame.getPose().log();
+        vec6f init_pose = frame.getLocalPose().log();
         mat6f init_invcovariance = invCovariance;
         mat6f init_invcovariancesqrt;
         
@@ -35,12 +34,12 @@ public:
 
         for (int lvl = 2; lvl >= 2; lvl--)
         {
-            Error last_error = computeError(frame, kframe, scene, lvl);
+            Error last_error = computeError(frame, kframe, lvl);
             last_error *= 1.0 / last_error.getCount();
 
             if (priorWeight > 0.0)
             {
-                vec6f res = frame.getPose().log() - init_pose;
+                vec6f res = frame.getLocalPose().log() - init_pose;
                 vec6f conv_dot_res = init_invcovariance * res;
                 float weight = priorWeight / 6;
                 last_error += weight * (res.dot(conv_dot_res));
@@ -49,20 +48,20 @@ public:
             std::cout << "initial error " << last_error.getError() << " " << lvl << std::endl;
             std::vector<frameCPU> frames;
             frames.push_back(frame);
-            plotDebug(scene, kframe, frames, "poseOptimizerCPU");
+            plotDebug(kframe, frames, "poseOptimizerCPU");
 
             float lambda = 0.0;
             bool keepIterating = true;
             while (keepIterating)
             {
-                DenseLinearProblem problem = computeProblem(frame, kframe, scene, lvl);
+                DenseLinearProblem problem = computeProblem(frame, kframe, lvl);
                 problem *= 1.0 / problem.getCount();
 
                 if (priorWeight > 0.0)
                 {
                     // error = diff * (H * diff)
                     // jacobian = ones * (H * diff) + diff ( H * ones)
-                    vec6f res = init_invcovariancesqrt * (frame.getPose().log() - init_pose);
+                    vec6f res = init_invcovariancesqrt * (frame.getLocalPose().log() - init_pose);
                     mat6f jacobian = init_invcovariancesqrt;
                     float weight = priorWeight / 6;
                     // vec6<float> res(_res);
@@ -87,11 +86,11 @@ public:
 
                     vecxf inc = problem.solve();
 
-                    SE3f best_pose = frame.getPose();
-                    SE3f new_pose = frame.getPose() * SE3f::exp(inc).inverse();
-                    frame.setPose(new_pose);
+                    SE3f best_pose = frame.getLocalPose();
+                    SE3f new_pose = frame.getLocalPose() * SE3f::exp(inc).inverse();
+                    frame.setLocalPose(new_pose);
 
-                    Error new_error = computeError(frame, kframe, scene, lvl);
+                    Error new_error = computeError(frame, kframe, lvl);
                     if (new_error.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
                     {
                         // too few pixels, unreliable, set to large error
@@ -102,7 +101,7 @@ public:
 
                     if (priorWeight > 0.0)
                     {
-                        vec6f res = frame.getPose().log() - init_pose;
+                        vec6f res = frame.getLocalPose().log() - init_pose;
                         vec6f conv_dot_res = init_invcovariance * res;
                         float weight = priorWeight / 6;
                         new_error += weight * (res.dot(conv_dot_res));
@@ -111,7 +110,7 @@ public:
                     std::cout << "new error " << new_error.getError() << " " << lambda << " " << " " << lvl << std::endl;
                     std::vector<frameCPU> frames;
                     frames.push_back(frame);
-                    plotDebug(scene, kframe, frames, "poseOptimizerCPU");
+                    plotDebug(kframe, frames, "poseOptimizerCPU");
 
                     if (new_error.getError() < last_error.getError())
                     {
@@ -128,7 +127,7 @@ public:
                     }
                     else
                     {
-                        frame.setPose(best_pose);
+                        frame.setLocalPose(best_pose);
 
                         if (inc.dot(inc) < 1e-16)
                         {
@@ -144,12 +143,12 @@ public:
     }
 
 private:
-    DenseLinearProblem computeProblem(frameCPU &frame, frameCPU &kframe, sceneType &scene, int lvl)
+    DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, int lvl)
     {
         j_buffer.set(j_buffer.nodata, lvl);
         error_buffer.setToNoData(lvl);
 
-        renderer.renderJPoseParallel(scene, kframe.getRawImage(lvl), kframe.getExposure(), kframe.getPose(), frame.getRawImage(lvl), frame.getExposure(), frame.getdIdpixImage(lvl), frame.getPose(), cam[lvl], j_buffer.get(lvl), error_buffer.get(lvl));
+        renderer.renderJPoseParallel(kframe, frame, j_buffer, error_buffer, cam, lvl);
         DenseLinearProblem problem = reducer.reduceHGPoseParallel(j_buffer.get(lvl), error_buffer.get(lvl));
         return problem;
     }

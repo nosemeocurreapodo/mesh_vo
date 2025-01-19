@@ -6,6 +6,7 @@
 //#include <Eigen/Sparse>
 #include <unsupported/Eigen/MatrixFunctions>
 #include "sophus/se3.hpp"
+#include "sophus/sim3.hpp"
 
 using vec2f = Eigen::Vector2f;
 using vec3f = Eigen::Vector3f;
@@ -21,6 +22,7 @@ using vec3i = Eigen::Vector3i;
 using vecxi = Eigen::VectorXi;
 
 using SE3f = Sophus::SE3f;
+using SIM3f = Sophus::Sim3f;
 
 using solverType = Eigen::LDLT<Eigen::MatrixXf>;
 //using solverType = Eigen::LLT<Eigen::MatrixXf>;
@@ -61,10 +63,10 @@ using jmapType = vec3f;
 using idsType = vec3i;
 
 class ShapeTriangleFlat;
-class SceneMesh;
+class GeometryMesh;
 
 using shapeType = ShapeTriangleFlat;
-using sceneType = SceneMesh;
+using geometryType = GeometryMesh;
 
 struct vertex
 {

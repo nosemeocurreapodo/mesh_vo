@@ -12,6 +12,36 @@ public:
     {
     }
 
+    void init(camera cam)
+    {
+        std::vector<vec2f> texcoords;
+        std::vector<float> idepths;
+
+        float maxIdepth = 1.0;
+        float minIdepth = 0.1;
+
+        for (float y = 0.0; y < MESH_HEIGHT; y++)
+        {
+            for (float x = 0.0; x < MESH_WIDTH; x++)
+            {
+                vec2f pix;
+                pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
+                pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
+
+                float idph = (maxIdepth - minIdepth) * float(rand() % 1000) / 1000.0 + minIdepth;
+
+                assert(idph > 0.0);
+
+                texcoords.push_back(pix);
+                idepths.push_back(idph);
+
+                assert(idepths.size() <= MAX_VERTEX_SIZE);
+            }
+        }
+        
+        init(texcoords, idepths, cam);
+    }
+
     void init(std::vector<vec3f> &vertices, camera cam)
     {
         assert(vertices.size() <= MAX_VERTEX_SIZE);
@@ -55,7 +85,46 @@ public:
         }
     }
 
-    vec2f meanStdDepthParam()
+    void init(dataCPU<float> &idepth, camera cam)
+    {
+        assert(idepth.width == cam.width && idepth.height == cam.height);
+
+        std::vector<vec2f> texcoords;
+        std::vector<float> idepths;
+
+        std::array<float, 2> minMax = idepth.getMinMax();
+        if(minMax[0] == idepth.nodata)
+            minMax[0] = 0.1;
+        if(minMax[1] == idepth.nodata)
+            minMax[1] = 1.0;
+
+        for (float y = 0.0; y < MESH_HEIGHT; y++)
+        {
+            for (float x = 0.0; x < MESH_WIDTH; x++)
+            {
+                vec2f pix;
+                pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
+                pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
+
+                float idph = idepth.get(pix(1), pix(0));
+
+                // assert(idph != idepth.nodata);
+                if (idph == idepth.nodata)
+                    idph = (minMax[1] - minMax[0]) * float(rand() % 1000) / 1000.0 + minMax[0];
+
+                assert(idph > 0.0);
+
+                texcoords.push_back(pix);
+                idepths.push_back(idph);
+
+                assert(idepths.size() <= MAX_VERTEX_SIZE);
+            }
+        }
+        
+        init(texcoords, idepths, cam);
+    }
+
+    vec2f meanStdDepthParams()
     {
         float old_m = 0;
         float new_m = 0;
@@ -89,20 +158,105 @@ public:
 
         vec2f results;
         results(0) = new_m;
-        results(1) = new_s / (n - 1);
+        results(1) = sqrt(new_s / (n - 1));
 
         return results;
     }
 
-    void scaleDepthParam(vec2f affine)
+    vec2f minMaxDepthParams()
+    {
+        float min = 0;
+        float max = 0;
+        int n = 0;
+
+        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        {
+            if (!m_vertices[i].used)
+                continue;
+
+            float param = getDepthParam(i);
+
+            n++;
+
+            if (n == 1)
+            {
+                min = param;
+                max = param;
+            }
+            else
+            {
+                if(param < min)
+                    min = param;
+                if(param > max)
+                    max = param;
+            }
+        }
+
+        vec2f results;
+        results(0) = min;
+        results(1) = max;
+
+        return results;
+    }
+
+    void scaleDepthParams(float scale)
     {
         for (int i = 0; i < MAX_VERTEX_SIZE; i++)
         {
             if (!m_vertices[i].used)
                 continue;
             float param = getDepthParam(i);
-            float new_param = (param - affine(1)) / affine(0);
+            float new_param = param * scale;
             setDepthParam(new_param, i);
+        }
+    }
+
+    vec2f meanStdDepth()
+    {
+        float old_m = 0;
+        float new_m = 0;
+        float old_s = 0;
+        float new_s = 0;
+        int n = 0;
+
+        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        {
+            if (!m_vertices[i].used)
+                continue;
+
+            float param = getVerticeDepth(i);
+
+            n++;
+
+            if (n == 1)
+            {
+                old_m = param;
+                new_m = param;
+                old_s = 0;
+            }
+            else
+            {
+                new_m = old_m + (param - old_m) / n;
+                new_s = old_s + (param - old_m) * (param - new_m);
+                old_m = new_m;
+                old_s = new_s;
+            }
+        }
+
+        vec2f results;
+        results(0) = new_m;
+        results(1) = sqrt(new_s / (n - 1));
+
+        return results;
+    }
+
+    void scaleVertices(float scale)
+    {
+        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        {
+            if (!m_vertices[i].used)
+                continue;
+            m_vertices[i].ver *= scale;
         }
     }
 

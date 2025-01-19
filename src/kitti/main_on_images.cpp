@@ -222,11 +222,7 @@ int main(int argc, char **argv)
 
 		if (runningIDX == 0)
 		{
-			frameCPU frame(cam.width, cam.height);
-			frame.setImage(imageData, 0);
-			frame.setPose(SE3f());
-			frame.setExposure(vec2f(0.0, 0.0));
-			odometry.init(frame);
+			odometry.init(imageData, SE3f());
 		// system->randomInit(image.data, fakeTimeStamp, runningIDX);
 		}
 		else
