@@ -32,7 +32,7 @@ public:
         if(priorWeight > 0.0)
             init_invcovariancesqrt = invCovariance.sqrt();
 
-        for (int lvl = 2; lvl >= 2; lvl--)
+        for (int lvl = 2; lvl >= 1; lvl--)
         {
             Error last_error = computeError(frame, kframe, lvl);
             last_error *= 1.0 / last_error.getCount();

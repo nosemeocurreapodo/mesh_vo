@@ -161,7 +161,7 @@ public:
         return mipmap;
     }
 
-    std::array<Type, 2> getMinMax()
+    vec2f getMinMax()
     {
         Type min = nodata;
         Type max = nodata;
@@ -181,7 +181,7 @@ public:
         return {min, max};
     }
 
-    std::array<Type, 2> getMeanStd()
+    vec2f getMeanStd()
     {
         int n = 0;
         float old_m = 0.0;

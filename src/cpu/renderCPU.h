@@ -976,15 +976,15 @@ private:
         }
     }
 
-    void renderJMapWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, dataCPU<float> &z_buffer, camera cam, window win)
+    void renderJMapWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, dataCPU<float> &z_buffer, camera cam, window win)
     {
         float min_area = 0.0; //(float(cam.width) / (MESH_WIDTH - 1)) * (float(cam.height) / (MESH_HEIGHT - 1)) * 3 / 4;
 
         SE3f kfTofPose = imagePose;
         // Sophus::SE3f fTokfPose = kfTofPose.inverse();
 
-        float alpha = std::exp(-imageAffine(0));
-        float beta = imageAffine(1);
+        float alpha = std::exp(-imageExp(0));
+        float beta = imageExp(1);
 
         std::vector<int> t_ids = scene2.getShapesIds();
 

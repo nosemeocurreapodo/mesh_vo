@@ -92,11 +92,11 @@ public:
         std::vector<vec2f> texcoords;
         std::vector<float> idepths;
 
-        std::array<float, 2> minMax = idepth.getMinMax();
-        if(minMax[0] == idepth.nodata)
-            minMax[0] = 0.1;
-        if(minMax[1] == idepth.nodata)
-            minMax[1] = 1.0;
+        vec2f minMax = idepth.getMinMax();
+        if(minMax(0) == idepth.nodata)
+            minMax(0) = 0.1;
+        if(minMax(1) == idepth.nodata)
+            minMax(1) = 1.0;
 
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {

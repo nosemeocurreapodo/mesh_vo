@@ -39,35 +39,54 @@ public:
         return *this;
     }
 
-    void init(dataCPU<imageType> &im, vec2f localExp, SE3f localPose, float localScale, dataCPU<float> &idepth, camera cam)
+    void init(dataCPU<imageType> &im, vec2f _globalExp, SE3f _globalPose, float _globalScale, dataCPU<float> &idepth, camera cam)
     {
         assert(im.width == idepth.width && im.height == idepth.height);
 
         raw_image.get(0) = im;
         raw_image.generateMipmaps();
 
-        globalExp = localExp;
-        globalPose = localPose*globalPose;
-        globalScale = localScale*globalScale;
+        globalExp = _globalExp;
+        globalPose = _globalPose;
+        globalScale = _globalScale;
         //pose = SIM3f(scale, p.unit_quaternion(), p.translation());
 
         geometry.init(idepth, cam);
     }
 
-    void init(frameCPU &frame, float localScale, dataCPU<float> &idepth, camera cam)
+    SE3f localPoseToGlobal(SE3f _localPose)
     {
-        assert(frame.getRawImage(0).width == idepth.width && frame.getRawImage(0).height == idepth.height);
-        assert(cam.width == idepth.width && cam.height == idepth.height);
+        SE3f localPoseScaled = _localPose;
+        localPoseScaled.translation() /= globalScale;
+        SE3f _globalPose = localPoseScaled * globalPose;
+        return _globalPose;
+    }
 
-        raw_image.get(0) = frame.getRawImage(0);
-        raw_image.generateMipmaps();
+    SE3f globalPoseToLocal(SE3f _globalPose)
+    {
+        SE3f _localPose = _globalPose * globalPose.inverse();
+        _localPose.translation() *= globalScale;
+        return _localPose;
+    }
 
-        globalExp = frame.getLocalExp();
-        globalPose = frame.getLocalPose() * globalPose;
-        globalScale = localScale * globalScale;
-        //pose = SIM3f(scale, frame.getPose().unit_quaternion(), frame.getPose().translation());
+    vec2f localExpToGlobal(vec2f _localExp)
+    {
+        vec2f _globalExp;
+        float alpha1 = std::exp(_localExp(0));
+        float alpha2 = std::exp(globalExp(0));
+        _globalExp(0) = std::log(alpha1/alpha2);
+        _globalExp(1) = _localExp(1) - globalExp(1)/alpha1;
+        return _globalExp;
+    }
 
-        geometry.init(idepth, cam);
+    vec2f globalExpToLocal(vec2f _globalExp)
+    {
+        vec2f _localExp;
+        float alpha1 = std::exp(-_globalExp(0));
+        float alpha2 = std::exp(-globalExp(0));
+        _localExp(0) = std::log(alpha1/alpha2);
+        _localExp(1) = -_globalExp(1) + (alpha2/alpha1)*globalExp(1);
+        return _localExp;
     }
 
     void scaleVertices(float scale)
