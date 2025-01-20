@@ -75,19 +75,19 @@ struct vertex
         used = false;
     }
 
-    vertex(vec3f v, vec3f r, vec2f p)
+    vertex(vec3f v, vec3f r, vec2f p, float w)
     {
         ver = v;
         ray = r;
         pix = p;
-        // weight = w;
+        weight = w;
         used = true;
     }
 
     vec3f ver;
     vec3f ray;
     vec2f pix;
-    // float weight;
+    float weight;
     bool used;
 };
 

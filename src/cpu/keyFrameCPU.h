@@ -39,9 +39,11 @@ public:
         return *this;
     }
 
-    void init(dataCPU<imageType> &im, vec2f _globalExp, SE3f _globalPose, float _globalScale, dataCPU<float> &idepth, camera cam)
+    void init(dataCPU<imageType> &im, vec2f _globalExp, SE3f _globalPose, float _globalScale, dataCPU<float> &idepth, dataCPU<float> &weight, camera cam)
     {
         assert(im.width == idepth.width && im.height == idepth.height);
+        assert(cam.width == im.width && cam.height == im.height);
+        assert(cam.width == weight.width && cam.height == weight.height);
 
         raw_image.get(0) = im;
         raw_image.generateMipmaps();
@@ -51,7 +53,7 @@ public:
         globalScale = _globalScale;
         //pose = SIM3f(scale, p.unit_quaternion(), p.translation());
 
-        geometry.init(idepth, cam);
+        geometry.init(idepth, weight, cam);
     }
 
     SE3f localPoseToGlobal(SE3f _localPose)

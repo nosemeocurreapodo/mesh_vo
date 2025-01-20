@@ -341,6 +341,21 @@ public:
         return ray_depth;
     }
 
+    float getWeight(vec2f p)
+    {
+        if (!(m_currentPix == p))
+        {
+            m_currentPix = p;
+            computeBarycentric(m_currentPix);
+        }
+        // float ray_depth = vertices[0].dot(normal) / ray.dot(normal);
+        float ray_weight = m_barycentric(0) * m_vert0.weight +
+                           m_barycentric(1) * m_vert1.weight +
+                           m_barycentric(2) * m_vert2.weight;
+
+        return ray_weight;
+    }
+
     // vec3<float> getRay(ShapeBase *shape) override
     //{
     //     ShapeTriangleFlat *sh = (ShapeTriangleFlat *)shape;

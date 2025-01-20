@@ -19,6 +19,7 @@ public:
           image_buffer(_cam.width, _cam.height, -1.0),
           idepth_buffer(_cam.width, _cam.height, -1.0),
           error_buffer(_cam.width, _cam.height, -1.0),
+          weight_buffer(_cam.width, _cam.height, -1.0),
           renderer(_cam.width, _cam.height)
     {
         cam = _cam;
@@ -31,18 +32,22 @@ protected:
 
         std::vector<dataCPU<float>> toShow;
 
-        toShow.push_back(kframe.getRawImage(lvl));
+        //toShow.push_back(kframe.getRawImage(lvl));
 
         idepth_buffer.setToNoData(lvl);
+        weight_buffer.setToNoData(lvl);
+
         renderer.renderIdepthParallel(kframe, SE3f(), idepth_buffer, cam, lvl);
+        renderer.renderWeightParallel(kframe, SE3f(), weight_buffer, cam, lvl);
 
         toShow.push_back(idepth_buffer.get(lvl));
+        //toShow.push_back(weight_buffer.get(lvl));
 
         for (int i = 0; i < (int)frames.size(); i++)
         {
             error_buffer.setToNoData(lvl);
             renderer.renderResidualParallel(kframe, frames[i], error_buffer, cam, lvl);
-            toShow.push_back(error_buffer.get(lvl));
+            //toShow.push_back(error_buffer.get(lvl));
         }
 
         show(toShow, window_name);
@@ -61,6 +66,7 @@ protected:
     dataMipMapCPU<float> image_buffer;
     dataMipMapCPU<float> idepth_buffer;
     dataMipMapCPU<float> error_buffer;
+    dataMipMapCPU<float> weight_buffer;
 
     renderCPU renderer;
     reduceCPU reducer;

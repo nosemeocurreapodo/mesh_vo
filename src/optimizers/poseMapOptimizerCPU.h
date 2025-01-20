@@ -32,6 +32,11 @@ public:
         int numMapParams = mapParamsIds.size();
         int numParams = numPoseParams + numMapParams;
 
+        if (invCovariance.rows() != numParams || invCovariance.cols() != numParams)
+        {
+            invCovariance = matxf::Identity(numParams, numParams);
+        }
+
         vecxf init_params = vecxf::Zero(numParams);
 
         for (size_t i = 0; i < frames.size(); i++)
@@ -39,14 +44,16 @@ public:
             init_params.segment<6>(i * 6) = frames[i].getLocalPose().log();
         }
 
+        invCovariance.block(0, 0, numPoseParams, numPoseParams) *= 1.0 / (INITIAL_POSE_STD * INITIAL_POSE_STD);
+
         for (size_t i = 0; i < mapParamsIds.size(); i++)
         {
-            init_params(i + frames.size() * 6) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
+            init_params(i + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
+            //invCovariance(i + numPoseParams, i + numPoseParams) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
+            invCovariance(i + numPoseParams, i + numPoseParams) = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
         }
 
-        invCovariance = matxf::Identity(numParams, numParams);
-        invCovariance.block(0, 0, numPoseParams, numPoseParams) *= 1.0 / (INITIAL_POSE_STD * INITIAL_POSE_STD);
-        invCovariance.block(numPoseParams, numPoseParams, numMapParams, numMapParams) *= 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+        //invCovariance.block(numPoseParams, numPoseParams, numMapParams, numMapParams) *= 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
 
         matxf init_invcovariance = invCovariance;
         matxf init_invcovariancesqrt;

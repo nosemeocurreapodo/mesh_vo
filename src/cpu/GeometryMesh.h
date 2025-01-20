@@ -25,21 +25,21 @@ public:
         buildTriangles();
     }
 
-    void init(std::vector<vec3f> &vertices, camera cam)
+    void init(std::vector<vec3f> &vertices, std::vector<float> &weights, camera cam)
     {
-        GeometryVertices::init(vertices, cam);
+        GeometryVertices::init(vertices, weights, cam);
         buildTriangles();
     }
 
-    void init(std::vector<vec2f> &texcoords, std::vector<float> idepths, camera cam)
+    void init(std::vector<vec2f> &texcoords, std::vector<float> idepths, std::vector<float> &weights, camera cam)
     {
-        GeometryVertices::init(texcoords, idepths, cam);
+        GeometryVertices::init(texcoords, idepths, weights, cam);
         buildTriangles();
     }
 
-    void init(dataCPU<float> &idepth, camera cam)
+    void init(dataCPU<float> &idepth, dataCPU<float> &weight, camera cam)
     {
-        GeometryVertices::init(idepth, cam);
+        GeometryVertices::init(idepth, weight, cam);
         buildTriangles();
     }
 

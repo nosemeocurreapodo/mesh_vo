@@ -16,6 +16,7 @@ public:
     {
         std::vector<vec2f> texcoords;
         std::vector<float> idepths;
+        std::vector<float> weights;
 
         float maxIdepth = 1.0;
         float minIdepth = 0.1;
@@ -29,23 +30,26 @@ public:
                 pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
 
                 float idph = (maxIdepth - minIdepth) * float(rand() % 1000) / 1000.0 + minIdepth;
+                float wght = 1.0/(INITIAL_PARAM_STD*INITIAL_PARAM_STD);
 
                 assert(idph > 0.0);
 
                 texcoords.push_back(pix);
                 idepths.push_back(idph);
+                weights.push_back(wght);
 
                 assert(idepths.size() <= MAX_VERTEX_SIZE);
             }
         }
         
-        init(texcoords, idepths, cam);
+        init(texcoords, idepths, weights, cam);
     }
 
-    void init(std::vector<vec3f> &vertices, camera cam)
+    void init(std::vector<vec3f> &vertices, std::vector<float> &weights, camera cam)
     {
+        assert(vertices.size() == weights.size());
         assert(vertices.size() <= MAX_VERTEX_SIZE);
-
+        
         for (size_t i = 0; i < MAX_VERTEX_SIZE; i++)
         {
             m_vertices[i].used = false;
@@ -56,14 +60,17 @@ public:
             vec3f vertice = vertices[i];
             vec3f ray = vertice/vertice(2);
             vec2f pix = cam.rayToPix(ray);
+            float weight = weights[i];
 
-            m_vertices[i] = vertex(vertice, ray, pix);
+            m_vertices[i] = vertex(vertice, ray, pix, weight);
         }
     }
 
-    void init(std::vector<vec2f> &texcoords, std::vector<float> idepths, camera cam)
+    void init(std::vector<vec2f> &texcoords, std::vector<float> idepths, std::vector<float> &weights, camera cam)
     {
-        assert(texcoords.size() == idepths.size() && texcoords.size() <= MAX_VERTEX_SIZE);
+        assert(texcoords.size() == idepths.size());
+        assert(texcoords.size() == weights.size());
+        assert(texcoords.size() <= MAX_VERTEX_SIZE);
 
         for (size_t i = 0; i < MAX_VERTEX_SIZE; i++)
         {
@@ -74,6 +81,7 @@ public:
         {
             vec2f pix = texcoords[i];
             float idph = idepths[i];
+            float weight = weights[i];
 
             assert(idph > 0.0);
             assert(pix(0) >= 0 && pix(0) < cam.width && pix(1) >= 0 && pix(1) < cam.height);
@@ -81,16 +89,18 @@ public:
             vec3f ray = cam.pixToRay(pix);
             vec3f vertice = ray / idph;
 
-            m_vertices[i] = vertex(vertice, ray, pix);
+            m_vertices[i] = vertex(vertice, ray, pix, weight);
         }
     }
 
-    void init(dataCPU<float> &idepth, camera cam)
+    void init(dataCPU<float> &idepth, dataCPU<float> &weight, camera cam)
     {
         assert(idepth.width == cam.width && idepth.height == cam.height);
+        assert(weight.width == cam.width && weight.height == cam.height);
 
         std::vector<vec2f> texcoords;
         std::vector<float> idepths;
+        std::vector<float> weights;
 
         vec2f minMax = idepth.getMinMax();
         if(minMax(0) == idepth.nodata)
@@ -107,21 +117,26 @@ public:
                 pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
 
                 float idph = idepth.get(pix(1), pix(0));
+                float wght = weight.get(pix(1), pix(0));
 
                 // assert(idph != idepth.nodata);
                 if (idph == idepth.nodata)
+                {
                     idph = (minMax[1] - minMax[0]) * float(rand() % 1000) / 1000.0 + minMax[0];
+                    wght = 1.0/(INITIAL_PARAM_STD*INITIAL_PARAM_STD);
+                }
 
                 assert(idph > 0.0);
 
                 texcoords.push_back(pix);
                 idepths.push_back(idph);
+                weights.push_back(wght);
 
                 assert(idepths.size() <= MAX_VERTEX_SIZE);
             }
         }
         
-        init(texcoords, idepths, cam);
+        init(texcoords, idepths, weights, cam);
     }
 
     vec2f meanStdDepthParams()
@@ -340,6 +355,16 @@ public:
         return fromDepthToParam(getVerticeDepth(v_id));
     }
 
+    void setWeightParam(float weight, unsigned int v_id)
+    {
+        setVerticeWeight(weight, v_id);
+    }
+
+    float getWeightParam(unsigned int v_id)
+    {
+        return getVerticeWeight(v_id);
+    }
+
 private:
     void setVerticeDepth(float depth, unsigned int id)
     {
@@ -355,6 +380,22 @@ private:
         assert(m_vertices[id].used);
 
         return m_vertices[id].ver(2);
+    }
+
+    void setVerticeWeight(float weight, unsigned int id)
+    {
+        assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        assert(m_vertices[id].used);
+
+        m_vertices[id].weight = weight;
+    }
+
+    float getVerticeWeight(unsigned int id)
+    {
+        assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        assert(m_vertices[id].used);
+
+        return m_vertices[id].weight;
     }
 
     vertex m_vertices[MAX_VERTEX_SIZE];

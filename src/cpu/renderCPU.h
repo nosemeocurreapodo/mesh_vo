@@ -671,8 +671,7 @@ private:
                     if (z_depth <= f_depth && z_depth != z_buffer.nodata)
                         continue;
 
-                    //float f_weight = f_pol.getWeight(f_pix);
-                    float f_weight = 1.0;
+                    float f_weight = f_pol.getWeight(f_pix);
 
                     buffer.set(f_weight, y, x);
                     z_buffer.set(f_depth, y, x);

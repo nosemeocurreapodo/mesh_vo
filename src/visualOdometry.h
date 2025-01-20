@@ -17,7 +17,7 @@ public:
     visualOdometry(camera &_cam);
 
     void init(dataCPU<float> &image, SE3f pose);
-    void init(dataCPU<float> &image, SE3f pose, dataCPU<float> &idepth);
+    void init(dataCPU<float> &image, SE3f pose, dataCPU<float> &idepth, dataCPU<float> &weight);
 
     void locAndMap(dataCPU<float> &image);
     void lightaffine(dataCPU<float> &image, Sophus::SE3f globalPose);
