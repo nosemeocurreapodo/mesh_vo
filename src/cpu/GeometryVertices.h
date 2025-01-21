@@ -32,8 +32,6 @@ public:
                 float idph = (maxIdepth - minIdepth) * float(rand() % 1000) / 1000.0 + minIdepth;
                 float wght = 1.0/(INITIAL_PARAM_STD*INITIAL_PARAM_STD);
 
-                assert(idph > 0.0);
-
                 texcoords.push_back(pix);
                 idepths.push_back(idph);
                 weights.push_back(wght);
@@ -58,6 +56,11 @@ public:
         for (size_t i = 0; i < vertices.size(); i++)
         {
             vec3f vertice = vertices[i];
+
+            assert(vertice(2) > 0.0);
+            assert(!std::isnan(vertice(2)));
+            assert(!std::isinf(vertice(2)));
+
             vec3f ray = vertice/vertice(2);
             vec2f pix = cam.rayToPix(ray);
             float weight = weights[i];
@@ -84,6 +87,9 @@ public:
             float weight = weights[i];
 
             assert(idph > 0.0);
+            assert(!std::isnan(idph));
+            assert(!std::isinf(idph));
+
             assert(pix(0) >= 0 && pix(0) < cam.width && pix(1) >= 0 && pix(1) < cam.height);
 
             vec3f ray = cam.pixToRay(pix);
@@ -127,6 +133,8 @@ public:
                 }
 
                 assert(idph > 0.0);
+                assert(!std::isnan(idph));
+                assert(!std::isinf(idph));
 
                 texcoords.push_back(pix);
                 idepths.push_back(idph);

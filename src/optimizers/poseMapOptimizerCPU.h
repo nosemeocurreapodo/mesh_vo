@@ -190,6 +190,7 @@ public:
                     {
                         best_mapParams.push_back(kframe.getGeometry().getDepthParam(mapParamsIds[i]));
                         kframe.getGeometry().setDepthParam(kframe.getGeometry().getDepthParam(mapParamsIds[i]) - mapInc(i), mapParamsIds[i]);
+                        kframe.getGeometry().setWeightParam(std::log(std::fabs(problem.getH()(mapParamsIds[i], mapParamsIds[i]))), mapParamsIds[i]);
                     }
 
                     e.setZero();

@@ -271,11 +271,6 @@ public:
 
     ShapeTriangleFlat(vertex vert0, vertex vert1, vertex vert2, int id0, int id1, int id2)
     {
-        set(vert0, vert1, vert2, id0, id1, id2);
-    }
-
-    void set(vertex vert0, vertex vert1, vertex vert2, int id0, int id1, int id2)
-    {
         m_vert0 = vert0;
         m_vert1 = vert1;
         m_vert2 = vert2;
@@ -308,6 +303,9 @@ public:
         // Calculate the area of the triangle
         m_p_denominator = (m_vert1.pix(1) - m_vert2.pix(1)) * (m_vert0.pix(0) - m_vert2.pix(0)) + // ((*m_pix1)(1) - (*m_pix2)(1)) * ((*m_pix0)(0) - (*m_pix2)(0)) +
                         (m_vert2.pix(0) - m_vert1.pix(0)) * (m_vert0.pix(1) - m_vert2.pix(1)); //((*m_pix2)(0) - (*m_pix1)(0)) * ((*m_pix0)(1) - (*m_pix2)(1));
+
+        //initialize current pixel to an invalid one
+        m_currentPix = vec2f(-1.0, -1.0);
     }
 
     float getScreenArea()

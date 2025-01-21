@@ -220,32 +220,6 @@ public:
         }
     }
 
-    cameraMipMap(camera _cam)
-    {
-        int width = _cam.width;
-        int height = _cam.height;
-        float fx = _cam.fx;
-        float fy = _cam.fy;
-        float cx = _cam.cx;
-        float cy = _cam.cy;
-
-        while (true)
-        {
-            camera __cam(fx, fy, cx, cy, width, height);
-            width = int(width / 2);
-            height = int(height / 2);
-            fx = fx / 2;
-            fy = fy / 2;
-            cx = cx / 2;
-            cy = cy / 2;
-
-            cam.push_back(__cam);
-
-            if (width < 1 || height < 1)
-                break;
-        }
-    }
-
     camera &operator[](int c)
     {
         assert(c >= 0 && c < cam.size());

@@ -2,7 +2,7 @@
 #include "utils/tictoc.h"
 
 visualOdometry::visualOdometry(camera &_cam)
-    : cam(_cam),
+    : cam(_cam.fx, _cam.fy, _cam.cx, _cam.cy, _cam.width, _cam.height),
       kframe(_cam.width, _cam.height),
       lastFrame(_cam.width, _cam.height),
       poseOptimizer(_cam),
@@ -22,6 +22,7 @@ void visualOdometry::init(dataCPU<float> &image, SE3f globalPose)
     dataCPU<float> wbuffer(cam[0].width, cam[0].height,-1.0);
 
     renderer.renderSmooth(cam[0], buffer, 0.1, 1.0);
+    //renderer.renderRandom(cam[0], buffer, 0.1, 1.0);
     wbuffer.set(1.0/(INITIAL_PARAM_STD*INITIAL_PARAM_STD));
     
     kframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0, buffer, wbuffer, cam[0]);
@@ -32,15 +33,6 @@ void visualOdometry::init(dataCPU<float> &image, SE3f globalPose, dataCPU<float>
     assert(image.width == idepth.width && image.height == idepth.height && image.width == cam[0].width && image.height == cam[0].height);
 
     kframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0, idepth, weight, cam[0]);
-}
-
-dataCPU<float> visualOdometry::getIdepth(SE3f pose, int lvl)
-{
-    dataMipMapCPU<float> buffer(cam[0].width, cam[0].height, -1);
-
-    renderer.renderIdepthParallel(kframe, pose, buffer, cam[lvl], lvl);
-    // renderer.renderInterpolate(cam[lvl], &idepth_buffer, lvl);
-    return buffer.get(lvl);
 }
 
 float visualOdometry::meanViewAngle(SE3f pose1, SE3f pose2)
@@ -191,8 +183,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
             dataMipMapCPU<float> idepth_buffer(cam[0].width, cam[0].height, -1);
             dataMipMapCPU<float> weight_buffer(cam[0].width, cam[0].height, -1);
             renderer.renderIdepthParallel(kframe, newKeyframe.getLocalPose(), idepth_buffer, cam, lvl);
+            renderer.renderInterpolate(cam[lvl], idepth_buffer.get(lvl));
             renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
-            //renderer.renderInterpolate(cam[lvl], idepth_buffer.get(lvl));
 
             // save local frames global params
             std::vector<SE3f> goodFramesGlobalPoses;
@@ -363,9 +355,8 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
             dataMipMapCPU<float> idepth_buffer(cam[0].width, cam[0].height, -1);
             dataMipMapCPU<float> weight_buffer(cam[0].width, cam[0].height, -1);
             renderer.renderIdepthParallel(kframe, newKeyframe.getLocalPose(), idepth_buffer, cam, lvl);
+            renderer.renderInterpolate(cam[lvl], idepth_buffer.get(lvl));
             renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
-
-            //renderer.renderInterpolate(cam[lvl], idepth_buffer.get(lvl));
 
             // save local frames global params
             std::vector<SE3f> goodFramesGlobalPoses;

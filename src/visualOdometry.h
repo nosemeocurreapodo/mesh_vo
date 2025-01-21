@@ -26,7 +26,6 @@ public:
 
 private:
 
-    dataCPU<float> getIdepth(SE3f pose, int lvl);
     float meanViewAngle(SE3f pose1, SE3f pose2);
     float getViewPercent(frameCPU &frame);
 

@@ -74,7 +74,7 @@ static void show(std::vector<dataCPU<float>> &data, std::string window_name)
     }
 
     int nImagesWidth = 4;
-    int nImagesHeight = int(data.size() / (nImagesWidth + 1)) + 1;
+    int nImagesHeight = int(data.size() / nImagesWidth) + 1;
 
     cv::Mat toShow(data[0].height * nImagesHeight, data[0].width * nImagesWidth, CV_8UC1);
 

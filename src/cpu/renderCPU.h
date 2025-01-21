@@ -598,7 +598,7 @@ private:
 
         for (int t_id : shapesIds)
         {
-            auto f_pol = scene2.getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
             if (!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -810,9 +810,10 @@ private:
                     vec3f d_f_i_d_tra(v0, v1, v2);
                     vec3f d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
 
-                    float f_i_cor = alpha * (f_i - beta);
+                    vec6f j_pose;
+                    j_pose << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
 
-                    vec6f j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
+                    float f_i_cor = alpha * (f_i - beta);
 
                     float residual = (f_i_cor - kf_i);
 
@@ -893,8 +894,9 @@ private:
 
                     vec2f d_f_i_d_exp(-f_i_cor, -alpha);
 
-                    vec6f j_pose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
-                    vec2f j_exp = {d_f_i_d_exp(0), d_f_i_d_exp(1)};
+                    vec6f j_pose;
+                    j_pose << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
+                    vec2f j_exp = vec2f(d_f_i_d_exp(0), d_f_i_d_exp(1));
 
                     float residual = (f_i_cor - kf_i);
 
@@ -1165,7 +1167,8 @@ private:
 
                     float f_i_cor = alpha * (f_i - beta);
 
-                    vec6f jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
+                    vec6f jpose;
+                    jpose << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
 
                     vec3f d_f_ver_d_kf_depth = kfTofPose.rotationMatrix() * kf_ray;
 
@@ -1280,8 +1283,10 @@ private:
 
                     vec2f d_f_i_d_f_exp(-f_i_cor, -alpha);
 
-                    vec6f jpose = {d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2)};
-                    vec2f jexp = {d_f_i_d_f_exp(0), d_f_i_d_f_exp(1)};
+                    vec6f jpose;
+                    jpose << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
+                    
+                    vec2f jexp = vec2f(d_f_i_d_f_exp(0), d_f_i_d_f_exp(1));
 
                     vec3f d_f_ver_d_kf_depth = kfTofPose.rotationMatrix() * kf_ray;
 
