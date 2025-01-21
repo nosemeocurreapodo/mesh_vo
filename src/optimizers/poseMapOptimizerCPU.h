@@ -32,33 +32,33 @@ public:
         int numMapParams = mapParamsIds.size();
         int numParams = numPoseParams + numMapParams;
 
-        if (invCovariance.rows() != numParams || invCovariance.cols() != numParams)
-        {
-            invCovariance = matxf::Identity(numParams, numParams);
-        }
+        invCovariance = matxf::Identity(numParams, numParams);
 
         vecxf init_params = vecxf::Zero(numParams);
 
         for (size_t i = 0; i < frames.size(); i++)
         {
             init_params.segment<6>(i * 6) = frames[i].getLocalPose().log();
+            for (int j = 0; j < 6; j++)
+            {
+                invCovariance(i * 6 + j, i * 6 + j) = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+            }
         }
-
-        invCovariance.block(0, 0, numPoseParams, numPoseParams) *= 1.0 / (INITIAL_POSE_STD * INITIAL_POSE_STD);
 
         for (size_t i = 0; i < mapParamsIds.size(); i++)
         {
             init_params(i + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
-            //invCovariance(i + numPoseParams, i + numPoseParams) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
+            // invCovariance(i + numPoseParams, i + numPoseParams) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
             invCovariance(i + numPoseParams, i + numPoseParams) = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
         }
 
-        //invCovariance.block(numPoseParams, numPoseParams, numMapParams, numMapParams) *= 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+        // invCovariance.block(0, 0, numPoseParams, numPoseParams) *= 1.0 / (INITIAL_POSE_STD * INITIAL_POSE_STD);
+        // invCovariance.block(numPoseParams, numPoseParams, numMapParams, numMapParams) *= 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
 
         matxf init_invcovariance = invCovariance;
         matxf init_invcovariancesqrt;
 
-        if(priorWeight > 0.0)
+        if (priorWeight > 0.0)
             init_invcovariancesqrt = invCovariance.sqrt();
 
         for (int lvl = 1; lvl >= 1; lvl--)
@@ -178,7 +178,7 @@ public:
                     vecxf mapInc = inc.segment(numPoseParams, numMapParams);
 
                     std::vector<Sophus::SE3f> best_poses;
-                    for(size_t i = 0; i < frames.size(); i++)
+                    for (size_t i = 0; i < frames.size(); i++)
                     {
                         best_poses.push_back(frames[i].getLocalPose());
                         SE3f new_pose = frames[i].getLocalPose() * SE3f::exp(poseInc.segment(i * 6, 6)).inverse();
@@ -186,11 +186,11 @@ public:
                     }
 
                     std::vector<float> best_mapParams;
-                    for(size_t i = 0; i < mapParamsIds.size(); i++)
+                    for (size_t i = 0; i < mapParamsIds.size(); i++)
                     {
                         best_mapParams.push_back(kframe.getGeometry().getDepthParam(mapParamsIds[i]));
                         kframe.getGeometry().setDepthParam(kframe.getGeometry().getDepthParam(mapParamsIds[i]) - mapInc(i), mapParamsIds[i]);
-                        kframe.getGeometry().setWeightParam(std::log(std::fabs(problem.getH()(mapParamsIds[i], mapParamsIds[i]))), mapParamsIds[i]);
+                        kframe.getGeometry().setWeightParam(problem.getH()(mapParamsIds[i], mapParamsIds[i]), mapParamsIds[i]);
                     }
 
                     e.setZero();
@@ -263,12 +263,12 @@ public:
                     }
                     else
                     {
-                        for(size_t i = 0; i < frames.size(); i++)
+                        for (size_t i = 0; i < frames.size(); i++)
                         {
                             frames[i].setLocalPose(best_poses[i]);
                         }
 
-                        for(size_t i = 0; i < mapParamsIds.size(); i++)
+                        for (size_t i = 0; i < mapParamsIds.size(); i++)
                         {
                             kframe.getGeometry().setDepthParam(best_mapParams[i], mapParamsIds[i]);
                         }

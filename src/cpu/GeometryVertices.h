@@ -30,7 +30,7 @@ public:
                 pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
 
                 float idph = (maxIdepth - minIdepth) * float(rand() % 1000) / 1000.0 + minIdepth;
-                float wght = 1.0/(INITIAL_PARAM_STD*INITIAL_PARAM_STD);
+                float wght = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
 
                 texcoords.push_back(pix);
                 idepths.push_back(idph);
@@ -39,7 +39,7 @@ public:
                 assert(idepths.size() <= MAX_VERTEX_SIZE);
             }
         }
-        
+
         init(texcoords, idepths, weights, cam);
     }
 
@@ -47,7 +47,7 @@ public:
     {
         assert(vertices.size() == weights.size());
         assert(vertices.size() <= MAX_VERTEX_SIZE);
-        
+
         for (size_t i = 0; i < MAX_VERTEX_SIZE; i++)
         {
             m_vertices[i].used = false;
@@ -61,7 +61,7 @@ public:
             assert(!std::isnan(vertice(2)));
             assert(!std::isinf(vertice(2)));
 
-            vec3f ray = vertice/vertice(2);
+            vec3f ray = vertice / vertice(2);
             vec2f pix = cam.rayToPix(ray);
             float weight = weights[i];
 
@@ -109,10 +109,7 @@ public:
         std::vector<float> weights;
 
         vec2f minMax = idepth.getMinMax();
-        if(minMax(0) == idepth.nodata)
-            minMax(0) = 0.1;
-        if(minMax(1) == idepth.nodata)
-            minMax(1) = 1.0;
+        assert(minMax(0) != idepth.nodata && minMax(1) != idepth.nodata && minMax(0) != minMax(1));
 
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
@@ -129,7 +126,11 @@ public:
                 if (idph == idepth.nodata)
                 {
                     idph = (minMax[1] - minMax[0]) * float(rand() % 1000) / 1000.0 + minMax[0];
-                    wght = 1.0/(INITIAL_PARAM_STD*INITIAL_PARAM_STD);
+                    wght = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+                }
+                if (wght == weight.nodata)
+                {
+                    wght = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
                 }
 
                 assert(idph > 0.0);
@@ -143,7 +144,7 @@ public:
                 assert(idepths.size() <= MAX_VERTEX_SIZE);
             }
         }
-        
+
         init(texcoords, idepths, weights, cam);
     }
 
@@ -208,9 +209,9 @@ public:
             }
             else
             {
-                if(param < min)
+                if (param < min)
                     min = param;
-                if(param > max)
+                if (param > max)
                     max = param;
             }
         }
@@ -283,6 +284,19 @@ public:
         }
     }
 
+    void scaleWeights(float scale)
+    {
+        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        {
+            if (!m_vertices[i].used)
+                continue;
+            //weight = 1/std**2, so to scale it
+            //weight = 1/((scale*std)**2)
+            //weight = 1/(scane**2*std**2)
+            m_vertices[i].weight *= 1.0/(scale*scale);
+        }
+    }
+
     vertex &getVertex(unsigned int id)
     {
         assert(id >= 0 && id < MAX_VERTEX_SIZE);
@@ -332,7 +346,7 @@ public:
                 continue;
             vec3f ver = pose * m_vertices[it].ver;
             m_vertices[it].ver = ver;
-            m_vertices[it].ray = ver/ver(2);
+            m_vertices[it].ray = ver / ver(2);
         }
     }
 

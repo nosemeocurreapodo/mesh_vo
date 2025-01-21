@@ -91,10 +91,12 @@ public:
         return _localExp;
     }
 
-    void scaleVertices(float scale)
+    void scaleVerticesAndWeights(float scale)
     {
         globalScale *= scale;
         geometry.scaleVertices(scale);
+        //add a bit more of uncertanty to the weights
+        geometry.scaleWeights(scale*1.2);
     }
 
     float getGlobalScale()

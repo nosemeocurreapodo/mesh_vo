@@ -29,23 +29,20 @@ public:
         std::vector<int> sceneParamsIds = kframe.getGeometry().getParamIds();
         int numParams = sceneParamsIds.size();
 
-        if (invCovariance.rows() != numParams || invCovariance.cols() != numParams)
-        {
-            invCovariance = matxf::Identity(numParams, numParams) / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
-        }
+        invCovariance = matxf::Identity(numParams, numParams) / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
 
         Eigen::VectorXf init_params = Eigen::VectorXf::Zero(numParams);
         for (size_t i = 0; i < sceneParamsIds.size(); i++)
         {
             init_params(i) = kframe.getGeometry().getDepthParam(sceneParamsIds[i]);
-            // invCovariance(i, i) = kframe.getGeometry().getWeightParam(sceneParamsIds[i]);
+            //invCovariance(i, i) = kframe.getGeometry().getWeightParam(sceneParamsIds[i]);
             invCovariance(i, i) = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
         }
 
         matxf init_invcovariance = invCovariance;
         matxf init_invcovariancesqrt;
-        
-        if(priorWeight > 0)
+
+        if (priorWeight > 0)
             init_invcovariancesqrt = invCovariance.sqrt();
 
         for (int lvl = 1; lvl >= 1; lvl--)
