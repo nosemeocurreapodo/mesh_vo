@@ -21,7 +21,7 @@ public:
           pId_buffer(_cam.width, _cam.height, idsType::Zero())
     {
         reguWeight = 0.0;
-        priorWeight = 0.1;
+        priorWeight = 1.0;
     }
 
     void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe)
@@ -35,8 +35,8 @@ public:
         for (size_t i = 0; i < sceneParamsIds.size(); i++)
         {
             init_params(i) = kframe.getGeometry().getDepthParam(sceneParamsIds[i]);
-            //invCovariance(i, i) = kframe.getGeometry().getWeightParam(sceneParamsIds[i]);
-            invCovariance(i, i) = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+            invCovariance(i, i) = kframe.getGeometry().getWeightParam(sceneParamsIds[i]);
+            //invCovariance(i, i) = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
         }
 
         matxf init_invcovariance = invCovariance;
@@ -159,7 +159,8 @@ public:
                         // the derivative is with respecto to the keyframe pose
                         // the update should take this into account
                         kframe.getGeometry().setDepthParam(kframe.getGeometry().getDepthParam(paramId) - inc(index), paramId);
-                        kframe.getGeometry().setWeightParam(problem.getH()(paramId, paramId), paramId);
+                        //kframe.getGeometry().setWeightParam(problem.getH()(paramId, paramId), paramId);
+                        kframe.getGeometry().setWeightParam(1.0/(GOOD_PARAM_STD*GOOD_PARAM_STD), paramId);
                     }
 
                     e.setZero();

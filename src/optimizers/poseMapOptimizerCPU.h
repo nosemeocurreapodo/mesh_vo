@@ -41,14 +41,14 @@ public:
             init_params.segment<6>(i * 6) = frames[i].getLocalPose().log();
             for (int j = 0; j < 6; j++)
             {
-                invCovariance(i * 6 + j, i * 6 + j) = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+                invCovariance(i * 6 + j, i * 6 + j) = 1.0 / (INITIAL_POSE_STD * INITIAL_POSE_STD);
             }
         }
 
         for (size_t i = 0; i < mapParamsIds.size(); i++)
         {
             init_params(i + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
-            // invCovariance(i + numPoseParams, i + numPoseParams) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
+            //invCovariance(i + numPoseParams, i + numPoseParams) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
             invCovariance(i + numPoseParams, i + numPoseParams) = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
         }
 
@@ -190,7 +190,8 @@ public:
                     {
                         best_mapParams.push_back(kframe.getGeometry().getDepthParam(mapParamsIds[i]));
                         kframe.getGeometry().setDepthParam(kframe.getGeometry().getDepthParam(mapParamsIds[i]) - mapInc(i), mapParamsIds[i]);
-                        kframe.getGeometry().setWeightParam(problem.getH()(mapParamsIds[i], mapParamsIds[i]), mapParamsIds[i]);
+                        //kframe.getGeometry().setWeightParam(problem.getH()(mapParamsIds[i], mapParamsIds[i]), mapParamsIds[i]);
+                        kframe.getGeometry().setWeightParam(1.0/(GOOD_PARAM_STD*GOOD_PARAM_STD), mapParamsIds[i]);
                     }
 
                     e.setZero();

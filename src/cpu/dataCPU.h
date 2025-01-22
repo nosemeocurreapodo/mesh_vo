@@ -119,19 +119,18 @@ public:
         return m_data;
     }
 
-    /*
-    void invert(int lvl = 0)
+    void invert()
     {
-        for (int y = 0; y < sizes[lvl][1]; y++)
+        for (int y = 0; y < height; y++)
         {
-            for (int x = 0; x < sizes[lvl][0]; x++)
+            for (int x = 0; x < width; x++)
             {
-                Type pixel = get(y, x, lvl);
-                set(1.0 / pixel, y, x, lvl);
+                Type d = get(y, x);
+                assert(d != 0);
+                set(1.0 / d, y, x);
             }
         }
     }
-    */
 
     float getPercentNoData()
     {
@@ -174,9 +173,9 @@ public:
                 Type d = get(y, x);
                 if (d == nodata)
                     continue;
-                if (d == nodata || d < min)
+                if (min == nodata || d < min)
                     min = d;
-                if (d == nodata || d > max)
+                if (max == nodata || d > max)
                     max = d;
             }
         }

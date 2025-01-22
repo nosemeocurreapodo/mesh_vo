@@ -13,7 +13,11 @@
 #define MIN_LAMBDA 0.00001f
 #define HUBER_THRESH_PIX 3.0
 #define INITIAL_POSE_STD 0.001
+#define GOOD_POSE_STD INITIAL_POSE_STD*0.5
 //#define INITIAL_PARAM_STD fromDepthToParam(0.01)
-#define INITIAL_PARAM_STD 0.3
+//for a param = log(depth) and a max depth of 10, the max uncertanty should be ln(3) = 1.098
+#define INITIAL_PARAM_STD 1.098
+//lets suppouse that by the optimization we reduce the uncertainty by 10x, that means a depth uncertainty of exp(0.1*1.098) = 1.116, or for 2x reduction, that means 1.731 uncertanty
+#define GOOD_PARAM_STD INITIAL_PARAM_STD*0.5
 #define RENDERER_NTHREADS 1
 #define REDUCER_NTHREADS 1

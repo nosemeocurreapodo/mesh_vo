@@ -17,7 +17,7 @@ public:
     baseOptimizerCPU(camera &_cam)
         : cam(_cam.fx, _cam.fy, _cam.cx, _cam.cy, _cam.width, _cam.height),
           image_buffer(_cam.width, _cam.height, -1.0),
-          idepth_buffer(_cam.width, _cam.height, -1.0),
+          depth_buffer(_cam.width, _cam.height, -1.0),
           error_buffer(_cam.width, _cam.height, -1.0),
           weight_buffer(_cam.width, _cam.height, -1.0),
           renderer(_cam.width, _cam.height)
@@ -34,13 +34,15 @@ protected:
 
         toShow.push_back(kframe.getRawImage(lvl));
 
-        idepth_buffer.setToNoData(lvl);
+        depth_buffer.setToNoData(lvl);
         weight_buffer.setToNoData(lvl);
 
-        renderer.renderIdepthParallel(kframe, SE3f(), idepth_buffer, cam, lvl);
+        renderer.renderDepthParallel(kframe, SE3f(), depth_buffer, cam, lvl);
         renderer.renderWeightParallel(kframe, SE3f(), weight_buffer, cam, lvl);
 
-        toShow.push_back(idepth_buffer.get(lvl));
+        depth_buffer.get(lvl).invert();
+
+        toShow.push_back(depth_buffer.get(lvl));
         toShow.push_back(weight_buffer.get(lvl));
 
         for (int i = 0; i < (int)frames.size(); i++)
@@ -64,7 +66,7 @@ protected:
     cameraMipMap cam;
 
     dataMipMapCPU<float> image_buffer;
-    dataMipMapCPU<float> idepth_buffer;
+    dataMipMapCPU<float> depth_buffer;
     dataMipMapCPU<float> error_buffer;
     dataMipMapCPU<float> weight_buffer;
 

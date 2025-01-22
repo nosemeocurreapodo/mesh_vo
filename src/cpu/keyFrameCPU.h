@@ -39,9 +39,9 @@ public:
         return *this;
     }
 
-    void init(dataCPU<imageType> &im, vec2f _globalExp, SE3f _globalPose, float _globalScale, dataCPU<float> &idepth, dataCPU<float> &weight, camera cam)
+    void init(dataCPU<imageType> &im, vec2f _globalExp, SE3f _globalPose, float _globalScale, dataCPU<float> &depth, dataCPU<float> &weight, camera cam)
     {
-        assert(im.width == idepth.width && im.height == idepth.height);
+        assert(im.width == depth.width && im.height == depth.height);
         assert(cam.width == im.width && cam.height == im.height);
         assert(cam.width == weight.width && cam.height == weight.height);
 
@@ -53,7 +53,7 @@ public:
         globalScale = _globalScale;
         //pose = SIM3f(scale, p.unit_quaternion(), p.translation());
 
-        geometry.init(idepth, weight, cam);
+        geometry.init(depth, weight, cam);
     }
 
     SE3f localPoseToGlobal(SE3f _localPose)

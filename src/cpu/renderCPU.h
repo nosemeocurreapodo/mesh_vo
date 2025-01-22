@@ -35,13 +35,13 @@ public:
         renderRandomWindow(buffer, win, min, max);
     }
 
-    void renderSmooth(camera cam, dataCPU<float> &buffer, float start = 1.0, float end = 2.0)
+    void renderVerticallySmooth(camera cam, dataCPU<float> &buffer, float start = 1.0, float end = 2.0)
     {
         assert(cam.width == buffer.width && cam.height == buffer.height);
 
         window win(0, cam.width - 1, 0, cam.height - 1);
 
-        renderSmoothWindow(buffer, cam, win, start, end);
+        renderVerticallySmoothWindow(buffer, cam, win, start, end);
     }
 
     void renderInterpolate(camera cam, dataCPU<float> &buffer)
@@ -326,7 +326,7 @@ public:
         // pool.waitUntilDone();
     }
 
-    void renderIdepthParallel(keyFrameCPU &kframe, SE3f localPose, dataMipMapCPU<float> &buffer, cameraMipMap cam, int lvl)
+    void renderDepthParallel(keyFrameCPU &kframe, SE3f localPose, dataMipMapCPU<float> &buffer, cameraMipMap cam, int lvl)
     {
         z_buffer.setToNoData(lvl);
 
@@ -354,7 +354,7 @@ public:
 
                 window win(min_x, max_x - 1, min_y, max_y - 1);
 
-                renderIdepthWindow(buffer.get(lvl), z_buffer.get(lvl), win);
+                renderDepthWindow(buffer.get(lvl), z_buffer.get(lvl), win);
                 // pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, win, buffer, lvl));
             }
         }
@@ -399,13 +399,14 @@ public:
     }
 
 private:
-    void renderSmoothWindow(dataCPU<float> &buffer, camera cam, window win, float start = 1.0, float end = 2.0)
+    void renderVerticallySmoothWindow(dataCPU<float> &buffer, camera cam, window win, float start = 1.0, float end = 2.0)
     {
         for (int y = win.min_y; y <= win.max_y; y++)
         {
+            float val = start + (end - start) * float(y) / (cam.width - 1.0);
+            assert(val > 0);
             for (int x = win.min_x; x <= win.max_x; x++)
             {
-                float val = start + (end - start) * float(y) / (cam.width - 1.0);
                 buffer.set(val, y, x);
             }
         }
@@ -592,7 +593,7 @@ private:
         }
     }
 
-    void renderIdepthWindow(dataCPU<float> &buffer, dataCPU<float> &z_buffer, window win)
+    void renderDepthWindow(dataCPU<float> &buffer, dataCPU<float> &z_buffer, window win)
     {
         std::vector<int> shapesIds = scene2.getShapesIds();
 
@@ -628,7 +629,7 @@ private:
                     if (z_depth <= f_depth && z_depth != z_buffer.nodata)
                         continue;
 
-                    buffer.set(1.0 / f_depth, y, x);
+                    buffer.set(f_depth, y, x);
                     z_buffer.set(f_depth, y, x);
                 }
             }

@@ -15,11 +15,11 @@ public:
     void init(camera cam)
     {
         std::vector<vec2f> texcoords;
-        std::vector<float> idepths;
+        std::vector<float> depths;
         std::vector<float> weights;
 
-        float maxIdepth = 1.0;
-        float minIdepth = 0.1;
+        float maxDepth = 10.0;
+        float minDepth = 0.1;
 
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
@@ -29,18 +29,18 @@ public:
                 pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
                 pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
 
-                float idph = (maxIdepth - minIdepth) * float(rand() % 1000) / 1000.0 + minIdepth;
+                float dph = (maxDepth - minDepth) * float(rand() % 1000) / 1000.0 + minDepth;
                 float wght = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
 
                 texcoords.push_back(pix);
-                idepths.push_back(idph);
+                depths.push_back(dph);
                 weights.push_back(wght);
 
-                assert(idepths.size() <= MAX_VERTEX_SIZE);
+                assert(depths.size() <= MAX_VERTEX_SIZE);
             }
         }
 
-        init(texcoords, idepths, weights, cam);
+        init(texcoords, depths, weights, cam);
     }
 
     void init(std::vector<vec3f> &vertices, std::vector<float> &weights, camera cam)
@@ -69,9 +69,9 @@ public:
         }
     }
 
-    void init(std::vector<vec2f> &texcoords, std::vector<float> idepths, std::vector<float> &weights, camera cam)
+    void init(std::vector<vec2f> &texcoords, std::vector<float> depths, std::vector<float> &weights, camera cam)
     {
-        assert(texcoords.size() == idepths.size());
+        assert(texcoords.size() == depths.size());
         assert(texcoords.size() == weights.size());
         assert(texcoords.size() <= MAX_VERTEX_SIZE);
 
@@ -83,33 +83,33 @@ public:
         for (size_t i = 0; i < texcoords.size(); i++)
         {
             vec2f pix = texcoords[i];
-            float idph = idepths[i];
+            float dph = depths[i];
             float weight = weights[i];
 
-            assert(idph > 0.0);
-            assert(!std::isnan(idph));
-            assert(!std::isinf(idph));
+            assert(dph > 0.0);
+            assert(!std::isnan(dph));
+            assert(!std::isinf(dph));
 
             assert(pix(0) >= 0 && pix(0) < cam.width && pix(1) >= 0 && pix(1) < cam.height);
 
             vec3f ray = cam.pixToRay(pix);
-            vec3f vertice = ray / idph;
+            vec3f vertice = ray * dph;
 
             m_vertices[i] = vertex(vertice, ray, pix, weight);
         }
     }
 
-    void init(dataCPU<float> &idepth, dataCPU<float> &weight, camera cam)
+    void init(dataCPU<float> &depth, dataCPU<float> &weight, camera cam)
     {
-        assert(idepth.width == cam.width && idepth.height == cam.height);
+        assert(depth.width == cam.width && depth.height == cam.height);
         assert(weight.width == cam.width && weight.height == cam.height);
 
         std::vector<vec2f> texcoords;
-        std::vector<float> idepths;
+        std::vector<float> depths;
         std::vector<float> weights;
 
-        vec2f minMax = idepth.getMinMax();
-        assert(minMax(0) != idepth.nodata && minMax(1) != idepth.nodata && minMax(0) != minMax(1));
+        vec2f minMax = depth.getMinMax();
+        assert(minMax(0) != depth.nodata && minMax(1) != depth.nodata && minMax(0) != minMax(1));
 
         for (float y = 0.0; y < MESH_HEIGHT; y++)
         {
@@ -119,13 +119,13 @@ public:
                 pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
                 pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
 
-                float idph = idepth.get(pix(1), pix(0));
+                float dph = depth.get(pix(1), pix(0));
                 float wght = weight.get(pix(1), pix(0));
 
                 // assert(idph != idepth.nodata);
-                if (idph == idepth.nodata)
+                if (dph == depth.nodata)
                 {
-                    idph = (minMax[1] - minMax[0]) * float(rand() % 1000) / 1000.0 + minMax[0];
+                    dph = (minMax[1] - minMax[0]) * float(rand() % 1000) / 1000.0 + minMax[0];
                     wght = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
                 }
                 if (wght == weight.nodata)
@@ -133,19 +133,19 @@ public:
                     wght = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
                 }
 
-                assert(idph > 0.0);
-                assert(!std::isnan(idph));
-                assert(!std::isinf(idph));
+                assert(dph > 0.0);
+                assert(!std::isnan(dph));
+                assert(!std::isinf(dph));
 
                 texcoords.push_back(pix);
-                idepths.push_back(idph);
+                depths.push_back(dph);
                 weights.push_back(wght);
 
-                assert(idepths.size() <= MAX_VERTEX_SIZE);
+                assert(depths.size() <= MAX_VERTEX_SIZE);
             }
         }
 
-        init(texcoords, idepths, weights, cam);
+        init(texcoords, depths, weights, cam);
     }
 
     vec2f meanStdDepthParams()

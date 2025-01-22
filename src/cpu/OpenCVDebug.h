@@ -68,24 +68,26 @@ static cv::Mat prepareToShow(dataCPU<float> &data, bool colorize)
 
 static void show(std::vector<dataCPU<float>> &data, std::string window_name)
 {
-    for(int i = 0; i < data.size(); i++)
+    for (int i = 0; i < data.size(); i++)
     {
         assert(data[i].width == data[0].width && data[i].height == data[0].height);
     }
 
     int nImagesWidth = 4;
-    int nImagesHeight = int(data.size() / nImagesWidth) + 1;
+    int nImagesHeight = int(data.size() / nImagesWidth);
+    if(data.size() % nImagesWidth != 0)
+        nImagesHeight += 1;
 
-    cv::Mat toShow(data[0].height * nImagesHeight, data[0].width * nImagesWidth, CV_8UC1);
+    cv::Mat toShow(data[0].height * nImagesHeight, data[0].width * nImagesWidth, CV_8UC1, cv::Scalar(0));
 
     for (int i = 0; i < data.size(); i++)
     {
         cv::Mat toShow2 = prepareToShow(data[i], false);
         toShow2.copyTo(toShow(cv::Rect((i % nImagesWidth) * toShow2.cols, int(i / nImagesWidth) * toShow2.rows, toShow2.cols, toShow2.rows)));
-        //toShow(cv::Rect((i % nImagesWidth) * data[0].width, int(i / nImagesWidth) * data[0].height, data[0].width, data[0].height)) = toShow2;
+        // toShow(cv::Rect((i % nImagesWidth) * data[0].width, int(i / nImagesWidth) * data[0].height, data[0].width, data[0].height)) = toShow2;
     }
 
-    //cv::Mat toShow = prepareToShow(data[0], false);
+    // cv::Mat toShow = prepareToShow(data[0], false);
 
     cv::imshow(window_name, toShow);
     cv::waitKey(30);
