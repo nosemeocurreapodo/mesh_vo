@@ -21,7 +21,7 @@ public:
           pId_buffer(_cam.width, _cam.height, idsType::Zero())
     {
         reguWeight = 0.0;
-        priorWeight = 1.0;
+        priorWeight = 2.0;
     }
 
     void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe)

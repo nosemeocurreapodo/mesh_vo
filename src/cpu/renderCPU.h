@@ -432,7 +432,7 @@ private:
             {
                 if (src_buffer.get(y, x) == src_buffer.nodata)
                 {
-                    int size = 1;
+                    int size = 2;
                     float acc = 0.0;
                     int count = 0;
 

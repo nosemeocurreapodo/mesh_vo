@@ -22,7 +22,7 @@ public:
           pId_buffer(_cam.width, _cam.height, idsType::Zero())
     {
         reguWeight = 0.0;
-        priorWeight = 0.1;
+        priorWeight = 2.0;
     }
 
     void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe)
@@ -48,8 +48,8 @@ public:
         for (size_t i = 0; i < mapParamsIds.size(); i++)
         {
             init_params(i + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
-            //invCovariance(i + numPoseParams, i + numPoseParams) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
-            invCovariance(i + numPoseParams, i + numPoseParams) = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+            invCovariance(i + numPoseParams, i + numPoseParams) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
+            //invCovariance(i + numPoseParams, i + numPoseParams) = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
         }
 
         // invCovariance.block(0, 0, numPoseParams, numPoseParams) *= 1.0 / (INITIAL_POSE_STD * INITIAL_POSE_STD);
