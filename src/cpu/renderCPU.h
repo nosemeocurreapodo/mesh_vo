@@ -833,8 +833,8 @@ private:
             if(vert.weight > 1.0/(INITIAL_PARAM_STD*INITIAL_PARAM_STD))
                 continue;
 
-            if (!win.isPixInWindow(vert.pix))
-                continue;
+            //if (!win.isPixInWindow(vert.pix))
+            //    continue;
 
             float closest_depth = -1.0;
             float closest_distance = 100000000.0;
