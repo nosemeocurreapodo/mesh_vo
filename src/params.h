@@ -12,6 +12,8 @@
 #define MIN_VIEW_PERC 0.8
 #define MIN_LAMBDA 0.00001f
 #define HUBER_THRESH_PIX 3.0
+// for a max depth of 10, using log(depth) as param
+#define MAX_PARAM 2.30
 #define INITIAL_POSE_STD 10.0
 #define GOOD_POSE_STD INITIAL_POSE_STD*0.5
 //#define INITIAL_PARAM_STD fromDepthToParam(0.01)

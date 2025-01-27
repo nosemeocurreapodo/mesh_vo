@@ -134,6 +134,11 @@ public:
         return geometry;
     }
 
+    void setGeometry(geometryType _geometry)
+    {   
+        geometry = _geometry;
+    }
+
 private:
     dataMipMapCPU<imageType> raw_image;
     geometryType geometry;

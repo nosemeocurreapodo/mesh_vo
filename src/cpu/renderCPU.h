@@ -19,13 +19,80 @@ public:
     {
     }
 
-    void renderIdepthLineSearch(dataCPU<float> &kimage, dataCPU<float> &image, Sophus::SE3f imagePose, camera cam, dataCPU<float> &buffer, int lvl)
+    void renderIdepthLineSearch(keyFrameCPU &kframe, frameCPU &frame, cameraMipMap cam, int lvl)
     {
-        window win(0, cam.width - 1, 0, cam.height - 1);
+        SE3f relativePose = frame.getLocalPose();
+    
+        scene1 = kframe.getGeometry();
+        scene2 = kframe.getGeometry();
 
-        renderIdepthLineSearchWindow(kimage, image, imagePose, buffer, z_buffer.get(lvl), cam, win);
+        scene1.project(cam[lvl]);
+        scene2.project(cam[lvl]);
+
+        int divi_y = pool.getNumThreads();
+        int divi_x = 1;
+
+        int width = cam[lvl].width / divi_x;
+        int height = cam[lvl].height / divi_y;
+
+        for (int ty = 0; ty < divi_y; ty++)
+        {
+            for (int tx = 0; tx < divi_x; tx++)
+            {
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
+
+                window win(min_x, max_x - 1, min_y, max_y - 1);
+
+                renderIdepthLineSearchWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), relativePose, cam[lvl], win);
+                // pool.enqueue(std::bind(&renderCPU::renderJMapWindow, this, kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
+            }
+        }
+
+        // pool.waitUntilDone();
+
+        kframe.setGeometry(scene2);
+
     }
 
+    void renderDepthFromClosestShape(keyFrameCPU &kframe, cameraMipMap cam, int lvl)
+    {
+        scene1 = kframe.getGeometry();
+        scene2 = kframe.getGeometry();
+
+        scene1.project(cam[lvl]);
+        scene2.project(cam[lvl]);
+
+        int divi_y = pool.getNumThreads();
+        int divi_x = 1;
+
+        int width = cam[lvl].width / divi_x;
+        int height = cam[lvl].height / divi_y;
+
+        for (int ty = 0; ty < divi_y; ty++)
+        {
+            for (int tx = 0; tx < divi_x; tx++)
+            {
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
+
+                window win(min_x, max_x - 1, min_y, max_y - 1);
+
+                renderDepthFromClosestShapeWindow(cam[lvl], win);
+                // pool.enqueue(std::bind(&renderCPU::renderJMapWindow, this, kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
+            }
+        }
+
+        // pool.waitUntilDone();
+
+        kframe.setGeometry(scene2);
+
+    }
+    
     void renderRandom(camera cam, dataCPU<float> &buffer, float min = 0.1, float max = 1.9)
     {
         assert(cam.width == buffer.width && cam.height == buffer.height);
@@ -460,85 +527,6 @@ private:
         }
     }
 
-    void renderIdepthLineSearchWindow(dataCPU<float> &kimage, dataCPU<float> &image, SE3f imagePose, dataCPU<float> &buffer, dataCPU<float> &z_buffer, camera cam, window win)
-    {
-        SE3f kfTofPose = imagePose; // * kframe->getPose().inverse();
-        SE3f fTokfPose = kfTofPose.inverse();
-
-        int size = 5;
-
-        dataCPU<float> corrFrame = image;
-        dataCPU<float> corrKframe = kimage;
-
-        for (int y = win.min_y; y <= win.max_y; y++)
-        {
-            for (int x = win.min_x; x <= win.max_x; x++)
-            {
-                auto f_i = corrFrame.get(y, x);
-                if (f_i == corrFrame.nodata)
-                    continue;
-
-                vec2f f_pix(x, y);
-                // if (!cam.isPixVisible(f_pix))
-                //     continue;
-
-                vec3f f_ray = cam.pixToRay(x, y);
-
-                float depth_min = 0.1;
-                float depth_max = 10.0;
-
-                vec3f f_ver_min = f_ray * depth_min;
-                vec3f kf_ver_min = fTokfPose * f_ver_min;
-                vec3f kf_ray_min = kf_ver_min / kf_ver_min(2);
-                vec2f kf_pix_min = cam.rayToPix(kf_ray_min);
-
-                vec3f f_ver_max = f_ray * depth_max;
-                vec3f kf_ver_max = fTokfPose * f_ver_max;
-                vec3f kf_ray_max = kf_ver_max / kf_ver_max(2);
-                vec2f kf_pix_max = cam.rayToPix(kf_ray_max);
-
-                vec2f kf_pix_diff = kf_pix_max - kf_pix_min;
-                float kf_pix_diff_norm = kf_pix_diff.norm();
-                kf_pix_diff = kf_pix_diff / kf_pix_diff_norm;
-
-                for (int i = 0; i < kf_pix_diff_norm; i++)
-                {
-                    vec2f kf_pix = kf_pix_min + kf_pix_diff * i;
-
-                    if (!cam.isPixVisible(kf_pix))
-                        continue;
-
-                    // float z_depth = z_buffer.get(y, x, lvl);
-                    // if (z_depth < f_depth && z_depth != z_buffer.nodata)
-                    //     continue;
-
-                    auto kf_i = corrKframe.get(kf_pix(1), kf_pix(0));
-                    if (kf_i == corrKframe.nodata)
-                        continue;
-
-                    float error = (f_i - kf_i) * (f_i - kf_i);
-
-                    float last_error = buffer.get(y, x);
-
-                    if (error < last_error || last_error == buffer.nodata)
-                    {
-                        buffer.set(error, y, x);
-
-                        vec3f kf_ray = cam.pixToRay(kf_pix);
-                        vec3f Y = fTokfPose * f_ray;
-                        vec3f C = fTokfPose.translation();
-
-                        float f_depth = (C(1) / kf_ray(1) - C(2)) / (Y(2) - Y(1) / kf_ray(1));
-                        // float f_depth = depth_min + i * (depth_max - depth_min) / kf_pix_diff_norm;
-                        // float f_idepth = 1.0 / f_depth;
-
-                        z_buffer.set(f_depth, y, x);
-                    }
-                }
-            }
-        }
-    }
-
     void renderImageWindow(dataCPU<imageType> &image, dataCPU<float> &buffer, dataCPU<float> &z_buffer, camera cam, window win)
     {
         std::vector<int> ids = scene2.getShapesIds();
@@ -742,6 +730,132 @@ private:
                     e_buffer.set(residual, y, x);
                     z_buffer.set(f_depth, y, x);
                 }
+            }
+        }
+    }
+
+    void renderIdepthLineSearchWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, SE3f imagePose, camera cam, window win)
+    {
+        float min_idepth = 1.0/fromParamToDepth(MAX_PARAM);
+        float max_idepth = 1.0/fromParamToDepth(0.1);
+        float step_idepth = 0.01;
+
+        float win_size = 2;
+
+        float alpha = std::exp(-imageAffine(0));
+        float beta = imageAffine(1);
+
+        SE3f kfToPose = imagePose;
+
+        std::vector<int> t_ids = scene1.getParamIds();
+
+        for (int t_id : t_ids)
+        {
+            vertex vert = scene1.getVertex(t_id);
+
+            if(vert.weight > 1.0/(INITIAL_PARAM_STD*INITIAL_PARAM_STD))
+                continue;
+
+            vec2f kf_pix = vert.pix;
+
+            if (!win.isPixInWindow(kf_pix))
+                continue;
+
+            float best_residual = 100000000000.0;
+            for(float kf_idepth = min_idepth; kf_idepth < max_idepth; kf_idepth+=step_idepth)
+            {
+                vec3f kf_ray = cam.pixToRay(kf_pix);
+                vec3f kf_ver = kf_ray / kf_idepth;
+                // vec3<float> kf_ray = cam.pixToRay(kf_pix);
+
+                vec3f f_ver = kfToPose*kf_ver;
+
+                if(f_ver(2) <= 0)
+                    continue;
+
+                vec3f f_ray = f_ver/f_ver(2);
+                vec2f f_pix = cam.rayToPix(f_ray);
+
+                if(!cam.isPixVisible(f_pix))
+                    continue;
+
+                float residual = 0.0;
+                int count = 0;
+                for(int y = -win_size; y <= win_size; y++)
+                {
+                    for(int x = -win_size; x <= win_size; x++)
+                    {
+                        vec2f shift_pix(x, y);
+                        vec2f kf_pix_ = kf_pix + shift_pix;
+                        vec2f f_pix_ = f_pix + shift_pix;
+
+                        if(!cam.isPixVisible(f_pix_))
+                            continue;
+                        if(!cam.isPixVisible(kf_pix_))
+                            continue;
+
+                        imageType kf_i = kimage.get(kf_pix_(1), kf_pix_(0));
+                        imageType f_i = image.get(f_pix_(1), f_pix_(0));                        
+
+                        if (kf_i == kimage.nodata || f_i == image.nodata)
+                            continue;
+
+                        float f_i_cor = alpha * (f_i - beta);
+                        residual += (f_i_cor - kf_i)*(f_i_cor - kf_i);
+                        count +=1;
+                    }
+                }
+
+                if(count < 0)
+                    continue;
+
+                residual /= count;
+
+                if(residual < best_residual)
+                {
+                    best_residual = residual;
+                    vertex best_vertex(kf_ver, kf_ray, kf_pix, 1.0/(INITIAL_PARAM_STD*INITIAL_PARAM_STD));
+                    scene2.setVertex(t_id, best_vertex);
+                }
+            }
+        }
+    }
+
+    void renderDepthFromClosestShapeWindow(camera cam, window win)
+    {
+        std::vector<int> p_ids = scene1.getParamIds();
+        std::vector<int> s_ids = scene1.getShapesIds();
+
+        for (int p_id : p_ids)
+        {
+            vertex vert = scene1.getVertex(p_id);
+
+            if(vert.weight > 1.0/(INITIAL_PARAM_STD*INITIAL_PARAM_STD))
+                continue;
+
+            if (!win.isPixInWindow(vert.pix))
+                continue;
+
+            float closest_depth = -1.0;
+            float closest_distance = 100000000.0;
+            for(int s_id : s_ids)
+            {
+                shapeType shape = scene1.getShape(s_id);
+                float distance = (vert.pix - shape.getCenterPix()).norm();
+                if(distance < closest_distance)
+                {
+                    float depth = shape.getDepth(vert.pix);
+                    if(depth <= 0.0)
+                        continue;
+                    closest_distance = distance;
+                    closest_depth = depth;
+                }
+            }
+
+            if(closest_depth > 0.0)
+            {
+                vertex best_vertex(vert.ray*closest_depth, vert.ray, vert.pix, 1.0/(INITIAL_PARAM_STD*INITIAL_PARAM_STD));
+                scene2.setVertex(p_id, best_vertex);
             }
         }
     }

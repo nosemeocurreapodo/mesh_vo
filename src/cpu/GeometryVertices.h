@@ -297,12 +297,18 @@ public:
         }
     }
 
-    vertex &getVertex(unsigned int id)
+    vertex &getVertex(int id)
     {
         assert(id >= 0 && id < MAX_VERTEX_SIZE);
         assert(m_vertices[id].used);
 
         return m_vertices[id];
+    }
+
+    void setVertex(int id, vertex vert)
+    {
+        assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        m_vertices[id] = vert;
     }
 
     /*

@@ -27,6 +27,9 @@ public:
 
     void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe)
     {
+        //do a line search of any un-initialized depths
+        //renderer.renderIdepthLineSearch(kframe, frames[frames.size()-1], cam, 1);
+
         std::vector<int> mapParamsIds = kframe.getGeometry().getParamIds();
         int numPoseParams = frames.size() * 6;
         int numMapParams = mapParamsIds.size();
