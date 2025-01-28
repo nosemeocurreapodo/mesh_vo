@@ -265,7 +265,24 @@ private:
     {
         std::vector<int> s_ids = geometry.getShapesIds();
 
-        float sigma = cam.width/10.0;
+        /*
+        float best_depth = -1;
+        float best_distance = cam.width*2;
+        for(int s_id : s_ids)
+        {
+            shapeType shape = geometry.getShape(s_id);
+            float distance = (texcoord - shape.getCenterPix()).norm();
+            if(distance < best_distance)
+            {
+                best_distance = distance;
+                best_depth = shape.getDepth(texcoord);
+            }
+        }
+
+        return best_depth;
+        */
+
+        float sigma = 0.1*cam.width;
 
         float depth_sum = 0.0;
         float weight_sum = 0.0;

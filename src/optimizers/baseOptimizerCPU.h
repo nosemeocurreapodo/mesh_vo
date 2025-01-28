@@ -49,7 +49,7 @@ protected:
         {
             error_buffer.setToNoData(lvl);
             renderer.renderResidualParallel(kframe, frames[i], error_buffer, cam, lvl);
-            toShow.push_back(frames[i].getRawImage(lvl));
+            // toShow.push_back(frames[i].getRawImage(lvl));
             toShow.push_back(error_buffer.get(lvl));
         }
 
