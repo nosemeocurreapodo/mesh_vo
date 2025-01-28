@@ -479,6 +479,12 @@ public:
         return center;
     };
 
+    vec3f getCenterVertex()
+    {
+        vec3f center = (m_vert0.ver + m_vert1.ver + m_vert2.ver)/3.0;
+        return center;
+    };
+
     vec3f getParamJacobian(vec2f p)
     {
         if (!(m_currentPix == p))

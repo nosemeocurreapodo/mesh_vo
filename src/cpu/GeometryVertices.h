@@ -12,37 +12,6 @@ public:
     {
     }
 
-    void init(camera cam)
-    {
-        std::vector<vec2f> texcoords;
-        std::vector<float> depths;
-        std::vector<float> weights;
-
-        float maxDepth = 10.0;
-        float minDepth = 0.1;
-
-        for (float y = 0.0; y < MESH_HEIGHT; y++)
-        {
-            for (float x = 0.0; x < MESH_WIDTH; x++)
-            {
-                vec2f pix;
-                pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
-                pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
-
-                float dph = (maxDepth - minDepth) * float(rand() % 1000) / 1000.0 + minDepth;
-                float wght = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
-
-                texcoords.push_back(pix);
-                depths.push_back(dph);
-                weights.push_back(wght);
-
-                assert(depths.size() <= MAX_VERTEX_SIZE);
-            }
-        }
-
-        init(texcoords, depths, weights, cam);
-    }
-
     void init(std::vector<vec3f> &vertices, std::vector<float> &weights, camera cam)
     {
         assert(vertices.size() == weights.size());
@@ -99,55 +68,6 @@ public:
         }
     }
 
-    void init(dataCPU<float> &depth, dataCPU<float> &weight, camera cam)
-    {
-        assert(depth.width == cam.width && depth.height == cam.height);
-        assert(weight.width == cam.width && weight.height == cam.height);
-
-        std::vector<vec2f> texcoords;
-        std::vector<float> depths;
-        std::vector<float> weights;
-
-        vec2f minMax = depth.getMinMax();
-        assert(minMax(0) != depth.nodata && minMax(1) != depth.nodata && minMax(0) != minMax(1));
-
-        for (float y = 0.0; y < MESH_HEIGHT; y++)
-        {
-            for (float x = 0.0; x < MESH_WIDTH; x++)
-            {
-                vec2f pix;
-                pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
-                pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
-
-                float dph = depth.get(pix(1), pix(0));
-                float wght = weight.get(pix(1), pix(0));
-
-                // assert(idph != idepth.nodata);
-                if (dph == depth.nodata)
-                {
-                    dph = (minMax[1] - minMax[0]) * float(rand() % 1000) / 1000.0 + minMax[0];
-                    wght = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
-                }
-                if (wght == weight.nodata)
-                {
-                    wght = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
-                }
-
-                assert(dph > 0.0);
-                assert(!std::isnan(dph));
-                assert(!std::isinf(dph));
-
-                texcoords.push_back(pix);
-                depths.push_back(dph);
-                weights.push_back(wght);
-
-                assert(depths.size() <= MAX_VERTEX_SIZE);
-            }
-        }
-
-        init(texcoords, depths, weights, cam);
-    }
-
     vec2f meanStdDepthParams()
     {
         float old_m = 0;
@@ -183,6 +103,43 @@ public:
         vec2f results;
         results(0) = new_m;
         results(1) = sqrt(new_s / (n - 1));
+
+        return results;
+    }
+
+
+    vec2f minMaxDepthVertices()
+    {
+        float min = 0;
+        float max = 0;
+        int n = 0;
+
+        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        {
+            if (!m_vertices[i].used)
+                continue;
+
+            float depth = getVerticeDepth(i);
+
+            n++;
+
+            if (n == 1)
+            {
+                min = depth;
+                max = depth;
+            }
+            else
+            {
+                if (depth < min)
+                    min = depth;
+                if (depth > max)
+                    max = depth;
+            }
+        }
+
+        vec2f results;
+        results(0) = min;
+        results(1) = max;
 
         return results;
     }

@@ -19,12 +19,6 @@ public:
 
     };
 
-    void init(camera cam)
-    {
-        GeometryVertices::init(cam);
-        buildTriangles();
-    }
-
     void init(std::vector<vec3f> &vertices, std::vector<float> &weights, camera cam)
     {
         GeometryVertices::init(vertices, weights, cam);
@@ -33,81 +27,6 @@ public:
 
     void init(std::vector<vec2f> &texcoords, std::vector<float> depths, std::vector<float> &weights, camera cam)
     {
-        GeometryVertices::init(texcoords, depths, weights, cam);
-        buildTriangles();
-    }
-
-    void init(dataCPU<float> &depth, dataCPU<float> &weight, camera cam)
-    {
-        //GeometryVertices::init(depth, weight, cam);
-        
-        assert(depth.width == cam.width && depth.height == cam.height);
-        assert(weight.width == cam.width && weight.height == cam.height);
-
-        std::vector<vec2f> texcoords;
-        std::vector<float> depths;
-        std::vector<float> weights;
-
-        vec2f minMax = depth.getMinMax();
-        assert(minMax(0) != depth.nodata && minMax(1) != depth.nodata && minMax(0) != minMax(1));
-
-        for (float y = 0.0; y < MESH_HEIGHT; y++)
-        {
-            for (float x = 0.0; x < MESH_WIDTH; x++)
-            {
-                vec2f pix;
-                pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
-                pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
-
-                float dph = depth.get(pix(1), pix(0));
-                float wght = weight.get(pix(1), pix(0));
-
-                // assert(idph != idepth.nodata);
-                if (dph == depth.nodata)
-                {
-                    std::vector<int> tris = getTrianglesIds();
-
-                    float best_depth = -1;
-                    float best_distance = 100000.0;
-                    for(int tri : tris)
-                    {
-                        ShapeTriangleFlat shape = getShape(tri);
-                        float distance = (pix - shape.getCenterPix()).norm();
-                        if(distance < best_distance)
-                        {
-                            float d = shape.getDepth(pix);
-                            if(d > 0.0)
-                            {
-                                best_depth = d;
-                                best_distance = distance;
-                            }
-                        }
-                    }
-
-                    wght = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
-
-                    if(best_depth > 0)
-                    {
-                        dph = best_depth;
-                    }
-                    else
-                    {
-                        dph = (minMax[1] - minMax[0]) * float(rand() % 1000) / 1000.0 + minMax[0];
-                    }
-                }
-
-                assert(dph > 0.0);
-                assert(!std::isnan(dph));
-                assert(!std::isinf(dph));
-
-                texcoords.push_back(pix);
-                depths.push_back(dph);
-                weights.push_back(wght);
-
-                assert(depths.size() <= MAX_VERTEX_SIZE);
-            }
-        }
-        
         GeometryVertices::init(texcoords, depths, weights, cam);
         buildTriangles();
     }

@@ -19,20 +19,18 @@ void visualOdometry::init(dataCPU<float> &image, SE3f globalPose)
     assert(image.width == cam[0].width && image.height == cam[0].height);
 
     dataCPU<float> buffer(cam[0].width, cam[0].height, -1.0);
-    dataCPU<float> wbuffer(cam[0].width, cam[0].height,-1.0);
+    dataCPU<float> wbuffer(cam[0].width, cam[0].height, -1.0);
 
-    renderer.renderVerticallySmooth(cam[0], buffer, 10.0, 1.0);
-    //renderer.renderRandom(cam[0], buffer, 1.0, 10.0);
-    wbuffer.set(1.0/(INITIAL_PARAM_STD*INITIAL_PARAM_STD));
-    
-    kframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0, buffer, wbuffer, cam[0]);
+    kframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0);
+    kframe.initGeometryVerticallySmooth(cam[0]);
 }
 
 void visualOdometry::init(dataCPU<float> &image, SE3f globalPose, dataCPU<float> &depth, dataCPU<float> &weight)
 {
     assert(image.width == depth.width && image.height == depth.height && image.width == cam[0].width && image.height == cam[0].height);
 
-    kframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0, depth, weight, cam[0]);
+    kframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0);
+    kframe.initGeometryFromDepth(depth, weight, cam[0]);
 }
 
 float visualOdometry::meanViewAngle(SE3f pose1, SE3f pose2)
@@ -55,29 +53,16 @@ float visualOdometry::meanViewAngle(SE3f pose1, SE3f pose2)
     vec3f frame1Translation = frame1PoseInv.translation();
     vec3f frame2Translation = frame2PoseInv.translation();
 
-    std::vector<int> sIds = scene2.getShapesIds();
+    std::vector<int> vIds = scene2.getVerticesIds();
 
     float accAngle = 0;
     int count = 0;
-    for (auto sId : sIds)
+    for (int vId : vIds)
     {
-        // auto shape1 = scene1.getShape(sId);
-        auto shape2 = scene2.getShape(sId);
+        vertex vert = scene2.getVertex(vId);
 
-        // vec2f centerPix1 = shape1.getCenterPix();
-        vec2f centerPix2 = shape2.getCenterPix();
-
-        // if (!cam[lvl].isPixVisible(centerPix1) || !cam[lvl].isPixVisible(centerPix2))
-        //     continue;
-
-        // float centerDepth1 = shape1.getDepth(centerPix1);
-        float centerDepth2 = shape2.getDepth(centerPix2);
-
-        vec3f centerRay2 = cam[lvl].pixToRay(centerPix2);
-        vec3f centerPoint2 = centerRay2 * centerDepth2;
-
-        vec3f diff1 = centerPoint2 - frame1Translation;
-        vec3f diff2 = centerPoint2 - frame2Translation;
+        vec3f diff1 = vert.ver - frame1Translation;
+        vec3f diff2 = vert.ver - frame2Translation;
         vec3f diff1Normalized = diff1 / diff1.norm();
         vec3f diff2Normalized = diff2 / diff2.norm();
 
@@ -158,9 +143,9 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
 
         float viewPercent = getViewPercent(lastFrame);
 
-        // std::cout << "mean viewAngle " << meanViewAngle << std::endl;
-        // std::cout << "view percent " << viewPercent << std::endl;
-        // std::cout << "percent nodata " << percentNoData << std::endl;
+        std::cout << "last viewAngle " << lastViewAngle << std::endl;
+        std::cout << "keyframe viewAngle " << keyframeViewAngle << std::endl;
+        std::cout << "viewPercent " << viewPercent << std::endl;
 
         if (lastViewAngle > LAST_MIN_ANGLE) //(percentNoData > 0.2) //(viewPercent < 0.8)
         {
@@ -178,19 +163,17 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
             // int newKeyframeIndex = int(lastFrames.size() - 1);
             frameCPU newKeyframe = goodFrames[newKeyframeIndex];
 
-            //render its idepth
+            // render its idepth
             int lvl = 0;
             dataMipMapCPU<float> depth_buffer(cam[0].width, cam[0].height, -1);
             dataMipMapCPU<float> weight_buffer(cam[0].width, cam[0].height, -1);
             renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, lvl);
             renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
-            //renderer.renderInterpolate(cam[lvl], depth_buffer.get(lvl));
-            //renderer.renderInterpolate(cam[lvl], weight_buffer.get(lvl));
 
             // save local frames global params
             std::vector<SE3f> goodFramesGlobalPoses;
             std::vector<vec2f> goodFramesGlobalExp;
-            for(int i = 0; i < goodFrames.size(); i++)
+            for (int i = 0; i < goodFrames.size(); i++)
             {
                 SE3f globalPose = kframe.localPoseToGlobal(goodFrames[i].getLocalPose());
                 vec2f globalExp = kframe.localExpToGlobal(goodFrames[i].getLocalExp());
@@ -207,15 +190,17 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
             SE3f newKeyframeGlobalPose = kframe.localPoseToGlobal(newKeyframe.getLocalPose());
             vec2f newKeyframeGlobalExp = kframe.localExpToGlobal(newKeyframe.getLocalExp());
 
-            kframe.init(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale(), depth_buffer.get(lvl), weight_buffer.get(lvl), cam[lvl]);
-            
-            //vec2f meanStd = kframe.getGeometry().meanStdDepth();
-            vec2f minMax = kframe.getGeometry().minMaxDepthParams();
-            float scale = MAX_PARAM / minMax(1);
+            kframe.init(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
+            kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam[lvl]);
+
+            // vec2f meanStd = kframe.getGeometry().meanStdDepth();
+            // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
+            vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
+            float scale = fromParamToDepth(MAX_PARAM) / minMax(1);
 
             kframe.scaleVerticesAndWeights(scale);
 
-            for(int i = 0; i < goodFrames.size(); i++)
+            for (int i = 0; i < goodFrames.size(); i++)
             {
                 SE3f localPose = kframe.globalPoseToLocal(goodFramesGlobalPoses[i]);
                 vec2f localExp = kframe.globalExpToLocal(goodFramesGlobalExp[i]);
@@ -332,9 +317,9 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
 
         float viewPercent = getViewPercent(lastFrame);
 
-        // std::cout << "mean viewAngle " << meanViewAngle << std::endl;
-        // std::cout << "view percent " << viewPercent << std::endl;
-        // std::cout << "percent nodata " << percentNoData << std::endl;
+        std::cout << "last viewAngle " << lastViewAngle << std::endl;
+        std::cout << "keyframe viewAngle " << keyframeViewAngle << std::endl;
+        std::cout << "viewPercent " << viewPercent << std::endl;
 
         if (lastViewAngle > LAST_MIN_ANGLE) //(percentNoData > 0.2) //(viewPercent < 0.8)
         {
@@ -352,19 +337,18 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
             // int newKeyframeIndex = int(lastFrames.size() - 1);
             frameCPU newKeyframe = goodFrames[newKeyframeIndex];
 
-            //render its idepth
+            // render its idepth
             int lvl = 0;
             dataMipMapCPU<float> depth_buffer(cam[0].width, cam[0].height, -1);
             dataMipMapCPU<float> weight_buffer(cam[0].width, cam[0].height, -1);
             renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, lvl);
             renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
-            //renderer.renderInterpolate(cam[lvl], depth_buffer.get(lvl));
-            //renderer.renderInterpolate(cam[lvl], weight_buffer.get(lvl));
+            // renderer.renderInterpolate(cam[lvl], depth_buffer.get(lvl));
 
             // save local frames global params
             std::vector<SE3f> goodFramesGlobalPoses;
             std::vector<vec2f> goodFramesGlobalExp;
-            for(int i = 0; i < goodFrames.size(); i++)
+            for (int i = 0; i < goodFrames.size(); i++)
             {
                 SE3f globalPose = kframe.localPoseToGlobal(goodFrames[i].getLocalPose());
                 vec2f globalExp = kframe.localExpToGlobal(goodFrames[i].getLocalExp());
@@ -379,15 +363,17 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
             SE3f newKeyframeGlobalPose = kframe.localPoseToGlobal(newKeyframe.getLocalPose());
             vec2f newKeyframeGlobalExp = kframe.localExpToGlobal(newKeyframe.getLocalExp());
 
-            kframe.init(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale(), depth_buffer.get(lvl), weight_buffer.get(lvl), cam[lvl]);
+            kframe.init(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
+            kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam[lvl]);
 
-            //vec2f meanStd = kframe.getGeometry().meanStdDepth();
-            vec2f minMax = kframe.getGeometry().minMaxDepthParams();
-            float scale = MAX_PARAM / minMax(1);
+            // vec2f meanStd = kframe.getGeometry().meanStdDepth();
+            // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
+            vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
+            float scale = fromParamToDepth(MAX_PARAM) / minMax(1);
 
-            //kframe.scaleVerticesAndWeights(scale);
+            kframe.scaleVerticesAndWeights(scale);
 
-            for(int i = 0; i < goodFrames.size(); i++)
+            for (int i = 0; i < goodFrames.size(); i++)
             {
                 SE3f localPose = kframe.globalPoseToLocal(goodFramesGlobalPoses[i]);
                 vec2f localExp = kframe.globalExpToLocal(goodFramesGlobalExp[i]);
