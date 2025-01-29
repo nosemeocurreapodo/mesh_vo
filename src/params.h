@@ -9,9 +9,9 @@
 #define NUM_FRAMES 3
 #define LAST_MIN_ANGLE M_PI / 1000000000.0
 #define KEY_MAX_ANGLE M_PI / 10.0
-#define MIN_VIEW_PERC 0.85
+#define MIN_VIEW_PERC 0.7
 #define MIN_LAMBDA 0.00001f
-#define HUBER_THRESH_PIX 3.0
+#define HUBER_THRESH_PIX 15.0
 // for a max depth of 10, using log(depth) as param
 #define MAX_PARAM fromDepthToParam(10.0)
 #define MIN_PARAM fromDepthToParam(1.0)

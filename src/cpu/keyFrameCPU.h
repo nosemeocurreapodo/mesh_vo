@@ -53,10 +53,14 @@ public:
     void initGeometryRandom(camera cam)
     {
         std::vector<vec2f> texcoords = uniformTexCoords(cam);
-        std::vector<float> depths = randomDepths(texcoords, fromParamToDepth(MIN_PARAM), fromParamToDepth(MAX_PARAM));
+        std::vector<float> depths;
         std::vector<float> weights;
-        for (float depth : depths)
+        for (vec2f texcoord : texcoords)
+        {
+            float depth = randomDepth(fromParamToDepth(MIN_PARAM), fromParamToDepth(MAX_PARAM));
+            depths.push_back(depth);
             weights.push_back(1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD));
+        }
 
         geometry.init(texcoords, depths, weights, cam);
     }
@@ -64,10 +68,14 @@ public:
     void initGeometryVerticallySmooth(camera cam)
     {
         std::vector<vec2f> texcoords = uniformTexCoords(cam);
-        std::vector<float> depths = verticallySmoothDepths(texcoords, fromParamToDepth(MIN_PARAM), fromParamToDepth(MAX_PARAM), cam);
+        std::vector<float> depths;
         std::vector<float> weights;
-        for (float depth : depths)
+        for (vec2f texcoord : texcoords)
+        {
+            float depth = verticallySmoothDepth(texcoord, fromParamToDepth(MIN_PARAM), fromParamToDepth(MAX_PARAM), cam);
+            depths.push_back(depth);
             weights.push_back(1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD));
+        }
 
         geometry.init(texcoords, depths, weights, cam);
     }
@@ -118,7 +126,8 @@ public:
 
         for (vec2f texWithNoData : texcoordsWithNoData)
         {
-            float depth = getDepthFromClosestShape(texWithNoData, cam);
+            //float depth = getDepthFromClosestShape(texWithNoData, cam);
+            float depth = verticallySmoothDepth(texWithNoData, fromParamToDepth(MIN_PARAM), fromParamToDepth(MAX_PARAM), cam);
             assert(depth > 0.0);
 
             //if(depth < fromParamToDepth(MIN_PARAM))
@@ -238,27 +247,17 @@ private:
         return texcoords;
     }
 
-    std::vector<float> randomDepths(std::vector<vec2f> texcoords, float min_depth, float max_depth)
+    float randomDepth(float min_depth, float max_depth)
     {
-        std::vector<float> depths;
-        for (vec2f texcoord : texcoords)
-        {
-            float depth = (max_depth - min_depth) * float(rand() % 1000) / 1000.0 + min_depth;
-            depths.push_back(depth);
-        }
-        return depths;
+        float depth = (max_depth - min_depth) * float(rand() % 1000) / 1000.0 + min_depth;
+        return depth;
     }
 
-    std::vector<float> verticallySmoothDepths(std::vector<vec2f> texcoords, float min_depth, float max_depth, camera cam)
+    float verticallySmoothDepth(vec2f texcoord, float min_depth, float max_depth, camera cam)
     {
-        std::vector<float> depths;
-        for (vec2f texcoord : texcoords)
-        {
-            //max depth when y = 0
-            float depth = max_depth + (min_depth - max_depth) * texcoord(1) / (cam.width - 1.0);
-            depths.push_back(depth);
-        }
-        return depths;
+        //max depth when y = 0
+        float depth = max_depth + (min_depth - max_depth) * texcoord(1) / (cam.width - 1.0);
+        return depth;
     }
 
     float getDepthFromClosestShape(vec2f texcoord, camera cam)

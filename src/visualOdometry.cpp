@@ -63,13 +63,19 @@ float visualOdometry::meanViewAngle(SE3f pose1, SE3f pose2)
 
         vec3f diff1 = vert.ver - frame1Translation;
         vec3f diff2 = vert.ver - frame2Translation;
+
+        assert(diff1.norm() > 0 && diff2.norm() > 0);
+
         vec3f diff1Normalized = diff1 / diff1.norm();
         vec3f diff2Normalized = diff2 / diff2.norm();
 
         float cos_angle = diff1Normalized.dot(diff2Normalized);
+        cos_angle = std::clamp(cos_angle, -1.0f, 1.0f);
         float angle = std::acos(cos_angle);
+        
+        assert(!std::isnan(angle));
 
-        accAngle += std::fabs(angle);
+        accAngle += angle;
         count += 1;
     }
 
@@ -315,6 +321,9 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
         // dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
         // float percentNoData = idepth.getPercentNoData(1);
 
+        assert(!std::isnan(lastViewAngle));
+        assert(!std::isnan(keyframeViewAngle));
+
         float viewPercent = getViewPercent(lastFrame);
 
         std::cout << "last viewAngle " << lastViewAngle << std::endl;
@@ -343,7 +352,7 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
             dataMipMapCPU<float> weight_buffer(cam[0].width, cam[0].height, -1);
             renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, lvl);
             renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
-            // renderer.renderInterpolate(cam[lvl], depth_buffer.get(lvl));
+            //renderer.renderInterpolate(cam[lvl], depth_buffer.get(lvl));
 
             // save local frames global params
             std::vector<SE3f> goodFramesGlobalPoses;
@@ -364,15 +373,15 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
             vec2f newKeyframeGlobalExp = kframe.localExpToGlobal(newKeyframe.getLocalExp());
 
             kframe.init(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
-            // kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam[lvl]);
-            kframe.initGeometryVerticallySmooth(cam[lvl]);
+            kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam[lvl]);
+            //kframe.initGeometryVerticallySmooth(cam[lvl]);
 
             // vec2f meanStd = kframe.getGeometry().meanStdDepth();
             // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
             vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
             float scale = fromParamToDepth(MAX_PARAM) / minMax(1);
 
-            kframe.scaleVerticesAndWeights(scale);
+            //kframe.scaleVerticesAndWeights(scale);
 
             for (int i = 0; i < goodFrames.size(); i++)
             {
