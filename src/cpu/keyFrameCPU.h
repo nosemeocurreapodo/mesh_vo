@@ -57,7 +57,7 @@ public:
         std::vector<float> weights;
         for (vec2f texcoord : texcoords)
         {
-            float depth = randomDepth(fromParamToDepth(MIN_PARAM), fromParamToDepth(MAX_PARAM));
+            float depth = randomDepth(0.5, 1.5);
             depths.push_back(depth);
             weights.push_back(1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD));
         }
@@ -72,7 +72,7 @@ public:
         std::vector<float> weights;
         for (vec2f texcoord : texcoords)
         {
-            float depth = verticallySmoothDepth(texcoord, fromParamToDepth(MIN_PARAM), fromParamToDepth(MAX_PARAM), cam);
+            float depth = verticallySmoothDepth(texcoord, 0.5, 1.5, cam);
             depths.push_back(depth);
             weights.push_back(1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD));
         }
@@ -88,9 +88,6 @@ public:
         std::vector<vec2f> texcoords = uniformTexCoords(cam);
         std::vector<float> depths;
         std::vector<float> weights;
-
-        vec2f minMax = depth.getMinMax();
-        assert(minMax(0) != depth.nodata && minMax(1) != depth.nodata && minMax(0) != minMax(1));
 
         std::vector<vec2f> texcoordsWithData;
         std::vector<vec2f> texcoordsWithNoData;
@@ -124,10 +121,13 @@ public:
 
         geometry.init(texcoordsWithData, depths, weights, cam);
 
+        vec2f minMax = geometry.minMaxDepthVertices();
+
         for (vec2f texWithNoData : texcoordsWithNoData)
         {
             //float depth = getDepthFromClosestShape(texWithNoData, cam);
-            float depth = verticallySmoothDepth(texWithNoData, fromParamToDepth(MIN_PARAM), fromParamToDepth(MAX_PARAM), cam);
+            //float depth = verticallySmoothDepth(texWithNoData, fromParamToDepth(MIN_PARAM), fromParamToDepth(MAX_PARAM), cam);
+            float depth = 1.0;//randomDepth(minMax(0), minMax(1));
             assert(depth > 0.0);
 
             //if(depth < fromParamToDepth(MIN_PARAM))

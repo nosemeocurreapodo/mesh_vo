@@ -120,7 +120,7 @@ int main(int argc, char * argv[])
         cv::Mat imageMat = cv::imread(image_path, cv::IMREAD_GRAYSCALE);
         SE3f realPose = readPose(pose_path)*initPose.inverse();
         //scale the translation, so that the initial map has a mean depth of 1.0
-        //realPose.translation() = realPose.translation()*0.1;
+        realPose.translation() = realPose.translation()*0.25;
 
         imageMat.convertTo(imageMat, CV_32FC1);
         cv::resize(imageMat, imageMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);

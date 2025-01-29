@@ -20,8 +20,8 @@ public:
           j_buffer(_cam.width, _cam.height, jmapType::Zero()),
           pId_buffer(_cam.width, _cam.height, idsType::Zero())
     {
-        reguWeight = 0.0;
-        priorWeight = 2.0;
+        reguWeight = REGU_WEIGHT;
+        priorWeight = PRIOR_WEIGHT;
     }
 
     void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe)

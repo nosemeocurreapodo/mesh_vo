@@ -175,6 +175,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
             dataMipMapCPU<float> weight_buffer(cam[0].width, cam[0].height, -1);
             renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, lvl);
             renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
+            renderer.renderInterpolate(cam[lvl], depth_buffer.get(lvl));
 
             // save local frames global params
             std::vector<SE3f> goodFramesGlobalPoses;
@@ -199,10 +200,10 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
             kframe.init(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
             kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam[lvl]);
 
-            // vec2f meanStd = kframe.getGeometry().meanStdDepth();
+            vec2f meanStd = kframe.getGeometry().meanStdDepth();
             // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
-            vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
-            float scale = fromParamToDepth(MAX_PARAM) / minMax(1);
+            // vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
+            float scale = 1.0 / meanStd(0);
 
             kframe.scaleVerticesAndWeights(scale);
 
@@ -352,7 +353,7 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
             dataMipMapCPU<float> weight_buffer(cam[0].width, cam[0].height, -1);
             renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, lvl);
             renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
-            //renderer.renderInterpolate(cam[lvl], depth_buffer.get(lvl));
+            renderer.renderInterpolate(cam[lvl], depth_buffer.get(lvl));
 
             // save local frames global params
             std::vector<SE3f> goodFramesGlobalPoses;
@@ -374,14 +375,13 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
 
             kframe.init(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
             kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam[lvl]);
-            //kframe.initGeometryVerticallySmooth(cam[lvl]);
 
-            // vec2f meanStd = kframe.getGeometry().meanStdDepth();
-            // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
-            vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
-            float scale = fromParamToDepth(MAX_PARAM) / minMax(1);
+            vec2f meanStd = kframe.getGeometry().meanStdDepth();
+            //vec2f minMax = kframe.getGeometry().minMaxDepthParams();
+            //vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
+            float scale = 1.0 / meanStd(0);
 
-            //kframe.scaleVerticesAndWeights(scale);
+            kframe.scaleVerticesAndWeights(scale);
 
             for (int i = 0; i < goodFrames.size(); i++)
             {

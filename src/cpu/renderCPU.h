@@ -499,7 +499,7 @@ private:
             {
                 if (src_buffer.get(y, x) == src_buffer.nodata)
                 {
-                    int size = 2;
+                    int size = 1;
                     float acc = 0.0;
                     int count = 0;
 
@@ -736,8 +736,8 @@ private:
 
     void renderIdepthLineSearchWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, SE3f imagePose, camera cam, window win)
     {
-        float min_idepth = 1.0/fromParamToDepth(MAX_PARAM);
-        float max_idepth = 1.0/fromParamToDepth(0.1);
+        float min_idepth = 1.0/1.5;
+        float max_idepth = 1.0/0.5;
         float step_idepth = 0.01;
 
         float win_size = 2;
