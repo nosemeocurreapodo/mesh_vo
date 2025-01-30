@@ -1,28 +1,32 @@
 #pragma once
 
-#define IMAGE_WIDTH 512
-#define IMAGE_HEIGHT 512
-#define MESH_WIDTH 32
-#define MESH_HEIGHT 32
-#define MAX_VERTEX_SIZE MESH_WIDTH *MESH_HEIGHT
-#define MAX_TRIANGLE_SIZE (MESH_WIDTH - 1) * (MESH_HEIGHT - 1) * 2
-#define NUM_FRAMES 3
-#define LAST_MIN_ANGLE M_PI / 256.0
-#define KEY_MAX_ANGLE M_PI / 10.0
-#define MIN_VIEW_PERC 0.7
-#define MIN_LAMBDA 0.00001f
-#define HUBER_THRESH_PIX 3.0
-#define REGU_WEIGHT 0.0
-#define PRIOR_WEIGHT 1.0
-// for a max depth of 10, using log(depth) as param
-//#define MAX_PARAM fromDepthToParam(1.0 + 0.5)
-//#define MIN_PARAM fromDepthToParam(1.0 - 0.5)
-#define INITIAL_POSE_STD 10000.0
-#define GOOD_POSE_STD INITIAL_POSE_STD * 0.75
-// #define INITIAL_PARAM_STD fromDepthToParam(0.01)
-// for a param = log(depth) and a max depth of 10, the max uncertanty should be ln(3) = 1.098
-#define INITIAL_PARAM_STD 0.7
-// lets suppouse that by the optimization we reduce the uncertainty by 10x, that means a depth uncertainty of exp(0.1*1.098) = 1.116, or for 2x reduction, that means 1.731 uncertanty
-#define GOOD_PARAM_STD INITIAL_PARAM_STD * 0.75
-#define RENDERER_NTHREADS 1
-#define REDUCER_NTHREADS 1
+namespace mesh_vo
+{
+    inline constexpr int image_width = 512;
+    inline constexpr int image_height = 512;
+    inline constexpr int mesh_width = 32;
+    inline constexpr int mesh_height = 32;
+    inline constexpr int max_vertex_size = mesh_width * mesh_height;
+    inline constexpr int max_triangle_size = (mesh_width - 1) * (mesh_height - 1) * 2;
+    inline constexpr int num_frames = 3;
+    inline constexpr int renderer_nthreads = 1;
+    inline constexpr int reducer_nthreads = 1;
+
+    extern float last_min_angle;
+    extern float key_max_angle;
+    extern float min_view_perc;
+    extern float min_lambda;
+    extern float huber_thresh_pix;
+    extern float regu_weight;
+    extern float prior_weight;
+    // for a max depth of 10, using log(depth) as param
+    // #define MAX_PARAM fromDepthToParam(1.0 + 0.5)
+    // #define MIN_PARAM fromDepthToParam(1.0 - 0.5)
+    extern float initial_pose_var;
+    extern float good_pose_var;
+    // #define INITIAL_PARAM_STD fromDepthToParam(0.01)
+    // for a param = log(depth) and a max depth of 10, the max uncertanty should be ln(3) = 1.098
+    extern float initial_param_var;
+    // lets suppouse that by the optimization we reduce the uncertainty by 10x, that means a depth uncertainty of exp(0.1*1.098) = 1.116, or for 2x reduction, that means 1.731 uncertanty
+    extern float good_param_var;
+}

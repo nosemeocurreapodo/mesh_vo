@@ -59,7 +59,7 @@ public:
         {
             float depth = randomDepth(0.5, 1.5);
             depths.push_back(depth);
-            weights.push_back(1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD));
+            weights.push_back(1.0 / mesh_vo::initial_param_var);
         }
 
         geometry.init(texcoords, depths, weights, cam);
@@ -74,7 +74,7 @@ public:
         {
             float depth = verticallySmoothDepth(texcoord, 0.5, 1.5, cam);
             depths.push_back(depth);
-            weights.push_back(1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD));
+            weights.push_back(1.0 / mesh_vo::initial_param_var);
         }
 
         geometry.init(texcoords, depths, weights, cam);
@@ -105,7 +105,7 @@ public:
             }
             if (wght == weight.nodata)
             {
-                wght = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+                wght = 1.0 / mesh_vo::initial_param_var;
             }
 
             assert(dph > 0.0);
@@ -135,7 +135,7 @@ public:
             //if(depth > fromParamToDepth(MAX_PARAM))
             //    depth = fromParamToDepth(MAX_PARAM);
 
-            float weight = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+            float weight = 1.0 / mesh_vo::initial_param_var;
 
             texcoordsWithData.push_back(texWithNoData);
             depths.push_back(depth);
@@ -232,13 +232,13 @@ private:
     std::vector<vec2f> uniformTexCoords(camera cam)
     {
         std::vector<vec2f> texcoords;
-        for (float y = 0.0; y < MESH_HEIGHT; y++)
+        for (float y = 0.0; y < mesh_vo::mesh_height; y++)
         {
-            for (float x = 0.0; x < MESH_WIDTH; x++)
+            for (float x = 0.0; x < mesh_vo::mesh_width; x++)
             {
                 vec2f pix;
-                pix(0) = (cam.width - 1) * x / (MESH_WIDTH - 1);
-                pix(1) = (cam.height - 1) * y / (MESH_HEIGHT - 1);
+                pix(0) = (cam.width - 1) * x / (mesh_vo::mesh_width - 1);
+                pix(1) = (cam.height - 1) * y / (mesh_vo::mesh_height - 1);
 
                 texcoords.push_back(pix);
             }

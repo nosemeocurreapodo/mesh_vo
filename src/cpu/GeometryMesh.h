@@ -391,7 +391,7 @@ private:
     std::vector<int> getTrianglesIds() const
     {
         std::vector<int> keys;
-        for (int it = 0; it < MAX_TRIANGLE_SIZE; ++it)
+        for (int it = 0; it < mesh_vo::max_triangle_size; ++it)
         {
             if (m_triangles[it].used)
                 keys.push_back(it);
@@ -494,7 +494,7 @@ private:
 
     void buildTriangles()
     {
-        for (int i = 0; i < MAX_TRIANGLE_SIZE; i++)
+        for (int i = 0; i < mesh_vo::max_triangle_size; i++)
         {
             m_triangles[i].used = false;
         }
@@ -516,7 +516,7 @@ private:
 
         for (size_t i = 0; i < tris.size(); i++)
         {
-            if (i >= MAX_TRIANGLE_SIZE)
+            if (i >= mesh_vo::max_triangle_size)
                 break;
 
             m_triangles[i].vertexIds = tris[i];
@@ -558,6 +558,6 @@ private:
     }
     */
 
-    triangle m_triangles[MAX_TRIANGLE_SIZE];
+    triangle m_triangles[mesh_vo::max_triangle_size];
     DelaunayTriangulation m_triangulator;
 };

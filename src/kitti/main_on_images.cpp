@@ -163,7 +163,7 @@ int main(int argc, char **argv)
 
 	camera cam = getKittiCamera(calibFile.c_str());
 
-	cam.resize(IMAGE_WIDTH, IMAGE_HEIGHT);
+	cam.resize(mesh_vo::image_width, mesh_vo::image_height);
 
 	visualOdometry odometry(cam);
 

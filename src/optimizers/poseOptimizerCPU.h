@@ -19,8 +19,7 @@ public:
         : baseOptimizerCPU(_cam),
           j_buffer(_cam.width, _cam.height, vec6f::Zero())
     {
-        priorWeight = 0.0;
-        invCovariance = mat6f::Identity() / (INITIAL_POSE_STD * INITIAL_POSE_STD);
+        invCovariance = mat6f::Identity() / mesh_vo::initial_pose_var;
     }
 
     void optimize(frameCPU &frame, keyFrameCPU &kframe)
@@ -29,7 +28,7 @@ public:
         mat6f init_invcovariance = invCovariance;
         mat6f init_invcovariancesqrt;
         
-        if(priorWeight > 0.0)
+        if(mesh_vo::prior_weight > 0.0)
             init_invcovariancesqrt = invCovariance.sqrt();
 
         for (int lvl = 2; lvl >= 1; lvl--)
@@ -37,11 +36,11 @@ public:
             Error last_error = computeError(frame, kframe, lvl);
             last_error *= 1.0 / last_error.getCount();
 
-            if (priorWeight > 0.0)
+            if (mesh_vo::prior_weight > 0.0)
             {
                 vec6f res = frame.getLocalPose().log() - init_pose;
                 vec6f conv_dot_res = init_invcovariance * res;
-                float weight = priorWeight / 6;
+                float weight = mesh_vo::prior_weight / 6;
                 last_error += weight * (res.dot(conv_dot_res));
             }
 
@@ -57,13 +56,13 @@ public:
                 DenseLinearProblem problem = computeProblem(frame, kframe, lvl);
                 problem *= 1.0 / problem.getCount();
 
-                if (priorWeight > 0.0)
+                if (mesh_vo::prior_weight > 0.0)
                 {
                     // error = diff * (H * diff)
                     // jacobian = ones * (H * diff) + diff ( H * ones)
                     vec6f res = init_invcovariancesqrt * (frame.getLocalPose().log() - init_pose);
                     mat6f jacobian = init_invcovariancesqrt;
-                    float weight = priorWeight / 6;
+                    float weight = mesh_vo::prior_weight / 6;
                     // vec6<float> res(_res);
                     // mat6<float> jacobian(_jacobian);
                     problem.add(jacobian, res, weight);
@@ -75,8 +74,8 @@ public:
                 {
                     if (n_try > 0)
                     {
-                        if (lambda < MIN_LAMBDA)
-                            lambda = MIN_LAMBDA;
+                        if (lambda < mesh_vo::min_lambda)
+                            lambda = mesh_vo::min_lambda;
                         lambda *= std::pow(2.0, n_try);
                     }
                     n_try++;
@@ -99,11 +98,11 @@ public:
                     }
                     new_error *= 1.0 / new_error.getCount();
 
-                    if (priorWeight > 0.0)
+                    if (mesh_vo::prior_weight > 0.0)
                     {
                         vec6f res = frame.getLocalPose().log() - init_pose;
                         vec6f conv_dot_res = init_invcovariance * res;
-                        float weight = priorWeight / 6;
+                        float weight = mesh_vo::prior_weight / 6;
                         new_error += weight * (res.dot(conv_dot_res));
                     }
 
@@ -153,7 +152,6 @@ private:
         return problem;
     }
 
-    float priorWeight;
     dataMipMapCPU<vec6f> j_buffer;
     mat6f invCovariance;
 };

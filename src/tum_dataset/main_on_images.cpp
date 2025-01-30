@@ -152,7 +152,7 @@ int main(int argc, char **argv)
 	// K << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
 
 	camera cam(fx, fy, cx, cy, w, h);
-	cam.resize(IMAGE_WIDTH, IMAGE_WIDTH);
+	cam.resize(mesh_vo::image_height, mesh_vo::image_width);
 
 	visualOdometry odometry(cam);
 

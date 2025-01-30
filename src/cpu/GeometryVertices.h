@@ -15,9 +15,9 @@ public:
     void init(std::vector<vec3f> &vertices, std::vector<float> &weights, camera cam)
     {
         assert(vertices.size() == weights.size());
-        assert(vertices.size() <= MAX_VERTEX_SIZE);
+        assert(vertices.size() <= mesh_vo::max_vertex_size);
 
-        for (size_t i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (size_t i = 0; i < mesh_vo::max_vertex_size; i++)
         {
             m_vertices[i].used = false;
         }
@@ -42,9 +42,9 @@ public:
     {
         assert(texcoords.size() == depths.size());
         assert(texcoords.size() == weights.size());
-        assert(texcoords.size() <= MAX_VERTEX_SIZE);
+        assert(texcoords.size() <= mesh_vo::max_vertex_size);
 
-        for (size_t i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (size_t i = 0; i < mesh_vo::max_vertex_size; i++)
         {
             m_vertices[i].used = false;
         }
@@ -76,7 +76,7 @@ public:
         float new_s = 0;
         int n = 0;
 
-        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (int i = 0; i < mesh_vo::max_vertex_size; i++)
         {
             if (!m_vertices[i].used)
                 continue;
@@ -114,7 +114,7 @@ public:
         float max = 0;
         int n = 0;
 
-        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (int i = 0; i < mesh_vo::max_vertex_size; i++)
         {
             if (!m_vertices[i].used)
                 continue;
@@ -150,7 +150,7 @@ public:
         float max = 0;
         int n = 0;
 
-        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (int i = 0; i < mesh_vo::max_vertex_size; i++)
         {
             if (!m_vertices[i].used)
                 continue;
@@ -182,7 +182,7 @@ public:
 
     void scaleDepthParams(float scale)
     {
-        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (int i = 0; i < mesh_vo::max_vertex_size; i++)
         {
             if (!m_vertices[i].used)
                 continue;
@@ -200,7 +200,7 @@ public:
         float new_s = 0;
         int n = 0;
 
-        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (int i = 0; i < mesh_vo::max_vertex_size; i++)
         {
             if (!m_vertices[i].used)
                 continue;
@@ -233,7 +233,7 @@ public:
 
     void scaleVertices(float scale)
     {
-        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (int i = 0; i < mesh_vo::max_vertex_size; i++)
         {
             if (!m_vertices[i].used)
                 continue;
@@ -243,7 +243,7 @@ public:
 
     void scaleWeights(float scale)
     {
-        for (int i = 0; i < MAX_VERTEX_SIZE; i++)
+        for (int i = 0; i < mesh_vo::max_vertex_size; i++)
         {
             if (!m_vertices[i].used)
                 continue;
@@ -256,7 +256,7 @@ public:
 
     vertex &getVertex(int id)
     {
-        assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        assert(id >= 0 && id < mesh_vo::max_vertex_size);
         assert(m_vertices[id].used);
 
         return m_vertices[id];
@@ -264,7 +264,7 @@ public:
 
     void setVertex(int id, vertex vert)
     {
-        assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        assert(id >= 0 && id < mesh_vo::max_vertex_size);
         m_vertices[id] = vert;
     }
 
@@ -293,7 +293,7 @@ public:
     std::vector<int> getVerticesIds() const
     {
         std::vector<int> keys;
-        for (int it = 0; it < MAX_VERTEX_SIZE; ++it)
+        for (int it = 0; it < mesh_vo::max_vertex_size; ++it)
         {
             if (m_vertices[it].used)
                 keys.push_back((int)it);
@@ -303,7 +303,7 @@ public:
 
     void transform(Sophus::SE3f pose)
     {
-        for (int it = 0; it < MAX_VERTEX_SIZE; ++it)
+        for (int it = 0; it < mesh_vo::max_vertex_size; ++it)
         {
             if (!m_vertices[it].used)
                 continue;
@@ -315,7 +315,7 @@ public:
 
     void project(camera cam)
     {
-        for (int it = 0; it < MAX_VERTEX_SIZE; ++it)
+        for (int it = 0; it < mesh_vo::max_vertex_size; ++it)
         {
             if (!m_vertices[it].used)
                 continue;
@@ -353,7 +353,7 @@ public:
 private:
     void setVerticeDepth(float depth, unsigned int id)
     {
-        assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        assert(id >= 0 && id < mesh_vo::max_vertex_size);
         assert(m_vertices[id].used);
 
         m_vertices[id].ver = m_vertices[id].ray * depth;
@@ -361,7 +361,7 @@ private:
 
     float getVerticeDepth(unsigned int id)
     {
-        assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        assert(id >= 0 && id < mesh_vo::max_vertex_size);
         assert(m_vertices[id].used);
 
         return m_vertices[id].ver(2);
@@ -369,7 +369,7 @@ private:
 
     void setVerticeWeight(float weight, unsigned int id)
     {
-        assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        assert(id >= 0 && id < mesh_vo::max_vertex_size);
         assert(m_vertices[id].used);
 
         m_vertices[id].weight = weight;
@@ -377,11 +377,11 @@ private:
 
     float getVerticeWeight(unsigned int id)
     {
-        assert(id >= 0 && id < MAX_VERTEX_SIZE);
+        assert(id >= 0 && id < mesh_vo::max_vertex_size);
         assert(m_vertices[id].used);
 
         return m_vertices[id].weight;
     }
 
-    vertex m_vertices[MAX_VERTEX_SIZE];
+    vertex m_vertices[mesh_vo::max_vertex_size];
 };

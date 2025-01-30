@@ -153,14 +153,14 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         std::cout << "keyframe viewAngle " << keyframeViewAngle << std::endl;
         std::cout << "viewPercent " << viewPercent << std::endl;
 
-        if (lastViewAngle > LAST_MIN_ANGLE) //(percentNoData > 0.2) //(viewPercent < 0.8)
+        if (lastViewAngle > mesh_vo::last_min_angle) //(percentNoData > 0.2) //(viewPercent < 0.8)
         {
             goodFrames.push_back(lastFrame);
-            if (goodFrames.size() > NUM_FRAMES)
+            if (goodFrames.size() > mesh_vo::num_frames)
                 goodFrames.erase(goodFrames.begin());
         }
 
-        if ((viewPercent < MIN_VIEW_PERC || keyframeViewAngle > KEY_MAX_ANGLE) && goodFrames.size() > 1)
+        if ((viewPercent < mesh_vo::min_view_perc || keyframeViewAngle > mesh_vo::key_max_angle) && goodFrames.size() > 1)
         // if((viewPercent < 0.9 || meanViewAngle > M_PI / 64.0) && lastFrames.size() > 1)
         {
             // select new keyframe
@@ -331,14 +331,14 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
         std::cout << "keyframe viewAngle " << keyframeViewAngle << std::endl;
         std::cout << "viewPercent " << viewPercent << std::endl;
 
-        if (lastViewAngle > LAST_MIN_ANGLE) //(percentNoData > 0.2) //(viewPercent < 0.8)
+        if (lastViewAngle > mesh_vo::last_min_angle) //(percentNoData > 0.2) //(viewPercent < 0.8)
         {
             goodFrames.push_back(lastFrame);
-            if (goodFrames.size() > NUM_FRAMES)
+            if (goodFrames.size() > mesh_vo::num_frames)
                 goodFrames.erase(goodFrames.begin());
         }
 
-        if ((viewPercent < MIN_VIEW_PERC || keyframeViewAngle > KEY_MAX_ANGLE) && goodFrames.size() > 1)
+        if ((viewPercent < mesh_vo::min_view_perc || keyframeViewAngle > mesh_vo::key_max_angle) && goodFrames.size() > 1)
         // if((viewPercent < 0.9 || meanViewAngle > M_PI / 64.0) && lastFrames.size() > 1)
         {
             // select new keyframe
@@ -352,7 +352,7 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
             dataMipMapCPU<float> depth_buffer(cam[0].width, cam[0].height, -1);
             dataMipMapCPU<float> weight_buffer(cam[0].width, cam[0].height, -1);
             renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, lvl);
-            renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
+            //renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
             renderer.renderInterpolate(cam[lvl], depth_buffer.get(lvl));
 
             // save local frames global params

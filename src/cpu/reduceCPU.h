@@ -18,7 +18,7 @@ public:
 
     Error reduceErrorParallel(dataCPU<float> &residual)
     {
-        const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
+        const int divi_y = ThreadPool<mesh_vo::reducer_nthreads>::getNumThreads();
         const int divi_x = 1;
 
         Error partialerr[divi_y * divi_x];
@@ -54,7 +54,7 @@ public:
 
     DenseLinearProblem reduceHGExpParallel(dataCPU<vec2f> &jexp_buffer, dataCPU<float> &err_buffer)
     {
-        const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
+        const int divi_y = ThreadPool<mesh_vo::reducer_nthreads>::getNumThreads();
         const int divi_x = 1;
 
         std::vector<DenseLinearProblem> partialhg;
@@ -97,7 +97,7 @@ public:
 
     DenseLinearProblem reduceHGPoseParallel(dataCPU<vec6f> &jpose_buffer, dataCPU<float> &err_buffer)
     {
-        const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
+        const int divi_y = ThreadPool<mesh_vo::reducer_nthreads>::getNumThreads();
         const int divi_x = 1;
 
         std::vector<DenseLinearProblem> partialhg;
@@ -140,7 +140,7 @@ public:
 
     DenseLinearProblem reduceHGMapParallel(int maxNumParams, dataCPU<jmapType> &j_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer)
     {
-        const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
+        const int divi_y = ThreadPool<mesh_vo::reducer_nthreads>::getNumThreads();
         const int divi_x = 1;
 
         std::vector<DenseLinearProblem> partialhg;
@@ -184,7 +184,7 @@ public:
 
     DenseLinearProblem reduceHGPoseMapParallel(int frameId, int numFrames, int numMapParams, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer)
     {
-        const int divi_y = ThreadPool<REDUCER_NTHREADS>::getNumThreads();
+        const int divi_y = ThreadPool<mesh_vo::reducer_nthreads>::getNumThreads();
         const int divi_x = 1;
 
         // HGEigenSparse partialhg[divi_x * divi_y];
@@ -238,8 +238,8 @@ private:
                     continue;
                 float absresidual = std::fabs(res);
                 float hw = 1.0;
-                if (absresidual > HUBER_THRESH_PIX)
-                    hw = HUBER_THRESH_PIX / absresidual;
+                if (absresidual > mesh_vo::huber_thresh_pix)
+                    hw = mesh_vo::huber_thresh_pix / absresidual;
                 err += hw * res * res;
             }
     }
@@ -256,8 +256,8 @@ private:
                     continue;
                 float absres = std::fabs(res);
                 float hw = 1.0;
-                if (absres > HUBER_THRESH_PIX)
-                    hw = HUBER_THRESH_PIX / absres;
+                if (absres > mesh_vo::huber_thresh_pix)
+                    hw = mesh_vo::huber_thresh_pix / absres;
 
                 hg.add(J, res, hw);
             }
@@ -276,8 +276,8 @@ private:
                     continue;
                 float absres = std::fabs(res);
                 float hw = 1.0;
-                if (absres > HUBER_THRESH_PIX)
-                    hw = HUBER_THRESH_PIX / absres;
+                if (absres > mesh_vo::huber_thresh_pix)
+                    hw = mesh_vo::huber_thresh_pix / absres;
 
                 hg.add(J, res, hw);
             }
@@ -299,8 +299,8 @@ private:
 
                 float absres = std::fabs(res);
                 float hw = 1.0;
-                if (absres > HUBER_THRESH_PIX)
-                    hw = HUBER_THRESH_PIX / absres;
+                if (absres > mesh_vo::huber_thresh_pix)
+                    hw = mesh_vo::huber_thresh_pix / absres;
 
                 hg.add(jac, res, hw, ids);
             }
@@ -323,8 +323,8 @@ private:
 
                 float absres = std::fabs(res);
                 float hw = 1.0;
-                if (absres > HUBER_THRESH_PIX)
-                    hw = HUBER_THRESH_PIX / absres;
+                if (absres > mesh_vo::huber_thresh_pix)
+                    hw = mesh_vo::huber_thresh_pix / absres;
 
                 //hg.add(J_pose, J_map, res, hw, frameId, map_ids);
 
@@ -347,5 +347,5 @@ private:
         }
     }
 
-    ThreadPool<REDUCER_NTHREADS> pool;
+    ThreadPool<mesh_vo::reducer_nthreads> pool;
 };

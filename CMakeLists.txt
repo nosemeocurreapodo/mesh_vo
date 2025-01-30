@@ -35,8 +35,11 @@ include_directories( ${CSPARSE_INCLUDE_DIR} ${CHOLMOD_INCLUDE_DIR})
 #)
 
 set(VISUALODOMETRY_SRCS
+      "src/params.cpp"
       "src/common/DelaunayTriangulation.cpp"
-      #"src/optimizers/sceneOptimizerCPU.cpp"
+      "src/optimizers/baseOptimizerCPU.cpp"
+      "src/optimizers/mapOptimizerCPU.cpp"
+      "src/optimizers/poseMapOptimizerCPU.cpp"
       "src/visualOdometry.cpp")
 
 #file(GLOB TESTAPP_SRCS "src/test/*.cpp"
