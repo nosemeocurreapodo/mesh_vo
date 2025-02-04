@@ -24,24 +24,24 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
         init_params.segment<6>(i * 6) = frames[i].getLocalPose().log();
         for (int j = 0; j < 6; j++)
         {
-            invCovariance(i * 6 + j, i * 6 + j) = 1.0 / mesh_vo::mapping_pose_var;
+            invCovariance(i * 6 + j, i * 6 + j) = 1.0 / mesh_vo::mapping_pose_initial_var;
         }
     }
 
     for (size_t i = 0; i < mapParamsIds.size(); i++)
     {
-        init_params(i + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
+        // init_params(i + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
         invCovariance(i + numPoseParams, i + numPoseParams) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
-        // invCovariance(i + numPoseParams, i + numPoseParams) = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+        //invCovariance(i + numPoseParams, i + numPoseParams) = 1.0 / mesh_vo::mapping_param_initial_var;
     }
 
-    // invCovariance.block(0, 0, numPoseParams, numPoseParams) *= 1.0 / (INITIAL_POSE_STD * INITIAL_POSE_STD);
-    // invCovariance.block(numPoseParams, numPoseParams, numMapParams, numMapParams) *= 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+    // invCovariance.block(0, 0, numPoseParams, numPoseParams) *= 1.0 / mesh_vo::mapping_pose_var;
+    // invCovariance.block(numPoseParams, numPoseParams, numMapParams, numMapParams) *= 1.0 / mesh_vo::initial_param_var;
 
     matxf init_invcovariance = invCovariance;
     matxf init_invcovariancesqrt;
 
-    if (mesh_vo::prior_weight > 0.0)
+    if (mesh_vo::mapping_prior_weight > 0.0)
         init_invcovariancesqrt = invCovariance.sqrt();
 
     for (int lvl = 1; lvl >= 1; lvl--)
@@ -56,15 +56,15 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
         }
         e *= 1.0 / frames.size();
 
-        if (mesh_vo::regu_weight > 0.0)
+        if (mesh_vo::mapping_regu_weight > 0.0)
         {
             Error e_regu = kframe.getGeometry().errorRegu();
             assert(e_regu.getCount() > 0);
-            e_regu *= mesh_vo::regu_weight / e_regu.getCount();
+            e_regu *= mesh_vo::mapping_regu_weight / e_regu.getCount();
             e += e_regu;
         }
 
-        if (mesh_vo::prior_weight > 0.0)
+        if (mesh_vo::mapping_prior_weight > 0.0)
         {
             vecxf params(numParams);
             for (size_t index = 0; index < frames.size(); index++)
@@ -79,7 +79,7 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
 
             vecxf res = params - init_params;
             vecxf conv_dot_res = init_invcovariance * res;
-            float weight = mesh_vo::prior_weight / numParams;
+            float weight = mesh_vo::mapping_prior_weight / numParams;
             float priorError = weight * (res.dot(conv_dot_res));
 
             e += priorError;
@@ -104,15 +104,15 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
             }
             problem *= 1.0 / frames.size();
 
-            if (mesh_vo::regu_weight > 0.0)
+            if (mesh_vo::mapping_regu_weight > 0.0)
             {
-                float weight = mesh_vo::regu_weight / numMapParams;
+                float weight = mesh_vo::mapping_regu_weight / numMapParams;
                 DenseLinearProblem hg_regu = kframe.getGeometry().HGRegu(numPoseParams, weight);
                 assert(hg_regu.getCount() > 0);
                 problem += hg_regu;
             }
 
-            if (mesh_vo::prior_weight > 0.0)
+            if (mesh_vo::mapping_prior_weight > 0.0)
             {
                 vecxf params = vecxf::Zero(numParams);
 
@@ -132,7 +132,7 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
                 matxf jacobian = init_invcovariancesqrt;
                 // vecx<float> res(_res);
                 // matx<float> jacobian(_jacobian);
-                float weight = mesh_vo::prior_weight / numParams;
+                float weight = mesh_vo::mapping_prior_weight / numParams;
                 problem.add(jacobian, res, weight);
             }
 
@@ -174,7 +174,7 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
                     best_mapParams.push_back(kframe.getGeometry().getDepthParam(mapParamsIds[i]));
                     kframe.getGeometry().setDepthParam(kframe.getGeometry().getDepthParam(mapParamsIds[i]) - mapInc(i), mapParamsIds[i]);
                     // kframe.getGeometry().setWeightParam(problem.getH()(mapParamsIds[i], mapParamsIds[i]), mapParamsIds[i]);
-                    kframe.getGeometry().setWeightParam(1.0 / mesh_vo::good_param_var, mapParamsIds[i]);
+                    kframe.getGeometry().setWeightParam(1.0 / mesh_vo::mapping_param_good_var, mapParamsIds[i]);
                 }
 
                 e.setZero();
@@ -192,15 +192,15 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
                 }
                 e *= 1.0 / frames.size();
 
-                if (mesh_vo::regu_weight > 0.0)
+                if (mesh_vo::mapping_regu_weight > 0.0)
                 {
                     Error e_regu = kframe.getGeometry().errorRegu();
                     assert(e_regu.getCount() > 0);
-                    e_regu *= mesh_vo::regu_weight / e_regu.getCount();
+                    e_regu *= mesh_vo::mapping_regu_weight / e_regu.getCount();
                     e += e_regu;
                 }
 
-                if (mesh_vo::prior_weight > 0.0)
+                if (mesh_vo::mapping_prior_weight > 0.0)
                 {
                     vecxf params(numParams);
 
@@ -216,7 +216,7 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
 
                     vecxf res = params - init_params;
                     vecxf conv_dot_res = init_invcovariance * res;
-                    float weight = mesh_vo::prior_weight / numParams;
+                    float weight = mesh_vo::mapping_prior_weight / numParams;
                     float priorError = weight * (res.dot(conv_dot_res));
 
                     e += priorError;
@@ -234,7 +234,7 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
 
                     last_error = error;
 
-                    if (p > 0.999f)
+                    if (p > mesh_vo::mapping_convergence_p)
                     {
                         // std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
                         //  if converged, do next level
@@ -259,7 +259,8 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
 
                     // reject update, increase lambda, use un-updated data
 
-                    if (poseInc.dot(poseInc) < 1e-16 && mapInc.dot(mapInc) < 1e-16)
+                    //if (poseInc.dot(poseInc) < 1e-16 && mapInc.dot(mapInc) < 1e-16)
+                    if(false)
                     {
                         // if too small, do next level!
                         it = maxIterations;

@@ -59,7 +59,7 @@ public:
         {
             float depth = randomDepth(0.5, 1.5);
             depths.push_back(depth);
-            weights.push_back(1.0 / mesh_vo::initial_param_var);
+            weights.push_back(1.0 / mesh_vo::mapping_param_initial_var);
         }
 
         geometry.init(texcoords, depths, weights, cam);
@@ -74,7 +74,7 @@ public:
         {
             float depth = verticallySmoothDepth(texcoord, 0.5, 1.5, cam);
             depths.push_back(depth);
-            weights.push_back(1.0 / mesh_vo::initial_param_var);
+            weights.push_back(1.0 / mesh_vo::mapping_param_initial_var);
         }
 
         geometry.init(texcoords, depths, weights, cam);
@@ -105,7 +105,7 @@ public:
             }
             if (wght == weight.nodata)
             {
-                wght = 1.0 / mesh_vo::initial_param_var;
+                wght = 1.0 / mesh_vo::mapping_param_initial_var;
             }
 
             assert(dph > 0.0);
@@ -135,7 +135,7 @@ public:
             //if(depth > fromParamToDepth(MAX_PARAM))
             //    depth = fromParamToDepth(MAX_PARAM);
 
-            float weight = 1.0 / mesh_vo::initial_param_var;
+            float weight = 1.0 / mesh_vo::mapping_param_initial_var;
 
             texcoordsWithData.push_back(texWithNoData);
             depths.push_back(depth);

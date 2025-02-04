@@ -38,6 +38,7 @@ set(VISUALODOMETRY_SRCS
       "src/params.cpp"
       "src/common/DelaunayTriangulation.cpp"
       "src/optimizers/baseOptimizerCPU.cpp"
+      "src/optimizers/poseOptimizerCPU.cpp"
       "src/optimizers/mapOptimizerCPU.cpp"
       "src/optimizers/poseMapOptimizerCPU.cpp"
       "src/visualOdometry.cpp")

@@ -754,7 +754,7 @@ private:
         {
             vertex vert = scene1.getVertex(t_id);
 
-            if(vert.weight > 1.0 / mesh_vo::initial_param_var)
+            if(vert.weight > 1.0 / mesh_vo::mapping_param_initial_var)
                 continue;
 
             vec2f kf_pix = vert.pix;
@@ -815,7 +815,7 @@ private:
                 if(residual < best_residual)
                 {
                     best_residual = residual;
-                    vertex best_vertex(kf_ver, kf_ray, kf_pix, 1.0 / mesh_vo::initial_param_var);
+                    vertex best_vertex(kf_ver, kf_ray, kf_pix, 1.0 / mesh_vo::mapping_param_initial_var);
                     scene2.setVertex(t_id, best_vertex);
                 }
             }
@@ -831,7 +831,7 @@ private:
         {
             vertex vert = scene1.getVertex(p_id);
 
-            if(vert.weight > 1.0 / mesh_vo::initial_param_var)
+            if(vert.weight > 1.0 / mesh_vo::mapping_param_initial_var)
                 continue;
 
             //if (!win.isPixInWindow(vert.pix))
@@ -855,7 +855,7 @@ private:
 
             if(closest_depth > 0.0)
             {
-                vertex best_vertex(vert.ray*closest_depth, vert.ray, vert.pix, 1.0 / mesh_vo::initial_param_var);
+                vertex best_vertex(vert.ray*closest_depth, vert.ray, vert.pix, 1.0 / mesh_vo::mapping_param_initial_var);
                 scene2.setVertex(p_id, best_vertex);
             }
         }

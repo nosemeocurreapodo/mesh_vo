@@ -17,16 +17,16 @@ namespace mesh_vo
     extern float min_view_perc;
     extern float min_lambda;
     extern float huber_thresh_pix;
-    extern float regu_weight;
-    extern float prior_weight;
-    // for a max depth of 10, using log(depth) as param
-    // #define MAX_PARAM fromDepthToParam(1.0 + 0.5)
-    // #define MIN_PARAM fromDepthToParam(1.0 - 0.5)
-    extern float tracking_pose_var;
-    extern float mapping_pose_var;
-    // #define INITIAL_PARAM_STD fromDepthToParam(0.01)
-    // for a param = log(depth) and a max depth of 10, the max uncertanty should be ln(3) = 1.098
-    extern float initial_param_var;
-    // lets suppouse that by the optimization we reduce the uncertainty by 10x, that means a depth uncertainty of exp(0.1*1.098) = 1.116, or for 2x reduction, that means 1.731 uncertanty
-    extern float good_param_var;
+    extern float tracking_prior_weight;
+    extern float tracking_convergence_p;
+    extern float tracking_convergence_v;
+    extern float tracking_pose_initial_var;
+    extern float mapping_regu_weight;
+    extern float mapping_prior_weight;
+    extern float mapping_convergence_p;
+    extern float mapping_convergence_v;
+    extern float mapping_pose_initial_var;
+    extern float mapping_pose_good_var;
+    extern float mapping_param_initial_var;
+    extern float mapping_param_good_var;
 }

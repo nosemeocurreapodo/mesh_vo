@@ -12,20 +12,20 @@ void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kfram
     std::vector<int> sceneParamsIds = kframe.getGeometry().getParamIds();
     int numParams = sceneParamsIds.size();
 
-    invCovariance = matxf::Identity(numParams, numParams) / mesh_vo::initial_param_var;
+    invCovariance = matxf::Identity(numParams, numParams) / mesh_vo::mapping_param_initial_var;
 
     Eigen::VectorXf init_params = Eigen::VectorXf::Zero(numParams);
     for (size_t i = 0; i < sceneParamsIds.size(); i++)
     {
         init_params(i) = kframe.getGeometry().getDepthParam(sceneParamsIds[i]);
         invCovariance(i, i) = kframe.getGeometry().getWeightParam(sceneParamsIds[i]);
-        // invCovariance(i, i) = 1.0 / (INITIAL_PARAM_STD * INITIAL_PARAM_STD);
+        // invCovariance(i, i) = 1.0 / mesh_vo::mapping_param_initial_var;
     }
 
     matxf init_invcovariance = invCovariance;
     matxf init_invcovariancesqrt;
 
-    if (mesh_vo::prior_weight > 0)
+    if (mesh_vo::mapping_prior_weight > 0)
         init_invcovariancesqrt = invCovariance.sqrt();
 
     for (int lvl = 1; lvl >= 1; lvl--)
@@ -40,15 +40,15 @@ void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kfram
         }
         e *= 1.0 / frames.size();
 
-        if (mesh_vo::regu_weight > 0.0)
+        if (mesh_vo::mapping_regu_weight > 0.0)
         {
             Error e_regu = kframe.getGeometry().errorRegu();
             assert(e_regu.getCount() > 0);
-            e_regu *= mesh_vo::regu_weight / e_regu.getCount();
+            e_regu *= mesh_vo::mapping_regu_weight / e_regu.getCount();
             e += e_regu;
         }
 
-        if (mesh_vo::prior_weight > 0.0)
+        if (mesh_vo::mapping_prior_weight > 0.0)
         {
             vecxf params(numParams);
 
@@ -59,7 +59,7 @@ void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kfram
 
             vecxf res = params - init_params;
             vecxf conv_dot_res = init_invcovariance * res;
-            float weight = mesh_vo::prior_weight / numParams;
+            float weight = mesh_vo::mapping_prior_weight / numParams;
             float priorError = weight * (res.dot(conv_dot_res));
 
             e += priorError;
@@ -84,15 +84,15 @@ void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kfram
             }
             problem *= 1.0 / frames.size();
 
-            if (mesh_vo::regu_weight > 0.0)
+            if (mesh_vo::mapping_regu_weight > 0.0)
             {
-                float weight = mesh_vo::regu_weight / numParams;
+                float weight = mesh_vo::mapping_regu_weight / numParams;
                 DenseLinearProblem hg_regu = kframe.getGeometry().HGRegu(0, weight);
                 assert(hg_regu.getCount() > 0);
                 problem += hg_regu;
             }
 
-            if (mesh_vo::prior_weight > 0.0)
+            if (mesh_vo::mapping_prior_weight > 0.0)
             {
                 vecxf params = vecxf::Zero(numParams);
 
@@ -107,7 +107,7 @@ void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kfram
                 matxf jacobian = init_invcovariancesqrt;
                 // vecx<float> res(_res);
                 // matx<float> jacobian(_jacobian);
-                float weight = mesh_vo::prior_weight / numParams;
+                float weight = mesh_vo::mapping_prior_weight / numParams;
                 problem.add(jacobian, res, weight);
             }
 
@@ -143,7 +143,7 @@ void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kfram
                     // the update should take this into account
                     kframe.getGeometry().setDepthParam(kframe.getGeometry().getDepthParam(paramId) - inc(index), paramId);
                     // kframe.getGeometry().setWeightParam(problem.getH()(paramId, paramId), paramId);
-                    kframe.getGeometry().setWeightParam(1.0 / mesh_vo::good_param_var, paramId);
+                    kframe.getGeometry().setWeightParam(1.0 / mesh_vo::mapping_param_good_var, paramId);
                 }
 
                 e.setZero();
@@ -161,15 +161,15 @@ void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kfram
                 }
                 e *= 1.0 / frames.size();
 
-                if (mesh_vo::regu_weight > 0.0)
+                if (mesh_vo::mapping_regu_weight > 0.0)
                 {
                     Error e_regu = kframe.getGeometry().errorRegu();
                     assert(e_regu.getCount() > 0);
-                    e_regu *= mesh_vo::regu_weight / e_regu.getCount();
+                    e_regu *= mesh_vo::mapping_regu_weight / e_regu.getCount();
                     e += e_regu;
                 }
 
-                if (mesh_vo::prior_weight > 0.0)
+                if (mesh_vo::mapping_prior_weight > 0.0)
                 {
                     Eigen::VectorXf params(numParams);
                     for (size_t index = 0; index < sceneParamsIds.size(); index++)
@@ -179,7 +179,7 @@ void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kfram
 
                     Eigen::VectorXf res = params - init_params;
                     Eigen::VectorXf conv_dot_res = init_invcovariance * res;
-                    float weight = mesh_vo::prior_weight / numParams;
+                    float weight = mesh_vo::mapping_prior_weight / numParams;
                     float priorError = weight * (res.dot(conv_dot_res));
 
                     e += priorError;
@@ -197,7 +197,7 @@ void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kfram
 
                     last_error = error;
 
-                    if (p > 0.999f)
+                    if (p > mesh_vo::mapping_convergence_p)
                     {
                         // std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
                         //  if converged, do next level
@@ -216,7 +216,8 @@ void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kfram
 
                     // reject update, increase lambda, use un-updated data
 
-                    if (inc.dot(inc) < 1e-16)
+                    //if (inc.dot(inc) < 1e-16)
+                    if(false)
                     {
                         // if too small, do next level!
                         it = maxIterations;
