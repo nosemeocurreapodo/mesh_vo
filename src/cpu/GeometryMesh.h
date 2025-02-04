@@ -240,7 +240,7 @@ public:
         return error;
     }
 
-    DenseLinearProblem HGRegu(int numPoseParams)
+    DenseLinearProblem HGRegu(int numPoseParams, float weight)
     {
         std::vector<int> triIds = getTrianglesIds();
         std::vector<int> vecIds = getVerticesIds();
@@ -272,10 +272,15 @@ public:
             // vec3<float> J5(-1.0, 0.0, 1.0);
             // vec3<float> J6(0.0, -1.0, 1.0);
 
-            hg.add(J1, diff1, 1.0, v_ids);
-            hg.add(J2, diff2, 1.0, v_ids);
+            vec3i p_ids = v_ids;
+            p_ids(0) += numPoseParams;
+            p_ids(1) += numPoseParams;
+            p_ids(2) += numPoseParams;
+            
+            hg.add(J1, diff1, weight, p_ids);
+            hg.add(J2, diff2, weight, p_ids);
             // hg.sparseAdd(J3, diff3, 1.0, v_ids);
-            hg.add(J4, diff4, 1.0, v_ids);
+            hg.add(J4, diff4, weight, p_ids);
             // hg.sparseAdd(J5, diff5, 1.0, v_ids);
             // hg.sparseAdd(J6, diff6, 1.0, v_ids);
         }

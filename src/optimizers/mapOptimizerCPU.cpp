@@ -86,9 +86,9 @@ void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kfram
 
             if (mesh_vo::regu_weight > 0.0)
             {
-                DenseLinearProblem hg_regu = kframe.getGeometry().HGRegu(0);
+                float weight = mesh_vo::regu_weight / numParams;
+                DenseLinearProblem hg_regu = kframe.getGeometry().HGRegu(0, weight);
                 assert(hg_regu.getCount() > 0);
-                hg_regu *= mesh_vo::regu_weight / hg_regu.getCount();
                 problem += hg_regu;
             }
 

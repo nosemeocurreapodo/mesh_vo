@@ -48,29 +48,28 @@ set(VISUALODOMETRY_SRCS
 #file(GLOB TUMDATASET_SRCS "src/tum_dataset/*.cpp")
 
 set(TESTAPP_SRCS
-      "src/test/main.cpp"
-      "src/test/utils/convertAhandaPovRayToStandard.cpp"
+      "src/apps/test/main.cpp"
+      "src/apps/test/utils/convertAhandaPovRayToStandard.cpp"
 )
 
 set(TUMDATASET_SRCS
-      "src/tum_dataset/main_on_images.cpp"
-      "src/tum_dataset/Undistorter.cpp"
+      "src/apps/tum_dataset/main_on_images.cpp"
+      "src/apps/tum_dataset/Undistorter.cpp"
 )
 
 set(KITTI_SRCS
-      "src/kitti/main_on_images.cpp"
+      "src/apps/kitti/main_on_images.cpp"
 )
 
 set(KITTI_BINOCULAR_SRCS
-      "src/kitti_binocular/main_on_images.cpp"
+      "src/apps/kitti_binocular/main_on_images.cpp"
 )
 
-file(GLOB SHADERS  "src/shaders/*")
+#file(GLOB SHADERS  "src/shaders/*")
 
-foreach(SHADER ${SHADERS})
-  file(COPY ${SHADER} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-endforeach(SHADER)
-
+#foreach(SHADER ${SHADERS})
+#  file(COPY ${SHADER} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+#endforeach(SHADER)
 
 add_executable(testapp ${TESTAPP_SRCS} ${VISUALODOMETRY_SRCS})
 add_executable(tum_dataset ${TUMDATASET_SRCS} ${VISUALODOMETRY_SRCS})

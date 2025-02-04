@@ -22,8 +22,8 @@ namespace mesh_vo
     // for a max depth of 10, using log(depth) as param
     // #define MAX_PARAM fromDepthToParam(1.0 + 0.5)
     // #define MIN_PARAM fromDepthToParam(1.0 - 0.5)
-    extern float initial_pose_var;
-    extern float good_pose_var;
+    extern float tracking_pose_var;
+    extern float mapping_pose_var;
     // #define INITIAL_PARAM_STD fromDepthToParam(0.01)
     // for a param = log(depth) and a max depth of 10, the max uncertanty should be ln(3) = 1.098
     extern float initial_param_var;

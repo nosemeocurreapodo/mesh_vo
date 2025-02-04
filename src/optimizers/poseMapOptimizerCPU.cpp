@@ -24,7 +24,7 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
         init_params.segment<6>(i * 6) = frames[i].getLocalPose().log();
         for (int j = 0; j < 6; j++)
         {
-            invCovariance(i * 6 + j, i * 6 + j) = 1.0 / mesh_vo::initial_pose_var;
+            invCovariance(i * 6 + j, i * 6 + j) = 1.0 / mesh_vo::mapping_pose_var;
         }
     }
 
@@ -106,9 +106,9 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
 
             if (mesh_vo::regu_weight > 0.0)
             {
-                DenseLinearProblem hg_regu = kframe.getGeometry().HGRegu(numPoseParams);
+                float weight = mesh_vo::regu_weight / numMapParams;
+                DenseLinearProblem hg_regu = kframe.getGeometry().HGRegu(numPoseParams, weight);
                 assert(hg_regu.getCount() > 0);
-                hg_regu *= mesh_vo::regu_weight / hg_regu.getCount();
                 problem += hg_regu;
             }
 

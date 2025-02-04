@@ -19,7 +19,7 @@ public:
         : baseOptimizerCPU(_cam),
           j_buffer(_cam.width, _cam.height, vec6f::Zero())
     {
-        invCovariance = mat6f::Identity() / mesh_vo::initial_pose_var;
+        invCovariance = mat6f::Identity() / mesh_vo::tracking_pose_var;
     }
 
     void optimize(frameCPU &frame, keyFrameCPU &kframe)

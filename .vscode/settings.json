@@ -109,7 +109,8 @@
         "stdfloat": "cpp",
         "__memory": "cpp",
         "callback": "cpp",
-        "image": "cpp"
+        "image": "cpp",
+        "primitiveset": "cpp"
     },
     "cmake.configureOnOpen": true
 }
