@@ -49,8 +49,10 @@
             //    "/mnt/nvme0n1p5/datasets/LSD_foodcourt/images/"
             //],
             "args": [
-                "/home/emanuel/workspace/datasets/tum_datasets/sequence_48/camera.txt",
-                "/home/emanuel/workspace/datasets/tum_datasets/sequence_48/images/"
+                "/home/emanuel/workspace/datasets/tum_datasets/sequence_50/camera.txt",
+                "/home/emanuel/workspace/datasets/tum_datasets/sequence_50/images/",
+                "500",
+                "1000"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

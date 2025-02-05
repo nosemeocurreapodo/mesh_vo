@@ -13,13 +13,15 @@ namespace mesh_vo
     float tracking_convergence_p = 0.999;
     float tracking_convergence_v = 1e-16;
     float tracking_pose_initial_var = 10000.0 * 10000.0;
+    float tracking_ini_lvl = 3;
+    float tracking_fin_lvl = 1;
 
     float mapping_regu_weight = 10.0;
-    float mapping_prior_weight = 0.0;
+    float mapping_prior_weight = 1.0;
     float mapping_convergence_p = 0.9999;
     float mapping_convergence_v = 1e-16;
-    float mapping_pose_initial_var = 100000.0 * 100000.0;
+    float mapping_pose_initial_var = 0.01 * 0.01;
     float mapping_pose_good_var = 0.01 * 0.01;
-    float mapping_param_initial_var = 10000.0 * 10000.0; //0.26 * 0.26;
-    float mapping_param_good_var = 0.5 * 0.5;
+    float mapping_param_initial_var = 100000.0 * 100000.0; //0.26 * 0.26;
+    float mapping_param_good_var = 100000.0 * 100000.0;
 }

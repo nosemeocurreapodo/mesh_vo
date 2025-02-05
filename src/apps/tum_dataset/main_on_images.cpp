@@ -119,9 +119,9 @@ int getFile(std::string source, std::vector<std::string> &files)
 using namespace lsd_slam;
 int main(int argc, char **argv)
 {
-	if (argc != 3)
+	if (argc != 5)
 	{
-		std::cout << "usage: " << argv[0] << " /path/to/calibfile /path/to/dataset" << std::endl;
+		std::cout << "usage: " << argv[0] << " /path/to/calibfile /path/to/dataset start_index end_index" << std::endl;
 		return 0;
 	}
 
@@ -176,11 +176,14 @@ int main(int argc, char **argv)
 	// get HZ
 	// double hz = std::atof(argv[2]);
 
+	int start_index = std::atoi(argv[3]);
+	int end_index = std::atoi(argv[4]);
+
 	cv::Mat image = cv::Mat(h, w, CV_8U);
 	int runningIDX = 0;
 	float fakeTimeStamp = 0;
 
-	for (unsigned int i = 0; i < files.size(); i++)
+	for (unsigned int i = start_index; i < end_index; i++) //files.size()
 	{
 		cv::Mat imageDist = cv::imread(files[i], cv::IMREAD_GRAYSCALE);
 

@@ -2,6 +2,10 @@ FROM osrf/ros:rolling-desktop
 
 docker pull osrf/ros:rolling-desktop
 docker run -it osrf/ros:rolling-desktop
+docker run -it -v /home/emanuel/workspace/datasets:/datasets osrf/ros:rolling-desktop
+
+xhost +si:localuser:root
+sudo docker run --runtime=nvidia -ti --rm -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix glxgears
 
 RUN apt-get update &&  DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
   build-essential \

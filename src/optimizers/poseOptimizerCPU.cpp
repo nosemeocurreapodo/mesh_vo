@@ -16,7 +16,7 @@ void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe)
     if (mesh_vo::tracking_prior_weight > 0.0)
         init_invcovariancesqrt = invCovariance.sqrt();
 
-    for (int lvl = 2; lvl >= 1; lvl--)
+    for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
     {
         Error last_error = computeError(frame, kframe, lvl);
         last_error *= 1.0 / last_error.getCount();
