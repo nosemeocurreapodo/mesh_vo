@@ -29,6 +29,8 @@ namespace mesh_vo
     extern float mapping_prior_weight;
     extern float mapping_convergence_p;
     extern float mapping_convergence_v;
+    extern float mapping_intrinsic_initial_var;
+    extern float mapping_intrinsic_good_var;
     extern float mapping_pose_initial_var;
     extern float mapping_pose_good_var;
     extern float mapping_param_initial_var;

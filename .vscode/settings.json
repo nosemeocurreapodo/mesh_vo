@@ -110,7 +110,15 @@
         "__memory": "cpp",
         "callback": "cpp",
         "image": "cpp",
-        "primitiveset": "cpp"
+        "primitiveset": "cpp",
+        "hash_set": "cpp",
+        "bufferobject": "cpp",
+        "mixinvector": "cpp",
+        "texture": "cpp",
+        "vertexarraystate": "cpp",
+        "buffered_value": "cpp",
+        "fast_back_stack": "cpp",
+        "containers": "cpp"
     },
     "cmake.configureOnOpen": true
 }

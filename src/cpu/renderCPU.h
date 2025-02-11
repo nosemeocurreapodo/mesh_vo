@@ -23,7 +23,7 @@ public:
     void renderIdepthLineSearch(keyFrameCPU &kframe, frameCPU &frame, cameraMipMap cam, int lvl)
     {
         SE3f relativePose = frame.getLocalPose();
-    
+
         scene1 = kframe.getGeometry();
         scene2 = kframe.getGeometry();
 
@@ -55,7 +55,6 @@ public:
         // pool.waitUntilDone();
 
         kframe.setGeometry(scene2);
-
     }
 
     void renderDepthFromClosestShape(keyFrameCPU &kframe, cameraMipMap cam, int lvl)
@@ -91,9 +90,8 @@ public:
         // pool.waitUntilDone();
 
         kframe.setGeometry(scene2);
-
     }
-    
+
     void renderRandom(camera cam, dataCPU<float> &buffer, float min = 0.1, float max = 1.9)
     {
         assert(cam.width == buffer.width && cam.height == buffer.height);
@@ -115,12 +113,12 @@ public:
     void renderInterpolate(camera cam, dataCPU<float> &buffer)
     {
         window win(0, cam.width - 1, 0, cam.height - 1);
-        //renderInterpolateWindow(cam, win, buffer);
+        // renderInterpolateWindow(cam, win, buffer);
 
         dataCPU<float> buffer2 = buffer;
 
         float nodata = buffer.getPercentNoData();
-        while(nodata > 0.0)
+        while (nodata > 0.0)
         {
             renderInterpolateWindow(buffer, buffer2, cam, win);
             buffer = buffer2;
@@ -174,7 +172,7 @@ public:
 
         scene1 = kframe.getGeometry();
         scene2 = kframe.getGeometry();
-    
+
         scene1.project(cam[lvl]);
         scene2.transform(relativePose);
         scene2.project(cam[lvl]);
@@ -209,7 +207,7 @@ public:
         z_buffer.setToNoData(lvl);
 
         SE3f relativePose = frame.getLocalPose();
-    
+
         scene1 = kframe.getGeometry();
         scene2 = kframe.getGeometry();
 
@@ -312,6 +310,44 @@ public:
 
                 renderJExpWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), jexp_buffer.get(lvl), e_buffer.get(lvl), z_buffer.get(lvl), cam[lvl], win);
                 // pool.enqueue(std::bind(&renderCPU::renderJLightAffineWindow, this, kimage, frame, cam, win, jlightaffine_buffer, e_buffer, lvl));
+            }
+        }
+
+        // pool.waitUntilDone();
+    }
+
+    void renderJIntrinsicParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<vec4f> &jintrinsic_buffer, dataMipMapCPU<float> &e_buffer, cameraMipMap cam, int lvl)
+    {
+        z_buffer.setToNoData(lvl);
+
+        SE3f relativePose = frame.getLocalPose();
+
+        scene1 = kframe.getGeometry();
+        scene2 = kframe.getGeometry();
+
+        scene1.project(cam[lvl]);
+        scene2.transform(relativePose);
+        scene2.project(cam[lvl]);
+
+        int divi_y = pool.getNumThreads();
+        int divi_x = 1;
+
+        int width = cam[lvl].width / divi_x;
+        int height = cam[lvl].height / divi_y;
+
+        for (int ty = 0; ty < divi_y; ty++)
+        {
+            for (int tx = 0; tx < divi_x; tx++)
+            {
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
+
+                window win(min_x, max_x - 1, min_y, max_y - 1);
+
+                renderJIntrinsicWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), frame.getdIdpixImage(lvl), jintrinsic_buffer.get(lvl), e_buffer.get(lvl), z_buffer.get(lvl), cam[lvl], win);
+                // pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kimage, frame, cam, win, jpose_buffer, e_buffer, lvl));
             }
         }
 
@@ -737,8 +773,8 @@ private:
 
     void renderIdepthLineSearchWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, SE3f imagePose, camera cam, window win)
     {
-        float min_idepth = 1.0/1.5;
-        float max_idepth = 1.0/0.5;
+        float min_idepth = 1.0 / 1.5;
+        float max_idepth = 1.0 / 0.5;
         float step_idepth = 0.01;
 
         float win_size = 2;
@@ -754,7 +790,7 @@ private:
         {
             vertex vert = scene1.getVertex(t_id);
 
-            if(vert.weight > 1.0 / mesh_vo::mapping_param_initial_var)
+            if (vert.weight > 1.0 / mesh_vo::mapping_param_initial_var)
                 continue;
 
             vec2f kf_pix = vert.pix;
@@ -763,56 +799,56 @@ private:
                 continue;
 
             float best_residual = 100000000000.0;
-            for(float kf_idepth = min_idepth; kf_idepth < max_idepth; kf_idepth+=step_idepth)
+            for (float kf_idepth = min_idepth; kf_idepth < max_idepth; kf_idepth += step_idepth)
             {
                 vec3f kf_ray = cam.pixToRay(kf_pix);
                 vec3f kf_ver = kf_ray / kf_idepth;
                 // vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
-                vec3f f_ver = kfToPose*kf_ver;
+                vec3f f_ver = kfToPose * kf_ver;
 
-                if(f_ver(2) <= 0)
+                if (f_ver(2) <= 0)
                     continue;
 
-                vec3f f_ray = f_ver/f_ver(2);
+                vec3f f_ray = f_ver / f_ver(2);
                 vec2f f_pix = cam.rayToPix(f_ray);
 
-                if(!cam.isPixVisible(f_pix))
+                if (!cam.isPixVisible(f_pix))
                     continue;
 
                 float residual = 0.0;
                 int count = 0;
-                for(int y = -win_size; y <= win_size; y++)
+                for (int y = -win_size; y <= win_size; y++)
                 {
-                    for(int x = -win_size; x <= win_size; x++)
+                    for (int x = -win_size; x <= win_size; x++)
                     {
                         vec2f shift_pix(x, y);
                         vec2f kf_pix_ = kf_pix + shift_pix;
                         vec2f f_pix_ = f_pix + shift_pix;
 
-                        if(!cam.isPixVisible(f_pix_))
+                        if (!cam.isPixVisible(f_pix_))
                             continue;
-                        if(!cam.isPixVisible(kf_pix_))
+                        if (!cam.isPixVisible(kf_pix_))
                             continue;
 
                         imageType kf_i = kimage.get(kf_pix_(1), kf_pix_(0));
-                        imageType f_i = image.get(f_pix_(1), f_pix_(0));                        
+                        imageType f_i = image.get(f_pix_(1), f_pix_(0));
 
                         if (kf_i == kimage.nodata || f_i == image.nodata)
                             continue;
 
                         float f_i_cor = alpha * (f_i - beta);
-                        residual += (f_i_cor - kf_i)*(f_i_cor - kf_i);
-                        count +=1;
+                        residual += (f_i_cor - kf_i) * (f_i_cor - kf_i);
+                        count += 1;
                     }
                 }
 
-                if(count < 0)
+                if (count < 0)
                     continue;
 
                 residual /= count;
 
-                if(residual < best_residual)
+                if (residual < best_residual)
                 {
                     best_residual = residual;
                     vertex best_vertex(kf_ver, kf_ray, kf_pix, 1.0 / mesh_vo::mapping_param_initial_var);
@@ -831,32 +867,110 @@ private:
         {
             vertex vert = scene1.getVertex(p_id);
 
-            if(vert.weight > 1.0 / mesh_vo::mapping_param_initial_var)
+            if (vert.weight > 1.0 / mesh_vo::mapping_param_initial_var)
                 continue;
 
-            //if (!win.isPixInWindow(vert.pix))
-            //    continue;
+            // if (!win.isPixInWindow(vert.pix))
+            //     continue;
 
             float closest_depth = -1.0;
             float closest_distance = 100000000.0;
-            for(int s_id : s_ids)
+            for (int s_id : s_ids)
             {
                 shapeType shape = scene1.getShape(s_id);
                 float distance = (vert.pix - shape.getCenterPix()).norm();
-                if(distance < closest_distance)
+                if (distance < closest_distance)
                 {
                     float depth = shape.getDepth(vert.pix);
-                    if(depth <= 0.0)
+                    if (depth <= 0.0)
                         continue;
                     closest_distance = distance;
                     closest_depth = depth;
                 }
             }
 
-            if(closest_depth > 0.0)
+            if (closest_depth > 0.0)
             {
-                vertex best_vertex(vert.ray*closest_depth, vert.ray, vert.pix, 1.0 / mesh_vo::mapping_param_initial_var);
+                vertex best_vertex(vert.ray * closest_depth, vert.ray, vert.pix, 1.0 / mesh_vo::mapping_param_initial_var);
                 scene2.setVertex(p_id, best_vertex);
+            }
+        }
+    }
+
+    void renderJIntrinsicWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, dataCPU<vec2f> &d_image_d_pix, dataCPU<vec4f> &jintrinsic_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, camera cam, window win)
+    {
+        float min_area = 0.0; //(float(cam.width) / MESH_WIDTH) * (float(cam.height) / MESH_HEIGHT) * 3 / 4;
+
+        float alpha = std::exp(-imageAffine(0));
+        float beta = imageAffine(1);
+
+        std::vector<int> t_ids = scene2.getShapesIds();
+
+        for (int t_id : t_ids)
+        {
+            auto f_pol = scene2.getShape(t_id);
+
+            if (!win.isPixInWindow(f_pol.getCenterPix()))
+                continue;
+
+            if (f_pol.getScreenArea() <= min_area)
+                continue;
+
+            auto kf_pol = scene1.getShape(t_id);
+
+            window pol_win = f_pol.getScreenBounds();
+
+            pol_win.intersect(win);
+
+            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            {
+                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                {
+                    vec2f f_pix(x, y);
+
+                    if (!f_pol.isPixInShape(f_pix))
+                        continue;
+
+                    float f_depth = f_pol.getDepth(f_pix);
+                    if (f_depth <= 0.0)
+                        continue;
+
+                    // z-buffer
+                    float l_depth = z_buffer.get(y, x);
+                    if (l_depth < f_depth && l_depth != z_buffer.nodata)
+                        continue;
+
+                    vec2f kf_pix = f_pol.getPix(f_pix, kf_pol);
+
+                    if (!cam.isPixVisible(kf_pix))
+                        continue;
+
+                    vec3f f_ray = cam.pixToRay(x, y);
+                    vec3f f_ver = f_ray * f_depth;
+                    // vec3<float> kf_ray = cam.pixToRay(kf_pix);
+
+                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    auto f_i = image.get(y, x);
+                    vec2f d_f_i_d_pix = d_image_d_pix.get(y, x);
+
+                    if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
+                        continue;
+
+                    vec4f d_f_i_d_intrinsic;
+
+                    d_f_i_d_intrinsic(0) = d_f_i_d_pix(0) * f_ray(0);
+                    d_f_i_d_intrinsic(1) = d_f_i_d_pix(1) * f_ray(1);
+                    d_f_i_d_intrinsic(2) = 1.0;
+                    d_f_i_d_intrinsic(3) = 1.0;
+
+                    float f_i_cor = alpha * (f_i - beta);
+
+                    float residual = (f_i_cor - kf_i);
+
+                    jintrinsic_buffer.set(d_f_i_d_intrinsic, y, x);
+                    e_buffer.set(residual, y, x);
+                    z_buffer.set(f_depth, y, x);
+                }
             }
         }
     }
@@ -1401,7 +1515,7 @@ private:
 
                     vec6f jpose;
                     jpose << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
-                    
+
                     vec2f jexp = vec2f(d_f_i_d_f_exp(0), d_f_i_d_f_exp(1));
 
                     vec3f d_f_ver_d_kf_depth = kfTofPose.rotationMatrix() * kf_ray;

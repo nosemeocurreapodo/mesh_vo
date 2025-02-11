@@ -9,7 +9,7 @@
 #include "optimizers/poseOptimizerCPU.h"
 #include "optimizers/mapOptimizerCPU.h"
 #include "optimizers/poseMapOptimizerCPU.h"
-//#include "optimizers/sceneOptimizerCPU.h"
+#include "optimizers/intrinsicPoseMapOptimizerCPU.h"
 
 class visualOdometry
 {
@@ -40,6 +40,7 @@ private:
     poseOptimizerCPU poseOptimizer;
     mapOptimizerCPU mapOptimizer;
     poseMapOptimizerCPU poseMapOptimizer;
+    intrinsicPoseMapOptimizerCPU intrinsicPoseMapOptimizer;
     //sceneOptimizerCPU<SceneMesh, vec3<float>, vec3<int>> sceneOptimizer;
     
     renderCPU renderer;

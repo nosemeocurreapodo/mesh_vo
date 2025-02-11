@@ -220,7 +220,7 @@ public:
         }
     }
 
-    camera &operator[](int c)
+    camera operator[](int c)
     {
         assert(c >= 0 && c < cam.size());
         return cam[c];

@@ -10,6 +10,7 @@
 
 using vec2f = Eigen::Vector2f;
 using vec3f = Eigen::Vector3f;
+using vec4f = Eigen::Vector4f;
 using vec6f = Eigen::Matrix<float, 6, 1>;
 using vecxf = Eigen::VectorXf;
 

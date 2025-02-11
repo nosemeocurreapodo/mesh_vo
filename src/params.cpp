@@ -20,6 +20,8 @@ namespace mesh_vo
     float mapping_prior_weight = 1.0;
     float mapping_convergence_p = 0.9999;
     float mapping_convergence_v = 1e-16;
+    float mapping_intrinsic_initial_var = 0.01 * 0.01;
+    float mapping_intrinsic_good_var = 0.01 * 0.01;
     float mapping_pose_initial_var = 0.01 * 0.01;
     float mapping_pose_good_var = 0.01 * 0.01;
     float mapping_param_initial_var = 100000.0 * 100000.0; //0.26 * 0.26;

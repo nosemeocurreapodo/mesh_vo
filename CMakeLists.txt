@@ -41,6 +41,7 @@ set(VISUALODOMETRY_SRCS
       "src/optimizers/poseOptimizerCPU.cpp"
       "src/optimizers/mapOptimizerCPU.cpp"
       "src/optimizers/poseMapOptimizerCPU.cpp"
+      "src/optimizers/intrinsicPoseMapOptimizerCPU.cpp"
       "src/visualOdometry.cpp")
 
 #file(GLOB TESTAPP_SRCS "src/test/*.cpp"

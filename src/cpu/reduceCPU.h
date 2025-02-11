@@ -227,6 +227,51 @@ public:
         return partialhg[0];
     }
 
+    DenseLinearProblem reduceHGIntrinsicPoseMapParallel(int frameId, int numFrames, int numMapParams, dataCPU<vec4f> &jintrinsic_buffer, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer)
+    {
+        const int divi_y = ThreadPool<mesh_vo::reducer_nthreads>::getNumThreads();
+        const int divi_x = 1;
+
+        // HGEigenSparse partialhg[divi_x * divi_y];
+
+        std::vector<DenseLinearProblem> partialhg;
+
+        // calling constructor
+        // for each index of array
+        for (int i = 0; i < divi_x * divi_y; i++)
+        {
+            partialhg.push_back(DenseLinearProblem(4 + numFrames * 6 + numMapParams));
+        }
+
+        int width = jpose_buffer.width / divi_x;
+        int height = jpose_buffer.height / divi_y;
+
+        for (int ty = 0; ty < divi_y; ty++)
+        {
+            for (int tx = 0; tx < divi_x; tx++)
+            {
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
+
+                window win(min_x, max_x, min_y, max_y);
+
+                reduceHGIntrinsicPoseMapWindow(win, frameId, numFrames, jintrinsic_buffer, jpose_buffer, jmap_buffer, err_buffer, pId_buffer, partialhg[tx + ty * divi_x]);
+                // pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow<Type1, Type2>, this, win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
+            }
+        }
+
+        // pool.waitUntilDone();
+
+        for (int i = 1; i < divi_y * divi_x; i++)
+        {
+            partialhg[0] += partialhg[i];
+        }
+
+        return partialhg[0];
+    }
+
 private:
     void reduceErrorWindow(window win, dataCPU<float> &residual, Error &err)
     {
@@ -340,6 +385,52 @@ private:
                 {
                     J(i + 6) = J_map(i);
                     ids(i + 6) = map_ids(i) + numFrames*6;
+                }
+
+                hg.add(J, res, hw, ids);
+            }
+        }
+    }
+
+    void reduceHGIntrinsicPoseMapWindow(window win, int frameId, int numFrames, dataCPU<vec4f> &jintrinsic_buffer, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
+    {
+        for (int y = win.min_y; y < win.max_y; y++)
+        {
+            for (int x = win.min_x; x < win.max_x; x++)
+            {
+                vec4f J_intrinsic = jintrinsic_buffer.get(y, x);
+                vec6f J_pose = jpose_buffer.get(y, x);
+                jmapType J_map = jmap_buffer.get(y, x);
+                float res = res_buffer.get(y, x);
+                idsType map_ids = pId_buffer.get(y, x);
+
+                if (res == res_buffer.nodata || J_intrinsic == jintrinsic_buffer.nodata || J_pose == jpose_buffer.nodata || J_map == jmap_buffer.nodata || map_ids == pId_buffer.nodata)
+                    continue;
+
+                float absres = std::fabs(res);
+                float hw = 1.0;
+                if (absres > mesh_vo::huber_thresh_pix)
+                    hw = mesh_vo::huber_thresh_pix / absres;
+
+                //hg.add(J_pose, J_map, res, hw, frameId, map_ids);
+
+                vecxf J(10 + J_map.rows());
+                vecxi ids(10 + J_map.rows());
+
+                for(int i = 0; i < 4; i++)
+                {
+                    J(i) = J_intrinsic(i);
+                    ids(i) = i;
+                }
+                for(int i = 0; i < 6; i++)
+                {
+                    J(i) = J_pose(i);
+                    ids(i) = frameId * 6 + i + 4;
+                }
+                for(int i = 0; i < J_map.rows(); i++)
+                {
+                    J(i + 6) = J_map(i);
+                    ids(i + 6) = map_ids(i) + numFrames*6 + 4;
                 }
 
                 hg.add(J, res, hw, ids);

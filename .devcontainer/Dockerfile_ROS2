@@ -6,6 +6,7 @@ docker run -it -v /home/emanuel/workspace/datasets:/datasets osrf/ros:rolling-de
 
 xhost +si:localuser:root
 sudo docker run --runtime=nvidia -ti --rm -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix glxgears
+docker run -it -v /home/emanuel/workspace/datasets:/datasets -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix  osrf/ros:rolling-desktop
 
 RUN apt-get update &&  DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
   build-essential \

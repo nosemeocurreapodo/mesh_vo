@@ -116,7 +116,7 @@ public:
             depths.push_back(dph);
             weights.push_back(wght);
 
-            assert(depths.size() <= MAX_VERTEX_SIZE);
+            assert(depths.size() <= mesh_vo::max_vertex_size);
         }
 
         geometry.init(texcoordsWithData, depths, weights, cam);
