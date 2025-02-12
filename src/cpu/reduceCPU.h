@@ -35,7 +35,7 @@ public:
                 int min_y = ty * height;
                 int max_y = (ty + 1) * height;
 
-                window win = {min_x, max_x, min_y, max_y};
+                window<int> win(min_x, max_x, min_y, max_y);
 
                 reduceErrorWindow(win, residual, partialerr[tx + ty * divi_x]);
                 // pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, win, &residual, &weights, &partialerr[tx + ty * divi_x], lvl));
@@ -78,7 +78,7 @@ public:
                 int min_y = ty * height;
                 int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window<int> win(min_x, max_x, min_y, max_y);
 
                 reduceHGExpWindow(win, jexp_buffer, err_buffer, partialhg[tx + ty * divi_x]);
                 // pool.enqueue(std::bind(&reduceCPU::reduceHGLightAffineWindow, this, win, &jlightaffine_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x]));
@@ -273,10 +273,10 @@ public:
     }
 
 private:
-    void reduceErrorWindow(window win, dataCPU<float> &residual, Error &err)
+    void reduceErrorWindow(window<int> win, dataCPU<float> &residual, Error &err)
     {
-        for (int y = win.min_y; y < win.max_y; y++)
-            for (int x = win.min_x; x < win.max_x; x++)
+        for (int y = win.min_y; y < win.max_y; y+=1)
+            for (int x = win.min_x; x < win.max_x; x+=1)
             {
                 float res = residual.get(y, x);
                 if (res == residual.nodata)
@@ -289,11 +289,11 @@ private:
             }
     }
 
-    void reduceHGExpWindow(window win, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &res_buffer, DenseLinearProblem &hg)
+    void reduceHGExpWindow(window<int> win, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &res_buffer, DenseLinearProblem &hg)
     {
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y < win.max_y; y+=1)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x < win.max_x; x+=1)
             {
                 vec2f J = jexp_buffer.get(y, x);
                 float res = res_buffer.get(y, x);
@@ -309,11 +309,11 @@ private:
         }
     }
 
-    void reduceHGPoseWindow(window win, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &res_buffer, DenseLinearProblem &hg)
+    void reduceHGPoseWindow(window<int> win, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &res_buffer, DenseLinearProblem &hg)
     {
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y < win.max_y; y+=1)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x < win.max_x; x+=1)
             {
                 vec6f J = jpose_buffer.get(y, x);
                 float res = res_buffer.get(y, x);
@@ -329,11 +329,11 @@ private:
         }
     }
 
-    void reduceHGMapWindow(window win, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
+    void reduceHGMapWindow(window<int> win, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
     {
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y < win.max_y; y+=1)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x < win.max_x; x+=1)
             {
                 jmapType jac = jmap_buffer.get(y, x);
                 float res = res_buffer.get(y, x);
@@ -352,11 +352,11 @@ private:
         }
     }
 
-    void reduceHGPoseMapWindow(window win, int frameId, int numFrames, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
+    void reduceHGPoseMapWindow(window<int> win, int frameId, int numFrames, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
     {
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y < win.max_y; y+=1)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x < win.max_x; x+=1)
             {
                 vec6f J_pose = jpose_buffer.get(y, x);
                 jmapType J_map = jmap_buffer.get(y, x);
@@ -392,11 +392,11 @@ private:
         }
     }
 
-    void reduceHGIntrinsicPoseMapWindow(window win, int frameId, int numFrames, dataCPU<vec4f> &jintrinsic_buffer, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
+    void reduceHGIntrinsicPoseMapWindow(window<int> win, int frameId, int numFrames, dataCPU<vec4f> &jintrinsic_buffer, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
     {
-        for (int y = win.min_y; y < win.max_y; y++)
+        for (int y = win.min_y; y < win.max_y; y+=1)
         {
-            for (int x = win.min_x; x < win.max_x; x++)
+            for (int x = win.min_x; x < win.max_x; x+=1)
             {
                 vec4f J_intrinsic = jintrinsic_buffer.get(y, x);
                 vec6f J_pose = jpose_buffer.get(y, x);

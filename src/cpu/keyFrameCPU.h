@@ -52,7 +52,7 @@ public:
 
     void initGeometryRandom(camera cam)
     {
-        std::vector<vec2f> texcoords = uniformTexCoords(cam);
+        std::vector<vec2f> texcoords = uniformTexCoords();
         std::vector<float> depths;
         std::vector<float> weights;
         for (vec2f texcoord : texcoords)
@@ -67,12 +67,12 @@ public:
 
     void initGeometryVerticallySmooth(camera cam)
     {
-        std::vector<vec2f> texcoords = uniformTexCoords(cam);
+        std::vector<vec2f> texcoords = uniformTexCoords();
         std::vector<float> depths;
         std::vector<float> weights;
         for (vec2f texcoord : texcoords)
         {
-            float depth = verticallySmoothDepth(texcoord, 0.5, 1.5, cam);
+            float depth = verticallySmoothDepth(texcoord, 0.5, 1.5);
             depths.push_back(depth);
             weights.push_back(1.0 / mesh_vo::mapping_param_initial_var);
         }
@@ -82,10 +82,7 @@ public:
 
     void initGeometryFromDepth(dataCPU<float> &depth, dataCPU<float> &weight, camera cam)
     {
-        assert(depth.width == cam.width && depth.height == cam.height);
-        assert(weight.width == cam.width && weight.height == cam.height);
-
-        std::vector<vec2f> texcoords = uniformTexCoords(cam);
+        std::vector<vec2f> texcoords = uniformTexCoords();
         std::vector<float> depths;
         std::vector<float> weights;
 
@@ -229,7 +226,7 @@ public:
     }
 
 private:
-    std::vector<vec2f> uniformTexCoords(camera cam)
+    std::vector<vec2f> uniformTexCoords()
     {
         std::vector<vec2f> texcoords;
         for (float y = 0.0; y < mesh_vo::mesh_height; y++)
@@ -237,8 +234,8 @@ private:
             for (float x = 0.0; x < mesh_vo::mesh_width; x++)
             {
                 vec2f pix;
-                pix(0) = (cam.width - 1) * x / (mesh_vo::mesh_width - 1);
-                pix(1) = (cam.height - 1) * y / (mesh_vo::mesh_height - 1);
+                pix(0) = x / (mesh_vo::mesh_width - 1);
+                pix(1) = y / (mesh_vo::mesh_height - 1);
 
                 texcoords.push_back(pix);
             }
@@ -253,10 +250,10 @@ private:
         return depth;
     }
 
-    float verticallySmoothDepth(vec2f texcoord, float min_depth, float max_depth, camera cam)
+    float verticallySmoothDepth(vec2f texcoord, float min_depth, float max_depth)
     {
         //max depth when y = 0
-        float depth = max_depth + (min_depth - max_depth) * texcoord(1) / (cam.width - 1.0);
+        float depth = max_depth + (min_depth - max_depth) * texcoord(1);
         return depth;
     }
 
@@ -281,7 +278,7 @@ private:
         return best_depth;
         */
 
-        float sigma = 0.1*cam.width;
+        float sigma = 0.1;
 
         float depth_sum = 0.0;
         float weight_sum = 0.0;

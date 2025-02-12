@@ -55,11 +55,10 @@ public:
             float dph = depths[i];
             float weight = weights[i];
 
+            assert(cam.isPixVisible(pix));
             assert(dph > 0.0);
             assert(!std::isnan(dph));
             assert(!std::isinf(dph));
-
-            assert(pix(0) >= 0 && pix(0) < cam.width && pix(1) >= 0 && pix(1) < cam.height);
 
             vec3f ray = cam.pixToRay(pix);
             vec3f vertice = ray * dph;

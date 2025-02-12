@@ -2,15 +2,23 @@
 
 #include "common/types.h"
 
+template <typename Type>
 class window
 {
 public:
-    window(int minx, int maxx, int miny, int maxy)
+    window(Type minx, Type maxx, Type miny, Type maxy)
     {
         min_x = minx;
         min_y = miny;
         max_x = maxx;
         max_y = maxy;
+    }
+
+    bool isPixInWindow(Type x, Type y)
+    {
+        if (x > min_x && x < max_x && y > min_y && y < max_y)
+            return true;
+        return false;
     }
 
     bool isPixInWindow(vec2f pix)
@@ -28,9 +36,8 @@ public:
         max_y = std::min(max_y, win.max_y);
     }
 
-    int min_x;
-    int max_x;
-    int min_y;
-    int max_y;
+    Type min_x;
+    Type max_x;
+    Type min_y;
+    Type max_y;
 };
-

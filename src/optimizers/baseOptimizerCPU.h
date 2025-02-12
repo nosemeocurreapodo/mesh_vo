@@ -21,7 +21,7 @@ protected:
     void plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &frames, std::string window_name);
     Error computeError(frameCPU &frame, keyFrameCPU &kframe, int lvl);
 
-    cameraMipMap cam;
+    camera cam;
 
     dataMipMapCPU<float> image_buffer;
     dataMipMapCPU<float> depth_buffer;

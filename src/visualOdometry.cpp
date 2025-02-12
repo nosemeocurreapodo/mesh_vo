@@ -16,13 +16,8 @@ visualOdometry::visualOdometry(camera &_cam)
 
 void visualOdometry::init(dataCPU<float> &image, SE3f globalPose)
 {
-    assert(image.width == cam[0].width && image.height == cam[0].height);
-
-    dataCPU<float> buffer(cam[0].width, cam[0].height, -1.0);
-    dataCPU<float> wbuffer(cam[0].width, cam[0].height, -1.0);
-
     kframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0);
-    kframe.initGeometryVerticallySmooth(cam[0]);
+    kframe.initGeometryVerticallySmooth();
 }
 
 void visualOdometry::init(dataCPU<float> &image, SE3f globalPose, dataCPU<float> &depth, dataCPU<float> &weight)
@@ -111,8 +106,6 @@ float visualOdometry::getViewPercent(frameCPU &frame)
 
 void visualOdometry::locAndMap(dataCPU<float> &image)
 {
-    assert(image.width == cam[0].width && image.height == cam[0].height);
-
     tic_toc t;
     bool optimize = false;
 
@@ -256,8 +249,6 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
 
 void visualOdometry::lightaffine(dataCPU<float> &image, SE3f globalPose)
 {
-    assert(image.width == cam[0].width && image.height == cam[0].height);
-
     tic_toc t;
 
     lastFrame.setImage(image, lastId);
@@ -272,8 +263,6 @@ void visualOdometry::lightaffine(dataCPU<float> &image, SE3f globalPose)
 
 void visualOdometry::localization(dataCPU<float> &image)
 {
-    assert(image.width == cam[0].width && image.height == cam[0].height);
-
     tic_toc t;
 
     SE3f lastLocalPose = lastFrame.getLocalPose();
@@ -294,8 +283,6 @@ void visualOdometry::localization(dataCPU<float> &image)
 
 void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
 {
-    assert(image.width == cam[0].width && image.height == cam[0].height);
-
     tic_toc t;
     bool optimize = false;
 
@@ -353,7 +340,7 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
             dataMipMapCPU<float> weight_buffer(cam[0].width, cam[0].height, -1);
             renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, lvl);
             //renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
-            renderer.renderInterpolate(cam[lvl], depth_buffer.get(lvl));
+            renderer.renderInterpolate(depth_buffer.get(lvl));
 
             // save local frames global params
             std::vector<SE3f> goodFramesGlobalPoses;
@@ -374,7 +361,7 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
             vec2f newKeyframeGlobalExp = kframe.localExpToGlobal(newKeyframe.getLocalExp());
 
             kframe.init(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
-            kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam[lvl]);
+            kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam);
 
             vec2f meanStd = kframe.getGeometry().meanStdDepth();
             //vec2f minMax = kframe.getGeometry().minMaxDepthParams();

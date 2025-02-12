@@ -461,14 +461,14 @@ public:
     };
     */
 
-    window getScreenBounds()
+    window<float> getScreenBounds()
     {
-        int min_x = std::min(std::min((int)m_vert0.pix(0), (int)m_vert1.pix(0)), (int)m_vert2.pix(0)) - 1;
-        int max_x = std::max(std::max((int)m_vert0.pix(0), (int)m_vert1.pix(0)), (int)m_vert2.pix(0)) + 1;
-        int min_y = std::min(std::min((int)m_vert0.pix(1), (int)m_vert1.pix(1)), (int)m_vert2.pix(1)) - 1;
-        int max_y = std::max(std::max((int)m_vert0.pix(1), (int)m_vert1.pix(1)), (int)m_vert2.pix(1)) + 1;
+        float min_x = std::min(std::min((int)m_vert0.pix(0), (int)m_vert1.pix(0)), (int)m_vert2.pix(0)) - 1;
+        float max_x = std::max(std::max((int)m_vert0.pix(0), (int)m_vert1.pix(0)), (int)m_vert2.pix(0)) + 1;
+        float min_y = std::min(std::min((int)m_vert0.pix(1), (int)m_vert1.pix(1)), (int)m_vert2.pix(1)) - 1;
+        float max_y = std::max(std::max((int)m_vert0.pix(1), (int)m_vert1.pix(1)), (int)m_vert2.pix(1)) + 1;
 
-        window win(min_x, max_x, min_y, max_y);
+        window<float> win(min_x, max_x, min_y, max_y);
 
         return win;
     };

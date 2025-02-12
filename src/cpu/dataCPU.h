@@ -55,7 +55,7 @@ public:
         m_data = nullptr;
     }
 
-    void set(const Type value, int y, int x)
+    void setTexel(const Type value, int y, int x)
     {
         assert(y >= 0 && x >= 0 && y < height && x < width);
 
@@ -63,16 +63,16 @@ public:
         m_data[address] = value;
     }
 
-    void set(const Type value, float y, float x)
+    void setTexel(const Type value, float y, float x)
     {
         set(value, int(y), int(x));
     }
 
-    void setNormalized(const Type value, float norm_y, float norm_x)
+    void set(const Type value, float norm_y, float norm_x)
     {
         float y = norm_y * height;
         float x = norm_x * width;
-        set(value, int(y), int(x));
+        setTexel(value, int(y), int(x));
     }
 
     void set(const Type value)
@@ -94,7 +94,7 @@ public:
         std::memcpy(m_data, data, sizeof(Type) * width * height);
     }
 
-    Type get(int y, int x) const
+    Type getTexel(int y, int x) const
     {
         assert(y >= 0 && x >= 0 && y < height && x < width);
 
@@ -102,16 +102,16 @@ public:
         return m_data[address];
     }
 
-    Type get(float y, float x) const
+    Type getTexel(float y, float x) const
     {
         return bilinear(y, x);
     }
 
-    Type getNormalized(float norm_y, float norm_x) const
+    Type get(float norm_y, float norm_x) const
     {
         float x = norm_x * width;
         float y = norm_y * height;
-        return get(y, x);
+        return getTexel(y, x);
     }
 
     Type *get()
@@ -125,9 +125,9 @@ public:
         {
             for (int x = 0; x < width; x++)
             {
-                Type d = get(y, x);
+                Type d = getTexel(y, x);
                 assert(d != 0);
-                set(1.0 / d, y, x);
+                setTexel(1.0 / d, y, x);
             }
         }
     }
@@ -156,7 +156,7 @@ public:
             for (int x = 0; x < width / 2; x++)
             {
                 Type pixel = area(y * 2, x * 2);
-                mipmap.set(pixel, y, x);
+                mipmap.setTexel(pixel, y, x);
             }
         }
         return mipmap;
@@ -264,7 +264,7 @@ private:
         // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
         // int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
         if (y > height - 2 || x > width - 2)
-            return get(int(y), int(x));
+            return getTexel(int(y), int(x));
 
         int _x = int(x);
         int _y = int(y);
@@ -276,10 +276,10 @@ private:
         float weight_bl = (1.0 - dx) * (dy);
         float weight_br = (dx) * (dy);
 
-        Type tl = get(_y, _x);
-        Type tr = get(_y, _x + 1);
-        Type bl = get(_y + 1, _x);
-        Type br = get(_y + 1, _x + 1);
+        Type tl = getTexel(_y, _x);
+        Type tr = getTexel(_y, _x + 1);
+        Type bl = getTexel(_y + 1, _x);
+        Type br = getTexel(_y + 1, _x + 1);
 
         if (tl == nodata || tr == nodata || bl == nodata || br == nodata)
             return nodata;
@@ -298,12 +298,12 @@ private:
         // int _x = std::min(std::max(int(x), 0), texture[lvl].cols-2);
         // int _y = std::min(std::max(int(y), 0), texture[lvl].rows-2);
         if (y > height - 2 || x > width - 2)
-            return get(y, x);
+            return getTexel(y, x);
 
-        Type tl = get(y, x);
-        Type tr = get(y, x + 1);
-        Type bl = get(y + 1, x);
-        Type br = get(y + 1, x + 1);
+        Type tl = getTexel(y, x);
+        Type tr = getTexel(y, x + 1);
+        Type bl = getTexel(y + 1, x);
+        Type br = getTexel(y + 1, x + 1);
 
         if (tl == nodata || tr == nodata || bl == nodata || br == nodata)
             return nodata;
@@ -362,19 +362,19 @@ public:
         return *this;
     }
 
-    void set(Type value, int y, int x, int lvl)
+    void setTexel(Type value, int y, int x, int lvl)
     {
-        data[lvl].set(value, y, x);
+        data[lvl].setTexel(value, y, x);
     }
 
-    void set(Type value, float y, float x, int lvl)
+    void setTexel(Type value, float y, float x, int lvl)
     {
-        data[lvl].set(value, y, x);
+        data[lvl].setTexel(value, y, x);
     }
 
-    void setNormalized(Type value, float norm_y, float norm_x, int lvl)
+    void set(Type value, float norm_y, float norm_x, int lvl)
     {
-        data[lvl].setNormalized(value, norm_y, norm_x);
+        data[lvl].set(value, norm_y, norm_x);
     }
 
     void set(Type value, int lvl)
@@ -398,19 +398,19 @@ public:
         generateMipmaps();
     }
 
-    Type get(int y, int x, int lvl)
+    Type getTexel(int y, int x, int lvl)
     {
-        return data[lvl].get(y, x);
+        return data[lvl].getTexel(y, x);
     }
 
-    Type get(float y, float x, int lvl)
+    Type getTexel(float y, float x, int lvl)
     {
-        return data[lvl].get(y, x);
+        return data[lvl].getTexel(y, x);
     }
 
-    Type getNormalized(float norm_y, float norm_x, int lvl)
+    Type get(float norm_y, float norm_x, int lvl)
     {
-        return data[lvl].getNormalized(lvl);
+        return data[lvl].get(norm_y, norm_x);
     }
 
     dataCPU<Type> &get(int lvl)

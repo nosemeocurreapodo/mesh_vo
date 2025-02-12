@@ -37,7 +37,6 @@ int main(int argc, char * argv[])
     fx = 481.20; fy = 480.0; cx = 319.5; cy = 239.5;
 
     camera cam(fx, fy, cx, cy, width, height);
-    cam.resize(mesh_vo::image_width, mesh_vo::image_height);
 
     cv::Mat imageMat = cv::imread(dataset_path + "images/scene_000.png", cv::IMREAD_GRAYSCALE);
     //cv::Mat idepthMat = cv::imread(dataset_path + "depths/scene_000.png", cv::IMREAD_GRAYSCALE);
@@ -123,7 +122,7 @@ int main(int argc, char * argv[])
         realPose.translation() = realPose.translation()*0.25;
 
         imageMat.convertTo(imageMat, CV_32FC1);
-        cv::resize(imageMat, imageMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
+        cv::resize(imageMat, imageMat, cv::Size(mesh_vo::image_width, mesh_vo::image_height), cv::INTER_AREA);
 
         image.set((float*)imageMat.data);
 
