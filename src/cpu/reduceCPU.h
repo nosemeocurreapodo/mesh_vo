@@ -121,7 +121,7 @@ public:
                 int min_y = ty * height;
                 int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window<int> win(min_x, max_x, min_y, max_y);
 
                 reduceHGPoseWindow(win, jpose_buffer, err_buffer, partialhg[tx + ty * divi_x]);
                 // pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x]), lvl);
@@ -164,7 +164,7 @@ public:
                 int min_y = ty * height;
                 int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window<int> win(min_x, max_x, min_y, max_y);
 
                 reduceHGMapWindow(win, j_buffer, err_buffer, pId_buffer, partialhg[tx + ty * divi_x]);
                 // pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x]), lvl);
@@ -210,7 +210,7 @@ public:
                 int min_y = ty * height;
                 int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window<int> win(min_x, max_x, min_y, max_y);
 
                 reduceHGPoseMapWindow(win, frameId, numFrames, jpose_buffer, jmap_buffer, err_buffer, pId_buffer, partialhg[tx + ty * divi_x]);
                 // pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow<Type1, Type2>, this, win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
@@ -255,7 +255,7 @@ public:
                 int min_y = ty * height;
                 int max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window<int> win(min_x, max_x, min_y, max_y);
 
                 reduceHGIntrinsicPoseMapWindow(win, frameId, numFrames, jintrinsic_buffer, jpose_buffer, jmap_buffer, err_buffer, pId_buffer, partialhg[tx + ty * divi_x]);
                 // pool.enqueue(std::bind(&reduceCPU::reduceHGPoseMapWindow<Type1, Type2>, this, win, frameId, numMapParams, &jpose_buffer, &jmap_buffer, &err_buffer, &pId_buffer, &partialhg[tx + ty * divi_x], lvl));
@@ -278,7 +278,7 @@ private:
         for (int y = win.min_y; y < win.max_y; y+=1)
             for (int x = win.min_x; x < win.max_x; x+=1)
             {
-                float res = residual.get(y, x);
+                float res = residual.getTexel(y, x);
                 if (res == residual.nodata)
                     continue;
                 float absresidual = std::fabs(res);
@@ -295,8 +295,8 @@ private:
         {
             for (int x = win.min_x; x < win.max_x; x+=1)
             {
-                vec2f J = jexp_buffer.get(y, x);
-                float res = res_buffer.get(y, x);
+                vec2f J = jexp_buffer.getTexel(y, x);
+                float res = res_buffer.getTexel(y, x);
                 if (J == jexp_buffer.nodata || res == res_buffer.nodata)
                     continue;
                 float absres = std::fabs(res);
@@ -315,8 +315,8 @@ private:
         {
             for (int x = win.min_x; x < win.max_x; x+=1)
             {
-                vec6f J = jpose_buffer.get(y, x);
-                float res = res_buffer.get(y, x);
+                vec6f J = jpose_buffer.getTexel(y, x);
+                float res = res_buffer.getTexel(y, x);
                 if (J == jpose_buffer.nodata || res == res_buffer.nodata)
                     continue;
                 float absres = std::fabs(res);
@@ -335,9 +335,9 @@ private:
         {
             for (int x = win.min_x; x < win.max_x; x+=1)
             {
-                jmapType jac = jmap_buffer.get(y, x);
-                float res = res_buffer.get(y, x);
-                idsType ids = pId_buffer.get(y, x);
+                jmapType jac = jmap_buffer.getTexel(y, x);
+                float res = res_buffer.getTexel(y, x);
+                idsType ids = pId_buffer.getTexel(y, x);
 
                 if (res == res_buffer.nodata || jac == jmap_buffer.nodata || ids == pId_buffer.nodata)
                     continue;
@@ -358,10 +358,10 @@ private:
         {
             for (int x = win.min_x; x < win.max_x; x+=1)
             {
-                vec6f J_pose = jpose_buffer.get(y, x);
-                jmapType J_map = jmap_buffer.get(y, x);
-                float res = res_buffer.get(y, x);
-                idsType map_ids = pId_buffer.get(y, x);
+                vec6f J_pose = jpose_buffer.getTexel(y, x);
+                jmapType J_map = jmap_buffer.getTexel(y, x);
+                float res = res_buffer.getTexel(y, x);
+                idsType map_ids = pId_buffer.getTexel(y, x);
 
                 if (res == res_buffer.nodata || J_pose == jpose_buffer.nodata || J_map == jmap_buffer.nodata || map_ids == pId_buffer.nodata)
                     continue;
@@ -398,11 +398,11 @@ private:
         {
             for (int x = win.min_x; x < win.max_x; x+=1)
             {
-                vec4f J_intrinsic = jintrinsic_buffer.get(y, x);
-                vec6f J_pose = jpose_buffer.get(y, x);
-                jmapType J_map = jmap_buffer.get(y, x);
-                float res = res_buffer.get(y, x);
-                idsType map_ids = pId_buffer.get(y, x);
+                vec4f J_intrinsic = jintrinsic_buffer.getTexel(y, x);
+                vec6f J_pose = jpose_buffer.getTexel(y, x);
+                jmapType J_map = jmap_buffer.getTexel(y, x);
+                float res = res_buffer.getTexel(y, x);
+                idsType map_ids = pId_buffer.getTexel(y, x);
 
                 if (res == res_buffer.nodata || J_intrinsic == jintrinsic_buffer.nodata || J_pose == jpose_buffer.nodata || J_map == jmap_buffer.nodata || map_ids == pId_buffer.nodata)
                     continue;

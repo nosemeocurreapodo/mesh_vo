@@ -17,6 +17,16 @@ public:
         computeKinv();
     }
 
+    camera(float _fx, float _fy, float _cx, float _cy)
+    {
+        fx = _fx;
+        fy = _fy;
+        cx = _cx;
+        cy = _cy;
+
+        computeKinv();
+    }
+
     void computeKinv()
     {
         mat3f K = mat3f::Zero();
@@ -41,7 +51,7 @@ public:
         // so here the max is one more than the last pixel
         // if (pix(0) < window_min_x || pix(0) > window_max_x || pix(1) < window_min_y || pix(1) > window_max_y)
         //    return false;
-        if (pix(0) < 0 || pix(0) >= 1.0 || pix(1) < 0 || pix(1) >= 1.0)
+        if (pix(0) < 0 || pix(0) > 1.0 || pix(1) < 0 || pix(1) > 1.0)
             return false;
         return true;
     }

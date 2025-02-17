@@ -2,8 +2,8 @@
 
 namespace mesh_vo
 {
-    inline constexpr int image_width = 512;
-    inline constexpr int image_height = 512;
+    //inline constexpr int image_width = 512;
+    //inline constexpr int image_height = 512;
     inline constexpr int mesh_width = 32;
     inline constexpr int mesh_height = 32;
     inline constexpr int max_vertex_size = mesh_width * mesh_height;

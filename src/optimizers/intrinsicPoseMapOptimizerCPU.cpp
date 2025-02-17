@@ -1,15 +1,15 @@
 #include "optimizers/intrinsicPoseMapOptimizerCPU.h"
 
-intrinsicPoseMapOptimizerCPU::intrinsicPoseMapOptimizerCPU(camera &_cam)
-    : baseOptimizerCPU(_cam),
-      jintrinsic_buffer(_cam.width, _cam.height, vec4f::Zero()),
-      jpose_buffer(_cam.width, _cam.height, vec6f::Zero()),
-      jmap_buffer(_cam.width, _cam.height, jmapType::Zero()),
-      pId_buffer(_cam.width, _cam.height, idsType::Zero())
+intrinsicPoseMapOptimizerCPU::intrinsicPoseMapOptimizerCPU(int width, int height)
+    : baseOptimizerCPU(width, height),
+      jintrinsic_buffer(width, height, vec4f::Zero()),
+      jpose_buffer(width, height, vec6f::Zero()),
+      jmap_buffer(width, height, jmapType::Zero()),
+      pId_buffer(width, height, idsType::Zero())
 {
 }
 
-void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe)
+void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, camera &cam)
 {
     std::vector<int> mapParamsIds = kframe.getGeometry().getParamIds();
     int numIntrinsicParams = 4;
@@ -23,10 +23,10 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
 
     for (int lvl = 1; lvl >= 1; lvl--)
     {
-        init_params(0) = cam[lvl].fx;
-        init_params(1) = cam[lvl].fy;
-        init_params(2) = cam[lvl].cx;
-        init_params(3) = cam[lvl].cy;
+        init_params(0) = cam.fx;
+        init_params(1) = cam.fy;
+        init_params(2) = cam.cx;
+        init_params(3) = cam.cy;
     
         invCovariance(0, 0) = 1.0 / mesh_vo::mapping_intrinsic_initial_var;
         invCovariance(1, 1) = 1.0 / mesh_vo::mapping_intrinsic_initial_var;
@@ -61,8 +61,8 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
         Error e;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            Error ef = computeError(frames[i], kframe, lvl);
-            assert(ef.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
+            Error ef = computeError(frames[i], kframe, cam, lvl);
+            //assert(ef.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
             ef *= 1.0 / ef.getCount();
             e += ef;
         }
@@ -80,10 +80,10 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
         {
             vecxf params(numParams);
 
-            params(0) = cam[lvl].fx;
-            params(1) = cam[lvl].fy;
-            params(2) = cam[lvl].cx;
-            params(3) = cam[lvl].cy;
+            params(0) = cam.fx;
+            params(1) = cam.fy;
+            params(2) = cam.cx;
+            params(3) = cam.cy;
 
             for (size_t index = 0; index < frames.size(); index++)
             {
@@ -106,7 +106,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
         float last_error = e.getError();
 
         std::cout << "optPoseMap initial error " << last_error << " " << lvl << std::endl;
-        plotDebug(kframe, frames, "poseMapOptimizerCPU");
+        plotDebug(kframe, frames, cam, "poseMapOptimizerCPU");
 
         int maxIterations = 1000;
         float lambda = 0.0;
@@ -115,8 +115,8 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
             DenseLinearProblem problem(numParams);
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                DenseLinearProblem fhg = computeProblem(frames[i], kframe, i, frames.size(), lvl);
-                assert(fhg.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
+                DenseLinearProblem fhg = computeProblem(frames[i], kframe, cam, i, frames.size(), lvl);
+                //assert(fhg.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
                 fhg *= 1.0 / fhg.getCount();
                 problem += fhg;
             }
@@ -134,10 +134,10 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
             {
                 vecxf params = vecxf::Zero(numParams);
 
-                params(0) = cam[lvl].fx;
-                params(1) = cam[lvl].fy;
-                params(2) = cam[lvl].cx;
-                params(3) = cam[lvl].cy;
+                params(0) = cam.fx;
+                params(1) = cam.fy;
+                params(2) = cam.cx;
+                params(3) = cam.cy;
 
                 for (size_t index = 0; index < frames.size(); index++)
                 {
@@ -184,8 +184,8 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
                 vecxf poseInc = inc.segment(numIntrinsicParams, numPoseParams);
                 vecxf mapInc = inc.segment(numPoseParams, numMapParams);
 
-                camera best_intrinsics = cam[lvl];
-                cam[lvl] = new camera(cam[lvl].fx - intrincisInc(0), cam[lvl].fy - intrincisInc(1), cam[lvl].cx - intrincisInc(2), cam[lvl].cy - intrincisInc(3), cam[lvl].width, cam[lvl].height);
+                camera best_intrinsics = cam;
+                cam = camera(cam.fx - intrincisInc(0), cam.fy - intrincisInc(1), cam.cx - intrincisInc(2), cam.cy - intrincisInc(3));
 
                 std::vector<Sophus::SE3f> best_poses;
                 for (size_t i = 0; i < frames.size(); i++)
@@ -207,8 +207,8 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
                 e.setZero();
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
-                    Error fe = computeError(frames[i], kframe, lvl);
-                    if (fe.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
+                    Error fe = computeError(frames[i], kframe, cam, lvl);
+                    if (fe.getCount() < 0.5 * frames[i].getRawImage(lvl).width * frames[i].getRawImage(lvl).height)
                     {
                         // too few pixels, unreliable, set to large error
                         fe.setZero();
@@ -252,7 +252,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
                 float error = e.getError();
 
                 std::cout << "new error " << error << " " << lambda << " " << it << " " << n_try << " lvl: " << lvl << std::endl;
-                plotDebug(kframe, frames, "poseMapOptimizerCPU");
+                plotDebug(kframe, frames, cam, "poseMapOptimizerCPU");
 
                 if (error < last_error)
                 {
@@ -274,7 +274,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
                 }
                 else
                 {
-                    cam[lvl] = best_intrinsics;
+                    cam = best_intrinsics;
 
                     for (size_t i = 0; i < frames.size(); i++)
                     {
@@ -302,7 +302,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
     }
 }
 
-DenseLinearProblem intrinsicPoseMapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, int frameId, int numFrames, int lvl)
+DenseLinearProblem intrinsicPoseMapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int frameId, int numFrames, int lvl)
 {
     error_buffer.setToNoData(lvl);
     jpose_buffer.setToNoData(lvl);
@@ -312,8 +312,8 @@ DenseLinearProblem intrinsicPoseMapOptimizerCPU::computeProblem(frameCPU &frame,
     int numMapParams = kframe.getGeometry().getParamIds().size();
 
     renderer.renderJPoseMapParallel(kframe, frame, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, cam, lvl);
-    renderer.renderJIntrinsicParallel(kframe, frame, jintrinsic_buffer, error_buffer, pId_buffer, cam, lvl);
-    DenseLinearProblem problem = reducer.reduceHGIntrinsicPoseMapParallel(frameId, numFrames, numMapParams, jpose_buffer.get(lvl), jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
+    renderer.renderJIntrinsicParallel(kframe, frame, jintrinsic_buffer, error_buffer, cam, lvl);
+    DenseLinearProblem problem = reducer.reduceHGIntrinsicPoseMapParallel(frameId, numFrames, numMapParams, jintrinsic_buffer.get(lvl), jpose_buffer.get(lvl), jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
 
     return problem;
 }

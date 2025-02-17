@@ -1,16 +1,15 @@
 #include "optimizers/baseOptimizerCPU.h"
 
-baseOptimizerCPU::baseOptimizerCPU(camera &_cam)
-    : cam(_cam.fx, _cam.fy, _cam.cx, _cam.cy, _cam.width, _cam.height),
-      image_buffer(_cam.width, _cam.height, -1.0),
-      depth_buffer(_cam.width, _cam.height, -1.0),
-      error_buffer(_cam.width, _cam.height, -1.0),
-      weight_buffer(_cam.width, _cam.height, -1.0),
-      renderer(_cam.width, _cam.height)
+baseOptimizerCPU::baseOptimizerCPU(int width, int height)
+    : image_buffer(width, height, -1.0),
+      depth_buffer(width, height, -1.0),
+      error_buffer(width, height, -1.0),
+      weight_buffer(width, height, -1.0),
+      renderer(width, height)
 {
 }
 
-void baseOptimizerCPU::plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &frames, std::string window_name)
+void baseOptimizerCPU::plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &frames, camera &cam, std::string window_name)
 {
     int lvl = 1;
 
@@ -40,7 +39,7 @@ void baseOptimizerCPU::plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &fra
     show(toShow, window_name);
 }
 
-Error baseOptimizerCPU::computeError(frameCPU &frame, keyFrameCPU &kframe, int lvl)
+Error baseOptimizerCPU::computeError(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int lvl)
 {
     error_buffer.setToNoData(lvl);
     renderer.renderResidualParallel(kframe, frame, error_buffer, cam, lvl);

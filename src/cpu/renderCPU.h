@@ -363,7 +363,7 @@ public:
                 float min_y = ty * height;
                 float max_y = (ty + 1) * height;
 
-                window win(min_x, max_x, min_y, max_y);
+                window<float> win(min_x, max_x, min_y, max_y);
 
                 renderJPoseWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), frame.getdIdpixImage(lvl), jpose_buffer.get(lvl), e_buffer.get(lvl), z_buffer.get(lvl), cam, win);
                 // pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kimage, frame, cam, win, jpose_buffer, e_buffer, lvl));
@@ -527,7 +527,7 @@ private:
                             if (!win.isPixInWindow(x_, y_))
                                 continue;
 
-                            auto val = src_buffer.get(y_, x_);
+                            auto val = src_buffer.getTexel(y_, x_);
                             if (val == src_buffer.nodata)
                                 continue;
 
@@ -537,7 +537,7 @@ private:
                     }
                     if (count > 0)
                     {
-                        dst_buffer.set(acc / count, y, x);
+                        dst_buffer.setTexel(acc / count, y, x);
                     }
                 }
             }
@@ -574,7 +574,7 @@ private:
                 for (float x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
-                    vec2f f_pix_tex(x * width, y * height);
+                    vec2f f_pix_tex(x * (width - 1), y * (height - 1));
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -632,6 +632,7 @@ private:
                 for (float x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
+                    vec2f f_pix_tex(x * (width - 1), y * (height - 1));
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -641,12 +642,12 @@ private:
                     if (f_depth <= 0.0)
                         continue;
 
-                    float z_depth = z_buffer.getNormalized(y, x);
+                    float z_depth = z_buffer.getTexel(f_pix_tex(1), f_pix_tex(0));
                     if (z_depth <= f_depth && z_depth != z_buffer.nodata)
                         continue;
 
-                    buffer.setNormalized(f_depth, y, x);
-                    z_buffer.setNormalized(f_depth, y, x);
+                    buffer.setTexel(f_depth, f_pix_tex(1), f_pix_tex(0));
+                    z_buffer.setTexel(f_depth, f_pix_tex(1), f_pix_tex(0));
                 }
             }
         }
@@ -680,6 +681,7 @@ private:
                 for (float x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
+                    vec2f f_pix_tex(x * (width - 1), y * (height - 1));
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -689,14 +691,14 @@ private:
                     if (f_depth <= 0.0)
                         continue;
 
-                    float z_depth = z_buffer.getNormalized(y, x);
+                    float z_depth = z_buffer.getTexel(f_pix_tex(1), f_pix_tex(0));
                     if (z_depth <= f_depth && z_depth != z_buffer.nodata)
                         continue;
 
                     float f_weight = f_pol.getWeight(f_pix);
 
-                    buffer.setNormalized(f_weight, y, x);
-                    z_buffer.setNormalized(f_depth, y, x);
+                    buffer.setTexel(f_weight, f_pix_tex(1), f_pix_tex(0));
+                    z_buffer.setTexel(f_depth, f_pix_tex(1), f_pix_tex(0));
                 }
             }
         }
@@ -737,6 +739,7 @@ private:
                 for (float x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
+                    vec2f f_pix_tex(x * (width - 1), y * (height - 1));
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -746,7 +749,7 @@ private:
                         continue;
 
                     // z-buffer
-                    float l_depth = z_buffer.getNormalized(y, x);
+                    float l_depth = z_buffer.getTexel(f_pix_tex(1), f_pix_tex(0));
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
@@ -755,8 +758,8 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kimage.getNormalized(kf_pix(1), kf_pix(0));
-                    auto f_i = image.getNormalized(y, x);
+                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    auto f_i = image.getTexel(f_pix_tex(1), f_pix_tex(0));
 
                     if (kf_i == kimage.nodata || f_i == image.nodata)
                         continue;
@@ -765,8 +768,8 @@ private:
 
                     float residual = (f_i_cor - kf_i);
 
-                    e_buffer.setNormalized(residual, y, x);
-                    z_buffer.setNormalized(f_depth, y, x);
+                    e_buffer.setTexel(residual, f_pix_tex(1), f_pix_tex(0));
+                    z_buffer.setTexel(f_depth, f_pix_tex(1), f_pix_tex(0));
                 }
             }
         }
@@ -933,7 +936,7 @@ private:
                 for (float x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
-                    vec2f f_pix_tex(x * width, y * height);
+                    vec2f f_pix_tex(x * (width - 1), y * (height - 1));
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -943,7 +946,7 @@ private:
                         continue;
 
                     // z-buffer
-                    float l_depth = z_buffer.getTex(f_pix_tex(1), f_pix_tex(0));
+                    float l_depth = z_buffer.getTexel(f_pix_tex(1), f_pix_tex(0));
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
@@ -952,13 +955,14 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    vec3f f_ray = cam.pixToRay(x, y);
+                    vec3f f_ray = cam.pixToRay(f_pix);
                     vec3f f_ver = f_ray * f_depth;
                     // vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
                     auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
-                    auto f_i = image.getTex(f_pix_tex(1), f_pix_tex(0));
-                    vec2f d_f_i_d_pix = d_image_d_pix.getTex(f_pix_tex(1), f_pix_tex(0));;
+                    auto f_i = image.getTexel(f_pix_tex(1), f_pix_tex(0));
+                    vec2f d_f_i_d_pix = d_image_d_pix.getTexel(f_pix_tex(1), f_pix_tex(0));
+                    ;
 
                     if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
                         continue;
@@ -974,15 +978,15 @@ private:
 
                     float residual = (f_i_cor - kf_i);
 
-                    jintrinsic_buffer.setTex(d_f_i_d_intrinsic, f_pix_tex(1), f_pix_tex(0));
-                    e_buffer.setTex(residual, f_pix_tex(1), f_pix_tex(0));
-                    z_buffer.setTex(f_depth, f_pix_tex(1), f_pix_tex(0));
+                    jintrinsic_buffer.setTexel(d_f_i_d_intrinsic, f_pix_tex(1), f_pix_tex(0));
+                    e_buffer.setTexel(residual, f_pix_tex(1), f_pix_tex(0));
+                    z_buffer.setTexel(f_depth, f_pix_tex(1), f_pix_tex(0));
                 }
             }
         }
     }
 
-    void renderJPoseWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, dataCPU<vec2f> &d_image_d_pix, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, camera cam, window win)
+    void renderJPoseWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, dataCPU<vec2f> &d_image_d_pix, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, camera cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -1012,12 +1016,12 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            for (float y = pol_win.min_y; y <= pol_win.max_y; y += step_y)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                for (float x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
-                    vec2f f_pix_tex(x * width, y * height);
+                    vec2f f_pix_tex(x * (width - 1), y * (height - 1));
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -1027,7 +1031,7 @@ private:
                         continue;
 
                     // z-buffer
-                    float l_depth = z_buffer.getTex(f_pix_tex(1), f_pix_tex(0));
+                    float l_depth = z_buffer.getTexel(f_pix_tex(1), f_pix_tex(0));
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
@@ -1036,19 +1040,19 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    vec3f f_ray = cam.pixToRay(x, y);
+                    vec3f f_ray = cam.pixToRay(f_pix);
                     vec3f f_ver = f_ray * f_depth;
                     // vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
-                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
-                    auto f_i = image.getTex(f_pix_tex(1), f_pix_tex(0));
-                    vec2f d_f_i_d_pix = d_image_d_pix.getTex(f_pix_tex(1), f_pix_tex(0));
+                    imageType kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    imageType f_i = image.getTexel(f_pix_tex(1), f_pix_tex(0));
+                    vec2f d_f_i_d_pix = d_image_d_pix.getTexel(f_pix_tex(1), f_pix_tex(0));
 
                     if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
                         continue;
 
-                    float v0 = d_f_i_d_pix(0) * cam.fx / f_ver(2);
-                    float v1 = d_f_i_d_pix(1) * cam.fy / f_ver(2);
+                    float v0 = d_f_i_d_pix(0) * cam.fx * width / f_ver(2);
+                    float v1 = d_f_i_d_pix(1) * cam.fy * height / f_ver(2);
                     float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
                     vec3f d_f_i_d_tra(v0, v1, v2);
                     vec3f d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
@@ -1060,15 +1064,15 @@ private:
 
                     float residual = (f_i_cor - kf_i);
 
-                    jpose_buffer.setTex(j_pose, f_pix_tex(1), f_pix_tex(0));
-                    e_buffer.setTex(residual, f_pix_tex(1), f_pix_tex(0));
-                    z_buffer.setTex(f_depth, f_pix_tex(1), f_pix_tex(0));
+                    jpose_buffer.setTexel(j_pose, f_pix_tex(1), f_pix_tex(0));
+                    e_buffer.setTexel(residual, f_pix_tex(1), f_pix_tex(0));
+                    z_buffer.setTexel(f_depth, f_pix_tex(1), f_pix_tex(0));
                 }
             }
         }
     }
 
-    void renderJPoseExpWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, camera cam, window win)
+    void renderJPoseExpWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, camera cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -1094,7 +1098,7 @@ private:
 
             shapeType kf_pol = scene1.getShape(t_id);
 
-            window pol_win = f_pol.getScreenBounds();
+            window<float> pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -1103,7 +1107,7 @@ private:
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
-                    vec2f f_pix_tex(x * width, y * height);
+                    vec2f f_pix_tex(x * (width - 1), y * (height - 1));
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -1113,7 +1117,7 @@ private:
                         continue;
 
                     // z-buffer
-                    float l_depth = z_buffer.getTex(f_pix_tex(1), f_pix_tex(0));
+                    float l_depth = z_buffer.getTexel(f_pix_tex(1), f_pix_tex(0));
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
@@ -1122,19 +1126,19 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    vec3f f_ray = cam.pixToRay(x, y);
+                    vec3f f_ray = cam.pixToRay(f_pix);
                     vec3f f_ver = f_ray * f_depth;
                     // vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
                     auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
-                    auto f_i = image.getTex(f_pix_tex(1), f_pix_tex(0));
-                    vec2f d_f_i_d_pix = d_image_d_pix.getTex(f_pix_tex(1), f_pix_tex(0));
+                    auto f_i = image.getTexel(f_pix_tex(1), f_pix_tex(0));
+                    vec2f d_f_i_d_pix = d_image_d_pix.getTexel(f_pix_tex(1), f_pix_tex(0));
 
                     if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
                         continue;
 
-                    float v0 = d_f_i_d_pix(0) * cam.fx / f_ver(2);
-                    float v1 = d_f_i_d_pix(1) * cam.fy / f_ver(2);
+                    float v0 = d_f_i_d_pix(0) * cam.fx * width / f_ver(2);
+                    float v1 = d_f_i_d_pix(1) * cam.fy * height / f_ver(2);
                     float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
                     vec3f d_f_i_d_tra(v0, v1, v2);
                     vec3f d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
@@ -1149,10 +1153,10 @@ private:
 
                     float residual = (f_i_cor - kf_i);
 
-                    jpose_buffer.setTex(j_pose, f_pix_tex(1), f_pix_tex(0));
-                    jexp_buffer.setTex(j_exp, f_pix_tex(1), f_pix_tex(0));
-                    e_buffer.setTex(residual, f_pix_tex(1), f_pix_tex(0));
-                    z_buffer.setTex(f_depth, f_pix_tex(1), f_pix_tex(0));
+                    jpose_buffer.setTexel(j_pose, f_pix_tex(1), f_pix_tex(0));
+                    jexp_buffer.setTexel(j_exp, f_pix_tex(1), f_pix_tex(0));
+                    e_buffer.setTexel(residual, f_pix_tex(1), f_pix_tex(0));
+                    z_buffer.setTexel(f_depth, f_pix_tex(1), f_pix_tex(0));
                 }
             }
         }
@@ -1193,7 +1197,7 @@ private:
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
-                    vec2f f_pix_tex(x * width, y * height);
+                    vec2f f_pix_tex(x * (width - 1), y * (height - 1));
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -1213,7 +1217,7 @@ private:
                         continue;
 
                     imageType kf_i = kimage.get(kf_pix(1), kf_pix(0));
-                    imageType f_i = image.getTex(f_pix_tex(1), f_pix_tex(0));
+                    imageType f_i = image.getTexel(f_pix_tex(1), f_pix_tex(0));
 
                     if (kf_i == kimage.nodata || f_i == image.nodata)
                         continue;
@@ -1224,9 +1228,9 @@ private:
 
                     float residual = f_i_cor - kf_i;
 
-                    jexp_buffer.setTex(jexp, f_pix_tex(1), f_pix_tex(0));
-                    e_buffer.setTex(residual, f_pix_tex(1), f_pix_tex(0));
-                    z_buffer.setTex(f_depth, f_pix_tex(1), f_pix_tex(0));
+                    jexp_buffer.setTexel(jexp, f_pix_tex(1), f_pix_tex(0));
+                    e_buffer.setTexel(residual, f_pix_tex(1), f_pix_tex(0));
+                    z_buffer.setTexel(f_depth, f_pix_tex(1), f_pix_tex(0));
                 }
             }
         }
@@ -1279,7 +1283,7 @@ private:
                 for (float x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
-                    vec2f f_pix_tex(x * width, y * height);
+                    vec2f f_pix_tex(x * (width - 1), y * (height - 1));
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;
@@ -1314,8 +1318,8 @@ private:
                     float residual = f_i_cor - kf_i;
 
                     vec3f d_f_i_d_f_ver;
-                    d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
-                    d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
+                    d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx * width / f_ver(2);
+                    d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy * height / f_ver(2);
                     d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
                     vec3f d_f_ver_d_kf_depth = kfTofPose.rotationMatrix() * kf_ray;
@@ -1334,7 +1338,7 @@ private:
         }
     }
 
-    void renderJPoseMapWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, dataCPU<float> &z_buffer, camera cam, window win)
+    void renderJPoseMapWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, dataCPU<float> &z_buffer, camera cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -1391,7 +1395,7 @@ private:
                 for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
                 {
                     vec2f f_pix(x, y);
-                    vec2f f_pix_tex(x * widthm y * height);
+                    vec2f f_pix_tex(x * (width - 1), y * (height - 1));
 
                     // if (!cam.isPixVisible(f_pix))
                     //     continue;
@@ -1425,8 +1429,8 @@ private:
                     vec3f kf_ray = cam.pixToRay(kf_pix);
 
                     vec3f d_f_i_d_f_ver;
-                    d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
-                    d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
+                    d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx * width / f_ver(2);
+                    d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy * height / f_ver(2);
                     d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
                     vec3f d_f_i_d_tra(d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2));
@@ -1454,7 +1458,7 @@ private:
         }
     }
 
-    void renderJPoseExpMapWindow(dataCPU<imageType> &kimage, dataCPU<imageType> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, dataCPU<float> &z_buffer, camera cam, window win)
+    void renderJPoseExpMapWindow(dataCPU<imageType> &kimage, dataCPU<imageType> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, dataCPU<float> &z_buffer, camera cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -1500,7 +1504,7 @@ private:
                 continue;
             */
 
-            window pol_win = f_pol.getScreenBounds();
+            window<float> pol_win = f_pol.getScreenBounds();
 
             pol_win.intersect(win);
 
@@ -1511,7 +1515,7 @@ private:
                 for (float x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
-                    vec2f f_pix_tex(x * width, y * height);
+                    vec2f f_pix_tex(x * (width - 1), y * (height - 1));
 
                     // if (!cam.isPixVisible(f_pix))
                     //     continue;
@@ -1545,8 +1549,8 @@ private:
                     vec3f kf_ray = cam.pixToRay(kf_pix);
 
                     vec3f d_f_i_d_f_ver;
-                    d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx / f_ver(2);
-                    d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy / f_ver(2);
+                    d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * cam.fx * width / f_ver(2);
+                    d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * cam.fy * height / f_ver(2);
                     d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
 
                     vec3f d_f_i_d_tra(d_f_i_d_f_ver(0), d_f_i_d_f_ver(1), d_f_i_d_f_ver(2));
@@ -1581,8 +1585,8 @@ private:
 
     void renderDebugWindow(dataCPU<imageType> &image, dataCPU<imageType> &buffer, window<float> win)
     {
-        int width = e_buffer.width;
-        int height = e_buffer.height;
+        int width = buffer.width;
+        int height = buffer.height;
         float step_x = 1.0 / width;
         float step_y = 1.0 / height;
 
@@ -1607,7 +1611,7 @@ private:
                 for (float x = pol_win.min_x; x <= pol_win.max_x; x += step_y)
                 {
                     vec2f f_pix(x, y);
-                    vec2f f_pix_tex(x * width, y * height);
+                    vec2f f_pix_tex(x * (width - 1), y * (height - 1));
 
                     if (!f_pol.isPixInShape(f_pix))
                         continue;

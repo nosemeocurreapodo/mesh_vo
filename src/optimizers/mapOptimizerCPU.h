@@ -16,11 +16,11 @@
 class mapOptimizerCPU : public baseOptimizerCPU
 {
 public:
-    mapOptimizerCPU(camera &_cam);
-    void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe);
+    mapOptimizerCPU(int width, int height);
+    void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, camera &cam);
 
 private:
-    DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, int lvl);
+    DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int lvl);
 
     dataMipMapCPU<jmapType> j_buffer;
     dataMipMapCPU<idsType> pId_buffer;

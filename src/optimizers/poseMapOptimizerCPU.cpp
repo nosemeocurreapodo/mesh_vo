@@ -1,14 +1,14 @@
 #include "optimizers/poseMapOptimizerCPU.h"
 
-poseMapOptimizerCPU::poseMapOptimizerCPU(camera &_cam)
-    : baseOptimizerCPU(_cam),
-      jpose_buffer(_cam.width, _cam.height, vec6f::Zero()),
-      jmap_buffer(_cam.width, _cam.height, jmapType::Zero()),
-      pId_buffer(_cam.width, _cam.height, idsType::Zero())
+poseMapOptimizerCPU::poseMapOptimizerCPU(int width, int height)
+    : baseOptimizerCPU(width, height),
+      jpose_buffer(width, height, vec6f::Zero()),
+      jmap_buffer(width, height, jmapType::Zero()),
+      pId_buffer(width, height, idsType::Zero())
 {
 }
 
-void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe)
+void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, camera &cam)
 {
     std::vector<int> mapParamsIds = kframe.getGeometry().getParamIds();
     int numPoseParams = frames.size() * 6;
@@ -49,8 +49,8 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
         Error e;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            Error ef = computeError(frames[i], kframe, lvl);
-            assert(ef.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
+            Error ef = computeError(frames[i], kframe, cam, lvl);
+            //assert(ef.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
             ef *= 1.0 / ef.getCount();
             e += ef;
         }
@@ -88,7 +88,7 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
         float last_error = e.getError();
 
         std::cout << "optPoseMap initial error " << last_error << " " << lvl << std::endl;
-        plotDebug(kframe, frames, "poseMapOptimizerCPU");
+        plotDebug(kframe, frames, cam, "poseMapOptimizerCPU");
 
         int maxIterations = 1000;
         float lambda = 0.0;
@@ -97,8 +97,8 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
             DenseLinearProblem problem(numParams);
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                DenseLinearProblem fhg = computeProblem(frames[i], kframe, i, frames.size(), lvl);
-                assert(fhg.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
+                DenseLinearProblem fhg = computeProblem(frames[i], kframe, cam, i, frames.size(), lvl);
+                //assert(fhg.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
                 fhg *= 1.0 / fhg.getCount();
                 problem += fhg;
             }
@@ -180,8 +180,8 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
                 e.setZero();
                 for (std::size_t i = 0; i < frames.size(); i++)
                 {
-                    Error fe = computeError(frames[i], kframe, lvl);
-                    if (fe.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
+                    Error fe = computeError(frames[i], kframe, cam, lvl);
+                    if (fe.getCount() < 0.5 * frames[i].getRawImage(lvl).width * frames[i].getRawImage(lvl).height)
                     {
                         // too few pixels, unreliable, set to large error
                         fe.setZero();
@@ -225,7 +225,7 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
                 float error = e.getError();
 
                 std::cout << "new error " << error << " " << lambda << " " << it << " " << n_try << " lvl: " << lvl << std::endl;
-                plotDebug(kframe, frames, "poseMapOptimizerCPU");
+                plotDebug(kframe, frames, cam, "poseMapOptimizerCPU");
 
                 if (error < last_error)
                 {
@@ -273,7 +273,7 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
     }
 }
 
-DenseLinearProblem poseMapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, int frameId, int numFrames, int lvl)
+DenseLinearProblem poseMapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int frameId, int numFrames, int lvl)
 {
     error_buffer.setToNoData(lvl);
     jpose_buffer.setToNoData(lvl);

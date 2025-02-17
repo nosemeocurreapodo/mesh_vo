@@ -15,12 +15,12 @@
 class poseOptimizerCPU : public baseOptimizerCPU
 {
 public:
-    poseOptimizerCPU(camera &_cam);
+    poseOptimizerCPU(int width, int height);
 
-    void optimize(frameCPU &frame, keyFrameCPU &kframe);
+    void optimize(frameCPU &frame, keyFrameCPU &kframe, camera &cam);
 
 private:
-    DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, int lvl);
+    DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int lvl);
 
     dataMipMapCPU<vec6f> j_buffer;
     mat6f invCovariance;

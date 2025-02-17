@@ -51,7 +51,7 @@ public:
 
             vec2f centerPix = (getVertex(triIn(0)).pix + getVertex(triIn(1)).pix + getVertex(triIn(2)).pix) / 3.0;
 
-            float err = error.get(centerPix(1), centerPix(0), lvl);
+            float err = error.get(lvl).get(centerPix(1), centerPix(0));
             if (err > thresh)
             {
                 /*

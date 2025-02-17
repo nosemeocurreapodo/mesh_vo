@@ -124,14 +124,14 @@ private:
                 {
                     // dx.set(0.0, y, x, lvl);
                     // dy.set(0.0, y, x, lvl);
-                    dIdpix_image.set(vec2f(0.0f, 0.0f), y, x, lvl);
+                    dIdpix_image.get(lvl).setTexel(vec2f(0.0f, 0.0f), y, x);
                     continue;
                 }
 
-                float _dx = (float(image.get(y, x + 1)) - float(image.get(y, x - 1))) / 2.0;
-                float _dy = (float(image.get(y + 1, x)) - float(image.get(y - 1, x))) / 2.0;
+                float _dx = (float(image.getTexel(y, x + 1)) - float(image.getTexel(y, x - 1))) / 2.0;
+                float _dy = (float(image.getTexel(y + 1, x)) - float(image.getTexel(y - 1, x))) / 2.0;
 
-                dIdpix_image.set(vec2f(_dx, _dy), y, x, lvl);
+                dIdpix_image.get(lvl).setTexel(vec2f(_dx, _dy), y, x);
                 // dx.set(_dx, y, x, lvl);
                 // dy.set(_dy, y, x, lvl);
             }

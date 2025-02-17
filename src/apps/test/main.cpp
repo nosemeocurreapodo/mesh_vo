@@ -33,24 +33,24 @@ int main(int argc, char * argv[])
 
     int width = 640;
     int height = 480;
-    float fx, fy, cx, cy;
-    fx = 481.20; fy = 480.0; cx = 319.5; cy = 239.5;
 
-    camera cam(fx, fy, cx, cy, width, height);
+    float fx = 481.20;
+    float fy = 480.0;
+    float cx = 319.5;
+    float cy = 239.5;
 
     cv::Mat imageMat = cv::imread(dataset_path + "images/scene_000.png", cv::IMREAD_GRAYSCALE);
     //cv::Mat idepthMat = cv::imread(dataset_path + "depths/scene_000.png", cv::IMREAD_GRAYSCALE);
     Sophus::SE3f initPose = readPose(dataset_path + "poses/scene_000.txt");
 
     imageMat.convertTo(imageMat, CV_32FC1);
-    cv::resize(imageMat, imageMat, cv::Size(mesh_vo::image_width, mesh_vo::image_height), cv::INTER_AREA);
 
     //to avoid idepth = 0 in the data
     //idepthMat = idepthMat + 1.0;
     //idepthMat.convertTo(idepthMat, CV_32FC1);
     //cv::resize(idepthMat, idepthMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
-    dataCPU<float> image(mesh_vo::image_width, mesh_vo::image_height, -1.0);
+    dataCPU<float> image(width, height, -1.0);
     //dataCPU<float> idepth(IMAGE_WIDTH, IMAGE_HEIGHT, -1.0);
 
     image.set((float*)imageMat.data);
@@ -90,7 +90,7 @@ int main(int argc, char * argv[])
     }
     */
 
-    visualOdometry odometry(cam);
+    visualOdometry odometry(fx, fy, cx, cy, width, height);
 
     //odometry.initScene(image, pixels, idepths, Sophus::SE3f());
     //odometry.init(image, idepth, Sophus::SE3f());
@@ -122,14 +122,14 @@ int main(int argc, char * argv[])
         realPose.translation() = realPose.translation()*0.25;
 
         imageMat.convertTo(imageMat, CV_32FC1);
-        cv::resize(imageMat, imageMat, cv::Size(mesh_vo::image_width, mesh_vo::image_height), cv::INTER_AREA);
+        //cv::resize(imageMat, imageMat, cv::Size(mesh_vo::image_width, mesh_vo::image_height), cv::INTER_AREA);
 
         image.set((float*)imageMat.data);
 
         //odometry.localization(image);
         //odometry.lightaffine(image, estPose);
-        //odometry.mapping(image, realPose, vec2f(0.0, 0.0));
-        odometry.locAndMap(image);
+        odometry.mapping(image, realPose, vec2f(0.0, 0.0));
+        //odometry.locAndMap(image);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();

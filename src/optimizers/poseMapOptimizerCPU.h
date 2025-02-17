@@ -16,12 +16,12 @@
 class poseMapOptimizerCPU : public baseOptimizerCPU
 {
 public:
-    poseMapOptimizerCPU(camera &_cam);
+    poseMapOptimizerCPU(int width, int height);
 
-    void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe);
+    void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, camera &cam);
 
 private:
-    DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, int frameId, int numFrames, int lvl);
+    DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int frameId, int numFrames, int lvl);
 
     dataMipMapCPU<vec6f> jpose_buffer;
     dataMipMapCPU<jmapType> jmap_buffer;

@@ -15,13 +15,11 @@
 class baseOptimizerCPU
 {
 public:
-    baseOptimizerCPU(camera &_cam);
+    baseOptimizerCPU(int width, int height);
 
 protected:
-    void plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &frames, std::string window_name);
-    Error computeError(frameCPU &frame, keyFrameCPU &kframe, int lvl);
-
-    camera cam;
+    void plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &frames, camera &cam, std::string window_name);
+    Error computeError(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int lvl);
 
     dataMipMapCPU<float> image_buffer;
     dataMipMapCPU<float> depth_buffer;

@@ -1,13 +1,13 @@
 #include "optimizers/poseOptimizerCPU.h"
 
-poseOptimizerCPU::poseOptimizerCPU(camera &_cam)
-    : baseOptimizerCPU(_cam),
-      j_buffer(_cam.width, _cam.height, vec6f::Zero())
+poseOptimizerCPU::poseOptimizerCPU(int width, int height)
+    : baseOptimizerCPU(width, height),
+      j_buffer(width, height, vec6f::Zero())
 {
     invCovariance = mat6f::Identity() / mesh_vo::tracking_pose_initial_var;
 }
 
-void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe)
+void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe, camera &cam)
 {
     vec6f init_pose = frame.getLocalPose().log();
     mat6f init_invcovariance = invCovariance;
@@ -18,7 +18,7 @@ void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe)
 
     for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
     {
-        Error last_error = computeError(frame, kframe, lvl);
+        Error last_error = computeError(frame, kframe, cam, lvl);
         last_error *= 1.0 / last_error.getCount();
 
         if (mesh_vo::tracking_prior_weight > 0.0)
@@ -32,13 +32,13 @@ void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe)
         std::cout << "initial error " << last_error.getError() << " " << lvl << std::endl;
         std::vector<frameCPU> frames;
         frames.push_back(frame);
-        plotDebug(kframe, frames, "poseOptimizerCPU");
+        plotDebug(kframe, frames, cam, "poseOptimizerCPU");
 
         float lambda = 0.0;
         bool keepIterating = true;
         while (keepIterating)
         {
-            DenseLinearProblem problem = computeProblem(frame, kframe, lvl);
+            DenseLinearProblem problem = computeProblem(frame, kframe, cam, lvl);
             problem *= 1.0 / problem.getCount();
 
             if (mesh_vo::tracking_prior_weight > 0.0)
@@ -74,8 +74,8 @@ void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe)
                 SE3f new_pose = frame.getLocalPose() * SE3f::exp(inc).inverse();
                 frame.setLocalPose(new_pose);
 
-                Error new_error = computeError(frame, kframe, lvl);
-                if (new_error.getCount() < 0.5 * cam[lvl].width * cam[lvl].height)
+                Error new_error = computeError(frame, kframe, cam, lvl);
+                if (new_error.getCount() < 0.5 * frame.getRawImage(lvl).width * frame.getRawImage(lvl).height)
                 {
                     // too few pixels, unreliable, set to large error
                     new_error.setZero();
@@ -94,7 +94,7 @@ void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe)
                 std::cout << "new error " << new_error.getError() << " " << lambda << " " << " " << lvl << std::endl;
                 std::vector<frameCPU> frames;
                 frames.push_back(frame);
-                plotDebug(kframe, frames, "poseOptimizerCPU");
+                plotDebug(kframe, frames, cam, "poseOptimizerCPU");
 
                 if (new_error.getError() < last_error.getError())
                 {
@@ -126,9 +126,9 @@ void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe)
     }
 }
 
-DenseLinearProblem poseOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, int lvl)
+DenseLinearProblem poseOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int lvl)
 {
-    j_buffer.set(j_buffer.nodata, lvl);
+    j_buffer.setToNoData(lvl);
     error_buffer.setToNoData(lvl);
 
     renderer.renderJPoseParallel(kframe, frame, j_buffer, error_buffer, cam, lvl);

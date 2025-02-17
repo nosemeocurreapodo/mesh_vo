@@ -28,7 +28,7 @@ public:
         // std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
         for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++)
-                set(other.get(y, x), y, x);
+                setTexel(other.getTexel(y, x), y, x);
     }
 
     dataCPU &operator=(const dataCPU &other)
@@ -44,7 +44,7 @@ public:
             // std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
             for (int y = 0; y < height; y++)
                 for (int x = 0; x < width; x++)
-                    set(other.get(y, x), y, x);
+                    setTexel(other.getTexel(y, x), y, x);
         }
         return *this;
     }
@@ -65,13 +65,13 @@ public:
 
     void setTexel(const Type value, float y, float x)
     {
-        set(value, int(y), int(x));
+        setTexel(value, int(y), int(x));
     }
 
     void set(const Type value, float norm_y, float norm_x)
     {
-        float y = norm_y * height;
-        float x = norm_x * width;
+        float y = norm_y * (height - 1);
+        float x = norm_x * (width - 1);
         setTexel(value, int(y), int(x));
     }
 
@@ -109,8 +109,8 @@ public:
 
     Type get(float norm_y, float norm_x) const
     {
-        float x = norm_x * width;
-        float y = norm_y * height;
+        float x = norm_x * (width - 1);
+        float y = norm_y * (height - 1);
         return getTexel(y, x);
     }
 
@@ -139,7 +139,7 @@ public:
         {
             for (int x = 0; x < width; x++)
             {
-                Type d = get(y, x);
+                Type d = getTexel(y, x);
                 if (d == nodata)
                     nodatacount++;
             }
@@ -362,55 +362,9 @@ public:
         return *this;
     }
 
-    void setTexel(Type value, int y, int x, int lvl)
-    {
-        data[lvl].setTexel(value, y, x);
-    }
-
-    void setTexel(Type value, float y, float x, int lvl)
-    {
-        data[lvl].setTexel(value, y, x);
-    }
-
-    void set(Type value, float norm_y, float norm_x, int lvl)
-    {
-        data[lvl].set(value, norm_y, norm_x);
-    }
-
-    void set(Type value, int lvl)
-    {
-        data[lvl].set(value);
-    }
-
     void setToNoData(int lvl)
     {
-        set(nodata, lvl);
-    }
-
-    void set(Type *data, int lvl)
-    {
-        data[lvl].set(data);
-    }
-
-    void set(Type *data)
-    {
-        set(data, 0);
-        generateMipmaps();
-    }
-
-    Type getTexel(int y, int x, int lvl)
-    {
-        return data[lvl].getTexel(y, x);
-    }
-
-    Type getTexel(float y, float x, int lvl)
-    {
-        return data[lvl].getTexel(y, x);
-    }
-
-    Type get(float norm_y, float norm_x, int lvl)
-    {
-        return data[lvl].get(norm_y, norm_x);
+        data[lvl].set(nodata);
     }
 
     dataCPU<Type> &get(int lvl)
@@ -431,59 +385,6 @@ public:
     {
         return data.size();
     }
-
-    /*
-    void invert(int lvl = 0)
-    {
-        for (int y = 0; y < sizes[lvl][1]; y++)
-        {
-            for (int x = 0; x < sizes[lvl][0]; x++)
-            {
-                Type pixel = get(y, x, lvl);
-                set(1.0 / pixel, y, x, lvl);
-            }
-        }
-    }
-    */
-
-    float getPercentNoData(int lvl)
-    {
-        return data[lvl].getPercentNoData();
-    }
-
-    /*
-    dataCPU add(dataCPU &other, int lvl)
-    {
-        dataCPU<Type> result(lvlWidths[lvl], lvlHeights[lvl], nodata);
-        for (int y = 0; y < sizes[lvl][1]; y++)
-            for (int x = 0; x < sizes[lvl][0]; x++)
-            {
-                Type p1 = get(y, x, lvl);
-                Type p2 = other.get(y, x, lvl);
-                if (p1 == nodata || p2 == other.nodata)
-                    continue;
-                Type res = p1 + p2;
-                result.set(res, y, x, lvl);
-            }
-        return result;
-    }
-
-    dataCPU sub(dataCPU &other, int lvl)
-    {
-        dataCPU<Type> result(sizes[0][0], sizes[0][1], nodata);
-        for (int y = 0; y < sizes[lvl][1]; y++)
-            for (int x = 0; x < sizes[lvl][0]; x++)
-            {
-                Type p1 = get(y, x, lvl);
-                Type p2 = other.get(y, x, lvl);
-                if (p1 == nodata || p2 == other.nodata)
-                    continue;
-                Type res = p1 - p2;
-                result.set(res, y, x, lvl);
-            }
-        return result;
-    }
-    */
 
     Type nodata;
 

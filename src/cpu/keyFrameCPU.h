@@ -41,6 +41,8 @@ public:
 
     void init(dataCPU<imageType> &im, vec2f _globalExp, SE3f _globalPose, float _globalScale)
     {
+        assert(im.width == raw_image.get(0).width && im.height == raw_image.get(0).height);
+        
         raw_image.get(0) = im;
         raw_image.generateMipmaps();
 

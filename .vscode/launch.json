@@ -10,8 +10,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/testapp",
             "args": [
-                "/home/emanuel/workspace/datasets/desktop_dataset/"
-                //"/mnt/nvme0n1p5/datasets/desktop_dataset/",
+                //"/home/emanuel/workspace/datasets/desktop_dataset/"
+                "/media/emanuel/1cad5e38-efe0-4887-bcc6-c9ae353fe1b7/datasets/desktop_dataset/",
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

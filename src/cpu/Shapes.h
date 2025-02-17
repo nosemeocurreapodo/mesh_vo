@@ -47,14 +47,14 @@ public:
         return width * height;
     }
 
-    window getScreenBounds()
+    window<float> getScreenBounds()
     {
         int min_x = m_vert.pix(0) - width / 2;
         int max_x = m_vert.pix(0) + width / 2;
         int min_y = m_vert.pix(1) - height / 2;
         int max_y = m_vert.pix(1) + height / 2;
 
-        window win(min_x, max_x, min_y, max_y);
+        window<float> win(min_x, max_x, min_y, max_y);
 
         return win;
     }
@@ -295,16 +295,16 @@ public:
                         ((*m_ray2)(0) - (*m_ray1)(0)) * ((*m_ray0)(1) - (*m_ray2)(1));
         */
 
-        m_p_m1(0) = m_vert1.pix(1) - m_vert2.pix(1);// (*m_pix1)(1) - (*m_pix2)(1);
-        m_p_m1(1) = m_vert2.pix(0) - m_vert1.pix(0);// (*m_pix2)(0) - (*m_pix1)(0);
-        m_p_m2(0) = m_vert2.pix(1) - m_vert0.pix(1);// (*m_pix2)(1) - (*m_pix0)(1);
-        m_p_m2(1) = m_vert0.pix(0) - m_vert2.pix(0);// (*m_pix0)(0) - (*m_pix2)(0);
+        m_p_m1(0) = m_vert1.pix(1) - m_vert2.pix(1); // (*m_pix1)(1) - (*m_pix2)(1);
+        m_p_m1(1) = m_vert2.pix(0) - m_vert1.pix(0); // (*m_pix2)(0) - (*m_pix1)(0);
+        m_p_m2(0) = m_vert2.pix(1) - m_vert0.pix(1); // (*m_pix2)(1) - (*m_pix0)(1);
+        m_p_m2(1) = m_vert0.pix(0) - m_vert2.pix(0); // (*m_pix0)(0) - (*m_pix2)(0);
 
         // Calculate the area of the triangle
         m_p_denominator = (m_vert1.pix(1) - m_vert2.pix(1)) * (m_vert0.pix(0) - m_vert2.pix(0)) + // ((*m_pix1)(1) - (*m_pix2)(1)) * ((*m_pix0)(0) - (*m_pix2)(0)) +
-                        (m_vert2.pix(0) - m_vert1.pix(0)) * (m_vert0.pix(1) - m_vert2.pix(1)); //((*m_pix2)(0) - (*m_pix1)(0)) * ((*m_pix0)(1) - (*m_pix2)(1));
+                          (m_vert2.pix(0) - m_vert1.pix(0)) * (m_vert0.pix(1) - m_vert2.pix(1));  //((*m_pix2)(0) - (*m_pix1)(0)) * ((*m_pix0)(1) - (*m_pix2)(1));
 
-        //initialize current pixel to an invalid one
+        // initialize current pixel to an invalid one
         m_currentPix = vec2f(-1.0, -1.0);
     }
 
@@ -463,10 +463,10 @@ public:
 
     window<float> getScreenBounds()
     {
-        float min_x = std::min(std::min((int)m_vert0.pix(0), (int)m_vert1.pix(0)), (int)m_vert2.pix(0)) - 1;
-        float max_x = std::max(std::max((int)m_vert0.pix(0), (int)m_vert1.pix(0)), (int)m_vert2.pix(0)) + 1;
-        float min_y = std::min(std::min((int)m_vert0.pix(1), (int)m_vert1.pix(1)), (int)m_vert2.pix(1)) - 1;
-        float max_y = std::max(std::max((int)m_vert0.pix(1), (int)m_vert1.pix(1)), (int)m_vert2.pix(1)) + 1;
+        float min_x = std::min(std::min(m_vert0.pix(0), m_vert1.pix(0)), m_vert2.pix(0));
+        float max_x = std::max(std::max(m_vert0.pix(0), m_vert1.pix(0)), m_vert2.pix(0));
+        float min_y = std::min(std::min(m_vert0.pix(1), m_vert1.pix(1)), m_vert2.pix(1));
+        float max_y = std::max(std::max(m_vert0.pix(1), m_vert1.pix(1)), m_vert2.pix(1));
 
         window<float> win(min_x, max_x, min_y, max_y);
 
@@ -475,13 +475,13 @@ public:
 
     vec2f getCenterPix()
     {
-        vec2f center = (m_vert0.pix + m_vert1.pix + m_vert2.pix)/3.0;
+        vec2f center = (m_vert0.pix + m_vert1.pix + m_vert2.pix) / 3.0;
         return center;
     };
 
     vec3f getCenterVertex()
     {
-        vec3f center = (m_vert0.ver + m_vert1.ver + m_vert2.ver)/3.0;
+        vec3f center = (m_vert0.ver + m_vert1.ver + m_vert2.ver) / 3.0;
         return center;
     };
 
@@ -572,9 +572,9 @@ private:
 
     vec3f m_barycentric;
 
-    //vec2<float> r_m1;
-    //vec2<float> r_m2;
-    //float r_denominator;
+    // vec2<float> r_m1;
+    // vec2<float> r_m2;
+    // float r_denominator;
 
     vec2f m_p_m1;
     vec2f m_p_m2;
