@@ -80,7 +80,7 @@ void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe, camera &ca
                 if (ne.getCount() < 0.5 * frame.getRawImage(lvl).width * frame.getRawImage(lvl).height)
                 {
                     // too few pixels, unreliable, set to large error
-                    new_error += last_error;
+                    new_error += last_error * 2.0;
                 }
                 else
                 {

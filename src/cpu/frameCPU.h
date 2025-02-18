@@ -128,8 +128,8 @@ private:
                     continue;
                 }
 
-                float _dx = (float(image.getTexel(y, x + 1)) - float(image.getTexel(y, x - 1))) / 2.0;
-                float _dy = (float(image.getTexel(y + 1, x)) - float(image.getTexel(y - 1, x))) / 2.0;
+                float _dx = (float(image.getTexel(y, x + 1)) - float(image.getTexel(y, x - 1))) * width / 2.0;
+                float _dy = (float(image.getTexel(y + 1, x)) - float(image.getTexel(y - 1, x))) * height / 2.0;
 
                 dIdpix_image.get(lvl).setTexel(vec2f(_dx, _dy), y, x);
                 // dx.set(_dx, y, x, lvl);

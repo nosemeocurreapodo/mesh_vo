@@ -88,11 +88,11 @@ public:
 
         d_pix_d_ver(0, 0) = fx / ver(2);
         d_pix_d_ver(0, 1) = 0;
-        d_pix_d_ver(0, 2) = -fx / (ver(2) * ver(2));
+        d_pix_d_ver(0, 2) = -fx * ver(0) / (ver(2) * ver(2));
 
         d_pix_d_ver(1, 0) = 0;
         d_pix_d_ver(1, 1) = fy / ver(2);
-        d_pix_d_ver(1, 2) = -fy / (ver(2) * ver(2));
+        d_pix_d_ver(1, 2) = -fy * ver(1) / (ver(2) * ver(2));
 
         return d_pix_d_ver;
     }
@@ -103,13 +103,13 @@ public:
 
         d_pix_d_intrinsic(0, 0) = ray(0);
         d_pix_d_intrinsic(0, 1) = 0;
-        d_pix_d_intrinsic(0, 2) = cx;
+        d_pix_d_intrinsic(0, 2) = 1.0;
         d_pix_d_intrinsic(0, 3) = 0;
 
         d_pix_d_intrinsic(1, 0) = 0;
         d_pix_d_intrinsic(1, 1) = ray(1);
         d_pix_d_intrinsic(1, 2) = 0;
-        d_pix_d_intrinsic(1, 3) = cy;
+        d_pix_d_intrinsic(1, 3) = 1.0;
 
         return d_pix_d_intrinsic;
     }
@@ -216,7 +216,7 @@ public:
     }
     */
 
-    vec2f rayToPix(vec3f ray)
+    vec3f correctRay(vec3f ray)
     {
         // Step 2: Compute radius squared from the optical axis
         float r2 = ray(0) * ray(0) + ray(1) * ray(1);
@@ -231,50 +231,16 @@ public:
         float yDistorted = ray(1) * radial + p1 * (r2 + 2 * ray(1) * ray(1)); // + 2 * p2 * ray(0) * ray(1);
 
         // Step 5: Convert to pixel coordinates using the focal length and principal point
-        vec2f pixel(fx * xDistorted + cx, fy * yDistorted + cy);
+        vec3f corray(xDistorted, yDistorted, 1.0);
 
-        return pixel;
+        return corray;
     }
 
-    matxf d_pix(vec3f ray)
+    vec2f rayToPix(vec3f ray)
     {
-        matxf d_pix_d_intrinsic(2, 6);
-
-        // Step 2: Compute radius squared from the optical axis
-        float r2 = ray(0) * ray(0) + ray(1) * ray(1);
-        // float r4 = r2 * r2;
-        // float r6 = r4 * r2;
-
-        // Step 3: Compute the radial distortion factor
-        float radial = 1 + k1 * r2; // + k2 * r4 + k3 * r6;
-
-        // Step 4: Apply radial and tangential distortion
-        float xDistorted = ray(0) * radial + 2 * p1 * ray(0) * ray(1);        // + p2 * (r2 + 2 * ray(0) * ray(0));
-        float yDistorted = ray(1) * radial + p1 * (r2 + 2 * ray(1) * ray(1)); // + 2 * p2 * ray(0) * ray(1);
-
-        // Step 5: Convert to pixel coordinates using the focal length and principal point
-        vec2f pixel(fx * xDistorted + cx, fy * yDistorted + cy);
-
-        d_pix_d_intrinsic(0, 0) = xDistorted;
-        d_pix_d_intrinsic(0, 1) = 0;
-        d_pix_d_intrinsic(0, 2) = cx;
-        d_pix_d_intrinsic(0, 3) = 0;
-        d_pix_d_intrinsic(0, 4) = fx * ray(0) * r2;
-        d_pix_d_intrinsic(0, 5) = fx * 2 * ray(0) * ray(1);
-
-        d_pix_d_intrinsic(1, 0) = 0;
-        d_pix_d_intrinsic(1, 1) = yDistorted;
-        d_pix_d_intrinsic(1, 2) = 0;
-        d_pix_d_intrinsic(1, 3) = cy;
-        d_pix_d_intrinsic(1, 4) = fy * ray(1) * r2;
-        d_pix_d_intrinsic(1, 5) = fy * (r2 + 2 * ray(1) * ray(1));
-
-        // vec3f d_f_i_d_f_ver;
-        // d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * fx / f_ver(2);
-        // d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * fy / f_ver(2);
-        // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
-
-        return d_pix_d_intrinsic;
+        vec3f corray = correctRay(ray);
+        vec2f pixel(fx * corray(0) + cx, fy * corray(1) + cy);
+        return pixel;
     }
 
     vec3f pixToRay(vec2f pix)
@@ -284,6 +250,65 @@ public:
         ray(1) = fyinv * pix(1) + cyinv;
         ray(2) = 1.0;
         return ray;
+    }
+
+    matxf d_pix_d_ver(vec3f ver)
+    {
+        vec3f ray = ver / ver(2);
+        vec3f corray = correctRay(ray);
+
+        // Step 2: Compute radius squared from the optical axis
+        float r2 = ray(0) * ray(0) + ray(1) * ray(1);
+        // float r4 = r2 * r2;
+        // float r6 = r4 * r2;
+
+        // Step 3: Compute the radial distortion factor
+        float radial = 1 + k1 * r2; // + k2 * r4 + k3 * r6;
+
+        // Step 4: Apply radial and tangential distortion
+        float xDistorted = (ver(0) / ver(2)) * radial + 2 * p1 * (ver(0) / ver(2)) * (ver(1) / ver(2));        // + p2 * (r2 + 2 * ray(0) * ray(0));
+        float yDistorted = (ver(1) / ver(2)) * radial + p1 * (r2 + 2 * ver(1) * ver(1) / (ver(2) * ver(2))); // + 2 * p2 * ray(0) * ray(1);
+
+        vec2f pix(fx * xDistorted + cx, fy * yDistorted + cy);
+
+        matxf d_pix_d_ver(2, 3);
+
+        d_pix_d_ver(0, 0) = fx / ver(2);
+        d_pix_d_ver(0, 1) = 0;
+        d_pix_d_ver(0, 2) = -fx * ver(0) / (ver(2) * ver(2));
+
+        d_pix_d_ver(1, 0) = 0;
+        d_pix_d_ver(1, 1) = fy / ver(2);
+        d_pix_d_ver(1, 2) = -fy * ver(1) / (ver(2) * ver(2));
+
+        return d_pix_d_ver;
+    }
+
+    matxf d_pix_d_intrinsics(vec3f ray)
+    {
+        vec3f corrRay = correctRay(ray);
+        float r2 = ray(0) * ray(0) + ray(1) * ray(1);
+
+        d_pix_d_intrinsic(0, 0) = corrRay(0);
+        d_pix_d_intrinsic(0, 1) = 0;
+        d_pix_d_intrinsic(0, 2) = 1.0;
+        d_pix_d_intrinsic(0, 3) = 0;
+        d_pix_d_intrinsic(0, 4) = fx * ray(0) * r2;
+        d_pix_d_intrinsic(0, 5) = fx * 2 * ray(0) * ray(1);
+
+        d_pix_d_intrinsic(1, 0) = 0;
+        d_pix_d_intrinsic(1, 1) = corrRay(1);
+        d_pix_d_intrinsic(1, 2) = 0;
+        d_pix_d_intrinsic(1, 3) = 1.0;
+        d_pix_d_intrinsic(1, 4) = fy * ray(1) * r2;
+        d_pix_d_intrinsic(1, 5) = fy * (r2 + 2 * ray(1) * ray(1));
+
+        // vec3f d_f_i_d_f_ver;
+        // d_f_i_d_f_ver(0) = d_f_i_d_pix(0) * fx / f_ver(2);
+        // d_f_i_d_f_ver(1) = d_f_i_d_pix(1) * fy / f_ver(2);
+        // d_f_i_d_f_ver(2) = -(d_f_i_d_f_ver(0) * f_ver(0) + d_f_i_d_f_ver(1) * f_ver(1)) / f_ver(2);
+
+        return d_pix_d_intrinsic;
     }
 
     /*

@@ -207,7 +207,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
                     if (fe.getCount() < 0.5 * frames[i].getRawImage(lvl).width * frames[i].getRawImage(lvl).height)
                     {
                         // too few pixels, unreliable, set to large error
-                        error += last_error;
+                        error += last_error * 2.0;
                     }
                     else
                     {
