@@ -424,13 +424,13 @@ private:
                 }
                 for(int i = 0; i < 6; i++)
                 {
-                    J(i) = J_pose(i);
-                    ids(i) = frameId * 6 + i + 4;
+                    J(i + 4) = J_pose(i);
+                    ids(i + 4) = frameId * 6 + i + 4;
                 }
                 for(int i = 0; i < J_map.rows(); i++)
                 {
-                    J(i + 6) = J_map(i);
-                    ids(i + 6) = map_ids(i) + numFrames*6 + 4;
+                    J(i + 6 + 4) = J_map(i);
+                    ids(i + 6 + 4) = map_ids(i) + numFrames*6 + 4;
                 }
 
                 hg.add(J, res, hw, ids);

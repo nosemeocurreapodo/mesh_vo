@@ -18,8 +18,9 @@ void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe, camera &ca
 
     for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
     {
-        Error last_error = computeError(frame, kframe, cam, lvl);
-        last_error *= 1.0 / last_error.getCount();
+        float last_error = 0;
+        Error er = computeError(frame, kframe, cam, lvl);
+        last_error = er.getError() / er.getCount();
 
         if (mesh_vo::tracking_prior_weight > 0.0)
         {
@@ -29,7 +30,7 @@ void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe, camera &ca
             last_error += weight * (res.dot(conv_dot_res));
         }
 
-        std::cout << "initial error " << last_error.getError() << " " << lvl << std::endl;
+        std::cout << "initial error " << last_error << " " << lvl << std::endl;
         std::vector<frameCPU> frames;
         frames.push_back(frame);
         plotDebug(kframe, frames, cam, "poseOptimizerCPU");
@@ -74,14 +75,17 @@ void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe, camera &ca
                 SE3f new_pose = frame.getLocalPose() * SE3f::exp(inc).inverse();
                 frame.setLocalPose(new_pose);
 
-                Error new_error = computeError(frame, kframe, cam, lvl);
-                if (new_error.getCount() < 0.5 * frame.getRawImage(lvl).width * frame.getRawImage(lvl).height)
+                float new_error = 0;
+                Error ne = computeError(frame, kframe, cam, lvl);
+                if (ne.getCount() < 0.5 * frame.getRawImage(lvl).width * frame.getRawImage(lvl).height)
                 {
                     // too few pixels, unreliable, set to large error
-                    new_error.setZero();
                     new_error += last_error;
                 }
-                new_error *= 1.0 / new_error.getCount();
+                else
+                {
+                    new_error += ne.getError() / ne.getCount();
+                }
 
                 if (mesh_vo::tracking_prior_weight > 0.0)
                 {
@@ -91,14 +95,14 @@ void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe, camera &ca
                     new_error += weight * (res.dot(conv_dot_res));
                 }
 
-                std::cout << "new error " << new_error.getError() << " " << lambda << " " << " " << lvl << std::endl;
+                std::cout << "new error " << new_error << " " << lambda << " " << " " << lvl << std::endl;
                 std::vector<frameCPU> frames;
                 frames.push_back(frame);
                 plotDebug(kframe, frames, cam, "poseOptimizerCPU");
 
-                if (new_error.getError() < last_error.getError())
+                if (new_error <= last_error)
                 {
-                    float p = new_error.getError() / last_error.getError();
+                    float p = new_error / last_error;
 
                     last_error = new_error;
 

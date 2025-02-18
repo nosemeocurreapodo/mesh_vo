@@ -68,7 +68,7 @@ float visualOdometry::meanViewAngle(SE3f pose1, SE3f pose2)
         float cos_angle = diff1Normalized.dot(diff2Normalized);
         cos_angle = std::clamp(cos_angle, -1.0f, 1.0f);
         float angle = std::acos(cos_angle);
-        
+
         assert(!std::isnan(angle));
 
         accAngle += angle;
@@ -248,6 +248,149 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     lastLocalMovement = lastFrame.getLocalPose() * lastLocalPose.inverse();
 }
 
+void visualOdometry::intrinsicAndLocAndMap(dataCPU<float> &image)
+{
+    tic_toc t;
+    bool optimize = false;
+
+    std::vector<frameCPU> keyFrames;
+
+    SE3f lastLocalPose = lastFrame.getLocalPose();
+
+    lastFrame.setImage(image, lastId);
+    lastFrame.setLocalPose(lastLocalMovement * lastLocalPose);
+    // lastFrame.setLocalExp(lastLocalExp);
+    lastId++;
+
+    t.tic();
+    poseOptimizer.optimize(lastFrame, kframe, cam);
+    // sceneOptimizer.optPose(newFrame, kframe, scene);
+    std::cout << "estimate pose time: " << t.toc() << std::endl;
+
+    // std::cout << "affine " << newFrame.getAffine()(0) << " " << newFrame.getAffine()(1) << std::endl;
+    // std::cout << "estimated pose " << std::endl;
+    // std::cout << newFrame.getPose().matrix() << std::endl;
+
+    if (goodFrames.size() == 0)
+    {
+        goodFrames.push_back(lastFrame);
+        keyFrames = goodFrames;
+        optimize = true;
+    }
+    else
+    {
+        float lastViewAngle = meanViewAngle(goodFrames[goodFrames.size() - 1].getLocalPose(), lastFrame.getLocalPose());
+        float keyframeViewAngle = meanViewAngle(SE3f(), lastFrame.getLocalPose());
+        // dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
+        // float percentNoData = idepth.getPercentNoData(1);
+
+        float viewPercent = getViewPercent(lastFrame);
+
+        std::cout << "last viewAngle " << lastViewAngle << std::endl;
+        std::cout << "keyframe viewAngle " << keyframeViewAngle << std::endl;
+        std::cout << "viewPercent " << viewPercent << std::endl;
+
+        if (lastViewAngle > mesh_vo::last_min_angle) //(percentNoData > 0.2) //(viewPercent < 0.8)
+        {
+            goodFrames.push_back(lastFrame);
+            if (goodFrames.size() > mesh_vo::num_frames)
+                goodFrames.erase(goodFrames.begin());
+        }
+
+        if ((viewPercent < mesh_vo::min_view_perc || keyframeViewAngle > mesh_vo::key_max_angle) && goodFrames.size() > 1)
+        // if((viewPercent < 0.9 || meanViewAngle > M_PI / 64.0) && lastFrames.size() > 1)
+        {
+            // select new keyframe
+            // int newKeyframeIndex = 0;
+            int newKeyframeIndex = int(goodFrames.size() / 2);
+            // int newKeyframeIndex = int(lastFrames.size() - 1);
+            frameCPU newKeyframe = goodFrames[newKeyframeIndex];
+
+            // render its idepth
+            int lvl = 0;
+            dataMipMapCPU<float> depth_buffer(lastFrame.getRawImage(lvl).width, lastFrame.getRawImage(lvl).height, -1);
+            dataMipMapCPU<float> weight_buffer(lastFrame.getRawImage(lvl).width, lastFrame.getRawImage(lvl).height, -1);
+            renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, lvl);
+            renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
+            renderer.renderInterpolate(depth_buffer.get(lvl));
+
+            // save local frames global params
+            std::vector<SE3f> goodFramesGlobalPoses;
+            std::vector<vec2f> goodFramesGlobalExp;
+            for (int i = 0; i < goodFrames.size(); i++)
+            {
+                SE3f globalPose = kframe.localPoseToGlobal(goodFrames[i].getLocalPose());
+                vec2f globalExp = kframe.localExpToGlobal(goodFrames[i].getLocalExp());
+
+                goodFramesGlobalPoses.push_back(globalPose);
+                goodFramesGlobalExp.push_back(globalExp);
+            }
+
+            SE3f lastFrameGlobalPose = kframe.localPoseToGlobal(lastFrame.getLocalPose());
+            vec2f lastFrameGlobalExp = kframe.localExpToGlobal(lastFrame.getLocalExp());
+
+            SE3f lastGlobalPose = kframe.localPoseToGlobal(lastLocalPose);
+
+            SE3f newKeyframeGlobalPose = kframe.localPoseToGlobal(newKeyframe.getLocalPose());
+            vec2f newKeyframeGlobalExp = kframe.localExpToGlobal(newKeyframe.getLocalExp());
+
+            kframe.init(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
+            kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam);
+
+            vec2f meanStd = kframe.getGeometry().meanStdDepth();
+            // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
+            // vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
+            float scale = 1.0 / meanStd(0);
+
+            kframe.scaleVerticesAndWeights(scale);
+
+            for (int i = 0; i < goodFrames.size(); i++)
+            {
+                SE3f localPose = kframe.globalPoseToLocal(goodFramesGlobalPoses[i]);
+                vec2f localExp = kframe.globalExpToLocal(goodFramesGlobalExp[i]);
+
+                goodFrames[i].setLocalPose(localPose);
+                goodFrames[i].setLocalExp(localExp);
+            }
+
+            SE3f localPose = kframe.globalPoseToLocal(lastFrameGlobalPose);
+            vec2f localExp = kframe.globalExpToLocal(lastFrameGlobalExp);
+
+            lastFrame.setLocalPose(localPose);
+            lastFrame.setLocalExp(localExp);
+
+            lastLocalPose = kframe.globalPoseToLocal(lastGlobalPose);
+
+            keyFrames = goodFrames;
+            keyFrames.erase(keyFrames.begin() + newKeyframeIndex);
+
+            optimize = true;
+        }
+    }
+
+    if (optimize)
+    {
+        t.tic();
+        intrinsicPoseMapOptimizer.optimize(keyFrames, kframe, cam);
+        std::cout << "optposemap time: " << t.toc() << std::endl;
+
+        // sync the updated keyframe poses present in lastframes
+        for (auto keyframe : keyFrames)
+        {
+            for (int i = 0; i < (int)goodFrames.size(); i++)
+            {
+                if (keyframe.getId() == goodFrames[i].getId())
+                {
+                    goodFrames[i].setLocalPose(keyframe.getLocalPose());
+                    goodFrames[i].setLocalExp(keyframe.getLocalExp());
+                }
+            }
+        }
+    }
+
+    lastLocalMovement = lastFrame.getLocalPose() * lastLocalPose.inverse();
+}
+
 void visualOdometry::lightaffine(dataCPU<float> &image, SE3f globalPose)
 {
     tic_toc t;
@@ -340,7 +483,7 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
             dataMipMapCPU<float> depth_buffer(lastFrame.getRawImage(lvl).width, lastFrame.getRawImage(lvl).height, -1);
             dataMipMapCPU<float> weight_buffer(lastFrame.getRawImage(lvl).width, lastFrame.getRawImage(lvl).height, -1);
             renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, lvl);
-            //renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
+            // renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, lvl);
             renderer.renderInterpolate(depth_buffer.get(lvl));
 
             // save local frames global params
@@ -365,8 +508,8 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
             kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam);
 
             vec2f meanStd = kframe.getGeometry().meanStdDepth();
-            //vec2f minMax = kframe.getGeometry().minMaxDepthParams();
-            //vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
+            // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
+            // vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
             float scale = 1.0 / meanStd(0);
 
             kframe.scaleVerticesAndWeights(scale);

@@ -94,13 +94,13 @@ public:
 
     void renderVerticallySmooth(dataCPU<float> &buffer, float start = 1.0, float end = 2.0)
     {
-        window win(0, buffer.width - 1, 0, buffer.height - 1);
+        window<int> win(0, buffer.width - 1, 0, buffer.height - 1);
         renderVerticallySmoothWindow(buffer, win, start, end);
     }
 
     void renderInterpolate(dataCPU<float> &buffer)
     {
-        window win(0, buffer.width - 1, 0, buffer.height - 1);
+        window<int> win(0, buffer.width - 1, 0, buffer.height - 1);
         // renderInterpolateWindow(cam, win, buffer);
 
         dataCPU<float> buffer2 = buffer;
@@ -491,7 +491,7 @@ private:
             assert(val > 0);
             for (int x = win.min_x; x <= win.max_x; x++)
             {
-                buffer.set(val, y, x);
+                buffer.setTexel(val, y, x);
             }
         }
     }
@@ -503,7 +503,7 @@ private:
             for (int x = win.min_x; x <= win.max_x; x++)
             {
                 float val = (max - min) * float(rand() % 1000) / 1000.0 + min;
-                buffer.set(val, y, x);
+                buffer.setTexel(val, y, x);
             }
         }
     }
@@ -514,7 +514,7 @@ private:
         {
             for (int x = win.min_x; x <= win.max_x; x++)
             {
-                if (src_buffer.get(y, x) == src_buffer.nodata)
+                if (src_buffer.getTexel(y, x) == src_buffer.nodata)
                 {
                     int size = 1;
                     float acc = 0.0;
@@ -553,7 +553,7 @@ private:
 
         std::vector<int> ids = scene2.getShapesIds();
 
-        for (auto t_id : ids)
+        for (int t_id : ids)
         {
             shapeType f_pol = scene2.getShape(t_id);
 
@@ -664,7 +664,7 @@ private:
 
         for (int t_id : shapesIds)
         {
-            auto f_pol = scene2.getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
             if (!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -720,7 +720,7 @@ private:
 
         for (int t_id : t_ids)
         {
-            auto f_pol = scene2.getShape(t_id);
+            shapeType f_pol = scene2.getShape(t_id);
 
             if (!win.isPixInWindow(f_pol.getCenterPix()))
                 continue;
@@ -728,7 +728,7 @@ private:
             if (f_pol.getScreenArea() <= min_area)
                 continue;
 
-            auto kf_pol = scene1.getShape(t_id);
+            shapeType kf_pol = scene1.getShape(t_id);
 
             window<float> pol_win = f_pol.getScreenBounds();
 
@@ -758,8 +758,8 @@ private:
                     if (!cam.isPixVisible(kf_pix))
                         continue;
 
-                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
-                    auto f_i = image.getTexel(f_pix_tex(1), f_pix_tex(0));
+                    imageType kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    imageType f_i = image.getTexel(f_pix_tex(1), f_pix_tex(0));
 
                     if (kf_i == kimage.nodata || f_i == image.nodata)
                         continue;
@@ -959,20 +959,19 @@ private:
                     vec3f f_ver = f_ray * f_depth;
                     // vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
-                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
-                    auto f_i = image.getTexel(f_pix_tex(1), f_pix_tex(0));
+                    imageType kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    imageType f_i = image.getTexel(f_pix_tex(1), f_pix_tex(0));
                     vec2f d_f_i_d_pix = d_image_d_pix.getTexel(f_pix_tex(1), f_pix_tex(0));
-                    ;
 
                     if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
                         continue;
 
                     vec4f d_f_i_d_intrinsic;
 
-                    d_f_i_d_intrinsic(0) = d_f_i_d_pix(0) * f_ray(0);
-                    d_f_i_d_intrinsic(1) = d_f_i_d_pix(1) * f_ray(1);
-                    d_f_i_d_intrinsic(2) = 1.0;
-                    d_f_i_d_intrinsic(3) = 1.0;
+                    d_f_i_d_intrinsic(0) = d_f_i_d_pix(0) * f_ray(0) * width;
+                    d_f_i_d_intrinsic(1) = d_f_i_d_pix(1) * f_ray(1) * height;
+                    d_f_i_d_intrinsic(2) = width;
+                    d_f_i_d_intrinsic(3) = height;
 
                     float f_i_cor = alpha * (f_i - beta);
 
@@ -1102,9 +1101,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y += step_y)
+            for (float y = pol_win.min_y; y <= pol_win.max_y; y += step_y)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
+                for (float x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
                     vec2f f_pix_tex(x * (width - 1), y * (height - 1));
@@ -1130,8 +1129,8 @@ private:
                     vec3f f_ver = f_ray * f_depth;
                     // vec3<float> kf_ray = cam.pixToRay(kf_pix);
 
-                    auto kf_i = kimage.get(kf_pix(1), kf_pix(0));
-                    auto f_i = image.getTexel(f_pix_tex(1), f_pix_tex(0));
+                    imageType kf_i = kimage.get(kf_pix(1), kf_pix(0));
+                    imageType f_i = image.getTexel(f_pix_tex(1), f_pix_tex(0));
                     vec2f d_f_i_d_pix = d_image_d_pix.getTexel(f_pix_tex(1), f_pix_tex(0));
 
                     if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
@@ -1192,9 +1191,9 @@ private:
 
             pol_win.intersect(win);
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y += step_y)
+            for (float y = pol_win.min_y; y <= pol_win.max_y; y += step_y)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
+                for (float x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
                     vec2f f_pix_tex(x * (width - 1), y * (height - 1));
@@ -1356,7 +1355,7 @@ private:
         std::vector<int> t_ids = scene2.getShapesIds();
         // int shapeDoF = scene2->getShapesDoF();
 
-        for (auto t_id : t_ids)
+        for (int t_id : t_ids)
         {
             shapeType f_pol = scene2.getShape(t_id);
 
@@ -1390,9 +1389,9 @@ private:
 
             idsType ids = kf_pol.getParamIds();
 
-            for (int y = pol_win.min_y; y <= pol_win.max_y; y++)
+            for (float y = pol_win.min_y; y <= pol_win.max_y; y += step_y)
             {
-                for (int x = pol_win.min_x; x <= pol_win.max_x; x++)
+                for (float x = pol_win.min_x; x <= pol_win.max_x; x += step_x)
                 {
                     vec2f f_pix(x, y);
                     vec2f f_pix_tex(x * (width - 1), y * (height - 1));
@@ -1476,7 +1475,7 @@ private:
         std::vector<int> t_ids = scene2.getShapesIds();
         // int shapeDoF = scene2->getShapesDoF();
 
-        for (auto t_id : t_ids)
+        for (int t_id : t_ids)
         {
             shapeType f_pol = scene2.getShape(t_id);
 
@@ -1592,7 +1591,7 @@ private:
 
         std::vector<int> ids = scene2.getShapesIds();
 
-        for (auto t_id : ids)
+        for (int t_id : ids)
         {
             shapeType f_pol = scene2.getShape(t_id);
 

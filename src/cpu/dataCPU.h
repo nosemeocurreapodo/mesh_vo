@@ -65,14 +65,14 @@ public:
 
     void setTexel(const Type value, float y, float x)
     {
-        setTexel(value, int(y), int(x));
+        setTexel(value, int(round(y)), int(round(x)));
     }
 
     void set(const Type value, float norm_y, float norm_x)
     {
         float y = norm_y * (height - 1);
         float x = norm_x * (width - 1);
-        setTexel(value, int(y), int(x));
+        setTexel(value, y, x);
     }
 
     void set(const Type value)

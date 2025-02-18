@@ -34,10 +34,10 @@ int main(int argc, char * argv[])
     int width = 640;
     int height = 480;
 
-    float fx = 481.20;
-    float fy = 480.0;
-    float cx = 319.5;
-    float cy = 239.5;
+    float fx = width;//481.20;
+    float fy = width;//480.0;
+    float cx = width/2;//319.5;
+    float cy = height/2;//239.5;
 
     cv::Mat imageMat = cv::imread(dataset_path + "images/scene_000.png", cv::IMREAD_GRAYSCALE);
     //cv::Mat idepthMat = cv::imread(dataset_path + "depths/scene_000.png", cv::IMREAD_GRAYSCALE);
@@ -128,8 +128,9 @@ int main(int argc, char * argv[])
 
         //odometry.localization(image);
         //odometry.lightaffine(image, estPose);
-        odometry.mapping(image, realPose, vec2f(0.0, 0.0));
+        //odometry.mapping(image, realPose, vec2f(0.0, 0.0));
         //odometry.locAndMap(image);
+        odometry.intrinsicAndLocAndMap(image);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();

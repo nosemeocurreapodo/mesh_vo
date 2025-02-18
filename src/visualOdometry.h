@@ -20,6 +20,7 @@ public:
     void init(dataCPU<float> &image, SE3f pose, dataCPU<float> &idepth, dataCPU<float> &weight);
 
     void locAndMap(dataCPU<float> &image);
+    void intrinsicAndLocAndMap(dataCPU<float> &image);
     void lightaffine(dataCPU<float> &image, Sophus::SE3f globalPose);
     void localization(dataCPU<float> &image);
     void mapping(dataCPU<float> &image, Sophus::SE3f globalPose, vec2f exposure);
