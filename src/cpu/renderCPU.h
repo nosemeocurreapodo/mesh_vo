@@ -1050,11 +1050,21 @@ private:
                     if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
                         continue;
 
-                    float v0 = d_f_i_d_pix(0) * cam.fx * width / f_ver(2);
-                    float v1 = d_f_i_d_pix(1) * cam.fy * height / f_ver(2);
-                    float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
-                    vec3f d_f_i_d_tra(v0, v1, v2);
-                    vec3f d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+                    matxf d_pix_d_f_ver = cam.d_pix_d_ver(f_ver);
+                    vec3f d_f_i_d_ver = d_f_i_d_pix.transpose() * d_pix_d_f_ver;
+
+                    //vec3f d_f_i_d_ver;
+                    //d_f_i_d_ver(0) = d_f_i_d_pix(0) * cam.fx * width / f_ver(2);
+                    //d_f_i_d_ver(1) = d_f_i_d_pix(1) * cam.fy * height / f_ver(2);
+                    //d_f_i_d_ver(2)= -(d_f_i_d_ver(0) * f_ver(0) + d_f_i_d_ver(1) * f_ver(1)) / f_ver(2);
+
+                    //float v0 = d_f_i_d_pix(0) * cam.fx * width / f_ver(2);
+                    //float v1 = d_f_i_d_pix(1) * cam.fy * height / f_ver(2);
+                    //float v2 = -(v0 * f_ver(0) + v1 * f_ver(1)) / f_ver(2);
+
+                    vec3f d_f_i_d_tra = d_f_i_d_ver;
+                    //vec3f d_f_i_d_rot(-f_ver(2) * v1 + f_ver(1) * v2, f_ver(2) * v0 - f_ver(0) * v2, -f_ver(1) * v0 + f_ver(0) * v1);
+                    vec3f d_f_i_d_rot(-f_ver(2) * d_f_i_d_ver(1) + f_ver(1) * d_f_i_d_ver(2), f_ver(2) * d_f_i_d_ver(0) - f_ver(0) * d_f_i_d_ver(2), -f_ver(1) * d_f_i_d_ver(0) + f_ver(0) * d_f_i_d_ver(1));
 
                     vec6f j_pose;
                     j_pose << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
