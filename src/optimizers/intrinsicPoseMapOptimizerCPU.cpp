@@ -9,10 +9,10 @@ intrinsicPoseMapOptimizerCPU::intrinsicPoseMapOptimizerCPU(int width, int height
 {
 }
 
-void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, camera &cam)
+void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam)
 {
     std::vector<int> mapParamsIds = kframe.getGeometry().getParamIds();
-    int numIntrinsicParams = 4;
+    int numIntrinsicParams = cam.getParams().rows();
     int numPoseParams = frames.size() * 6;
     int numMapParams = mapParamsIds.size();
     int numParams = numIntrinsicParams + numPoseParams + numMapParams;
@@ -23,16 +23,13 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
 
     for (int lvl = 1; lvl >= 1; lvl--)
     {
-        init_params(0) = cam.fx;
-        init_params(1) = cam.fy;
-        init_params(2) = cam.cx;
-        init_params(3) = cam.cy;
-    
-        invCovariance(0, 0) = 1.0 / mesh_vo::mapping_intrinsic_initial_var;
-        invCovariance(1, 1) = 1.0 / mesh_vo::mapping_intrinsic_initial_var;
-        invCovariance(2, 2) = 1.0 / mesh_vo::mapping_intrinsic_initial_var;
-        invCovariance(3, 3) = 1.0 / mesh_vo::mapping_intrinsic_initial_var;
-    
+        init_params.segment(0, numIntrinsicParams) = cam.getParams();
+
+        for(int i = 0; i < numIntrinsicParams; i++)
+        {
+            invCovariance(i, i) = 1.0 / mesh_vo::mapping_intrinsic_initial_var;
+        }
+
         for (size_t i = 0; i < frames.size(); i++)
         {
             init_params.segment(i * 6 + numIntrinsicParams, 6) = frames[i].getLocalPose().log();
@@ -41,20 +38,20 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
                 invCovariance(i * 6 + j + numIntrinsicParams, i * 6 + j + numIntrinsicParams) = 1.0 / mesh_vo::mapping_pose_initial_var;
             }
         }
-    
+
         for (size_t i = 0; i < mapParamsIds.size(); i++)
         {
             // init_params(i + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
             invCovariance(i + numPoseParams + numIntrinsicParams, i + numPoseParams + numIntrinsicParams) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
-            //invCovariance(i + numPoseParams, i + numPoseParams) = 1.0 / mesh_vo::mapping_param_initial_var;
+            // invCovariance(i + numPoseParams, i + numPoseParams) = 1.0 / mesh_vo::mapping_param_initial_var;
         }
-    
+
         // invCovariance.block(0, 0, numPoseParams, numPoseParams) *= 1.0 / mesh_vo::mapping_pose_var;
         // invCovariance.block(numPoseParams, numPoseParams, numMapParams, numMapParams) *= 1.0 / mesh_vo::initial_param_var;
-    
+
         matxf init_invcovariance = invCovariance;
         matxf init_invcovariancesqrt;
-    
+
         if (mesh_vo::mapping_prior_weight > 0.0)
             init_invcovariancesqrt = invCovariance.sqrt();
 
@@ -62,7 +59,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
         for (std::size_t i = 0; i < frames.size(); i++)
         {
             Error ef = computeError(frames[i], kframe, cam, lvl);
-            //assert(ef.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
+            // assert(ef.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
             last_error += ef.getError() / ef.getCount();
         }
         last_error *= 1.0 / frames.size();
@@ -78,10 +75,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
         {
             vecxf params(numParams);
 
-            params(0) = cam.fx;
-            params(1) = cam.fy;
-            params(2) = cam.cx;
-            params(3) = cam.cy;
+            params.segment(0, numIntrinsicParams) = cam.getParams();
 
             for (size_t index = 0; index < frames.size(); index++)
             {
@@ -112,7 +106,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
             for (std::size_t i = 0; i < frames.size(); i++)
             {
                 DenseLinearProblem fhg = computeProblem(frames[i], kframe, cam, i, frames.size(), lvl);
-                //assert(fhg.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
+                // assert(fhg.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
                 fhg *= 1.0 / fhg.getCount();
                 problem += fhg;
             }
@@ -130,10 +124,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
             {
                 vecxf params = vecxf::Zero(numParams);
 
-                params(0) = cam.fx;
-                params(1) = cam.fy;
-                params(2) = cam.cx;
-                params(3) = cam.cy;
+                params.segment(0, numIntrinsicParams) = cam.getParams();
 
                 for (size_t index = 0; index < frames.size(); index++)
                 {
@@ -180,8 +171,8 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
                 vecxf poseInc = inc.segment(numIntrinsicParams, numPoseParams);
                 vecxf mapInc = inc.segment(numIntrinsicParams + numPoseParams, numMapParams);
 
-                camera best_intrinsics = cam;
-                cam = camera(cam.fx - intrincisInc(0), cam.fy - intrincisInc(1), cam.cx - intrincisInc(2), cam.cy - intrincisInc(3));
+                cameraType best_intrinsics = cam;
+                cam.setParams(cam.getParams() - intrincisInc);
 
                 std::vector<Sophus::SE3f> best_poses;
                 for (size_t i = 0; i < frames.size(); i++)
@@ -227,10 +218,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
                 {
                     vecxf params(numParams);
 
-                    params(0) = cam.fx;
-                    params(1) = cam.fy;
-                    params(2) = cam.cx;
-                    params(3) = cam.cy;
+                    params.segment(0, numIntrinsicParams) = cam.getParams();
 
                     for (size_t index = 0; index < frames.size(); index++)
                     {
@@ -287,8 +275,8 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
 
                     // reject update, increase lambda, use un-updated data
 
-                    //if (poseInc.dot(poseInc) < 1e-16 && mapInc.dot(mapInc) < 1e-16)
-                    if(false)
+                    // if (poseInc.dot(poseInc) < 1e-16 && mapInc.dot(mapInc) < 1e-16)
+                    if (false)
                     {
                         // if too small, do next level!
                         it = maxIterations;
@@ -301,7 +289,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
     }
 }
 
-DenseLinearProblem intrinsicPoseMapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int frameId, int numFrames, int lvl)
+DenseLinearProblem intrinsicPoseMapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int frameId, int numFrames, int lvl)
 {
     error_buffer.setToNoData(lvl);
     jpose_buffer.setToNoData(lvl);

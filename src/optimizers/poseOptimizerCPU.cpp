@@ -7,7 +7,7 @@ poseOptimizerCPU::poseOptimizerCPU(int width, int height)
     invCovariance = mat6f::Identity() / mesh_vo::tracking_pose_initial_var;
 }
 
-void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe, camera &cam)
+void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam)
 {
     vec6f init_pose = frame.getLocalPose().log();
     mat6f init_invcovariance = invCovariance;
@@ -130,7 +130,7 @@ void poseOptimizerCPU::optimize(frameCPU &frame, keyFrameCPU &kframe, camera &ca
     }
 }
 
-DenseLinearProblem poseOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int lvl)
+DenseLinearProblem poseOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl)
 {
     j_buffer.setToNoData(lvl);
     error_buffer.setToNoData(lvl);

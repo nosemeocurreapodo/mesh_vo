@@ -398,13 +398,13 @@ private:
         {
             for (int x = win.min_x; x < win.max_x; x+=1)
             {
-                vec4f J_intrinsic = jintrinsic_buffer.getTexel(y, x);
+                vecxf J_int = jintrinsic_buffer.getTexel(y, x);
                 vec6f J_pose = jpose_buffer.getTexel(y, x);
                 jmapType J_map = jmap_buffer.getTexel(y, x);
                 float res = res_buffer.getTexel(y, x);
                 idsType map_ids = pId_buffer.getTexel(y, x);
 
-                if (res == res_buffer.nodata || J_intrinsic == jintrinsic_buffer.nodata || J_pose == jpose_buffer.nodata || J_map == jmap_buffer.nodata || map_ids == pId_buffer.nodata)
+                if (res == res_buffer.nodata || J_int == jintrinsic_buffer.nodata || J_pose == jpose_buffer.nodata || J_map == jmap_buffer.nodata || map_ids == pId_buffer.nodata)
                     continue;
 
                 float absres = std::fabs(res);
@@ -414,23 +414,23 @@ private:
 
                 //hg.add(J_pose, J_map, res, hw, frameId, map_ids);
 
-                vecxf J(10 + J_map.rows());
-                vecxi ids(10 + J_map.rows());
+                vecxf J(J_int.rows() + 6 + J_map.rows());
+                vecxi ids(J_int.rows() + 6 + J_map.rows());
 
-                for(int i = 0; i < 4; i++)
+                for(int i = 0; i < J_int.rows(); i++)
                 {
-                    J(i) = J_intrinsic(i);
+                    J(i) = J_int(i);
                     ids(i) = i;
                 }
                 for(int i = 0; i < 6; i++)
                 {
-                    J(i + 4) = J_pose(i);
-                    ids(i + 4) = frameId * 6 + i + 4;
+                    J(i + J_int.rows()) = J_pose(i);
+                    ids(i + J_int.rows()) = frameId * 6 + i + J_int.rows();
                 }
                 for(int i = 0; i < J_map.rows(); i++)
                 {
-                    J(i + 6 + 4) = J_map(i);
-                    ids(i + 6 + 4) = map_ids(i) + numFrames*6 + 4;
+                    J(i + 6 + J_int.rows()) = J_map(i);
+                    ids(i + 6 + J_int.rows()) = map_ids(i) + numFrames*6 + J_int.rows();
                 }
 
                 hg.add(J, res, hw, ids);

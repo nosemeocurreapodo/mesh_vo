@@ -8,7 +8,7 @@ poseMapOptimizerCPU::poseMapOptimizerCPU(int width, int height)
 {
 }
 
-void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, camera &cam)
+void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam)
 {
     std::vector<int> mapParamsIds = kframe.getGeometry().getParamIds();
     int numPoseParams = frames.size() * 6;
@@ -267,7 +267,7 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
     }
 }
 
-DenseLinearProblem poseMapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int frameId, int numFrames, int lvl)
+DenseLinearProblem poseMapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int frameId, int numFrames, int lvl)
 {
     error_buffer.setToNoData(lvl);
     jpose_buffer.setToNoData(lvl);

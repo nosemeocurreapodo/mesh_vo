@@ -31,7 +31,7 @@ private:
     float getViewPercent(frameCPU &frame);
 
     int lastId;
-    camera cam;
+    cameraType cam;
 
     std::vector<frameCPU> goodFrames;
 

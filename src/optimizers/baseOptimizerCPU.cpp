@@ -9,7 +9,7 @@ baseOptimizerCPU::baseOptimizerCPU(int width, int height)
 {
 }
 
-void baseOptimizerCPU::plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &frames, camera &cam, std::string window_name)
+void baseOptimizerCPU::plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &frames, cameraType &cam, std::string window_name)
 {
     int lvl = 1;
 
@@ -39,7 +39,7 @@ void baseOptimizerCPU::plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &fra
     show(toShow, window_name);
 }
 
-Error baseOptimizerCPU::computeError(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int lvl)
+Error baseOptimizerCPU::computeError(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl)
 {
     error_buffer.setToNoData(lvl);
     renderer.renderResidualParallel(kframe, frame, error_buffer, cam, lvl);

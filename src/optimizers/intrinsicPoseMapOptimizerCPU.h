@@ -18,10 +18,10 @@ class intrinsicPoseMapOptimizerCPU : public baseOptimizerCPU
 public:
     intrinsicPoseMapOptimizerCPU(int width, int height);
 
-    void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, camera &cam);
+    void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam);
 
 private:
-    DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int frameId, int numFrames, int lvl);
+    DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int frameId, int numFrames, int lvl);
 
     dataMipMapCPU<vec4f> jintrinsic_buffer;
     dataMipMapCPU<vec6f> jpose_buffer;

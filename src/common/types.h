@@ -8,12 +8,17 @@
 #include "sophus/se3.hpp"
 #include "sophus/sim3.hpp"
 
+template<typename type, int rows>
+using vec = Eigen::Matrix<type, rows, 1>;
 using vec2f = Eigen::Vector2f;
 using vec3f = Eigen::Vector3f;
 using vec4f = Eigen::Vector4f;
+using vec5f =Eigen::Matrix<float, 5, 1>;
 using vec6f = Eigen::Matrix<float, 6, 1>;
 using vecxf = Eigen::VectorXf;
 
+template<typename type, int rows, int cols>
+using mat = Eigen::Matrix<type, rows, cols>;
 using mat3f = Eigen::Matrix3f;
 using mat6f = Eigen::Matrix<float, 6, 6>;
 using matxf = Eigen::MatrixXf;
@@ -58,6 +63,12 @@ using SE3f = SE3<float>;
 
 using solverType = LDLT<matxf>;
 */
+
+class pinholeCamera;
+//class pinholeDistortedCamera;
+
+using cameraType = pinholeCamera;
+using cameraParamType = vec4f;
 
 using imageType = float;
 using jmapType = vec3f;

@@ -36,7 +36,7 @@ int main(int argc, char * argv[])
 
     float fx = width;//481.20;
     float fy = width;//480.0;
-    float cx = width/2;//319.5;
+    float cx = width/3;//319.5;
     float cy = height/2;//239.5;
 
     cv::Mat imageMat = cv::imread(dataset_path + "images/scene_000.png", cv::IMREAD_GRAYSCALE);

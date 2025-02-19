@@ -7,7 +7,7 @@ mapOptimizerCPU::mapOptimizerCPU(int width, int height)
 {
 }
 
-void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, camera &cam)
+void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam)
 {
     std::vector<int> sceneParamsIds = kframe.getGeometry().getParamIds();
     int numParams = sceneParamsIds.size();
@@ -223,7 +223,7 @@ void mapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &kfram
     }
 }
 
-DenseLinearProblem mapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, camera &cam, int lvl)
+DenseLinearProblem mapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl)
 {
     error_buffer.setToNoData(lvl);
     j_buffer.setToNoData(lvl);

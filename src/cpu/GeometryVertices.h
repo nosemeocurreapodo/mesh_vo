@@ -12,7 +12,7 @@ public:
     {
     }
 
-    void init(std::vector<vec3f> &vertices, std::vector<float> &weights, camera cam)
+    void init(std::vector<vec3f> &vertices, std::vector<float> &weights, cameraType cam)
     {
         assert(vertices.size() == weights.size());
         assert(vertices.size() <= mesh_vo::max_vertex_size);
@@ -38,7 +38,7 @@ public:
         }
     }
 
-    void init(std::vector<vec2f> &texcoords, std::vector<float> depths, std::vector<float> &weights, camera cam)
+    void init(std::vector<vec2f> &texcoords, std::vector<float> depths, std::vector<float> &weights, cameraType cam)
     {
         assert(texcoords.size() == depths.size());
         assert(texcoords.size() == weights.size());
@@ -312,7 +312,7 @@ public:
         }
     }
 
-    void project(camera cam)
+    void project(cameraType cam)
     {
         for (int it = 0; it < mesh_vo::max_vertex_size; ++it)
         {

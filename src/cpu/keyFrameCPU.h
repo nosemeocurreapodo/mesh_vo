@@ -52,7 +52,7 @@ public:
         // pose = SIM3f(scale, p.unit_quaternion(), p.translation());
     }
 
-    void initGeometryRandom(camera cam)
+    void initGeometryRandom(cameraType cam)
     {
         std::vector<vec2f> texcoords = uniformTexCoords();
         std::vector<float> depths;
@@ -67,7 +67,7 @@ public:
         geometry.init(texcoords, depths, weights, cam);
     }
 
-    void initGeometryVerticallySmooth(camera cam)
+    void initGeometryVerticallySmooth(cameraType cam)
     {
         std::vector<vec2f> texcoords = uniformTexCoords();
         std::vector<float> depths;
@@ -82,7 +82,7 @@ public:
         geometry.init(texcoords, depths, weights, cam);
     }
 
-    void initGeometryFromDepth(dataCPU<float> &depth, dataCPU<float> &weight, camera cam)
+    void initGeometryFromDepth(dataCPU<float> &depth, dataCPU<float> &weight, cameraType cam)
     {
         std::vector<vec2f> texcoords = uniformTexCoords();
         std::vector<float> depths;
@@ -259,7 +259,7 @@ private:
         return depth;
     }
 
-    float getDepthFromClosestShape(vec2f texcoord, camera cam)
+    float getDepthFromClosestShape(vec2f texcoord, cameraType cam)
     {
         std::vector<int> s_ids = geometry.getShapesIds();
 
@@ -290,7 +290,8 @@ private:
             float distance = (texcoord - shape.getCenterPix()).norm();
             float weight = std::exp(-(distance*distance) / (2*sigma*sigma));
 
-            float depth = shape.getDepth(texcoord);
+            shape.usePixel(texcoord);
+            float depth = shape.getDepth();
             if(depth <= 0.0)
                 continue;
             depth_sum += depth*weight;

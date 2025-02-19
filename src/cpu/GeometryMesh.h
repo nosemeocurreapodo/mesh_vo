@@ -19,19 +19,19 @@ public:
 
     };
 
-    void init(std::vector<vec3f> &vertices, std::vector<float> &weights, camera cam)
+    void init(std::vector<vec3f> &vertices, std::vector<float> &weights, cameraType cam)
     {
         GeometryVertices::init(vertices, weights, cam);
         buildTriangles();
     }
 
-    void init(std::vector<vec2f> &texcoords, std::vector<float> depths, std::vector<float> &weights, camera cam)
+    void init(std::vector<vec2f> &texcoords, std::vector<float> depths, std::vector<float> &weights, cameraType cam)
     {
         GeometryVertices::init(texcoords, depths, weights, cam);
         buildTriangles();
     }
 
-    int updateMeshGivenErrorAndThresh(frameCPU &frame, camera &cam, dataMipMapCPU<float> &error, float thresh, int lvl)
+    int updateMeshGivenErrorAndThresh(frameCPU &frame, cameraType &cam, dataMipMapCPU<float> &error, float thresh, int lvl)
     {
         // clear();
         // SceneVerticesBase::init(frame, cam, idepth, ivar, lvl);
