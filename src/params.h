@@ -18,13 +18,15 @@ namespace mesh_vo
     extern float min_lambda;
     extern float huber_thresh_pix;
 
+    extern int tracking_ini_lvl;
+    extern int tracking_fin_lvl;
     extern float tracking_prior_weight;
     extern float tracking_convergence_p;
     extern float tracking_convergence_v;
     extern float tracking_pose_initial_var;
-    extern float tracking_ini_lvl;
-    extern float tracking_fin_lvl;
 
+    extern int mapping_ini_lvl;
+    extern int mapping_fin_lvl;
     extern float mapping_regu_weight;
     extern float mapping_prior_weight;
     extern float mapping_convergence_p;

@@ -2,7 +2,7 @@
 
 intrinsicPoseMapOptimizerCPU::intrinsicPoseMapOptimizerCPU(int width, int height)
     : baseOptimizerCPU(width, height),
-      jintrinsic_buffer(width, height, vec4f::Zero()),
+      jintrinsic_buffer(width, height, cameraParamType::Zero()),
       jpose_buffer(width, height, vec6f::Zero()),
       jmap_buffer(width, height, jmapType::Zero()),
       pId_buffer(width, height, idsType::Zero())
@@ -21,7 +21,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
 
     vecxf init_params = vecxf::Zero(numParams);
 
-    for (int lvl = 1; lvl >= 1; lvl--)
+    for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
     {
         init_params.segment(0, numIntrinsicParams) = cam.getParams();
 
@@ -292,15 +292,17 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
 DenseLinearProblem intrinsicPoseMapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int frameId, int numFrames, int lvl)
 {
     error_buffer.setToNoData(lvl);
+    jintrinsic_buffer.setToNoData(lvl);
     jpose_buffer.setToNoData(lvl);
     jmap_buffer.setToNoData(lvl);
     pId_buffer.setToNoData(lvl);
 
+    int numIntrinsicParams = cam.getParams().rows();
     int numMapParams = kframe.getGeometry().getParamIds().size();
 
     renderer.renderJPoseMapParallel(kframe, frame, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, cam, lvl);
     renderer.renderJIntrinsicParallel(kframe, frame, jintrinsic_buffer, error_buffer, cam, lvl);
-    DenseLinearProblem problem = reducer.reduceHGIntrinsicPoseMapParallel(frameId, numFrames, numMapParams, jintrinsic_buffer.get(lvl), jpose_buffer.get(lvl), jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
+    DenseLinearProblem problem = reducer.reduceHGIntrinsicPoseMapParallel(frameId, numIntrinsicParams, numFrames, numMapParams, jintrinsic_buffer.get(lvl), jpose_buffer.get(lvl), jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
 
     return problem;
 }

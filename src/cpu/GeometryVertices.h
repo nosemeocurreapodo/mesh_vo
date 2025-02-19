@@ -38,29 +38,29 @@ public:
         }
     }
 
-    void init(std::vector<vec2f> &texcoords, std::vector<float> depths, std::vector<float> &weights, cameraType cam)
+    void init(std::vector<vec3f> &rays, std::vector<float> depths, std::vector<float> &weights, cameraType cam)
     {
-        assert(texcoords.size() == depths.size());
-        assert(texcoords.size() == weights.size());
-        assert(texcoords.size() <= mesh_vo::max_vertex_size);
+        assert(rays.size() == depths.size());
+        assert(rays.size() == weights.size());
+        assert(rays.size() <= mesh_vo::max_vertex_size);
 
         for (size_t i = 0; i < mesh_vo::max_vertex_size; i++)
         {
             m_vertices[i].used = false;
         }
 
-        for (size_t i = 0; i < texcoords.size(); i++)
+        for (size_t i = 0; i < rays.size(); i++)
         {
-            vec2f pix = texcoords[i];
+            vec3f ray = rays[i];
             float dph = depths[i];
             float weight = weights[i];
+            vec2f pix = cam.rayToPix(ray);
 
-            assert(cam.isPixVisible(pix));
-            assert(dph > 0.0);
+            //assert(cam.isPixVisible(pix));
+            //assert(dph > 0.0);
             assert(!std::isnan(dph));
             assert(!std::isinf(dph));
 
-            vec3f ray = cam.pixToRay(pix);
             vec3f vertice = ray * dph;
 
             m_vertices[i] = vertex(vertice, ray, pix, weight);

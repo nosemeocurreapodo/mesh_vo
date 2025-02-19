@@ -227,7 +227,7 @@ public:
         return partialhg[0];
     }
 
-    DenseLinearProblem reduceHGIntrinsicPoseMapParallel(int frameId, int numFrames, int numMapParams, dataCPU<vec4f> &jintrinsic_buffer, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer)
+    DenseLinearProblem reduceHGIntrinsicPoseMapParallel(int frameId, int numIntrinsicParams, int numFrames, int numMapParams, dataCPU<cameraParamType> &jintrinsic_buffer, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &err_buffer, dataCPU<idsType> &pId_buffer)
     {
         const int divi_y = ThreadPool<mesh_vo::reducer_nthreads>::getNumThreads();
         const int divi_x = 1;
@@ -240,7 +240,7 @@ public:
         // for each index of array
         for (int i = 0; i < divi_x * divi_y; i++)
         {
-            partialhg.push_back(DenseLinearProblem(4 + numFrames * 6 + numMapParams));
+            partialhg.push_back(DenseLinearProblem(numIntrinsicParams + numFrames * 6 + numMapParams));
         }
 
         int width = jpose_buffer.width / divi_x;
@@ -392,13 +392,13 @@ private:
         }
     }
 
-    void reduceHGIntrinsicPoseMapWindow(window<int> win, int frameId, int numFrames, dataCPU<vec4f> &jintrinsic_buffer, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
+    void reduceHGIntrinsicPoseMapWindow(window<int> win, int frameId, int numFrames, dataCPU<cameraParamType> &jintrinsic_buffer, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
     {
         for (int y = win.min_y; y < win.max_y; y+=1)
         {
             for (int x = win.min_x; x < win.max_x; x+=1)
             {
-                vecxf J_int = jintrinsic_buffer.getTexel(y, x);
+                cameraParamType J_int = jintrinsic_buffer.getTexel(y, x);
                 vec6f J_pose = jpose_buffer.getTexel(y, x);
                 jmapType J_map = jmap_buffer.getTexel(y, x);
                 float res = res_buffer.getTexel(y, x);

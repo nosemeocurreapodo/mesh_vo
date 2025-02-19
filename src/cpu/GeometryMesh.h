@@ -25,9 +25,9 @@ public:
         buildTriangles();
     }
 
-    void init(std::vector<vec2f> &texcoords, std::vector<float> depths, std::vector<float> &weights, cameraType cam)
+    void init(std::vector<vec3f> &rays, std::vector<float> depths, std::vector<float> &weights, cameraType cam)
     {
-        GeometryVertices::init(texcoords, depths, weights, cam);
+        GeometryVertices::init(rays, depths, weights, cam);
         buildTriangles();
     }
 

@@ -10,7 +10,8 @@ class keyFrameCPU
 {
 public:
     keyFrameCPU(int width, int height)
-        : raw_image(width, height, imageType(-1.0f))
+        : raw_image(width, height, imageType(-1.0f)),
+          dIdpix_image(width, height, vec2f(0.0f, 0.0f))
     {
         globalPose = SE3f();
         globalExp = {0.0f, 0.0f};
@@ -18,7 +19,8 @@ public:
     };
 
     keyFrameCPU(const keyFrameCPU &other)
-        : raw_image(other.raw_image)
+        : raw_image(other.raw_image),
+          dIdpix_image(other.dIdpix_image)
     {
         globalPose = other.globalPose;
         globalExp = other.globalExp;
@@ -33,6 +35,7 @@ public:
             globalPose = other.globalPose;
             globalExp = other.globalExp;
             raw_image = other.raw_image;
+            dIdpix_image = other.dIdpix_image;
             globalScale = other.globalScale;
             geometry = other.geometry;
         }
@@ -42,9 +45,14 @@ public:
     void init(dataCPU<imageType> &im, vec2f _globalExp, SE3f _globalPose, float _globalScale)
     {
         assert(im.width == raw_image.get(0).width && im.height == raw_image.get(0).height);
-        
+
         raw_image.get(0) = im;
         raw_image.generateMipmaps();
+
+        for (int lvl = 0; lvl < raw_image.getLvls(); lvl++)
+        {
+            computeFrameDerivative(lvl);
+        }
 
         globalExp = _globalExp;
         globalPose = _globalPose;
@@ -54,52 +62,54 @@ public:
 
     void initGeometryRandom(cameraType cam)
     {
-        std::vector<vec2f> texcoords = uniformTexCoords();
+        std::vector<vec3f> rays = uniformRays(cam);
         std::vector<float> depths;
         std::vector<float> weights;
-        for (vec2f texcoord : texcoords)
+        for (vec3f ray : rays)
         {
             float depth = randomDepth(0.5, 1.5);
             depths.push_back(depth);
             weights.push_back(1.0 / mesh_vo::mapping_param_initial_var);
         }
 
-        geometry.init(texcoords, depths, weights, cam);
+        geometry.init(rays, depths, weights, cam);
     }
 
     void initGeometryVerticallySmooth(cameraType cam)
     {
-        std::vector<vec2f> texcoords = uniformTexCoords();
+        std::vector<vec3f> rays = uniformRays(cam);
         std::vector<float> depths;
         std::vector<float> weights;
-        for (vec2f texcoord : texcoords)
+        for (vec3f ray : rays)
         {
-            float depth = verticallySmoothDepth(texcoord, 0.5, 1.5);
+            vec2f pix = cam.rayToPix(ray);
+            float depth = verticallySmoothDepth(pix, 0.5, 1.5);
             depths.push_back(depth);
             weights.push_back(1.0 / mesh_vo::mapping_param_initial_var);
         }
 
-        geometry.init(texcoords, depths, weights, cam);
+        geometry.init(rays, depths, weights, cam);
     }
 
     void initGeometryFromDepth(dataCPU<float> &depth, dataCPU<float> &weight, cameraType cam)
     {
-        std::vector<vec2f> texcoords = uniformTexCoords();
+        std::vector<vec3f> rays = uniformRays(cam);
         std::vector<float> depths;
         std::vector<float> weights;
 
-        std::vector<vec2f> texcoordsWithData;
-        std::vector<vec2f> texcoordsWithNoData;
+        std::vector<vec3f> raysWithData;
+        std::vector<vec3f> raysWithNoData;
 
-        for (vec2f texcoord : texcoords)
+        for (vec3f ray : rays)
         {
+            vec2f texcoord = cam.rayToPix(ray);
             float dph = depth.get(texcoord(1), texcoord(0));
             float wght = weight.get(texcoord(1), texcoord(0));
 
             // assert(idph != idepth.nodata);
             if (dph == depth.nodata)
             {
-                texcoordsWithNoData.push_back(texcoord);
+                raysWithNoData.push_back(ray);
                 continue;
             }
             if (wght == weight.nodata)
@@ -111,37 +121,37 @@ public:
             assert(!std::isnan(dph));
             assert(!std::isinf(dph));
 
-            texcoordsWithData.push_back(texcoord);
+            raysWithData.push_back(ray);
             depths.push_back(dph);
             weights.push_back(wght);
 
             assert(depths.size() <= mesh_vo::max_vertex_size);
         }
 
-        geometry.init(texcoordsWithData, depths, weights, cam);
+        geometry.init(raysWithData, depths, weights, cam);
 
         vec2f minMax = geometry.minMaxDepthVertices();
 
-        for (vec2f texWithNoData : texcoordsWithNoData)
+        for (vec3f rayWithNoData : raysWithNoData)
         {
-            //float depth = getDepthFromClosestShape(texWithNoData, cam);
-            //float depth = verticallySmoothDepth(texWithNoData, fromParamToDepth(MIN_PARAM), fromParamToDepth(MAX_PARAM), cam);
-            float depth = 1.0;//randomDepth(minMax(0), minMax(1));
+            // float depth = getDepthFromClosestShape(texWithNoData, cam);
+            // float depth = verticallySmoothDepth(texWithNoData, fromParamToDepth(MIN_PARAM), fromParamToDepth(MAX_PARAM), cam);
+            float depth = 1.0; // randomDepth(minMax(0), minMax(1));
             assert(depth > 0.0);
 
-            //if(depth < fromParamToDepth(MIN_PARAM))
-            //    depth = fromParamToDepth(MIN_PARAM);
-            //if(depth > fromParamToDepth(MAX_PARAM))
-            //    depth = fromParamToDepth(MAX_PARAM);
+            // if(depth < fromParamToDepth(MIN_PARAM))
+            //     depth = fromParamToDepth(MIN_PARAM);
+            // if(depth > fromParamToDepth(MAX_PARAM))
+            //     depth = fromParamToDepth(MAX_PARAM);
 
             float weight = 1.0 / mesh_vo::mapping_param_initial_var;
 
-            texcoordsWithData.push_back(texWithNoData);
+            raysWithData.push_back(rayWithNoData);
             depths.push_back(depth);
             weights.push_back(weight);
         }
 
-        geometry.init(texcoordsWithData, depths, weights, cam);
+        geometry.init(raysWithData, depths, weights, cam);
     }
 
     SE3f localPoseToGlobal(SE3f _localPose)
@@ -184,7 +194,7 @@ public:
         globalScale *= scale;
         geometry.scaleVertices(scale);
         // add a bit more of uncertanty to the weights
-        //geometry.scaleWeights(scale * 1.2);
+        // geometry.scaleWeights(scale * 1.2);
     }
 
     float getGlobalScale()
@@ -217,6 +227,11 @@ public:
         return raw_image.get(lvl);
     }
 
+    dataCPU<vec2f> &getdIdpixImage(int lvl)
+    {
+        return dIdpix_image.get(lvl);
+    }
+
     geometryType &getGeometry()
     {
         return geometry;
@@ -246,16 +261,38 @@ private:
         return texcoords;
     }
 
+    std::vector<vec3f> uniformRays(cameraType cam)
+    {
+        cameraParamType camParams = cam.getParams();
+
+        std::vector<vec3f> rays;
+        for (float y = 0.0; y < mesh_vo::mesh_height; y++)
+        {
+            for (float x = 0.0; x < mesh_vo::mesh_width; x++)
+            {
+                vec3f ray;
+                ray(0) = (x / (mesh_vo::mesh_width - 1) - 0.5) / camParams(0);
+                ray(1) = (y / (mesh_vo::mesh_height - 1) - 0.5) / camParams(2);
+                ray(2) = 1.0;
+
+                rays.push_back(ray);
+            }
+        }
+
+        return rays;
+    }
+
     float randomDepth(float min_depth, float max_depth)
     {
         float depth = (max_depth - min_depth) * float(rand() % 1000) / 1000.0 + min_depth;
         return depth;
     }
 
-    float verticallySmoothDepth(vec2f texcoord, float min_depth, float max_depth)
+    float verticallySmoothDepth(vec2f pix, float min_depth, float max_depth)
     {
-        //max depth when y = 0
-        float depth = max_depth + (min_depth - max_depth) * texcoord(1);
+        // max depth when y = 0
+        float depth = max_depth + (min_depth - max_depth) * pix(1);
+        depth = std::clamp(depth, min_depth, max_depth);
         return depth;
     }
 
@@ -288,20 +325,51 @@ private:
         {
             shapeType shape = geometry.getShape(s_id);
             float distance = (texcoord - shape.getCenterPix()).norm();
-            float weight = std::exp(-(distance*distance) / (2*sigma*sigma));
+            float weight = std::exp(-(distance * distance) / (2 * sigma * sigma));
 
             shape.usePixel(texcoord);
             float depth = shape.getDepth();
-            if(depth <= 0.0)
+            if (depth <= 0.0)
                 continue;
-            depth_sum += depth*weight;
+            depth_sum += depth * weight;
             weight_sum += weight;
         }
 
-        return depth_sum/weight_sum;
+        return depth_sum / weight_sum;
+    }
+
+    void computeFrameDerivative(int lvl)
+    {
+        // dx.set(dx.nodata, lvl);
+        // dy.set(dy.nodata, lvl);
+
+        dataCPU<imageType> image = raw_image.get(lvl);
+
+        int width = image.width;
+        int height = image.height;
+
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                if (y == 0 || y == height - 1 || x == 0 || x == width - 1)
+                {
+                    // dx.set(0.0, y, x, lvl);
+                    // dy.set(0.0, y, x, lvl);
+                    dIdpix_image.get(lvl).setTexel(vec2f(0.0f, 0.0f), y, x);
+                    continue;
+                }
+
+                float _dx = (float(image.getTexel(y, x + 1)) - float(image.getTexel(y, x - 1))) * width / 2.0;
+                float _dy = (float(image.getTexel(y + 1, x)) - float(image.getTexel(y - 1, x))) * height / 2.0;
+
+                dIdpix_image.get(lvl).setTexel(vec2f(_dx, _dy), y, x);
+                // dx.set(_dx, y, x, lvl);
+                // dy.set(_dy, y, x, lvl);
+            }
     }
 
     dataMipMapCPU<imageType> raw_image;
+    dataMipMapCPU<vec2f> dIdpix_image;
     geometryType geometry;
     float globalScale;
 

@@ -32,6 +32,35 @@
             ]
         },
         {
+            "name": "(gdb) Launch syfra",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/syfra",
+            "args": [
+                //"/home/emanuel/workspace/datasets/desktop_dataset/"
+                //"/media/emanuel/1cad5e38-efe0-4887-bcc6-c9ae353fe1b7/datasets/desktop_dataset/",
+                "/media/emanuel/1cad5e38-efe0-4887-bcc6-c9ae353fe1b7/datasets/syfra/images",
+                "3000",
+            ],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
             "name": "(gdb) Launch tum",
             "type": "cppdbg",
             "request": "launch",

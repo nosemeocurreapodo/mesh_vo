@@ -9,13 +9,15 @@ namespace mesh_vo
     float min_lambda = 0.00001f;
     float huber_thresh_pix = 3.0;
 
+    int tracking_ini_lvl = 3;
+    int tracking_fin_lvl = 2;
     float tracking_prior_weight = 0.0;
     float tracking_convergence_p = 0.999;
     float tracking_convergence_v = 1e-16;
     float tracking_pose_initial_var = 100.0 * 100.0;
-    float tracking_ini_lvl = 2;
-    float tracking_fin_lvl = 1;
 
+    int mapping_ini_lvl = 2;
+    int mapping_fin_lvl = 2;
     float mapping_regu_weight = 0.0;
     float mapping_prior_weight = 1.0;
     float mapping_convergence_p = 0.9999;

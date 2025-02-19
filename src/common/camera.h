@@ -86,6 +86,7 @@ public:
         return d_pix_d_int;
     }
 
+    /*
     vec3f pixToRay(vec2f pix)
     {
         vec3f ray;
@@ -94,7 +95,9 @@ public:
         ray(2) = 1.0;
         return ray;
     }
+    */
 
+    /*
     mat<float, 3, 4> d_ray_d_intrinsics(vec2f pix)
     {
         mat<float, 3, 4> d_ray_d_int;
@@ -116,6 +119,7 @@ public:
 
         return d_ray_d_int;
     }
+    */
 
     vec4f getParams()
     {
@@ -217,7 +221,8 @@ public:
         mat3f d_dis_d_ray = d_distray_d_ray(ray);
         mat3f d_ray_d_v = d_ray_d_ver(ver);
 
-        mat<float, 2, 3> d_pix_d_v = (d_pix_d_dist * d_dis_d_ray) * d_ray_d_v;
+        mat<float, 2, 3> d_pix_d_ray = d_pix_d_dist * d_dis_d_ray;
+        mat<float, 2, 3> d_pix_d_v = d_pix_d_ray * d_ray_d_v;
 
         return d_pix_d_v;
     }
@@ -362,14 +367,15 @@ private:
     {
         mat3f d_dist_d_ray;
 
-        float radial = ray(0) * ray(0) + ray(1) * ray(1);
+        float r2 = ray(0) * ray(0) + ray(1) * ray(1);
+        float radial = 1.0 + k1 * r2;
 
-        d_dist_d_ray(0, 0) = radial + 2 * ray(0);
+        d_dist_d_ray(0, 0) = radial + ray(0) * k1 * ray(0);
         d_dist_d_ray(0, 1) = 0.0;
         d_dist_d_ray(0, 2) = 0.0;
 
         d_dist_d_ray(1, 0) = 0.0;
-        d_dist_d_ray(1, 1) = radial + 2 * ray(1);
+        d_dist_d_ray(1, 1) = radial + ray(1) * k1 * ray(1);
         d_dist_d_ray(1, 2) = 0.0;
 
         d_dist_d_ray(2, 0) = 0.0;

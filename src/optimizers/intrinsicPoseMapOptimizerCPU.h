@@ -23,7 +23,7 @@ public:
 private:
     DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int frameId, int numFrames, int lvl);
 
-    dataMipMapCPU<vec4f> jintrinsic_buffer;
+    dataMipMapCPU<cameraParamType> jintrinsic_buffer;
     dataMipMapCPU<vec6f> jpose_buffer;
     dataMipMapCPU<jmapType> jmap_buffer;
     dataMipMapCPU<idsType> pId_buffer;

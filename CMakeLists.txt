@@ -67,6 +67,10 @@ set(KITTI_BINOCULAR_SRCS
       "src/apps/kitti_binocular/main_on_images.cpp"
 )
 
+set(SYFRA_SRCS
+      "src/apps/syfra/main_on_images.cpp"
+)
+
 #file(GLOB SHADERS  "src/shaders/*")
 
 #foreach(SHADER ${SHADERS})
@@ -74,12 +78,14 @@ set(KITTI_BINOCULAR_SRCS
 #endforeach(SHADER)
 
 add_executable(testapp ${TESTAPP_SRCS} ${VISUALODOMETRY_SRCS})
-#add_executable(tum_dataset ${TUMDATASET_SRCS} ${VISUALODOMETRY_SRCS})
+add_executable(tum_dataset ${TUMDATASET_SRCS} ${VISUALODOMETRY_SRCS})
 #add_executable(kitti_dataset ${KITTI_SRCS} ${VISUALODOMETRY_SRCS})
 #add_executable(kitti_binocular ${KITTI_BINOCULAR_SRCS} ${VISUALODOMETRY_SRCS})
+add_executable(syfra ${SYFRA_SRCS} ${VISUALODOMETRY_SRCS})
 
 #target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})
 target_link_libraries(testapp ${OpenCV_LIBS} pthread)
-#target_link_libraries(tum_dataset ${OpenCV_LIBS} pthread)
+target_link_libraries(tum_dataset ${OpenCV_LIBS} pthread)
 #target_link_libraries(kitti_dataset ${OpenCV_LIBS} pthread)
 #target_link_libraries(kitti_binocular ${OpenCV_LIBS} pthread)
+target_link_libraries(syfra ${OpenCV_LIBS} pthread)

@@ -16,16 +16,16 @@ public:
 
     bool isPixInWindow(Type x, Type y)
     {
-        if (x > min_x && x < max_x && y > min_y && y < max_y)
-            return true;
-        return false;
+        if (x < min_x || x > max_x || y < min_y || y > max_y)
+            return false;
+        return true;
     }
 
     bool isPixInWindow(vec2f pix)
     {
-        if (pix(0) > min_x && pix(0) < max_x && pix(1) > min_y && pix(1) < max_y)
-            return true;
-        return false;
+        if (pix(0) < min_x || pix(0) > max_x || pix(1) < min_y || pix(1) > max_y)
+            return false;
+        return true;
     }
 
     void intersect(window win)

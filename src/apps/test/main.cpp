@@ -31,19 +31,19 @@ int main(int argc, char * argv[])
 
     int framesTracked = 0;
 
-    int width = 640;
-    int height = 480;
-
-    float fx = width;//481.20;
-    float fy = width;//480.0;
-    float cx = width/3;//319.5;
-    float cy = height/2;//239.5;
-
     cv::Mat imageMat = cv::imread(dataset_path + "images/scene_000.png", cv::IMREAD_GRAYSCALE);
     //cv::Mat idepthMat = cv::imread(dataset_path + "depths/scene_000.png", cv::IMREAD_GRAYSCALE);
     Sophus::SE3f initPose = readPose(dataset_path + "poses/scene_000.txt");
 
     imageMat.convertTo(imageMat, CV_32FC1);
+
+    int width = imageMat.cols;
+    int height = imageMat.rows;
+
+    float fx = height;//481.20;
+    float fy = height;//480.0;
+    float cx = width/2;//319.5;
+    float cy = height/2;//239.5;
 
     //to avoid idepth = 0 in the data
     //idepthMat = idepthMat + 1.0;

@@ -44,7 +44,7 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
     if (mesh_vo::mapping_prior_weight > 0.0)
         init_invcovariancesqrt = invCovariance.sqrt();
 
-    for (int lvl = 1; lvl >= 1; lvl--)
+    for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
     {
         float last_error = 0;
         for (std::size_t i = 0; i < frames.size(); i++)

@@ -334,7 +334,7 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                renderJIntrinsicWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), frame.getdIdpixImage(lvl), frame.getLocalPose(), jintrinsic_buffer.get(lvl), e_buffer.get(lvl), z_buffer.get(lvl), cam, win);
+                renderJIntrinsicWindow(kframe.getRawImage(lvl), kframe.getdIdpixImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), frame.getdIdpixImage(lvl), frame.getLocalPose(), jintrinsic_buffer.get(lvl), e_buffer.get(lvl), z_buffer.get(lvl), cam, win);
                 // pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kimage, frame, cam, win, jpose_buffer, e_buffer, lvl));
             }
         }
@@ -813,7 +813,8 @@ private:
             if (vert.weight > 1.0 / mesh_vo::mapping_param_initial_var)
                 continue;
 
-            vec2f kf_pix = vert.pix;
+            vec3f kf_ray = vert.ray;
+            vec2f kf_pix = cam.rayToPix(kf_ray);
 
             if (!win.isPixInWindow(kf_pix))
                 continue;
@@ -821,7 +822,6 @@ private:
             float best_residual = 100000000000.0;
             for (float kf_idepth = min_idepth; kf_idepth < max_idepth; kf_idepth += step_idepth)
             {
-                vec3f kf_ray = cam.pixToRay(kf_pix);
                 vec3f kf_ver = kf_ray / kf_idepth;
 
                 vec3f f_ver = kfToPose * kf_ver;
@@ -916,7 +916,7 @@ private:
         }
     }
 
-    void renderJIntrinsicWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<cameraParamType> &jintrinsic_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, cameraType cam, window<float> win)
+    void renderJIntrinsicWindow(dataCPU<float> &kimage, dataCPU<vec2f> &d_kimage_d_pix, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<cameraParamType> &jintrinsic_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, cameraType cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -993,9 +993,10 @@ private:
 
                     imageType kf_i = kimage.get(kf_pix(1), kf_pix(0));
                     imageType f_i = image.getTexel(f_pix_tex(1), f_pix_tex(0));
+                    vec2f d_kf_i_d_pix = d_kimage_d_pix.get(kf_pix(1), kf_pix(0));
                     vec2f d_f_i_d_pix = d_image_d_pix.getTexel(f_pix_tex(1), f_pix_tex(0));
 
-                    if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata)
+                    if (kf_i == kimage.nodata || f_i == image.nodata || d_f_i_d_pix == d_image_d_pix.nodata || d_kf_i_d_pix == d_kimage_d_pix.nodata)
                         continue;
 
                     float f_i_cor = alpha * (f_i - beta);
@@ -1004,15 +1005,21 @@ private:
 
                     cameraParamType d_f_i_d_intrinsics = d_f_i_d_pix.transpose() * cam.d_pix_d_intrinsics(f_ray);
 
+                    /*
                     mat<float, 2, 3> d_pix_d_f_ver = cam.d_pix_d_ver(f_ver);
                     vec3f d_f_i_d_f_ver = d_f_i_d_pix.transpose() * d_pix_d_f_ver;
 
                     matxf d_f_ver_d_intrinsics = kfTofPose.rotationMatrix() * cam.d_ray_d_intrinsics(kf_pix) * kf_depth;
 
                     d_f_i_d_intrinsics += d_f_i_d_f_ver.transpose() * d_f_ver_d_intrinsics;
+                    */
+
+                    cameraParamType d_kf_i_d_intrinsics = d_kf_i_d_pix.transpose() * cam.d_pix_d_intrinsics(kf_ray);
+
+                    cameraParamType d_res_d_intrinsics = d_f_i_d_intrinsics - d_kf_i_d_intrinsics;
 
                     e_buffer.setTexel(residual, f_pix_tex(1), f_pix_tex(0));
-                    jintrinsic_buffer.setTexel(d_f_i_d_intrinsics, f_pix_tex(1), f_pix_tex(0));
+                    jintrinsic_buffer.setTexel(d_res_d_intrinsics, f_pix_tex(1), f_pix_tex(0));
                 }
             }
         }
