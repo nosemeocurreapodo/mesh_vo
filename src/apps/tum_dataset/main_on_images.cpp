@@ -138,23 +138,27 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	int w = undistorter->getOutputWidth();
-	int h = undistorter->getOutputHeight();
-
 	int w_inp = undistorter->getInputWidth();
 	int h_inp = undistorter->getInputHeight();
 
+	int w = undistorter->getOutputWidth();
+	int h = undistorter->getOutputHeight();
 	float fx = undistorter->getK().at<double>(0, 0);
 	float fy = undistorter->getK().at<double>(1, 1);
 	float cx = undistorter->getK().at<double>(2, 0);
 	float cy = undistorter->getK().at<double>(2, 1);
+
+	//int w = undistorter->getInputWidth();
+	//int h = undistorter->getInputHeight();
+	//float fx = undistorter->getOriginalK().at<double>(0, 0) * w;
+	//float fy = undistorter->getOriginalK().at<double>(1, 1) * h;
+	//float cx = undistorter->getOriginalK().at<double>(2, 0) * w;
+	//float cy = undistorter->getOriginalK().at<double>(2, 1) * h;
+
 	// Sophus::Matrix3f K;
 	// K << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
 
-	camera cam(fx, fy, cx, cy, w, h);
-	cam.resize(mesh_vo::image_height, mesh_vo::image_width);
-
-	visualOdometry odometry(cam);
+	visualOdometry odometry(fx, fy, cx, cy, w, h);
 
 	// open image files: first try to open as file.
 	std::string source = argv[2];
@@ -200,15 +204,16 @@ int main(int argc, char **argv)
 		assert(imageDist.type() == CV_8U);
 
 		undistorter->undistort(imageDist, image);
+		// image = imageDist;
 		assert(image.type() == CV_8U);
 
 		// cv::imshow("image", image);
 		// cv::waitKey(30);
 
 		image.convertTo(image, CV_32FC1);
-		cv::resize(image, image, cv::Size(cam.width, cam.height), cv::INTER_AREA);
+		// cv::resize(image, image, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
-		dataCPU<float> imageData(cam.width, cam.height, -1.0);
+		dataCPU<float> imageData(w, h, -1.0);
 		imageData.set((float *)image.data);
 
 		if (runningIDX == 0)

@@ -109,8 +109,18 @@ public:
 
     Type get(float norm_y, float norm_x) const
     {
-        float x = norm_x * (width - 1);
-        float y = norm_y * (height - 1);
+        float wrapped_y = norm_y;
+        float wrapped_x = norm_x;
+        if(wrapped_y < 0.0)
+            wrapped_y += 1.0;
+        if(wrapped_y > 1.0)
+            wrapped_y -= 1.0;
+        if(wrapped_x < 0.0)
+            wrapped_x += 1.0;
+        if(wrapped_x > 1.0)
+            wrapped_x -= 1.0;
+        float x = wrapped_x * (width - 1);
+        float y = wrapped_y * (height - 1);
         return getTexel(y, x);
     }
 

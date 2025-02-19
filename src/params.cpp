@@ -10,19 +10,19 @@ namespace mesh_vo
     float huber_thresh_pix = 3.0;
 
     int tracking_ini_lvl = 3;
-    int tracking_fin_lvl = 2;
+    int tracking_fin_lvl = 1;
     float tracking_prior_weight = 0.0;
     float tracking_convergence_p = 0.999;
     float tracking_convergence_v = 1e-16;
     float tracking_pose_initial_var = 100.0 * 100.0;
 
-    int mapping_ini_lvl = 2;
-    int mapping_fin_lvl = 2;
-    float mapping_regu_weight = 0.0;
-    float mapping_prior_weight = 1.0;
+    int mapping_ini_lvl = 1;
+    int mapping_fin_lvl = 1;
+    float mapping_regu_weight = 10.0;
+    float mapping_prior_weight = 0.0;
     float mapping_convergence_p = 0.9999;
     float mapping_convergence_v = 1e-16;
-    float mapping_intrinsic_initial_var = 0.01 * 0.01;
+    float mapping_intrinsic_initial_var = 10.0 * 10.0;
     float mapping_intrinsic_good_var = 0.01 * 0.01;
     float mapping_pose_initial_var = 0.01 * 0.01;
     float mapping_pose_good_var = 0.01 * 0.01;
