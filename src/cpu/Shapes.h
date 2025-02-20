@@ -348,6 +348,9 @@ public:
         return ray_weight;
     }
 
+    //I think these are incorrect, projective geometry does not allow to use the same barycentrics
+    //I have to get the original 3D point, then project it to the other camera
+    /*
     vec2f getPix(ShapeTriangleFlat &shape)
     {
         vec2f pix = shape.m_vert0.pix * m_barycentric(0) +
@@ -371,10 +374,11 @@ public:
                       shape.m_vert2.ver(2) * m_barycentric(2);
         return depth;
     }
+    */
 
     bool isPixInShape()
     {
-        if (m_barycentric(0) < -0.0 || m_barycentric(1) < -0.0 || m_barycentric(2) < -0.0)
+        if (m_barycentric(0) < 0.0 || m_barycentric(1) < 0.0 || m_barycentric(2) < 0.0)
             return false;
         if (m_barycentric(0) > 1.0 || m_barycentric(1) > 1.0 || m_barycentric(2) > 1.0)
             return false;

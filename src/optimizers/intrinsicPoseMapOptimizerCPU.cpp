@@ -115,7 +115,7 @@ void intrinsicPoseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFr
             if (mesh_vo::mapping_regu_weight > 0.0)
             {
                 float weight = mesh_vo::mapping_regu_weight / numMapParams;
-                DenseLinearProblem hg_regu = kframe.getGeometry().HGRegu(numPoseParams, weight);
+                DenseLinearProblem hg_regu = kframe.getGeometry().HGRegu(numIntrinsicParams + numPoseParams, weight);
                 assert(hg_regu.getCount() > 0);
                 problem += hg_regu;
             }

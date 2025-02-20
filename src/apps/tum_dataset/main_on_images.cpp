@@ -30,12 +30,16 @@
 
 std::string &ltrim(std::string &s)
 {
-	s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not_fn([](int ch) { return std::isspace(ch); })));
+	s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not_fn([](int ch)
+																	{ return std::isspace(ch); })));
 	return s;
 }
 std::string &rtrim(std::string &s)
 {
-	s.erase(std::find_if(s.rbegin(), s.rend(), std::not_fn([](int ch) { return std::isspace(ch); })).base(), s.end());
+	s.erase(std::find_if(s.rbegin(), s.rend(), std::not_fn([](int ch)
+														   { return std::isspace(ch); }))
+				.base(),
+			s.end());
 	return s;
 }
 std::string &trim(std::string &s)
@@ -148,12 +152,12 @@ int main(int argc, char **argv)
 	float cx = undistorter->getK().at<double>(2, 0);
 	float cy = undistorter->getK().at<double>(2, 1);
 
-	//int w = undistorter->getInputWidth();
-	//int h = undistorter->getInputHeight();
-	//float fx = undistorter->getOriginalK().at<double>(0, 0) * w;
-	//float fy = undistorter->getOriginalK().at<double>(1, 1) * h;
-	//float cx = undistorter->getOriginalK().at<double>(2, 0) * w;
-	//float cy = undistorter->getOriginalK().at<double>(2, 1) * h;
+	// int w = undistorter->getInputWidth();
+	// int h = undistorter->getInputHeight();
+	// float fx = undistorter->getOriginalK().at<double>(0, 0) * w;
+	// float fy = undistorter->getOriginalK().at<double>(1, 1) * h;
+	// float cx = undistorter->getOriginalK().at<double>(2, 0) * w;
+	// float cy = undistorter->getOriginalK().at<double>(2, 1) * h;
 
 	// Sophus::Matrix3f K;
 	// K << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
@@ -187,7 +191,7 @@ int main(int argc, char **argv)
 	int runningIDX = 0;
 	float fakeTimeStamp = 0;
 
-	for (unsigned int i = start_index; i < end_index; i++) //files.size()
+	for (unsigned int i = start_index; i < end_index; i++) // files.size()
 	{
 		cv::Mat imageDist = cv::imread(files[i], cv::IMREAD_GRAYSCALE);
 

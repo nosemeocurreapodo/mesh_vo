@@ -25,10 +25,10 @@ public:
         width = other.width;
         height = other.height;
         m_data = new Type[width * height];
-        // std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
-        for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-                setTexel(other.getTexel(y, x), y, x);
+        std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
+        // for (int y = 0; y < height; y++)
+        //     for (int x = 0; x < width; x++)
+        //         setTexel(other.getTexel(y, x), y, x);
     }
 
     dataCPU &operator=(const dataCPU &other)
@@ -41,10 +41,10 @@ public:
             width = other.width;
             height = other.height;
 
-            // std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
-            for (int y = 0; y < height; y++)
-                for (int x = 0; x < width; x++)
-                    setTexel(other.getTexel(y, x), y, x);
+            std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
+            // for (int y = 0; y < height; y++)
+            //     for (int x = 0; x < width; x++)
+            //         setTexel(other.getTexel(y, x), y, x);
         }
         return *this;
     }
@@ -52,7 +52,7 @@ public:
     ~dataCPU()
     {
         delete[] m_data;
-        m_data = nullptr;
+        // m_data = nullptr;
     }
 
     void setTexel(const Type value, int y, int x)
@@ -63,17 +63,21 @@ public:
         m_data[address] = value;
     }
 
+    /*
     void setTexel(const Type value, float y, float x)
     {
         setTexel(value, int(round(y)), int(round(x)));
     }
+    */
 
+    /*
     void set(const Type value, float norm_y, float norm_x)
     {
         float y = norm_y * (height - 1);
         float x = norm_x * (width - 1);
         setTexel(value, y, x);
     }
+    */
 
     void set(const Type value)
     {
@@ -102,26 +106,30 @@ public:
         return m_data[address];
     }
 
+    /*
     Type getTexel(float y, float x) const
     {
-        return bilinear(y, x);
+        return getTexel(int(round(y)), int(round(x)));
     }
+    */
 
     Type get(float norm_y, float norm_x) const
     {
         float wrapped_y = norm_y;
         float wrapped_x = norm_x;
-        if(wrapped_y < 0.0)
-            wrapped_y += 1.0;
-        if(wrapped_y > 1.0)
-            wrapped_y -= 1.0;
-        if(wrapped_x < 0.0)
-            wrapped_x += 1.0;
-        if(wrapped_x > 1.0)
-            wrapped_x -= 1.0;
+        if (wrapped_y < 0.0)
+            // wrapped_y = std::fabs(wrapped_y);
+            wrapped_y = -wrapped_y;
+        if (wrapped_x < 0.0)
+            // wrapped_x = std::fabs(wrapped_x);
+            wrapped_x = -wrapped_x;
+        if (wrapped_y > 1.0)
+            wrapped_y = 1.0 - (wrapped_y - 1.0);
+        if (wrapped_x > 1.0)
+            wrapped_x = 1.0 - (wrapped_x - 1.0);
         float x = wrapped_x * (width - 1);
         float y = wrapped_y * (height - 1);
-        return getTexel(y, x);
+        return bilinear(y, x);
     }
 
     Type *get()
@@ -180,7 +188,7 @@ public:
         {
             for (int x = 0; x < width; x++)
             {
-                Type d = get(y, x);
+                Type d = getTexel(y, x);
                 if (d == nodata)
                     continue;
                 if (min == nodata || d < min)
@@ -204,7 +212,7 @@ public:
         {
             for (int x = 0; x < width; x++)
             {
-                Type d = get(y, x);
+                Type d = getTexel(y, x);
                 if (d == nodata)
                     continue;
 

@@ -80,7 +80,6 @@ float visualOdometry::meanViewAngle(SE3f pose1, SE3f pose2)
 
 float visualOdometry::getViewPercent(frameCPU &frame)
 {
-    int lvl = 1;
     /*
     sceneType scene1 = scene;
     scene1.transform(cam[lvl], frame.getPose());
@@ -99,8 +98,12 @@ float visualOdometry::getViewPercent(frameCPU &frame)
 
     */
 
-    dataMipMapCPU<float> depth(frame.getRawImage(lvl).width, frame.getRawImage(lvl).height, -1);
+    dataMipMapCPU<float> depth(frame.getRawImage(0).width, frame.getRawImage(0).height, -1);
+    int lvl = 1;
     renderer.renderDepthParallel(kframe, frame.getLocalPose(), depth, cam, lvl);
+    std::vector<dataCPU<float>> data;
+    data.push_back(depth.get(lvl));
+    show(data, "depthfornodata");
     float pnodata = depth.get(lvl).getPercentNoData();
     return 1.0 - pnodata;
 }

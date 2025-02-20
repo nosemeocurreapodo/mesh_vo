@@ -31,9 +31,12 @@ void baseOptimizerCPU::plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &fra
     for (int i = 0; i < (int)frames.size(); i++)
     {
         error_buffer.setToNoData(lvl);
+        depth_buffer.setToNoData(lvl);
         renderer.renderResidualParallel(kframe, frames[i], error_buffer, cam, lvl);
-        // toShow.push_back(frames[i].getRawImage(lvl));
+        renderer.renderDepthParallel(kframe, frames[i].getLocalPose(), depth_buffer, cam, lvl);
+        toShow.push_back(frames[i].getRawImage(lvl));
         toShow.push_back(error_buffer.get(lvl));
+        toShow.push_back(depth_buffer.get(lvl));
     }
 
     show(toShow, window_name);
