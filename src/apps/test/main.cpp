@@ -45,6 +45,8 @@ int main(int argc, char * argv[])
     float cx = width/2;//319.5;
     float cy = height/2;//239.5;
 
+    cameraType cam(fx, fy, cx, cy, width, height);
+
     //to avoid idepth = 0 in the data
     //idepthMat = idepthMat + 1.0;
     //idepthMat.convertTo(idepthMat, CV_32FC1);
@@ -90,7 +92,7 @@ int main(int argc, char * argv[])
     }
     */
 
-    visualOdometry odometry(fx, fy, cx, cy, width, height);
+    visualOdometry odometry(cam, width, height);
 
     //odometry.initScene(image, pixels, idepths, Sophus::SE3f());
     //odometry.init(image, idepth, Sophus::SE3f());
@@ -130,7 +132,7 @@ int main(int argc, char * argv[])
         //odometry.lightaffine(image, estPose);
         //odometry.mapping(image, realPose, vec2f(0.0, 0.0));
         //odometry.locAndMap(image);
-        odometry.locAndMap(image);
+        odometry.intrinsicAndLocAndMap(image);
         //Sophus::SE3f estPose = visual_odometry.calcPose(frameFloat);
         //visual_odometry.addFrameToStack(frameFloat, realPose);
         //visual_odometry.updateMap();

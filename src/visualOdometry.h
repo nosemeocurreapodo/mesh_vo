@@ -14,7 +14,7 @@
 class visualOdometry
 {
 public:
-    visualOdometry(float fx, float fy, float cx, float cy, int width, int height);
+    visualOdometry(cameraType cam, int width, int height);
 
     void init(dataCPU<float> &image, SE3f pose);
     void init(dataCPU<float> &image, SE3f pose, dataCPU<float> &idepth, dataCPU<float> &weight);

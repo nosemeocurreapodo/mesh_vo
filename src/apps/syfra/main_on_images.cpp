@@ -129,12 +129,15 @@ int main(int argc, char **argv)
 
 	int width = 1280;
 	int height = 720;
-	float fx = height;
-	float fy = height;
-	float cx = width / 2.0;
-	float cy = height / 2.0;
+	float fx = 0.594896555 * width;
+	float fy = 1.10809731 * height;
+	float cx = 0.500066221 * width;
+	float cy = 0.491324276 * height;
+	float k1 = -0.0853296965;
 
-	visualOdometry odometry(fx, fy, cx, cy, width, height);
+	cameraType cam(fx, fy, cx, cy, k1, width, height);
+
+	visualOdometry odometry(cam, width, height);
 
 	int initial_id = std::atoi(argv[2]);
 

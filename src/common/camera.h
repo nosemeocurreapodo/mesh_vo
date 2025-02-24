@@ -15,12 +15,12 @@ public:
         cy = _cy / _height;
     }
 
-    pinholeCamera(float _fx, float _fy, float _cx, float _cy)
+    pinholeCamera(const pinholeCamera &other)
     {
-        fx = _fx;
-        fy = _fy;
-        cx = _cx;
-        cy = _cy;
+        fx = other.fx;
+        fy = other.fy;
+        cx = other.cx;
+        cy = other.cy;
     }
 
     bool isPixVisible(vec2f pix)
@@ -86,7 +86,6 @@ public:
         return d_pix_d_int;
     }
 
-    /*
     vec3f pixToRay(vec2f pix)
     {
         vec3f ray;
@@ -95,7 +94,6 @@ public:
         ray(2) = 1.0;
         return ray;
     }
-    */
 
     /*
     mat<float, 3, 4> d_ray_d_intrinsics(vec2f pix)
@@ -153,6 +151,19 @@ private:
 class pinholeDistortedCamera
 {
 public:
+    pinholeDistortedCamera(float _fx, float _fy, float _cx, float _cy, float _k1, int _width, int _height)
+    {
+        fx = _fx / _width;
+        fy = _fy / _height;
+        cx = _cx / _width;
+        cy = _cy / _height;
+        k1 = _k1;
+        // k2 = 0.0;
+        // p1 = 0.0;
+        // p2 = 0.0;
+        // k3 = 0.0;
+    }
+
     pinholeDistortedCamera(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
     {
         fx = _fx / _width;
@@ -166,17 +177,13 @@ public:
         // k3 = 0.0;
     }
 
-    pinholeDistortedCamera(float _fx, float _fy, float _cx, float _cy)
+    pinholeDistortedCamera(const pinholeDistortedCamera &other)
     {
-        fx = _fx;
-        fy = _fy;
-        cx = _cx;
-        cy = _cy;
-        k1 = 0.0;
-        // k2 = 0.0;
-        // p1 = 0.0;
-        // p2 = 0.0;
-        // k3 = 0.0;
+        fx = other.fx;
+        fy = other.fy;
+        cx = other.cx;
+        cy = other.cy;
+        k1 = other.k1;
     }
 
     bool isPixVisible(vec2f pix)
@@ -251,7 +258,7 @@ public:
         return d_pix_d_int;
     }
 
-    /*
+    
     vec3f pixToRay(vec2f pix)
     {
         vec3f distRay;
@@ -260,9 +267,9 @@ public:
         distRay(2) = 1.0;
 
         vec3f ray = correctRay(distRay);
+        
         return ray;
     }
-    */
 
     /*
     mat<float, 3, 5> d_ray_d_intrinsics(vec2f pix)
@@ -404,27 +411,26 @@ private:
         return d_ray_d_v;
     }
 
-    /*
-    vec3f corrRay(vec3f distRay)
+    vec3f correctRay(vec3f distRay)
     {
-        // Step 2: Compute radius squared from the optical axis
-        float r2 = ray(0) * ray(0) + ray(1) * ray(1);
-        // float r4 = r2 * r2;
-        // float r6 = r4 * r2;
-
-        // Step 3: Compute the radial distortion factor
-        float radial = 1 + k1 * r2; // + k2 * r4 + k3 * r6;
-
-        // Step 4: Apply radial and tangential distortion
-        float xDistorted = ray(0) * radial; // + 2 * p1 * ray(0) * ray(1);        // + p2 * (r2 + 2 * ray(0) * ray(0));
-        float yDistorted = ray(1) * radial; // + p1 * (r2 + 2 * ray(1) * ray(1)); // + 2 * p2 * ray(0) * ray(1);
-
-        // Step 5: Convert to pixel coordinates using the focal length and principal point
-        vec3f distRay(xDistorted, yDistorted, 1.0);
-
-        return distRay;
+        vec3f cRay = distRay;
+        const int maxIterations = 5; // Number of iterations (adjust if needed)
+        for (int i = 0; i < maxIterations; i++) {
+            float r2 = cRay(0) * cRay(0) + cRay(1) * cRay(1);
+            //float r4 = r2 * r2;
+            //float r6 = r4 * r2;
+            // Radial distortion factor.
+            float radial = 1 + k1 * r2;// + k2 * r4 + k3 * r6;
+            // Tangential distortion components.
+            float deltaX = 0.0; //2 * p1 * cRay(0) * cRay(1) + p2 * (r2 + 2 * cRay(0) * cRay(0));
+            float deltaY = 0.0; //p1 * (r2 + 2 * cRay(1) * cRay(1)) + 2 * p2 * cRay(0) * cRay(1);
+            
+            // Compute the undistorted estimate from the distorted normalized coordinates.
+            cRay(0) = (distRay(0) - deltaX) / radial;
+            cRay(1) = (distRay(1) - deltaY) / radial;
+        }
+        return cRay;
     }
-    */
 
     float fx;
     float fy;

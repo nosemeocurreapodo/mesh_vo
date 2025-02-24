@@ -270,10 +270,11 @@ private:
         {
             for (float x = 0.0; x < mesh_vo::mesh_width; x++)
             {
-                vec3f ray;
-                ray(0) = (x / (mesh_vo::mesh_width - 1) - 0.5) / camParams(0);
-                ray(1) = (y / (mesh_vo::mesh_height - 1) - 0.5) / camParams(2);
-                ray(2) = 1.0;
+                vec2f pix;
+                pix(0) = x / (mesh_vo::mesh_width - 1);
+                pix(1) = y / (mesh_vo::mesh_height - 1);
+
+                vec3f ray = cam.pixToRay(pix);
 
                 rays.push_back(ray);
             }
