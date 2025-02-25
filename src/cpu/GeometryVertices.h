@@ -56,8 +56,8 @@ public:
             float weight = weights[i];
             vec2f pix = cam.rayToPix(ray);
 
-            //assert(cam.isPixVisible(pix));
-            //assert(dph > 0.0);
+            // assert(cam.isPixVisible(pix));
+            // assert(dph > 0.0);
             assert(!std::isnan(dph));
             assert(!std::isinf(dph));
 
@@ -105,7 +105,6 @@ public:
 
         return results;
     }
-
 
     vec2f minMaxDepthVertices()
     {
@@ -246,10 +245,10 @@ public:
         {
             if (!m_vertices[i].used)
                 continue;
-            //weight = 1/std**2, so to scale it
-            //weight = 1/((scale*std)**2)
-            //weight = 1/(scane**2*std**2)
-            m_vertices[i].weight *= 1.0/(scale*scale);
+            // weight = 1/std**2, so to scale it
+            // weight = 1/((scale*std)**2)
+            // weight = 1/(scane**2*std**2)
+            m_vertices[i].weight *= 1.0 / (scale * scale);
         }
     }
 

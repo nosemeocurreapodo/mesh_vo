@@ -30,6 +30,16 @@ void visualOdometry::init(dataCPU<float> &image, SE3f globalPose, dataCPU<float>
     kframe.initGeometryFromDepth(depth, weight, cam);
 }
 
+std::vector<frameCPU> visualOdometry::getFrames()
+{
+    return goodFrames;
+}
+
+keyFrameCPU visualOdometry::getKeyframe()
+{
+    return kframe;
+}
+
 float visualOdometry::meanViewAngle(SE3f pose1, SE3f pose2)
 {
     int lvl = 1;
@@ -106,7 +116,7 @@ float visualOdometry::getViewPercent(frameCPU &frame)
     return 1.0 - pnodata;
 }
 
-void visualOdometry::locAndMap(dataCPU<float> &image)
+int visualOdometry::locAndMap(dataCPU<float> &image)
 {
     tic_toc t;
     bool optimize = false;
@@ -233,6 +243,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     if (optimize)
     {
         t.tic();
+        //mapOptimizer.optimize(keyFrames, kframe, cam);
         poseMapOptimizer.optimize(keyFrames, kframe, cam);
         std::cout << "optposemap time: " << t.toc() << std::endl;
 
@@ -251,6 +262,8 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     }
 
     lastLocalMovement = lastFrame.getLocalPose() * lastLocalPose.inverse();
+
+    return int(optimize);
 }
 
 void visualOdometry::intrinsicAndLocAndMap(dataCPU<float> &image)

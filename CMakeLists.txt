@@ -17,12 +17,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(SuiteParse REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(Pangolin REQUIRED)
+
+if(NOT TARGET Eigen3::Eigen)
+  add_library(Eigen3::Eigen INTERFACE IMPORTED)
+  set_target_properties(Eigen3::Eigen PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${EIGEN3_INCLUDE_DIR}")
+endif()
 
 include_directories("src")
 include_directories("include")
 include_directories(
         ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
         ${EIGEN3_INCLUDE_DIR}
+        ${Pangolin_INCLUDE_DIRS}
         )
 
 include_directories( ${CSPARSE_INCLUDE_DIR} ${CHOLMOD_INCLUDE_DIR}) 
@@ -88,7 +95,7 @@ add_executable(tum_dataset ${TUMDATASET_SRCS})
 add_executable(syfra ${SYFRA_SRCS})
 
 #target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})
-target_link_libraries(testapp mesh_vo ${OpenCV_LIBS} pthread)
+target_link_libraries(testapp mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
 target_link_libraries(tum_dataset mesh_vo ${OpenCV_LIBS} pthread)
 #target_link_libraries(kitti_dataset ${OpenCV_LIBS} pthread)
 #target_link_libraries(kitti_binocular ${OpenCV_LIBS} pthread)
