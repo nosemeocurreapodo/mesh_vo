@@ -129,7 +129,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     // std::cout << "estimated pose " << std::endl;
     // std::cout << newFrame.getPose().matrix() << std::endl;
 
-    if (goodFrames.size() < mesh_vo::num_frames)
+    if (goodFrames.size() == 0)
     {
         goodFrames.push_back(lastFrame);
         keyFrames = goodFrames;
@@ -139,7 +139,7 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
     {
         float keyframeViewAngle = meanViewAngle(SE3f(), lastFrame.getLocalPose());
 
-        float lastMinViewAngle = mesh_vo::last_min_angle*2.0;
+        float lastMinViewAngle = M_PI;
         for(size_t i = 0; i < goodFrames.size(); i++)
         {
             float lastViewAngle = meanViewAngle(goodFrames[i].getLocalPose(), lastFrame.getLocalPose());
@@ -161,12 +161,11 @@ void visualOdometry::locAndMap(dataCPU<float> &image)
         }
 
         if ((viewPercent < mesh_vo::min_view_perc || keyframeViewAngle > mesh_vo::key_max_angle) && goodFrames.size() > 1)
-        // if((viewPercent < 0.9 || meanViewAngle > M_PI / 64.0) && lastFrames.size() > 1)
         {
             // select new keyframe
             // int newKeyframeIndex = 0;
             int newKeyframeIndex = int(goodFrames.size() / 2);
-            // int newKeyframeIndex = int(lastFrames.size() - 1);
+            //int newKeyframeIndex = int(goodFrames.size() - 1);
             frameCPU newKeyframe = goodFrames[newKeyframeIndex];
 
             // render its idepth
@@ -285,18 +284,23 @@ void visualOdometry::intrinsicAndLocAndMap(dataCPU<float> &image)
     }
     else
     {
-        float lastViewAngle = meanViewAngle(goodFrames[goodFrames.size() - 1].getLocalPose(), lastFrame.getLocalPose());
         float keyframeViewAngle = meanViewAngle(SE3f(), lastFrame.getLocalPose());
-        // dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
-        // float percentNoData = idepth.getPercentNoData(1);
+
+        float lastMinViewAngle = M_PI;
+        for(size_t i = 0; i < goodFrames.size(); i++)
+        {
+            float lastViewAngle = meanViewAngle(goodFrames[i].getLocalPose(), lastFrame.getLocalPose());
+            if(lastViewAngle < lastMinViewAngle)
+                lastMinViewAngle = lastViewAngle;
+        }
 
         float viewPercent = getViewPercent(lastFrame);
 
-        std::cout << "last viewAngle " << lastViewAngle << std::endl;
+        std::cout << "last viewAngle " << lastMinViewAngle << std::endl;
         std::cout << "keyframe viewAngle " << keyframeViewAngle << std::endl;
         std::cout << "viewPercent " << viewPercent << std::endl;
 
-        if (lastViewAngle > mesh_vo::last_min_angle) //(percentNoData > 0.2) //(viewPercent < 0.8)
+        if (lastMinViewAngle > mesh_vo::last_min_angle) //(percentNoData > 0.2) //(viewPercent < 0.8)
         {
             goodFrames.push_back(lastFrame);
             if (goodFrames.size() > mesh_vo::num_frames)
@@ -454,21 +458,23 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
     }
     else
     {
-        float lastViewAngle = meanViewAngle(goodFrames[goodFrames.size() - 1].getLocalPose(), lastFrame.getLocalPose());
         float keyframeViewAngle = meanViewAngle(SE3f(), lastFrame.getLocalPose());
-        // dataCPU<float> idepth = meshOptimizer.getIdepth(newFrame.getPose(), 1);
-        // float percentNoData = idepth.getPercentNoData(1);
 
-        assert(!std::isnan(lastViewAngle));
-        assert(!std::isnan(keyframeViewAngle));
+        float lastMinViewAngle = M_PI;
+        for(size_t i = 0; i < goodFrames.size(); i++)
+        {
+            float lastViewAngle = meanViewAngle(goodFrames[i].getLocalPose(), lastFrame.getLocalPose());
+            if(lastViewAngle < lastMinViewAngle)
+                lastMinViewAngle = lastViewAngle;
+        }
 
         float viewPercent = getViewPercent(lastFrame);
 
-        std::cout << "last viewAngle " << lastViewAngle << std::endl;
+        std::cout << "last viewAngle " << lastMinViewAngle << std::endl;
         std::cout << "keyframe viewAngle " << keyframeViewAngle << std::endl;
         std::cout << "viewPercent " << viewPercent << std::endl;
 
-        if (lastViewAngle > mesh_vo::last_min_angle) //(percentNoData > 0.2) //(viewPercent < 0.8)
+        if (lastMinViewAngle > mesh_vo::last_min_angle) //(percentNoData > 0.2) //(viewPercent < 0.8)
         {
             goodFrames.push_back(lastFrame);
             if (goodFrames.size() > mesh_vo::num_frames)

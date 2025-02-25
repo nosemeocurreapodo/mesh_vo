@@ -253,8 +253,7 @@ void poseMapOptimizerCPU::optimize(std::vector<frameCPU> &frames, keyFrameCPU &k
 
                     // reject update, increase lambda, use un-updated data
 
-                    // if (poseInc.dot(poseInc) < 1e-16 && mapInc.dot(mapInc) < 1e-16)
-                    if (false)
+                    if (poseInc.dot(poseInc) < 1e-16 && mapInc.dot(mapInc) < 1e-16)
                     {
                         // if too small, do next level!
                         it = maxIterations;
