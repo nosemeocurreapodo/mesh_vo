@@ -19,42 +19,42 @@ inline bool fileExist(const std::string &name)
     return f.good();
 }
 
+const char *vertex_shader = R"Shader(
+    #version 120
+    attribute vec3 a_position;
+    varying vec2 v_pos;
+    varying float depth;
+    uniform mat4 MVP;
+
+    void main() {
+        gl_Position = MVP * vec4(a_position, 1.0);
+        v_pos = a_position.xy;
+        depth = a_position.z;
+    }
+    )Shader";
+
+const char *fragment_shader = R"Shader(
+    #version 120
+    varying vec2 v_pos;
+    varying float depth;
+    uniform float u_time;
+    
+    vec3 colorA = vec3(0.905,0.045,0.045);
+    vec3 colorB = vec3(0.995,0.705,0.051);
+    
+    void main() {
+        //float pattern = sin(10*v_pos.y + u_time) * sin(10*v_pos.x + u_time) * 0.5 + 0.5;
+        //vec3 color = mix(colorA, colorB, pattern);
+        //float depth = gl_FragCoord.z;
+        vec3 color = vec3(1.0/depth, 1.0/depth, 1.0/depth);
+        gl_FragColor = vec4(color, 1.0);
+    }
+    )Shader";
+
 std::mutex pose_mutex;
 std::mutex map_mutex;
 geometryType mapGeometry;
 bool geometryUpdated = false;
-
-inline void glDrawColouredCube(GLfloat axis_min = -0.5f, GLfloat axis_max = +0.5f)
-{
-    const GLfloat l = axis_min;
-    const GLfloat h = axis_max;
-
-    const GLfloat verts[] = {
-        l, l, h, h, l, h, l, h, h, h, h, h, // FRONT
-        l, l, l, l, h, l, h, l, l, h, h, l, // BACK
-        l, l, h, l, h, h, l, l, l, l, h, l, // LEFT
-        h, l, l, h, h, l, h, l, h, h, h, h, // RIGHT
-        l, h, h, h, h, h, l, h, l, h, h, l, // TOP
-        l, l, h, l, l, l, h, l, h, h, l, l  // BOTTOM
-    };
-
-    glVertexPointer(3, GL_FLOAT, 0, verts);
-    glEnableClientState(GL_VERTEX_ARRAY);
-
-    glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glDrawArrays(GL_TRIANGLE_STRIP, 4, 4);
-
-    glColor4f(0.0f, 1.0f, 0.0f, 1.0f);
-    glDrawArrays(GL_TRIANGLE_STRIP, 8, 4);
-    glDrawArrays(GL_TRIANGLE_STRIP, 12, 4);
-
-    glColor4f(0.0f, 0.0f, 1.0f, 1.0f);
-    glDrawArrays(GL_TRIANGLE_STRIP, 16, 4);
-    glDrawArrays(GL_TRIANGLE_STRIP, 20, 4);
-
-    glDisableClientState(GL_VERTEX_ARRAY);
-}
 
 class geometryPlotter
 {
@@ -62,7 +62,7 @@ public:
     geometryPlotter()
     {
         indicesSize = 0;
-
+        time = 0;
         // ----------------------------
         // Set Up OpenGL Buffers (VAO/VBO/EBO)
         // ----------------------------
@@ -84,7 +84,7 @@ public:
         }
 
         int indices_size = geometry.getShapesIds().size();
-        int indices_buffer[indices_size * 3];
+        unsigned int indices_buffer[indices_size * 3];
         for (int i = 0; i < indices_size; i++)
         {
             vec3i ids = geometry.getShape(i).getParamIds();
@@ -98,12 +98,12 @@ public:
 
         // VBO: Upload the vertex data to the GPU.
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, vertices_size * sizeof(float),
+        glBufferData(GL_ARRAY_BUFFER, vertices_size * 3 * sizeof(float),
                      vertices_buffer, GL_STATIC_DRAW);
 
         // EBO: Upload the index data to the GPU.
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size * sizeof(unsigned int),
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size * 3 * sizeof(unsigned int),
                      indices_buffer, GL_STATIC_DRAW);
 
         // Vertex Attribute: We assume each vertex only has a 3D position.
@@ -116,17 +116,93 @@ public:
         glBindVertexArray(0);
 
         indicesSize = indices_size;
-    };
+    }
 
-    void draw()
+    void compileShaders()
     {
+        // Build and compile our shader program
+        // ------------------------------------
+
+        // Create a vertex shader GL object
+        unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+
+        // Tell GL the source code to use
+        glShaderSource(vertexShader, 1, &vertex_shader, NULL);
+
+        // Actually compile the program
+        glCompileShader(vertexShader);
+
+        // Check if the compilation was successfull, and print anyn errors
+        int success;
+        char infoLog[512];
+        glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+        if (!success)
+        {
+            glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+            std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n"
+                      << infoLog << std::endl;
+        }
+
+        // Repeat for the Fragment shader
+        unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(fragmentShader, 1, &fragment_shader, NULL);
+        glCompileShader(fragmentShader);
+        // check for shader compile errors
+        glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+        if (!success)
+        {
+            glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+            std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n"
+                      << infoLog << std::endl;
+        }
+
+        // Link the vertex and fragment shaders into one complete program
+        shaderProgram = glCreateProgram();
+
+        glAttachShader(shaderProgram, vertexShader);
+        glAttachShader(shaderProgram, fragmentShader);
+        glLinkProgram(shaderProgram);
+
+        // Check for linking errors
+        glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+        if (!success)
+        {
+            glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+            std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n"
+                      << infoLog << std::endl;
+        }
+
+        // Delete the now unused shader objects
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+
+        mvpLoc = glGetUniformLocation(shaderProgram, "MVP");
+        timeLoc = glGetUniformLocation(shaderProgram, "u_time");
+    }
+
+    void draw(pangolin::OpenGlMatrix mvp)
+    {
+        glUseProgram(shaderProgram);
+        glUniform1f(timeLoc, time);
+        GLfloat mvp_float[16];
+        for (int i = 0; i < 16; ++i)
+        {
+            mvp_float[i] = static_cast<GLfloat>(mvp.m[i]);
+        }
+        glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, mvp_float);
+
         glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indicesSize), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indicesSize * 3), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
+        time += 0.01;
     }
 
 private:
     GLuint VAO, VBO, EBO;
+    unsigned int shaderProgram;
+    GLint mvpLoc;
+    GLint timeLoc;
+    float time;
     int indicesSize;
 };
 
@@ -138,7 +214,7 @@ int visualizationThread()
 
     // Define Projection and initial ModelView matrix
     pangolin::OpenGlRenderState s_cam(
-        pangolin::ProjectionMatrix(640, 480, 420, 420, 320, 240, 0.2, 100),
+        pangolin::ProjectionMatrix(640, 480, 420, 420, 320, 240, 0.1, 100),
         pangolin::ModelViewLookAt(-2, 2, -2, 0, 0, 0, pangolin::AxisY));
 
     // Create Interactive View in window
@@ -148,6 +224,7 @@ int visualizationThread()
                                 .SetHandler(&handler);
 
     geometryPlotter geomPlotter;
+    geomPlotter.compileShaders();
 
     while (!pangolin::ShouldQuit())
     {
@@ -163,10 +240,11 @@ int visualizationThread()
         // Clear screen and activate view to render into
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         d_cam.Activate(s_cam);
+        pangolin::OpenGlMatrix mvp = s_cam.GetProjectionModelViewMatrix();
 
         // Render OpenGL Cube
         // pangolin::glDrawColouredCube();
-        geomPlotter.draw();
+        geomPlotter.draw(mvp);
 
         // Swap frames and Process Events
         pangolin::FinishFrame();

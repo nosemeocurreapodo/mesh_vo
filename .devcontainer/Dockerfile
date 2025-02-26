@@ -8,4 +8,8 @@ RUN apt-get update &&  DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
   libeigen3-dev \
   libboost-all-dev \
   libopencv-dev \
-  libglfw3-dev
+  libglfw3-dev \
+  git \
+  libepoxy-dev \
+  python3-pip 
+RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git && cd Pangolin && mkdir build && cd build && cmake ../ && make -j4 && make install && ldconfig
