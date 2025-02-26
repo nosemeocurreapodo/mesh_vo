@@ -4,6 +4,13 @@ template <typename Type>
 class dataCPU
 {
 public:
+
+    dataCPU()
+    {
+        width = 0;
+        height = 0;
+    }
+
     dataCPU(int _width, int _height, Type _nodata_value)
     {
         nodata = _nodata_value;
@@ -35,11 +42,12 @@ public:
     {
         if (this != &other)
         {
-            assert(width == other.width && height == other.height);
+            delete m_data;
 
             nodata = other.nodata;
             width = other.width;
             height = other.height;
+            m_data = new Type[width * height];
 
             std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
             // for (int y = 0; y < height; y++)

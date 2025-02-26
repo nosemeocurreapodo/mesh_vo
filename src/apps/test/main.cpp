@@ -20,39 +20,40 @@ inline bool fileExist(const std::string &name)
 }
 
 const char *vertex_shader = R"Shader(
-    #version 120
-    attribute vec3 a_position;
-    varying vec2 v_pos;
-    varying float depth;
+    #version 330 core
+    layout (location = 0) in vec3 a_position;
+    layout (location = 1) in vec2 a_texcoord;
+    out vec2 v_texcoord;
+    out float depth;
     uniform mat4 MVP;
 
     void main() {
         gl_Position = MVP * vec4(a_position, 1.0);
-        v_pos = a_position.xy;
+        v_texcoord = a_texcoord;
         depth = a_position.z;
     }
     )Shader";
 
 const char *fragment_shader = R"Shader(
-    #version 120
-    varying vec2 v_pos;
-    varying float depth;
-    uniform float u_time;
-    
-    vec3 colorA = vec3(0.905,0.045,0.045);
-    vec3 colorB = vec3(0.995,0.705,0.051);
+    #version 330 core
+    layout(location = 0) out vec4 f_color;
+    in vec2 v_texcoord;
+    in float depth;
+    uniform sampler2D image;
     
     void main() {
         //float pattern = sin(10*v_pos.y + u_time) * sin(10*v_pos.x + u_time) * 0.5 + 0.5;
         //vec3 color = mix(colorA, colorB, pattern);
         //float depth = gl_FragCoord.z;
-        vec3 color = vec3(1.0/depth, 1.0/depth, 1.0/depth);
-        gl_FragColor = vec4(color, 1.0);
+        //vec3 color = vec3(1.0/depth, 1.0/depth, 1.0/depth);
+        vec3 color = texture(image, v_texcoord).xyz;
+        f_color = vec4(color/255.0, 1.0);
     }
     )Shader";
 
 std::mutex pose_mutex;
 std::mutex map_mutex;
+dataCPU<float> mapImage;
 geometryType mapGeometry;
 bool geometryUpdated = false;
 
@@ -62,25 +63,26 @@ public:
     geometryPlotter()
     {
         indicesSize = 0;
-        time = 0;
-        // ----------------------------
-        // Set Up OpenGL Buffers (VAO/VBO/EBO)
-        // ----------------------------
         glGenVertexArrays(1, &VAO);
         glGenBuffers(1, &VBO);
         glGenBuffers(1, &EBO);
+        glGenTextures(1, &textureID);
     }
 
-    void setBuffers(geometryType &geometry)
+    void setBuffers(dataCPU<float> &image, geometryType &geometry)
     {
         int vertices_size = geometry.getVerticesIds().size();
-        float vertices_buffer[vertices_size * 3];
+        float vertex_buffer[vertices_size * 5];
         for (int i = 0; i < vertices_size; i++)
         {
             vec3f ver = geometry.getVertex(i).ver;
-            vertices_buffer[i * 3 + 0] = ver(0);
-            vertices_buffer[i * 3 + 1] = ver(1);
-            vertices_buffer[i * 3 + 2] = ver(2);
+            vertex_buffer[i * 5 + 0] = ver(0);
+            vertex_buffer[i * 5 + 1] = ver(1);
+            vertex_buffer[i * 5 + 2] = ver(2);
+
+            vec2f pix = geometry.getVertex(i).pix;
+            vertex_buffer[i * 5 + 3] = pix(0);
+            vertex_buffer[i * 5 + 4] = pix(1);
         }
 
         int indices_size = geometry.getShapesIds().size();
@@ -98,8 +100,8 @@ public:
 
         // VBO: Upload the vertex data to the GPU.
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, vertices_size * 3 * sizeof(float),
-                     vertices_buffer, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertices_size * 5 * sizeof(float),
+                     vertex_buffer, GL_STATIC_DRAW);
 
         // EBO: Upload the index data to the GPU.
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
@@ -109,11 +111,22 @@ public:
         // Vertex Attribute: We assume each vertex only has a 3D position.
         // We tell OpenGL that the attribute at location 0 (in our shader) should
         // get its data from the currently bound GL_ARRAY_BUFFER (VBO).
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
         glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
 
         // Unbind the VAO (optional for clarity, as we'll bind it later)
         glBindVertexArray(0);
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, image.width, image.height, 0, GL_RED, GL_FLOAT, image.get());
+        glGenerateMipmap(GL_TEXTURE_2D);
 
         indicesSize = indices_size;
     }
@@ -178,12 +191,12 @@ public:
 
         mvpLoc = glGetUniformLocation(shaderProgram, "MVP");
         timeLoc = glGetUniformLocation(shaderProgram, "u_time");
+        imageLoc = glGetUniformLocation(shaderProgram, "image");
     }
 
     void draw(pangolin::OpenGlMatrix mvp)
     {
         glUseProgram(shaderProgram);
-        glUniform1f(timeLoc, time);
         GLfloat mvp_float[16];
         for (int i = 0; i < 16; ++i)
         {
@@ -191,18 +204,22 @@ public:
         }
         glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, mvp_float);
 
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glUniform1i(glGetUniformLocation(shaderProgram, "image"), 0);
+
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indicesSize * 3), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
-        time += 0.01;
     }
 
 private:
     GLuint VAO, VBO, EBO;
+    GLuint textureID;
     unsigned int shaderProgram;
     GLint mvpLoc;
     GLint timeLoc;
-    float time;
+    GLint imageLoc;
     int indicesSize;
 };
 
@@ -232,7 +249,7 @@ int visualizationThread()
             std::lock_guard<std::mutex> lock(map_mutex);
             if (geometryUpdated)
             {
-                geomPlotter.setBuffers(mapGeometry);
+                geomPlotter.setBuffers(mapImage, mapGeometry);
                 geometryUpdated = false;
             }
         }
@@ -371,6 +388,7 @@ int main(int argc, char *argv[])
         {
             std::lock_guard<std::mutex> lock(map_mutex);
             mapGeometry = odometry.getKeyframe().getGeometry();
+            mapImage = odometry.getKeyframe().getRawImage(0);
             geometryUpdated = true;
         }
     }
