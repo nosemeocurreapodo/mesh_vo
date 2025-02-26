@@ -18,6 +18,23 @@ public:
         globalScale = 1.0;
     };
 
+    keyFrameCPU(const dataCPU<imageType> &im, const dataCPU<vec2f> &dIdpix, vec2f _globalExp, SE3f _globalPose, float _globalScale) : raw_image(im),
+                                                                                                                                      dIdpix_image(dIdpix)
+    {
+        // raw_image.get(0) = im;
+        // raw_image.generateMipmaps();
+
+        // for (int lvl = 0; lvl < raw_image.getLvls(); lvl++)
+        //{
+        //     computeFrameDerivative(lvl);
+        // }
+
+        globalExp = _globalExp;
+        globalPose = _globalPose;
+        globalScale = _globalScale;
+        // pose = SIM3f(scale, p.unit_quaternion(), p.translation());
+    }
+
     keyFrameCPU(const keyFrameCPU &other)
         : raw_image(other.raw_image),
           dIdpix_image(other.dIdpix_image)

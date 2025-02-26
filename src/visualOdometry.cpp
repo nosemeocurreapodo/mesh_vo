@@ -1,79 +1,27 @@
 #include "visualOdometry.h"
 #include "utils/tictoc.h"
 
-template <typename T>
-class ThreadSafeQueue {
-public:
-    // Push an element into the queue
-    void push(const T& value) {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            queue_.push(value);
-        }
-        cv_.notify_one();
-    }
-
-    // Pop an element from the queue (blocks if the queue is empty)
-    T pop() {
-        std::unique_lock<std::mutex> lock(mutex_);
-        cv_.wait(lock, [this] { return !queue_.empty(); });
-        T value = queue_.front();
-        queue_.pop();
-        return value;
-    }
-
-    // Try to pop an element; returns false if queue is empty
-    bool try_pop(T& value) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (queue_.empty())
-            return false;
-        value = queue_.front();
-        queue_.pop();
-        return true;
-    }
-
-    // Check if the queue is empty
-    bool empty() const {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return queue_.empty();
-    }
-
-private:
-    mutable std::mutex mutex_;
-    std::queue<T> queue_;
-    std::condition_variable cv_;
-};
-
-void localizationThread(ThreadSafeQueue<frameCPU>& tsQueue)
-{
-    poseOptimizerCPU poseOptimizer(640, 480);
-
-    while (true)
-    {
-        frameCPU frame = tsQueue.pop();
-        poseOptimizer.optimize(frame, kframe, cam);
-    }
-}
-
-visualOdometry::visualOdometry(cameraType _cam, int width, int height)
+visualOdometry::visualOdometry(dataCPU<imageType> &image, SE3f globalPose, cameraType _cam)
     : cam(_cam),
-      kframe(width, height),
-      lastFrame(width, height),
-      poseOptimizer(width, height),
-      mapOptimizer(width, height),
-      poseMapOptimizer(width, height),
-      intrinsicPoseMapOptimizer(width, height),
-      renderer(width, height)
+      kframe(image.width, image.height),
+      lastFrame(image.width, image.height),
+      poseOptimizer(image.width, image.height),
+      mapOptimizer(image.width, image.height),
+      poseMapOptimizer(image.width, image.height),
+      intrinsicPoseMapOptimizer(image.width, image.height),
+      renderer(image.width, image.height)
 {
     lastId = 0;
     lastLocalMovement = SE3f();
+    kframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0);
+    kframe.initGeometryVerticallySmooth(cam);
 }
 
 void visualOdometry::init(dataCPU<float> &image, SE3f globalPose)
 {
     kframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0);
     kframe.initGeometryVerticallySmooth(cam);
-    //kframe.initGeometryRandom(cam);
+    // kframe.initGeometryRandom(cam);
 }
 
 void visualOdometry::init(dataCPU<float> &image, SE3f globalPose, dataCPU<float> &depth, dataCPU<float> &weight)
@@ -204,10 +152,10 @@ int visualOdometry::locAndMap(dataCPU<float> &image)
         float keyframeViewAngle = meanViewAngle(SE3f(), lastFrame.getLocalPose());
 
         float lastMinViewAngle = M_PI;
-        for(size_t i = 0; i < goodFrames.size(); i++)
+        for (size_t i = 0; i < goodFrames.size(); i++)
         {
             float lastViewAngle = meanViewAngle(goodFrames[i].getLocalPose(), lastFrame.getLocalPose());
-            if(lastViewAngle < lastMinViewAngle)
+            if (lastViewAngle < lastMinViewAngle)
                 lastMinViewAngle = lastViewAngle;
         }
 
@@ -229,7 +177,7 @@ int visualOdometry::locAndMap(dataCPU<float> &image)
             // select new keyframe
             // int newKeyframeIndex = 0;
             int newKeyframeIndex = int(goodFrames.size() / 2);
-            //int newKeyframeIndex = int(goodFrames.size() - 1);
+            // int newKeyframeIndex = int(goodFrames.size() - 1);
             frameCPU newKeyframe = goodFrames[newKeyframeIndex];
 
             // render its idepth
@@ -297,7 +245,7 @@ int visualOdometry::locAndMap(dataCPU<float> &image)
     if (optimize)
     {
         t.tic();
-        //mapOptimizer.optimize(keyFrames, kframe, cam);
+        // mapOptimizer.optimize(keyFrames, kframe, cam);
         poseMapOptimizer.optimize(keyFrames, kframe, cam);
         std::cout << "optposemap time: " << t.toc() << std::endl;
 
@@ -354,10 +302,10 @@ void visualOdometry::intrinsicAndLocAndMap(dataCPU<float> &image)
         float keyframeViewAngle = meanViewAngle(SE3f(), lastFrame.getLocalPose());
 
         float lastMinViewAngle = M_PI;
-        for(size_t i = 0; i < goodFrames.size(); i++)
+        for (size_t i = 0; i < goodFrames.size(); i++)
         {
             float lastViewAngle = meanViewAngle(goodFrames[i].getLocalPose(), lastFrame.getLocalPose());
-            if(lastViewAngle < lastMinViewAngle)
+            if (lastViewAngle < lastMinViewAngle)
                 lastMinViewAngle = lastViewAngle;
         }
 
@@ -528,10 +476,10 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
         float keyframeViewAngle = meanViewAngle(SE3f(), lastFrame.getLocalPose());
 
         float lastMinViewAngle = M_PI;
-        for(size_t i = 0; i < goodFrames.size(); i++)
+        for (size_t i = 0; i < goodFrames.size(); i++)
         {
             float lastViewAngle = meanViewAngle(goodFrames[i].getLocalPose(), lastFrame.getLocalPose());
-            if(lastViewAngle < lastMinViewAngle)
+            if (lastViewAngle < lastMinViewAngle)
                 lastMinViewAngle = lastViewAngle;
         }
 

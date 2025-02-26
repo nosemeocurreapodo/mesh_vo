@@ -116,7 +116,7 @@ public:
 
     void renderImageParallel(keyFrameCPU &kframe, SE3f localPose, dataMipMapCPU<float> &buffer, cameraType cam, int lvl)
     {
-        z_buffer.setToNoData(lvl);
+        z_buffer.setToNoData();
 
         SE3f kfTofPose = localPose;
         SE3f fTokfPose = kfTofPose.inverse();
@@ -145,7 +145,7 @@ public:
 
                 window<float> win(min_x, max_x, min_y, max_y);
 
-                renderImageWindow(kframe.getRawImage(lvl), kfTofPose, fTokfPose, buffer.get(lvl), z_buffer.get(lvl), cam, win);
+                renderImageWindow(kframe.getRawImage(lvl), kfTofPose, fTokfPose, buffer.get(lvl), cam, win);
                 // pool.enqueue(std::bind(&renderCPU::renderImageWindow, this, kimage, cam, win, buffer, lvl));
             }
         }
@@ -155,7 +155,7 @@ public:
 
     void renderDebugParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<float> &buffer, cameraType cam, int lvl)
     {
-        z_buffer.setToNoData(lvl);
+        z_buffer.setToNoData();
 
         SE3f kfTofPose = frame.getLocalPose();
         SE3f fTokfPose = kfTofPose.inverse();
@@ -194,7 +194,7 @@ public:
 
     void renderJMapParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<jmapType> &jmap_buffer, dataMipMapCPU<float> &e_buffer, dataMipMapCPU<idsType> &pId_buffer, cameraType cam, int lvl)
     {
-        z_buffer.setToNoData(lvl);
+        z_buffer.setToNoData();
 
         SE3f kfTofPose = frame.getLocalPose();
         SE3f fTokfPose = kfTofPose.inverse();
@@ -223,7 +223,7 @@ public:
 
                 window<float> win(min_x, max_x, min_y, max_y);
 
-                renderJMapWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), frame.getdIdpixImage(lvl), kfTofPose, fTokfPose, jmap_buffer.get(lvl), e_buffer.get(lvl), pId_buffer.get(lvl), z_buffer.get(lvl), cam, win);
+                renderJMapWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), frame.getdIdpixImage(lvl), kfTofPose, fTokfPose, jmap_buffer.get(lvl), e_buffer.get(lvl), pId_buffer.get(lvl), cam, win);
                 // pool.enqueue(std::bind(&renderCPU::renderJMapWindow, this, kimage, frame, cam, win, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
@@ -233,7 +233,7 @@ public:
 
     void renderJPoseMapParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<vec6f> &jpose_buffer, dataMipMapCPU<jmapType> &jmap_buffer, dataMipMapCPU<float> &e_buffer, dataMipMapCPU<idsType> &pId_buffer, cameraType cam, int lvl)
     {
-        z_buffer.setToNoData(lvl);
+        z_buffer.setToNoData();
 
         SE3f kfTofPose = frame.getLocalPose();
         SE3f fTokfPose = kfTofPose.inverse();
@@ -262,7 +262,7 @@ public:
 
                 window<float> win(min_x, max_x, min_y, max_y);
 
-                renderJPoseMapWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), frame.getdIdpixImage(lvl), kfTofPose, fTokfPose, jpose_buffer.get(lvl), jmap_buffer.get(lvl), e_buffer.get(lvl), pId_buffer.get(lvl), z_buffer.get(lvl), cam, win);
+                renderJPoseMapWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), frame.getdIdpixImage(lvl), kfTofPose, fTokfPose, jpose_buffer.get(lvl), jmap_buffer.get(lvl), e_buffer.get(lvl), pId_buffer.get(lvl), cam, win);
                 // pool.enqueue(std::bind(&renderCPU::renderJPoseMapWindow, this, kimage, frame, cam, win, jpose_buffer, jmap_buffer, e_buffer, pId_buffer, lvl));
             }
         }
@@ -272,7 +272,7 @@ public:
 
     void renderJExpParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<vec2f> &jexp_buffer, dataMipMapCPU<float> &e_buffer, cameraType cam, int lvl)
     {
-        z_buffer.setToNoData(lvl);
+        z_buffer.setToNoData();
 
         SE3f kfTofPose = frame.getLocalPose();
         SE3f fTokfPose = kfTofPose.inverse();
@@ -301,7 +301,7 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                renderJExpWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), fTokfPose, jexp_buffer.get(lvl), e_buffer.get(lvl), z_buffer.get(lvl), cam, win);
+                renderJExpWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), fTokfPose, jexp_buffer.get(lvl), e_buffer.get(lvl), cam, win);
                 // pool.enqueue(std::bind(&renderCPU::renderJLightAffineWindow, this, kimage, frame, cam, win, jlightaffine_buffer, e_buffer, lvl));
             }
         }
@@ -311,7 +311,7 @@ public:
 
     void renderJIntrinsicParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<cameraParamType> &jintrinsic_buffer, dataMipMapCPU<float> &e_buffer, cameraType cam, int lvl)
     {
-        z_buffer.setToNoData(lvl);
+        z_buffer.setToNoData();
 
         SE3f kfTofPose = frame.getLocalPose();
         SE3f fTokfPose = kfTofPose.inverse();
@@ -340,7 +340,7 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                renderJIntrinsicWindow(kframe.getRawImage(lvl), kframe.getdIdpixImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), fTokfPose, frame.getdIdpixImage(lvl), frame.getLocalPose(), jintrinsic_buffer.get(lvl), e_buffer.get(lvl), z_buffer.get(lvl), cam, win);
+                renderJIntrinsicWindow(kframe.getRawImage(lvl), kframe.getdIdpixImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), fTokfPose, frame.getdIdpixImage(lvl), frame.getLocalPose(), jintrinsic_buffer.get(lvl), e_buffer.get(lvl), cam, win);
                 // pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kimage, frame, cam, win, jpose_buffer, e_buffer, lvl));
             }
         }
@@ -350,7 +350,7 @@ public:
 
     void renderJPoseParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<vec6f> &jpose_buffer, dataMipMapCPU<float> &e_buffer, cameraType cam, int lvl)
     {
-        z_buffer.setToNoData(lvl);
+        z_buffer.setToNoData();
 
         SE3f kfTofPose = frame.getLocalPose();
         SE3f fTokfPose = kfTofPose.inverse();
@@ -379,7 +379,7 @@ public:
 
                 window<float> win(min_x, max_x, min_y, max_y);
 
-                renderJPoseWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), fTokfPose, frame.getdIdpixImage(lvl), jpose_buffer.get(lvl), e_buffer.get(lvl), z_buffer.get(lvl), cam, win);
+                renderJPoseWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), fTokfPose, frame.getdIdpixImage(lvl), jpose_buffer.get(lvl), e_buffer.get(lvl), cam, win);
                 // pool.enqueue(std::bind(&renderCPU::renderJPoseWindow, this, kimage, frame, cam, win, jpose_buffer, e_buffer, lvl));
             }
         }
@@ -389,7 +389,7 @@ public:
 
     void renderResidualParallel(keyFrameCPU &kframe, frameCPU &frame, dataMipMapCPU<float> &e_buffer, cameraType cam, int lvl)
     {
-        z_buffer.setToNoData(lvl);
+        z_buffer.setToNoData();
 
         SE3f kfTofPose = frame.getLocalPose();
         SE3f fTokfPose = kfTofPose.inverse();
@@ -418,7 +418,7 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                renderResidualWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), fTokfPose, e_buffer.get(lvl), z_buffer.get(lvl), cam, win);
+                renderResidualWindow(kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getLocalExp(), fTokfPose, e_buffer.get(lvl), cam, win);
                 // pool.enqueue(std::bind(&renderCPU::renderResidualWindow, this, kimage, frame, cam, win, e_buffer, lvl));
             }
         }
@@ -428,7 +428,7 @@ public:
 
     void renderDepthParallel(keyFrameCPU &kframe, SE3f localPose, dataMipMapCPU<float> &buffer, cameraType cam, int lvl)
     {
-        z_buffer.setToNoData(lvl);
+        z_buffer.setToNoData();
 
         SE3f kfTofPose = localPose;
 
@@ -454,7 +454,7 @@ public:
 
                 window<float> win(min_x, max_x, min_y, max_y);
 
-                renderDepthWindow(buffer.get(lvl), z_buffer.get(lvl), win);
+                renderDepthWindow(buffer.get(lvl), win);
                 // pool.enqueue(std::bind(&renderCPU::renderIdepthWindow, this, win, buffer, lvl));
             }
         }
@@ -464,7 +464,7 @@ public:
 
     void renderWeightParallel(keyFrameCPU &kframe, SE3f localPose, dataMipMapCPU<float> &buffer, cameraType cam, int lvl)
     {
-        z_buffer.setToNoData(lvl);
+        z_buffer.setToNoData();
 
         SE3f kfTofPose = localPose;
 
@@ -490,7 +490,7 @@ public:
 
                 window win(min_x, max_x, min_y, max_y);
 
-                renderWeightWindow(buffer.get(lvl), z_buffer.get(lvl), win);
+                renderWeightWindow(buffer.get(lvl), win);
                 // pool.enqueue(std::bind(&renderCPU::renderWeightWindow, this, win, buffer, lvl));
             }
         }
@@ -685,7 +685,7 @@ private:
         }
     }
 
-    void renderImageWindow(dataCPU<imageType> &image, SE3f kfTofPose, SE3f fTokfPose, dataCPU<float> &buffer, dataCPU<float> &z_buffer, cameraType cam, window<float> win)
+    void renderImageWindow(dataCPU<imageType> &image, SE3f kfTofPose, SE3f fTokfPose, dataCPU<float> &buffer, cameraType cam, window<float> win)
     {
         int width = buffer.width;
         int height = buffer.height;
@@ -753,7 +753,7 @@ private:
         }
     }
 
-    void renderDepthWindow(dataCPU<float> &buffer, dataCPU<float> &z_buffer, window<float> win)
+    void renderDepthWindow(dataCPU<float> &buffer, window<float> win)
     {
         int width = buffer.width;
         int height = buffer.height;
@@ -814,7 +814,7 @@ private:
         }
     }
 
-    void renderWeightWindow(dataCPU<float> &buffer, dataCPU<float> &z_buffer, window<float> win)
+    void renderWeightWindow(dataCPU<float> &buffer, window<float> win)
     {
         int width = buffer.width;
         int height = buffer.height;
@@ -870,7 +870,7 @@ private:
         }
     }
 
-    void renderResidualWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, SE3f fTokfPose, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, cameraType cam, window<float> win)
+    void renderResidualWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, SE3f fTokfPose, dataCPU<float> &e_buffer, cameraType cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -949,7 +949,7 @@ private:
         }
     }
 
-    void renderJIntrinsicWindow(dataCPU<float> &kimage, dataCPU<vec2f> &d_kimage_d_pix, dataCPU<float> &image, vec2f imageExp, SE3f fTokfPose, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<cameraParamType> &jintrinsic_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, cameraType cam, window<float> win)
+    void renderJIntrinsicWindow(dataCPU<float> &kimage, dataCPU<vec2f> &d_kimage_d_pix, dataCPU<float> &image, vec2f imageExp, SE3f fTokfPose, dataCPU<vec2f> &d_image_d_pix, SE3f imagePose, dataCPU<cameraParamType> &jintrinsic_buffer, dataCPU<float> &e_buffer, cameraType cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -1045,7 +1045,7 @@ private:
         }
     }
 
-    void renderJPoseWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, SE3f fTokfPose, dataCPU<vec2f> &d_image_d_pix, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, cameraType cam, window<float> win)
+    void renderJPoseWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, SE3f fTokfPose, dataCPU<vec2f> &d_image_d_pix, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &e_buffer, cameraType cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -1136,7 +1136,7 @@ private:
         }
     }
 
-    void renderJPoseExpWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, SE3f fTokfPose, dataCPU<vec2f> &d_image_d_pix, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, cameraType cam, window<float> win)
+    void renderJPoseExpWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, SE3f fTokfPose, dataCPU<vec2f> &d_image_d_pix, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer, cameraType cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -1230,7 +1230,7 @@ private:
         }
     }
 
-    void renderJExpWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, SE3f fTokfPose, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer, dataCPU<float> &z_buffer, cameraType cam, window<float> win)
+    void renderJExpWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, SE3f fTokfPose, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &e_buffer, cameraType cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -1312,7 +1312,7 @@ private:
         }
     }
 
-    void renderJMapWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f kfTofPose, SE3f fTokfPose, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, dataCPU<float> &z_buffer, cameraType cam, window<float> win)
+    void renderJMapWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f kfTofPose, SE3f fTokfPose, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, cameraType cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -1412,7 +1412,7 @@ private:
         }
     }
 
-    void renderJPoseMapWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f kfTofPose, SE3f fTokfPose, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, dataCPU<float> &z_buffer, cameraType cam, window<float> win)
+    void renderJPoseMapWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f kfTofPose, SE3f fTokfPose, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, cameraType cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -1531,7 +1531,7 @@ private:
         }
     }
 
-    void renderJPoseExpMapWindow(dataCPU<imageType> &kimage, dataCPU<imageType> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f kfTofPose, SE3f fTokfPose, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, dataCPU<float> &z_buffer, cameraType cam, window<float> win)
+    void renderJPoseExpMapWindow(dataCPU<imageType> &kimage, dataCPU<imageType> &image, vec2f imageExp, dataCPU<vec2f> &d_image_d_pix, SE3f kfTofPose, SE3f fTokfPose, dataCPU<vec6f> &jpose_buffer, dataCPU<vec2f> &jexp_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &e_buffer, dataCPU<idsType> &pId_buffer, cameraType cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -1716,6 +1716,6 @@ private:
 
     geometryType scene1;
     geometryType scene2;
-    dataMipMapCPU<float> z_buffer;
+    dataCPU<float> z_buffer;
     ThreadPool<mesh_vo::renderer_nthreads> pool;
 };

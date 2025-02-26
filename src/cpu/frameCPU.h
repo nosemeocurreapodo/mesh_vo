@@ -18,6 +18,20 @@ public:
         localExp = {0.0f, 0.0f};
     };
 
+    frameCPU(const dataCPU<imageType> &im, const dataCPU<vec2f> &dIdpix, int _id) : raw_image(im),
+                                                                                    dIdpix_image(dIdpix)
+    {
+        // raw_image.get(0) = im;
+        // raw_image.generateMipmaps();
+
+        // for (int lvl = 0; lvl < raw_image.getLvls(); lvl++)
+        //{
+        //     computeFrameDerivative(lvl);
+        // }
+
+        id = _id;
+    }
+
     frameCPU(const frameCPU &other) : raw_image(other.raw_image),
                                       dIdpix_image(other.dIdpix_image)
     // idepth_image(other.idepth_image),

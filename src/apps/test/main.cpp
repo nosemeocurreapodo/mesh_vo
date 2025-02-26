@@ -12,6 +12,7 @@
 #include "cpu/dataCPU.h"
 #include "cpu/frameCPU.h"
 #include "visualOdometry.h"
+#include "visualOdometryThreaded.h"
 
 inline bool fileExist(const std::string &name)
 {
@@ -348,11 +349,11 @@ int main(int argc, char *argv[])
     }
     */
 
-    visualOdometry odometry(cam, width, height);
+    visualOdometry odometry(image, SE3f(), cam);
 
     // odometry.initScene(image, pixels, idepths, Sophus::SE3f());
     // odometry.init(image, idepth, Sophus::SE3f());
-    odometry.init(image, SE3f());
+    // odometry.init(image, SE3f());
 
     while (1)
     {

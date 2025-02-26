@@ -4,7 +4,6 @@ template <typename Type>
 class dataCPU
 {
 public:
-
     dataCPU()
     {
         width = 0;
@@ -188,6 +187,29 @@ public:
         return mipmap;
     }
 
+    const dataCPU<vec2f> computeFrameDerivative()
+    {
+        dataCPU<vec2f> dIdpix_image(width, height, vec2f(0.0, 0.0));
+
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                if (y == 0 || y == height - 1 || x == 0 || x == width - 1)
+                {
+                    // dx.set(0.0, y, x, lvl);
+                    // dy.set(0.0, y, x, lvl);
+                    dIdpix_image.setTexel(vec2f(0.0f, 0.0f), y, x);
+                    continue;
+                }
+
+                float _dx = (float(getTexel(y, x + 1)) - float(getTexel(y, x - 1))) * width / 2.0;
+                float _dy = (float(getTexel(y + 1, x)) - float(getTexel(y - 1, x))) * height / 2.0;
+
+                dIdpix_image.setTexel(vec2f(_dx, _dy), y, x);
+            }
+        return dIdpix_image;
+    }
+
     vec2f getMinMax()
     {
         Type min = nodata;
@@ -346,6 +368,7 @@ template <typename Type>
 class dataMipMapCPU
 {
 public:
+
     dataMipMapCPU(int _width, int _height, Type _nodata_value)
     {
         int width = _width;
@@ -364,6 +387,20 @@ public:
                 break;
         }
     }
+    
+    dataMipMapCPU(const dataCPU<Type> image)
+    {
+        dataCPU<Type> imageLoD = image;
+
+        while (true)
+        {
+            data.push_back(imageLoD);
+            imageLoD = imageLoD.generateMipmap();
+
+            if (imageLoD.width <= 1 || imageLoD.height <= 1)
+                break;
+        }
+    }
 
     dataMipMapCPU(const dataMipMapCPU &other)
     {
@@ -378,11 +415,11 @@ public:
     {
         if (this != &other)
         {
-            assert(data.size() == other.data.size());
+            data.clear();
 
             for (size_t lvl = 0; lvl < other.data.size(); lvl++)
             {
-                data[lvl] = other.data[lvl];
+                data.push_back(other.data[lvl]);
             }
         }
         return *this;
