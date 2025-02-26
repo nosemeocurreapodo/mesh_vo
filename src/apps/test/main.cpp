@@ -391,6 +391,7 @@ int main(int argc, char *argv[])
             mapImage = odometry.getKeyframe().getRawImage(0);
             geometryUpdated = true;
         }
+        cv::waitKey(30);
     }
 
     return 1;

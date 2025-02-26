@@ -1,6 +1,60 @@
 #include "visualOdometry.h"
 #include "utils/tictoc.h"
 
+template <typename T>
+class ThreadSafeQueue {
+public:
+    // Push an element into the queue
+    void push(const T& value) {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            queue_.push(value);
+        }
+        cv_.notify_one();
+    }
+
+    // Pop an element from the queue (blocks if the queue is empty)
+    T pop() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        cv_.wait(lock, [this] { return !queue_.empty(); });
+        T value = queue_.front();
+        queue_.pop();
+        return value;
+    }
+
+    // Try to pop an element; returns false if queue is empty
+    bool try_pop(T& value) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (queue_.empty())
+            return false;
+        value = queue_.front();
+        queue_.pop();
+        return true;
+    }
+
+    // Check if the queue is empty
+    bool empty() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return queue_.empty();
+    }
+
+private:
+    mutable std::mutex mutex_;
+    std::queue<T> queue_;
+    std::condition_variable cv_;
+};
+
+void localizationThread(ThreadSafeQueue<frameCPU>& tsQueue)
+{
+    poseOptimizerCPU poseOptimizer(640, 480);
+
+    while (true)
+    {
+        frameCPU frame = tsQueue.pop();
+        poseOptimizer.optimize(frame, kframe, cam);
+    }
+}
+
 visualOdometry::visualOdometry(cameraType _cam, int width, int height)
     : cam(_cam),
       kframe(width, height),
