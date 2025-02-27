@@ -27,6 +27,7 @@
 #include "Undistorter.h"
 
 #include "visualOdometry.h"
+#include "visualOdometryThreaded.h"
 
 std::string &ltrim(std::string &s)
 {
@@ -162,10 +163,6 @@ int main(int argc, char **argv)
 	// Sophus::Matrix3f K;
 	// K << fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0;
 
-	cameraType cam(fx, fy, cx, cy, w, h);
-
-	visualOdometry odometry(cam, w, h);
-
 	// open image files: first try to open as file.
 	std::string source = argv[2];
 	std::vector<std::string> files;
@@ -193,7 +190,11 @@ int main(int argc, char **argv)
 	int runningIDX = 0;
 	float fakeTimeStamp = 0;
 
-	for (unsigned int i = start_index; i < end_index; i++) // files.size()
+	cameraType cam(fx, fy, cx, cy, w, h);
+
+	visualOdometryThreaded odometry(cam);
+
+	for (unsigned int i = start_index+1; i < end_index; i++) // files.size()
 	{
 		cv::Mat imageDist = cv::imread(files[i], cv::IMREAD_GRAYSCALE);
 
@@ -233,6 +234,8 @@ int main(int argc, char **argv)
 
 		runningIDX++;
 		fakeTimeStamp += 0.03;
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 		// if(hz != 0)
 		//	r.sleep();

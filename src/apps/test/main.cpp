@@ -396,7 +396,7 @@ int main(int argc, char *argv[])
             geometryUpdated = true;
         }
         */
-        cv::waitKey(100);
+        cv::waitKey(1000);
     }
 
     return 1;

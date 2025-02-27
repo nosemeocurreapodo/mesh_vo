@@ -80,6 +80,10 @@ private:
 class visualOdometryThreaded
 {
 public:
+    visualOdometryThreaded(cameraType _cam) : cam(_cam)
+    {
+    }
+
     visualOdometryThreaded(dataCPU<float> &image, SE3f globalPose, cameraType _cam) : cam(_cam)
     {
         initialKeyframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
@@ -101,6 +105,21 @@ public:
         tMapping.join();
     }
 
+    void init(dataCPU<float> &image, SE3f globalPose)
+    {
+        initialKeyframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
+        initialKeyframe.initGeometryVerticallySmooth(cam);
+
+        width = image.width;
+        height = image.height;
+        frameId = 0;
+
+        tLocalization = std::thread(&visualOdometryThreaded::localizationThread, this);
+        tMapping = std::thread(&visualOdometryThreaded::mappingThread, this);
+
+        plotDebug = true;
+    }
+
     void locAndMap(dataCPU<float> &image)
     {
         // frameCPU frame(image, 0);
@@ -109,8 +128,6 @@ public:
         //     fQueue.pop();
 
         iQueue.push(image);
-        if (iQueue.size() > 5)
-            iQueue.pop();
 
         if (plotDebug)
         {
@@ -143,12 +160,16 @@ private:
 
         while (true)
         {
-            if (!kfQueue.empty())
-            {
+            //keep only the last keyframe
+            while (!kfQueue.empty())
                 kframe = kfQueue.pop();
-            }
-
+    
             dataCPU<imageType> image = iQueue.pop();
+            
+            //keep only last image
+            while (!iQueue.empty())
+                image = iQueue.pop();
+
             frameCPU frame(image, frameId);
 
             // initialize the global and local pose
@@ -159,16 +180,23 @@ private:
             for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
             {
                 optimizer.init(frame, kframe, cam, lvl);
+                // if (plotDebug)
+                //{
+                //     std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frame, kframe, cam, 1);
+                //     debugLocalizationQueue.push(debugData);
+                // }
                 while (true)
                 {
                     optimizer.step(frame, kframe, cam, lvl);
-                    if (plotDebug)
-                    {
-                        std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frame, kframe, cam, 1);
-                        debugLocalizationQueue.push(debugData);
-                    }
                     if (optimizer.converged())
+                    {
+                        if (plotDebug)
+                        {
+                            std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frame, kframe, cam, 1);
+                            debugLocalizationQueue.push(debugData);
+                        }
                         break;
+                    }
                 }
             }
 
@@ -180,8 +208,6 @@ private:
             lastGlobalPose = newGlobalPose;
 
             fQueue.push(frame);
-            if (fQueue.size() > 5)
-                fQueue.pop();
 
             frameId++;
         }
@@ -200,7 +226,8 @@ private:
 
         while (true)
         {
-            if (!fQueue.empty())
+            //read all the frames in the queue
+            while (!fQueue.empty())
             {
                 frameStack.push_back(fQueue.pop());
                 if (frameStack.size() > mesh_vo::num_frames)
@@ -233,12 +260,13 @@ private:
 
             kframe.scaleVerticesAndWeights(scale);
 
-            frameStack.erase(frameStack.begin() + newKeyframeIndex);
+            std::vector<frameCPU> keyframes = frameStack;
+            keyframes.erase(keyframes.begin() + newKeyframeIndex);
 
             // initialize the local poses
-            for (size_t i = 0; i < frameStack.size(); i++)
+            for (size_t i = 0; i < keyframes.size(); i++)
             {
-                frameStack[i].setLocalPose(kframe.globalPoseToLocal(frameStack[i].getGlobalPose()));
+                keyframes[i].setLocalPose(kframe.globalPoseToLocal(keyframes[i].getGlobalPose()));
             }
 
             // this will update the local pose and the local map
@@ -246,24 +274,39 @@ private:
 
             for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
             {
-                optimizer.init(frameStack, kframe, cam, lvl);
+                optimizer.init(keyframes, kframe, cam, lvl);
+                // if (plotDebug)
+                //{
+                //     std::vector<dataCPU<float>> debugData = optimizer.getDebugData(keyframes, kframe, cam, 1);
+                //     debugMappingQueue.push(debugData);
+                // }
                 while (true)
                 {
-                    optimizer.step(frameStack, kframe, cam, lvl);
-                    if (plotDebug)
-                    {
-                        std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frameStack, kframe, cam, 1);
-                        debugMappingQueue.push(debugData);
-                    }
+                    optimizer.step(keyframes, kframe, cam, lvl);
                     if (optimizer.converged())
+                    {
+                        if (plotDebug)
+                        {
+                            std::vector<dataCPU<float>> debugData = optimizer.getDebugData(keyframes, kframe, cam, 1);
+                            debugMappingQueue.push(debugData);
+                        }
                         break;
+                    }
                 }
             }
 
             // update the global poses
-            for (size_t i = 0; i < frameStack.size(); i++)
+            for (size_t i = 0; i < keyframes.size(); i++)
             {
-                frameStack[i].setGlobalPose(kframe.localPoseToGlobal(frameStack[i].getLocalPose()));
+                keyframes[i].setGlobalPose(kframe.localPoseToGlobal(keyframes[i].getLocalPose()));
+                for (size_t j = 0; j < frameStack.size(); j++)
+                {
+                    if (keyframes[i].getId() == frameStack[j].getId())
+                    {
+                        frameStack[j].setLocalPose(keyframes[i].getLocalPose());
+                        frameStack[j].setGlobalPose(keyframes[i].getGlobalPose());
+                    }
+                }
             }
 
             kfQueue.push(kframe);
