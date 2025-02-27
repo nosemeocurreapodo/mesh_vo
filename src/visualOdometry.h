@@ -15,9 +15,7 @@ class visualOdometry
 {
 public:
     visualOdometry(dataCPU<imageType> &image, SE3f globalPose, cameraType cam);
-
-    void init(dataCPU<float> &image, SE3f pose);
-    void init(dataCPU<float> &image, SE3f pose, dataCPU<float> &idepth, dataCPU<float> &weight);
+    visualOdometry(dataCPU<imageType> &image, dataCPU<float> &depth, dataCPU<float> &weight, SE3f globalPose, cameraType cam);
 
     int locAndMap(dataCPU<float> &image);
     void intrinsicAndLocAndMap(dataCPU<float> &image);
@@ -29,6 +27,9 @@ public:
     keyFrameCPU getKeyframe();
 
 private:
+
+    void optimizePose(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam);
+    void optimizePoseMap(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam);
 
     float meanViewAngle(SE3f pose1, SE3f pose2);
     float getViewPercent(frameCPU &frame);

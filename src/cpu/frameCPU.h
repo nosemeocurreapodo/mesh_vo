@@ -7,38 +7,40 @@
 class frameCPU
 {
 public:
-    frameCPU(int width, int height)
-        : raw_image(width, height, imageType(-1.0f)),
-          dIdpix_image(width, height, vec2f(0.0f, 0.0f))
-    // idepth_image(width, height, -1.0f),
-    // residual_image(width, height, -1.0f)
+    frameCPU()
     {
         id = 0;
         localPose = SE3f();
-        localExp = {0.0f, 0.0f};
+        globalPose = SE3f();
+        localExp = vec2f(0.0f, 0.0f);
     };
 
-    frameCPU(const dataCPU<imageType> &im, const dataCPU<vec2f> &dIdpix, int _id) : raw_image(im),
-                                                                                    dIdpix_image(dIdpix)
+    frameCPU(const dataCPU<imageType> &im, int _id)
     {
-        // raw_image.get(0) = im;
+        raw_image = dataMipMapCPU<imageType>(im);
         // raw_image.generateMipmaps();
 
-        // for (int lvl = 0; lvl < raw_image.getLvls(); lvl++)
-        //{
-        //     computeFrameDerivative(lvl);
-        // }
+        dIdpix_image = dataMipMapCPU<vec2f>(im.width, im.height, vec2f(0.0, 0.0));
+
+        for (int lvl = 0; lvl < raw_image.getLvls(); lvl++)
+        {
+            dIdpix_image.get(lvl) = raw_image.get(lvl).computeFrameDerivative();
+        }
 
         id = _id;
+        localPose = SE3f();
+        globalPose = SE3f();
+        localExp = vec2f(0.0, 0.0);
     }
 
-    frameCPU(const frameCPU &other) : raw_image(other.raw_image),
-                                      dIdpix_image(other.dIdpix_image)
-    // idepth_image(other.idepth_image),
-    // residual_image(other.residual_image)
+    frameCPU(const frameCPU &other)
     {
+        raw_image = other.raw_image;
+        dIdpix_image = other.dIdpix_image;
+
         id = other.id;
         localPose = other.localPose;
+        globalPose = other.globalPose;
         localExp = other.localExp;
     }
 
@@ -48,29 +50,13 @@ public:
         {
             id = other.id;
             localPose = other.localPose;
+            globalPose = other.globalPose;
             localExp = other.localExp;
 
             raw_image = other.raw_image;
             dIdpix_image = other.dIdpix_image;
-            // idepth_image = other.idepth_image;
-            // residual_image = other.residual_image;
         }
         return *this;
-    }
-
-    void setImage(const dataCPU<float> &im, int _id)
-    {
-        assert(raw_image.get(0).width == im.width && raw_image.get(0).height == im.height);
-
-        raw_image.get(0) = im;
-        raw_image.generateMipmaps();
-
-        for (int lvl = 0; lvl < raw_image.getLvls(); lvl++)
-        {
-            computeFrameDerivative(lvl);
-        }
-
-        id = _id;
     }
 
     void setLocalExp(vec2f newLocalExp)
@@ -93,6 +79,16 @@ public:
         return localPose;
     }
 
+    void setGlobalPose(SE3f newGlobalPose)
+    {
+        globalPose = newGlobalPose;
+    }
+
+    SE3f getGlobalPose()
+    {
+        return globalPose;
+    }
+
     dataCPU<imageType> &getRawImage(int lvl)
     {
         return raw_image.get(lvl);
@@ -103,60 +99,17 @@ public:
         return dIdpix_image.get(lvl);
     }
 
-    /*
-    dataCPU<float>& getIdepthImage()
-    {
-        return idepth_image;
-    }
-
-    dataCPU<float>& getResidualImage()
-    {
-        return residual_image;
-    }
-    */
-
     int getId()
     {
         return id;
     }
 
 private:
-    void computeFrameDerivative(int lvl)
-    {
-        // dx.set(dx.nodata, lvl);
-        // dy.set(dy.nodata, lvl);
-
-        dataCPU<imageType> image = raw_image.get(lvl);
-
-        int width = image.width;
-        int height = image.height;
-
-        for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-            {
-                if (y == 0 || y == height - 1 || x == 0 || x == width - 1)
-                {
-                    // dx.set(0.0, y, x, lvl);
-                    // dy.set(0.0, y, x, lvl);
-                    dIdpix_image.get(lvl).setTexel(vec2f(0.0f, 0.0f), y, x);
-                    continue;
-                }
-
-                float _dx = (float(image.getTexel(y, x + 1)) - float(image.getTexel(y, x - 1))) * width / 2.0;
-                float _dy = (float(image.getTexel(y + 1, x)) - float(image.getTexel(y - 1, x))) * height / 2.0;
-
-                dIdpix_image.get(lvl).setTexel(vec2f(_dx, _dy), y, x);
-                // dx.set(_dx, y, x, lvl);
-                // dy.set(_dy, y, x, lvl);
-            }
-    }
-
     dataMipMapCPU<imageType> raw_image;
     dataMipMapCPU<vec2f> dIdpix_image;
-    // dataMipMapCPU<float> idepth_image;
-    // dataMipMapCPU<float> residual_image;
 
-    Sophus::SE3f localPose;
+    SE3f localPose;
+    SE3f globalPose;
     vec2f localExp;
     int id;
 };

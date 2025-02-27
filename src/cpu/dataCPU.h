@@ -32,9 +32,6 @@ public:
         height = other.height;
         m_data = new Type[width * height];
         std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
-        // for (int y = 0; y < height; y++)
-        //     for (int x = 0; x < width; x++)
-        //         setTexel(other.getTexel(y, x), y, x);
     }
 
     dataCPU &operator=(const dataCPU &other)
@@ -49,9 +46,6 @@ public:
             m_data = new Type[width * height];
 
             std::memcpy(m_data, other.m_data, sizeof(Type) * width * height);
-            // for (int y = 0; y < height; y++)
-            //     for (int x = 0; x < width; x++)
-            //         setTexel(other.getTexel(y, x), y, x);
         }
         return *this;
     }
@@ -70,29 +64,9 @@ public:
         m_data[address] = value;
     }
 
-    /*
-    void setTexel(const Type value, float y, float x)
-    {
-        setTexel(value, int(round(y)), int(round(x)));
-    }
-    */
-
-    /*
-    void set(const Type value, float norm_y, float norm_x)
-    {
-        float y = norm_y * (height - 1);
-        float x = norm_x * (width - 1);
-        setTexel(value, y, x);
-    }
-    */
-
     void set(const Type value)
     {
         std::fill_n(m_data, width * height, value);
-
-        // for(int y = 0; y < height; y++)
-        //     for(int x = 0; x < width; x++)
-        //         set(value, y, x);
     }
 
     void setToNoData()
@@ -112,13 +86,6 @@ public:
         int address = x + y * width;
         return m_data[address];
     }
-
-    /*
-    Type getTexel(float y, float x) const
-    {
-        return getTexel(int(round(y)), int(round(x)));
-    }
-    */
 
     Type get(float norm_y, float norm_x) const
     {
@@ -369,6 +336,11 @@ class dataMipMapCPU
 {
 public:
 
+    dataMipMapCPU()
+    {
+
+    }
+
     dataMipMapCPU(int _width, int _height, Type _nodata_value)
     {
         int width = _width;
@@ -391,6 +363,7 @@ public:
     dataMipMapCPU(const dataCPU<Type> image)
     {
         dataCPU<Type> imageLoD = image;
+        nodata = image.nodata;
 
         while (true)
         {
@@ -404,10 +377,10 @@ public:
 
     dataMipMapCPU(const dataMipMapCPU &other)
     {
+        nodata = other.nodata;
         for (size_t lvl = 0; lvl < other.data.size(); lvl++)
         {
-            dataCPU<Type> lvlData = other.data[lvl];
-            data.push_back(lvlData);
+            data.push_back(other.data[lvl]);
         }
     }
 
@@ -415,6 +388,7 @@ public:
     {
         if (this != &other)
         {
+            nodata = other.nodata;
             data.clear();
 
             for (size_t lvl = 0; lvl < other.data.size(); lvl++)

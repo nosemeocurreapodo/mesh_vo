@@ -16,6 +16,7 @@ class baseOptimizerCPU
 {
 public:
     baseOptimizerCPU(int width, int height);
+    bool converged();
 
 protected:
     void plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &frames, cameraType &cam, std::string window_name);
@@ -28,4 +29,6 @@ protected:
 
     renderCPU renderer;
     reduceCPU reducer;
+
+    bool reachedConvergence;
 };

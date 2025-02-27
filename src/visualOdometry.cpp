@@ -3,8 +3,6 @@
 
 visualOdometry::visualOdometry(dataCPU<imageType> &image, SE3f globalPose, cameraType _cam)
     : cam(_cam),
-      kframe(image.width, image.height),
-      lastFrame(image.width, image.height),
       poseOptimizer(image.width, image.height),
       mapOptimizer(image.width, image.height),
       poseMapOptimizer(image.width, image.height),
@@ -13,22 +11,24 @@ visualOdometry::visualOdometry(dataCPU<imageType> &image, SE3f globalPose, camer
 {
     lastId = 0;
     lastLocalMovement = SE3f();
-    kframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0);
+    cam = _cam;
+    kframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
     kframe.initGeometryVerticallySmooth(cam);
+    //kframe.initGeometryRandom(cam);
 }
 
-void visualOdometry::init(dataCPU<float> &image, SE3f globalPose)
+visualOdometry::visualOdometry(dataCPU<imageType> &image, dataCPU<float> &depth, dataCPU<float> &weight, SE3f globalPose, cameraType _cam)
+    : cam(_cam),
+      poseOptimizer(image.width, image.height),
+      mapOptimizer(image.width, image.height),
+      poseMapOptimizer(image.width, image.height),
+      intrinsicPoseMapOptimizer(image.width, image.height),
+      renderer(image.width, image.height)
 {
-    kframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0);
-    kframe.initGeometryVerticallySmooth(cam);
-    // kframe.initGeometryRandom(cam);
-}
-
-void visualOdometry::init(dataCPU<float> &image, SE3f globalPose, dataCPU<float> &depth, dataCPU<float> &weight)
-{
-    assert(image.width == depth.width && image.height == depth.height);
-
-    kframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0);
+    lastId = 0;
+    lastLocalMovement = SE3f();
+    cam = _cam;
+    kframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
     kframe.initGeometryFromDepth(depth, weight, cam);
 }
 
@@ -118,6 +118,35 @@ float visualOdometry::getViewPercent(frameCPU &frame)
     return 1.0 - pnodata;
 }
 
+void visualOdometry::optimizePose(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam)
+{
+    for(int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_ini_lvl; lvl--)
+    {
+        while(true)
+        {
+            poseOptimizer.init(frame, kframe, cam, lvl);
+            poseOptimizer.step(frame, kframe, cam, lvl);
+            if(poseOptimizer.converged())
+                break;
+        }
+    }
+}
+
+
+void visualOdometry::optimizePoseMap(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam)
+{
+    for(int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_ini_lvl; lvl--)
+    {
+        while(true)
+        {
+            poseMapOptimizer.init(frames, kframe, cam, lvl);
+            poseMapOptimizer.step(frames, kframe, cam, lvl);
+            if(poseMapOptimizer.converged())
+                break;
+        }
+    }
+}
+
 int visualOdometry::locAndMap(dataCPU<float> &image)
 {
     tic_toc t;
@@ -127,19 +156,14 @@ int visualOdometry::locAndMap(dataCPU<float> &image)
 
     SE3f lastLocalPose = lastFrame.getLocalPose();
 
-    lastFrame.setImage(image, lastId);
+    lastFrame = frameCPU(image, lastId);
     lastFrame.setLocalPose(lastLocalMovement * lastLocalPose);
     // lastFrame.setLocalExp(lastLocalExp);
     lastId++;
 
     t.tic();
-    poseOptimizer.optimize(lastFrame, kframe, cam);
-    // sceneOptimizer.optPose(newFrame, kframe, scene);
+    optimizePose(lastFrame, kframe, cam);
     std::cout << "estimate pose time: " << t.toc() << std::endl;
-
-    // std::cout << "affine " << newFrame.getAffine()(0) << " " << newFrame.getAffine()(1) << std::endl;
-    // std::cout << "estimated pose " << std::endl;
-    // std::cout << newFrame.getPose().matrix() << std::endl;
 
     if (goodFrames.size() == 0)
     {
@@ -208,7 +232,7 @@ int visualOdometry::locAndMap(dataCPU<float> &image)
             SE3f newKeyframeGlobalPose = kframe.localPoseToGlobal(newKeyframe.getLocalPose());
             vec2f newKeyframeGlobalExp = kframe.localExpToGlobal(newKeyframe.getLocalExp());
 
-            kframe.init(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
+            kframe = keyFrameCPU(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
             kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam);
 
             vec2f meanStd = kframe.getGeometry().meanStdDepth();
@@ -245,8 +269,7 @@ int visualOdometry::locAndMap(dataCPU<float> &image)
     if (optimize)
     {
         t.tic();
-        // mapOptimizer.optimize(keyFrames, kframe, cam);
-        poseMapOptimizer.optimize(keyFrames, kframe, cam);
+        optimizePoseMap(keyFrames, kframe, cam);
         std::cout << "optposemap time: " << t.toc() << std::endl;
 
         // sync the updated keyframe poses present in lastframes
@@ -277,14 +300,13 @@ void visualOdometry::intrinsicAndLocAndMap(dataCPU<float> &image)
 
     SE3f lastLocalPose = lastFrame.getLocalPose();
 
-    lastFrame.setImage(image, lastId);
+    lastFrame = frameCPU(image, lastId);
     lastFrame.setLocalPose(lastLocalMovement * lastLocalPose);
     // lastFrame.setLocalExp(lastLocalExp);
     lastId++;
 
     t.tic();
-    poseOptimizer.optimize(lastFrame, kframe, cam);
-    // sceneOptimizer.optPose(newFrame, kframe, scene);
+    optimizePose(lastFrame, kframe, cam);
     std::cout << "estimate pose time: " << t.toc() << std::endl;
 
     // std::cout << "affine " << newFrame.getAffine()(0) << " " << newFrame.getAffine()(1) << std::endl;
@@ -359,7 +381,7 @@ void visualOdometry::intrinsicAndLocAndMap(dataCPU<float> &image)
             SE3f newKeyframeGlobalPose = kframe.localPoseToGlobal(newKeyframe.getLocalPose());
             vec2f newKeyframeGlobalExp = kframe.localExpToGlobal(newKeyframe.getLocalExp());
 
-            kframe.init(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
+            kframe = keyFrameCPU(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
             kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam);
 
             vec2f meanStd = kframe.getGeometry().meanStdDepth();
@@ -420,7 +442,7 @@ void visualOdometry::lightaffine(dataCPU<float> &image, SE3f globalPose)
 {
     tic_toc t;
 
-    lastFrame.setImage(image, lastId);
+    lastFrame = frameCPU(image, lastId);
     lastFrame.setLocalPose(globalPose * kframe.getGlobalPose().inverse());
     // lastFrame.setLocalExp(lastLocalExp);
     lastId++;
@@ -436,13 +458,13 @@ void visualOdometry::localization(dataCPU<float> &image)
 
     SE3f lastLocalPose = lastFrame.getLocalPose();
 
-    lastFrame.setImage(image, lastId);
+    lastFrame = frameCPU(image, lastId);
     lastFrame.setLocalPose(lastLocalMovement * lastLocalPose);
     // lastFrame.setLocalExp(lastLocalExp);
     lastId++;
 
     t.tic();
-    poseOptimizer.optimize(lastFrame, kframe, cam);
+    optimizePose(lastFrame, kframe, cam);
     std::cout << "estimated pose " << t.toc() << std::endl;
     std::cout << lastFrame.getLocalPose().matrix() << std::endl;
     std::cout << lastFrame.getLocalExp()(0) << " " << lastFrame.getLocalExp()(1) << std::endl;
@@ -460,7 +482,7 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
     SE3f localPose = globalPose * kframe.getGlobalPose().inverse();
     localPose.translation() *= kframe.getGlobalScale();
 
-    lastFrame.setImage(image, lastId);
+    lastFrame = frameCPU(image, lastId);
     lastFrame.setLocalPose(localPose);
     lastFrame.setLocalExp(exp);
     lastId++;
@@ -531,7 +553,7 @@ void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
             SE3f newKeyframeGlobalPose = kframe.localPoseToGlobal(newKeyframe.getLocalPose());
             vec2f newKeyframeGlobalExp = kframe.localExpToGlobal(newKeyframe.getLocalExp());
 
-            kframe.init(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
+            kframe = keyFrameCPU(newKeyframe.getRawImage(0), newKeyframeGlobalExp, newKeyframeGlobalPose, kframe.getGlobalScale());
             kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam);
 
             vec2f meanStd = kframe.getGeometry().meanStdDepth();

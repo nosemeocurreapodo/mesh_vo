@@ -9,25 +9,24 @@
 class keyFrameCPU
 {
 public:
-    keyFrameCPU(int width, int height)
-        : raw_image(width, height, imageType(-1.0f)),
-          dIdpix_image(width, height, vec2f(0.0f, 0.0f))
+    keyFrameCPU()
     {
         globalPose = SE3f();
-        globalExp = {0.0f, 0.0f};
+        globalExp = vec2f(0.0f, 0.0f);
         globalScale = 1.0;
     };
 
-    keyFrameCPU(const dataCPU<imageType> &im, const dataCPU<vec2f> &dIdpix, vec2f _globalExp, SE3f _globalPose, float _globalScale) : raw_image(im),
-                                                                                                                                      dIdpix_image(dIdpix)
+    keyFrameCPU(const dataCPU<imageType> &im, vec2f _globalExp, SE3f _globalPose, float _globalScale)
     {
-        // raw_image.get(0) = im;
+        raw_image = dataMipMapCPU<imageType>(im);
         // raw_image.generateMipmaps();
 
-        // for (int lvl = 0; lvl < raw_image.getLvls(); lvl++)
-        //{
-        //     computeFrameDerivative(lvl);
-        // }
+        dIdpix_image = dataMipMapCPU<vec2f>(im.width, im.height, vec2f(0.0, 0.0));
+
+        for (int lvl = 0; lvl < raw_image.getLvls(); lvl++)
+        {
+            dIdpix_image.get(lvl) = raw_image.get(lvl).computeFrameDerivative();
+        }
 
         globalExp = _globalExp;
         globalPose = _globalPose;
@@ -36,9 +35,10 @@ public:
     }
 
     keyFrameCPU(const keyFrameCPU &other)
-        : raw_image(other.raw_image),
-          dIdpix_image(other.dIdpix_image)
     {
+        raw_image = other.raw_image;
+        dIdpix_image = other.dIdpix_image;
+
         globalPose = other.globalPose;
         globalExp = other.globalExp;
         globalScale = other.globalScale;
@@ -57,24 +57,6 @@ public:
             geometry = other.geometry;
         }
         return *this;
-    }
-
-    void init(dataCPU<imageType> &im, vec2f _globalExp, SE3f _globalPose, float _globalScale)
-    {
-        assert(im.width == raw_image.get(0).width && im.height == raw_image.get(0).height);
-
-        raw_image.get(0) = im;
-        raw_image.generateMipmaps();
-
-        for (int lvl = 0; lvl < raw_image.getLvls(); lvl++)
-        {
-            computeFrameDerivative(lvl);
-        }
-
-        globalExp = _globalExp;
-        globalPose = _globalPose;
-        globalScale = _globalScale;
-        // pose = SIM3f(scale, p.unit_quaternion(), p.translation());
     }
 
     void initGeometryRandom(cameraType cam)
@@ -108,7 +90,7 @@ public:
         geometry.init(rays, depths, weights, cam);
     }
 
-    void initGeometryFromDepth(dataCPU<float> &depth, dataCPU<float> &weight, cameraType cam)
+    void initGeometryFromDepth(const dataCPU<float> &depth, const dataCPU<float> &weight, cameraType cam)
     {
         std::vector<vec3f> rays = uniformRays(cam);
         std::vector<float> depths;
@@ -254,7 +236,7 @@ public:
         return geometry;
     }
 
-    void setGeometry(geometryType _geometry)
+    void setGeometry(const geometryType &_geometry)
     {
         geometry = _geometry;
     }
@@ -354,36 +336,6 @@ private:
         }
 
         return depth_sum / weight_sum;
-    }
-
-    void computeFrameDerivative(int lvl)
-    {
-        // dx.set(dx.nodata, lvl);
-        // dy.set(dy.nodata, lvl);
-
-        dataCPU<imageType> image = raw_image.get(lvl);
-
-        int width = image.width;
-        int height = image.height;
-
-        for (int y = 0; y < height; y++)
-            for (int x = 0; x < width; x++)
-            {
-                if (y == 0 || y == height - 1 || x == 0 || x == width - 1)
-                {
-                    // dx.set(0.0, y, x, lvl);
-                    // dy.set(0.0, y, x, lvl);
-                    dIdpix_image.get(lvl).setTexel(vec2f(0.0f, 0.0f), y, x);
-                    continue;
-                }
-
-                float _dx = (float(image.getTexel(y, x + 1)) - float(image.getTexel(y, x - 1))) * width / 2.0;
-                float _dy = (float(image.getTexel(y + 1, x)) - float(image.getTexel(y - 1, x))) * height / 2.0;
-
-                dIdpix_image.get(lvl).setTexel(vec2f(_dx, _dy), y, x);
-                // dx.set(_dx, y, x, lvl);
-                // dy.set(_dy, y, x, lvl);
-            }
     }
 
     dataMipMapCPU<imageType> raw_image;

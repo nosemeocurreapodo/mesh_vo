@@ -349,7 +349,7 @@ int main(int argc, char *argv[])
     }
     */
 
-    visualOdometry odometry(image, SE3f(), cam);
+    visualOdometryThreaded odometry(image, SE3f(), cam);
 
     // odometry.initScene(image, pixels, idepths, Sophus::SE3f());
     // odometry.init(image, idepth, Sophus::SE3f());
@@ -385,6 +385,9 @@ int main(int argc, char *argv[])
         // cv::resize(imageMat, imageMat, cv::Size(mesh_vo::image_width, mesh_vo::image_height), cv::INTER_AREA);
 
         image.set((float *)imageMat.data);
+        odometry.locAndMap(image);
+
+        /*
         if (odometry.locAndMap(image))
         {
             std::lock_guard<std::mutex> lock(map_mutex);
@@ -392,7 +395,8 @@ int main(int argc, char *argv[])
             mapImage = odometry.getKeyframe().getRawImage(0);
             geometryUpdated = true;
         }
-        cv::waitKey(30);
+        */
+        cv::waitKey(100);
     }
 
     return 1;

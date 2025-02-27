@@ -11,6 +11,8 @@
 #include "optimizers/poseMapOptimizerCPU.h"
 #include "optimizers/intrinsicPoseMapOptimizerCPU.h"
 
+#include "cpu/OpenCVDebug.h"
+
 template <typename T>
 class ThreadSafeQueue
 {
@@ -63,6 +65,12 @@ public:
         return queue_.empty();
     }
 
+    size_t size() const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return queue_.size();
+    }
+
 private:
     mutable std::mutex mutex_;
     std::queue<T> queue_;
@@ -72,13 +80,19 @@ private:
 class visualOdometryThreaded
 {
 public:
-    visualOdometryThreaded(dataCPU<float> &image, SE3f globalPose, cameraType _cam, int _width, int _height):
-    frameId(0), cam(_cam), width(_width), height(_height),
-    tLocalization(&visualOdometryThreaded::localizationThread, this),
-    tMapping(&visualOdometryThreaded::mappingThread, this)
+    visualOdometryThreaded(dataCPU<float> &image, SE3f globalPose, cameraType _cam) : cam(_cam)
     {
-        keyFrameCPU initialkeyframe(width, height);
-        initialkeyframe.init(image, vec2f(0.0, 0.0), globalPose, 1.0);
+        initialKeyframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
+        initialKeyframe.initGeometryVerticallySmooth(cam);
+
+        width = image.width;
+        height = image.height;
+        frameId = 0;
+
+        tLocalization = std::thread(&visualOdometryThreaded::localizationThread, this);
+        tMapping = std::thread(&visualOdometryThreaded::mappingThread, this);
+
+        plotDebug = true;
     }
 
     ~visualOdometryThreaded()
@@ -89,7 +103,28 @@ public:
 
     void locAndMap(dataCPU<float> &image)
     {
+        // frameCPU frame(image, 0);
+        // fQueue.push(frame);
+        // if(fQueue.size() > 5)
+        //     fQueue.pop();
+
         iQueue.push(image);
+        if (iQueue.size() > 5)
+            iQueue.pop();
+
+        if (plotDebug)
+        {
+            while (!debugLocalizationQueue.empty())
+            {
+                std::vector<dataCPU<float>> debugLoc = debugLocalizationQueue.pop();
+                show(debugLoc, "localization Debug");
+            }
+            while (!debugMappingQueue.empty())
+            {
+                std::vector<dataCPU<float>> debugLoc = debugMappingQueue.pop();
+                show(debugLoc, "mapping Debug");
+            }
+        }
     }
 
     keyFrameCPU getKeyframe()
@@ -101,21 +136,53 @@ private:
     void localizationThread()
     {
         poseOptimizerCPU optimizer(width, height);
+        keyFrameCPU kframe = initialKeyframe;
 
-        keyFrameCPU kframe(width, height);
+        SE3f lastGlobalPose;
+        SE3f lastGlobalMovement;
 
         while (true)
         {
             if (!kfQueue.empty())
             {
-                kframe = kfQueue.peek();
+                kframe = kfQueue.pop();
             }
 
             dataCPU<imageType> image = iQueue.pop();
-            frameCPU frame(image, image.computeFrameDerivative(), frameId);
-            // frame.setLocalPose(lastLocalMovement * lastLocalPose);
-            optimizer.optimize(frame, kframe, cam);
+            frameCPU frame(image, frameId);
+
+            // initialize the global and local pose
+            frame.setGlobalPose(lastGlobalMovement * lastGlobalPose);
+            frame.setLocalPose(kframe.globalPoseToLocal(frame.getGlobalPose()));
+
+            // this will update the local pose
+            for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
+            {
+                optimizer.init(frame, kframe, cam, lvl);
+                while (true)
+                {
+                    optimizer.step(frame, kframe, cam, lvl);
+                    if (plotDebug)
+                    {
+                        std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frame, kframe, cam, 1);
+                        debugLocalizationQueue.push(debugData);
+                    }
+                    if (optimizer.converged())
+                        break;
+                }
+            }
+
+            // update the global pose
+            SE3f newGlobalPose = kframe.localPoseToGlobal(frame.getLocalPose());
+            frame.setGlobalPose(newGlobalPose);
+
+            lastGlobalMovement = newGlobalPose * lastGlobalPose.inverse();
+            lastGlobalPose = newGlobalPose;
+
             fQueue.push(frame);
+            if (fQueue.size() > 5)
+                fQueue.pop();
+
             frameId++;
         }
     }
@@ -123,17 +190,82 @@ private:
     void mappingThread()
     {
         poseMapOptimizerCPU optimizer(width, height);
+        renderCPU renderer(width, height);
+        dataMipMapCPU<float> depth_buffer(width, height, -1);
+        dataMipMapCPU<float> weight_buffer(width, height, -1);
+
         std::vector<frameCPU> frameStack;
 
-        keyFrameCPU kframe(width, height);
+        keyFrameCPU kframe = initialKeyframe;
 
         while (true)
         {
             if (!fQueue.empty())
             {
                 frameStack.push_back(fQueue.pop());
+                if (frameStack.size() > mesh_vo::num_frames)
+                    frameStack.erase(frameStack.begin());
             }
-            optimizer.optimize(frameStack, kframe, cam);
+
+            if (frameStack.size() < mesh_vo::num_frames)
+                continue;
+
+            // select new keyframe
+            // int newKeyframeIndex = 0;
+            int newKeyframeIndex = int(frameStack.size() / 2);
+            // int newKeyframeIndex = int(goodFrames.size() - 1);
+            frameCPU newKeyframe = frameStack[newKeyframeIndex];
+
+            // render its idepth
+            int lvl = 0;
+
+            renderer.renderDepthParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), depth_buffer, cam, lvl);
+            renderer.renderWeightParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), weight_buffer, cam, lvl);
+            renderer.renderInterpolate(depth_buffer.get(lvl));
+
+            kframe = keyFrameCPU(newKeyframe.getRawImage(0), vec2f(0.0, 0.0), newKeyframe.getGlobalPose(), kframe.getGlobalScale());
+            kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam);
+
+            vec2f meanStd = kframe.getGeometry().meanStdDepth();
+            // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
+            // vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
+            float scale = 1.0 / meanStd(0);
+
+            kframe.scaleVerticesAndWeights(scale);
+
+            frameStack.erase(frameStack.begin() + newKeyframeIndex);
+
+            // initialize the local poses
+            for (size_t i = 0; i < frameStack.size(); i++)
+            {
+                frameStack[i].setLocalPose(kframe.globalPoseToLocal(frameStack[i].getGlobalPose()));
+            }
+
+            // this will update the local pose and the local map
+            // optimizer.optimize(frameStack, kframe, cam);
+
+            for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
+            {
+                optimizer.init(frameStack, kframe, cam, lvl);
+                while (true)
+                {
+                    optimizer.step(frameStack, kframe, cam, lvl);
+                    if (plotDebug)
+                    {
+                        std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frameStack, kframe, cam, 1);
+                        debugMappingQueue.push(debugData);
+                    }
+                    if (optimizer.converged())
+                        break;
+                }
+            }
+
+            // update the global poses
+            for (size_t i = 0; i < frameStack.size(); i++)
+            {
+                frameStack[i].setGlobalPose(kframe.localPoseToGlobal(frameStack[i].getLocalPose()));
+            }
+
             kfQueue.push(kframe);
         }
     }
@@ -144,8 +276,16 @@ private:
     ThreadSafeQueue<dataCPU<imageType>> iQueue;
     ThreadSafeQueue<frameCPU> fQueue;
     ThreadSafeQueue<keyFrameCPU> kfQueue;
+
+    ThreadSafeQueue<std::vector<dataCPU<float>>> debugLocalizationQueue;
+    ThreadSafeQueue<std::vector<dataCPU<float>>> debugMappingQueue;
+
     cameraType cam;
     int width;
     int height;
     int frameId;
+
+    keyFrameCPU initialKeyframe;
+
+    bool plotDebug;
 };
