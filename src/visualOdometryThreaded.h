@@ -160,15 +160,21 @@ private:
 
         while (true)
         {
-            //keep only the last keyframe
-            while (!kfQueue.empty())
-                kframe = kfQueue.pop();
-    
+            // keep only the last keyframe
+            while (true)
+            {
+                if (!kfQueue.try_pop(kframe))
+                    break;
+            }
+
             dataCPU<imageType> image = iQueue.pop();
-            
-            //keep only last image
-            while (!iQueue.empty())
-                image = iQueue.pop();
+
+            // keep on reading and keep the last image
+            while (true)
+            {
+                if (!iQueue.try_pop(image))
+                    break;
+            }
 
             frameCPU frame(image, frameId);
 
@@ -226,16 +232,39 @@ private:
 
         while (true)
         {
-            //read all the frames in the queue
-            while (!fQueue.empty())
+            frameCPU frame = fQueue.pop();
+
+            while (true)
             {
-                frameStack.push_back(fQueue.pop());
-                if (frameStack.size() > mesh_vo::num_frames)
-                    frameStack.erase(frameStack.begin());
+                float lastMinViewAngle = M_PI;
+                for (frameCPU f : frameStack)
+                {
+                    float lastViewAngle = meanViewAngle(kframe, kframe.globalPoseToLocal(f.getGlobalPose()), kframe.globalPoseToLocal(frame.getGlobalPose()));
+                    if (lastViewAngle < lastMinViewAngle)
+                        lastMinViewAngle = lastViewAngle;
+                }
+
+                if (lastMinViewAngle > mesh_vo::last_min_angle)
+                {
+                    frameStack.push_back(frame);
+                    if (frameStack.size() > mesh_vo::num_frames)
+                        frameStack.erase(frameStack.begin());
+                }
+
+                if (!fQueue.try_pop(frame))
+                    break;
             }
 
             if (frameStack.size() < mesh_vo::num_frames)
                 continue;
+
+            //int lvl = 1;
+            //renderer.renderImageParallel(kframe, kframe.globalPoseToLocal(frame.getGlobalPose()), depth_buffer, cam, lvl);
+            //float pnodata = depth_buffer.get(lvl).getPercentNoData();
+            //float viewPercent = 1.0 - pnodata;
+
+            //if (viewPercent > mesh_vo::min_view_perc)
+            //    continue;
 
             // select new keyframe
             // int newKeyframeIndex = 0;
@@ -311,6 +340,55 @@ private:
 
             kfQueue.push(kframe);
         }
+    }
+
+    float meanViewAngle(keyFrameCPU &kframe, SE3f pose1, SE3f pose2)
+    {
+        int lvl = 1;
+
+        geometryType scene1 = kframe.getGeometry();
+        scene1.transform(pose1);
+        scene1.project(cam);
+
+        geometryType scene2 = kframe.getGeometry();
+        scene2.transform(pose2);
+        scene2.project(cam);
+
+        SE3f relativePose = pose1 * pose2.inverse();
+
+        SE3f frame1PoseInv = relativePose.inverse();
+        SE3f frame2PoseInv = SE3f();
+
+        vec3f frame1Translation = frame1PoseInv.translation();
+        vec3f frame2Translation = frame2PoseInv.translation();
+
+        std::vector<int> vIds = scene2.getVerticesIds();
+
+        float accAngle = 0;
+        int count = 0;
+        for (int vId : vIds)
+        {
+            vertex vert = scene2.getVertex(vId);
+
+            vec3f diff1 = vert.ver - frame1Translation;
+            vec3f diff2 = vert.ver - frame2Translation;
+
+            assert(diff1.norm() > 0 && diff2.norm() > 0);
+
+            vec3f diff1Normalized = diff1 / diff1.norm();
+            vec3f diff2Normalized = diff2 / diff2.norm();
+
+            float cos_angle = diff1Normalized.dot(diff2Normalized);
+            cos_angle = std::clamp(cos_angle, -1.0f, 1.0f);
+            float angle = std::acos(cos_angle);
+
+            assert(!std::isnan(angle));
+
+            accAngle += angle;
+            count += 1;
+        }
+
+        return accAngle / count;
     }
 
     std::thread tLocalization;

@@ -14,7 +14,7 @@ visualOdometry::visualOdometry(dataCPU<imageType> &image, SE3f globalPose, camer
     cam = _cam;
     kframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
     kframe.initGeometryVerticallySmooth(cam);
-    //kframe.initGeometryRandom(cam);
+    // kframe.initGeometryRandom(cam);
 }
 
 visualOdometry::visualOdometry(dataCPU<imageType> &image, dataCPU<float> &depth, dataCPU<float> &weight, SE3f globalPose, cameraType _cam)
@@ -120,28 +120,27 @@ float visualOdometry::getViewPercent(frameCPU &frame)
 
 void visualOdometry::optimizePose(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam)
 {
-    for(int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_ini_lvl; lvl--)
+    for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_ini_lvl; lvl--)
     {
-        while(true)
+        while (true)
         {
             poseOptimizer.init(frame, kframe, cam, lvl);
             poseOptimizer.step(frame, kframe, cam, lvl);
-            if(poseOptimizer.converged())
+            if (poseOptimizer.converged())
                 break;
         }
     }
 }
 
-
 void visualOdometry::optimizePoseMap(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam)
 {
-    for(int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_ini_lvl; lvl--)
+    for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_ini_lvl; lvl--)
     {
-        while(true)
+        while (true)
         {
             poseMapOptimizer.init(frames, kframe, cam, lvl);
             poseMapOptimizer.step(frames, kframe, cam, lvl);
-            if(poseMapOptimizer.converged())
+            if (poseMapOptimizer.converged())
                 break;
         }
     }
