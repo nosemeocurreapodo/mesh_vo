@@ -96,7 +96,7 @@ add_executable(tum_dataset ${TUMDATASET_SRCS})
 
 #target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})
 target_link_libraries(testapp mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-target_link_libraries(tum_dataset mesh_vo ${OpenCV_LIBS} pthread)
+target_link_libraries(tum_dataset mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
 #target_link_libraries(kitti_dataset ${OpenCV_LIBS} pthread)
 #target_link_libraries(kitti_binocular ${OpenCV_LIBS} pthread)
 #target_link_libraries(syfra mesh_vo ${OpenCV_LIBS} pthread)

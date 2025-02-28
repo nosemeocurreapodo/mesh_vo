@@ -26,10 +26,7 @@ void poseOptimizerCPU::init(frameCPU &frame, keyFrameCPU &kframe, cameraType &ca
         init_error += weight * (res.dot(conv_dot_res));
     }
 
-    std::cout << "poseOptimizer initial error " << init_error << " " << lvl << std::endl;
-    // std::vector<frameCPU> frames;
-    // frames.push_back(frame);
-    // plotDebug(kframe, frames, cam, "poseOptimizerCPU");
+    //std::cout << "poseOptimizer initial error " << init_error << " " << lvl << std::endl;
     reachedConvergence = false;
 }
 
@@ -91,10 +88,7 @@ void poseOptimizerCPU::step(frameCPU &frame, keyFrameCPU &kframe, cameraType &ca
             new_error += weight * (res.dot(conv_dot_res));
         }
 
-        std::cout << "poseOptimizer new error " << new_error << " " << lambda << " " << " " << lvl << std::endl;
-        // std::vector<frameCPU> frames;
-        // frames.push_back(frame);
-        // plotDebug(kframe, frames, cam, "poseOptimizerCPU");
+        //std::cout << "poseOptimizer new error " << new_error << " " << lambda << " " << " " << lvl << std::endl;
 
         if (new_error <= init_error)
         {

@@ -3,9 +3,9 @@
 
 namespace mesh_vo
 {
-    float last_min_angle = M_PI / 256.0;
-    float key_max_angle = M_PI / 15.0;
-    float min_view_perc = 0.7;
+    float last_min_angle = M_PI / 64.0;
+    float key_max_angle = M_PI / 32.0;
+    float min_view_perc = 0.8;
     float min_lambda = 0.00001f;
     float huber_thresh_pix = 3.0;
 
@@ -18,7 +18,7 @@ namespace mesh_vo
 
     int mapping_ini_lvl = 1;
     int mapping_fin_lvl = 1;
-    float mapping_regu_weight = 10.0;
+    float mapping_regu_weight = 5.0;
     float mapping_prior_weight = 0.0;
     float mapping_convergence_p = 0.9999;
     float mapping_convergence_v = 1e-16;

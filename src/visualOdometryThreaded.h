@@ -3,6 +3,8 @@
 #include <iostream>
 #include <fstream>
 
+#include <pangolin/pangolin.h>
+
 #include "cpu/frameCPU.h"
 #include "cpu/keyFrameCPU.h"
 
@@ -11,7 +13,10 @@
 #include "optimizers/poseMapOptimizerCPU.h"
 #include "optimizers/intrinsicPoseMapOptimizerCPU.h"
 
+#include "visualizer/geometryPlotter.h"
+#include "visualizer/trayectoryPlotter.h"
 #include "cpu/OpenCVDebug.h"
+#include "utils/tictoc.h"
 
 template <typename T>
 class ThreadSafeQueue
@@ -34,6 +39,16 @@ public:
         cv_.wait(lock, [this]
                  { return !queue_.empty(); });
         return queue_.front();
+    }
+
+    // Try to peek an element; returns false if queue is empty
+    bool try_peek(T &value)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (queue_.empty())
+            return false;
+        value = queue_.front();
+        return true;
     }
 
     // Pop an element from the queue (blocks if the queue is empty)
@@ -86,17 +101,7 @@ public:
 
     visualOdometryThreaded(dataCPU<float> &image, SE3f globalPose, cameraType _cam) : cam(_cam)
     {
-        initialKeyframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
-        initialKeyframe.initGeometryVerticallySmooth(cam);
-
-        width = image.width;
-        height = image.height;
-        frameId = 0;
-
-        tLocalization = std::thread(&visualOdometryThreaded::localizationThread, this);
-        tMapping = std::thread(&visualOdometryThreaded::mappingThread, this);
-
-        plotDebug = true;
+        init(image, globalPose);
     }
 
     ~visualOdometryThreaded()
@@ -116,6 +121,7 @@ public:
 
         tLocalization = std::thread(&visualOdometryThreaded::localizationThread, this);
         tMapping = std::thread(&visualOdometryThreaded::mappingThread, this);
+        tVisualization = std::thread(&visualOdometryThreaded::visualizationThread, this);
 
         plotDebug = true;
     }
@@ -144,6 +150,11 @@ public:
         }
     }
 
+    bool isIdle()
+    {
+        return false;
+    }
+
     keyFrameCPU getKeyframe()
     {
         return kfQueue.peek();
@@ -157,6 +168,8 @@ private:
 
         SE3f lastGlobalPose;
         SE3f lastGlobalMovement;
+
+        tic_toc tt;
 
         while (true)
         {
@@ -183,6 +196,7 @@ private:
             frame.setLocalPose(kframe.globalPoseToLocal(frame.getGlobalPose()));
 
             // this will update the local pose
+            tt.tic();
             for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
             {
                 optimizer.init(frame, kframe, cam, lvl);
@@ -205,6 +219,7 @@ private:
                     }
                 }
             }
+            std::cout << "localization time " << tt.toc() << std::endl;
 
             // update the global pose
             SE3f newGlobalPose = kframe.localPoseToGlobal(frame.getLocalPose());
@@ -227,8 +242,9 @@ private:
         dataMipMapCPU<float> weight_buffer(width, height, -1);
 
         std::vector<frameCPU> frameStack;
-
         keyFrameCPU kframe = initialKeyframe;
+
+        tic_toc tt;
 
         while (true)
         {
@@ -258,13 +274,15 @@ private:
             if (frameStack.size() < mesh_vo::num_frames)
                 continue;
 
-            //int lvl = 1;
-            //renderer.renderImageParallel(kframe, kframe.globalPoseToLocal(frame.getGlobalPose()), depth_buffer, cam, lvl);
-            //float pnodata = depth_buffer.get(lvl).getPercentNoData();
-            //float viewPercent = 1.0 - pnodata;
+            float keyframeViewAngle = meanViewAngle(kframe, SE3f(), kframe.globalPoseToLocal(frame.getGlobalPose()));
 
-            //if (viewPercent > mesh_vo::min_view_perc)
-            //    continue;
+            depth_buffer.setToNoData(1);
+            renderer.renderImageParallel(kframe, kframe.globalPoseToLocal(frame.getGlobalPose()), depth_buffer, cam, 1);
+            float pnodata = depth_buffer.get(1).getPercentNoData();
+            float viewPercent = 1.0 - pnodata;
+
+            if (viewPercent > mesh_vo::min_view_perc && keyframeViewAngle < mesh_vo::key_max_angle)
+                continue;
 
             // select new keyframe
             // int newKeyframeIndex = 0;
@@ -272,15 +290,14 @@ private:
             // int newKeyframeIndex = int(goodFrames.size() - 1);
             frameCPU newKeyframe = frameStack[newKeyframeIndex];
 
-            // render its idepth
-            int lvl = 0;
-
-            renderer.renderDepthParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), depth_buffer, cam, lvl);
-            renderer.renderWeightParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), weight_buffer, cam, lvl);
-            renderer.renderInterpolate(depth_buffer.get(lvl));
+            depth_buffer.setToNoData(0);
+            weight_buffer.setToNoData(0);
+            renderer.renderDepthParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), depth_buffer, cam, 0);
+            renderer.renderWeightParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), weight_buffer, cam, 0);
+            renderer.renderInterpolate(depth_buffer.get(0));
 
             kframe = keyFrameCPU(newKeyframe.getRawImage(0), vec2f(0.0, 0.0), newKeyframe.getGlobalPose(), kframe.getGlobalScale());
-            kframe.initGeometryFromDepth(depth_buffer.get(lvl), weight_buffer.get(lvl), cam);
+            kframe.initGeometryFromDepth(depth_buffer.get(0), weight_buffer.get(0), cam);
 
             vec2f meanStd = kframe.getGeometry().meanStdDepth();
             // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
@@ -301,14 +318,15 @@ private:
             // this will update the local pose and the local map
             // optimizer.optimize(frameStack, kframe, cam);
 
+            tt.tic();
             for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
             {
                 optimizer.init(keyframes, kframe, cam, lvl);
-                // if (plotDebug)
-                //{
-                //     std::vector<dataCPU<float>> debugData = optimizer.getDebugData(keyframes, kframe, cam, 1);
-                //     debugMappingQueue.push(debugData);
-                // }
+                if (plotDebug)
+                {
+                    std::vector<dataCPU<float>> debugData = optimizer.getDebugData(keyframes, kframe, cam, 1);
+                    debugMappingQueue.push(debugData);
+                }
                 while (true)
                 {
                     optimizer.step(keyframes, kframe, cam, lvl);
@@ -323,6 +341,7 @@ private:
                     }
                 }
             }
+            std::cout << "mapping time " << tt.toc() << std::endl;
 
             // update the global poses
             for (size_t i = 0; i < keyframes.size(); i++)
@@ -340,6 +359,71 @@ private:
 
             kfQueue.push(kframe);
         }
+    }
+
+    // Visualization thread using Pangolin
+    int visualizationThread()
+    {
+        pangolin::CreateWindowAndBind("Main", 640, 480);
+        glEnable(GL_DEPTH_TEST);
+
+        // Define Projection and initial ModelView matrix
+        pangolin::OpenGlRenderState s_cam(
+            pangolin::ProjectionMatrix(640, 480, 420, 420, 320, 240, 0.1, 100),
+            pangolin::ModelViewLookAt(-2, 2, -2, 0, 0, 0, pangolin::AxisY));
+
+        // Create Interactive View in window
+        pangolin::Handler3D handler(s_cam);
+        pangolin::View &d_cam = pangolin::CreateDisplay()
+                                    .SetBounds(0.0, 1.0, 0.0, 1.0, -640.0f / 480.0f)
+                                    .SetHandler(&handler);
+
+        std::vector<SE3f> poses;
+
+        geometryPlotter geomPlotter;
+        trayectoryPlotter trayPlotter;
+
+        geomPlotter.compileShaders();
+        trayPlotter.compileShaders();
+
+        keyFrameCPU kframe = initialKeyframe;
+        frameCPU frame;
+
+        geomPlotter.setBuffers(kframe.getRawImage(0), kframe.getGeometry());
+
+        while (!pangolin::ShouldQuit())
+        {
+            if (kfQueue.try_peek(kframe))
+            {
+                kframe.scaleVerticesAndWeights(1.0/kframe.getGlobalScale());
+                kframe.getGeometry().transform(kframe.getGlobalPose().inverse());
+                poses.push_back(kframe.getGlobalPose());
+                trayPlotter.setBuffers(poses, cam);
+                geomPlotter.setBuffers(kframe.getRawImage(0), kframe.getGeometry());
+            }
+
+            /*
+            if (fQueue.try_peek(frame))
+            {
+                poses.push_back(frame.getGlobalPose());
+                plotter.setBuffers(poses, cam);
+            }
+            */
+
+            // Clear screen and activate view to render into
+            glClearColor(0.2f, 0.3f, 0.4f, 1.0f); 
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            d_cam.Activate(s_cam);
+            pangolin::OpenGlMatrix mvp = s_cam.GetProjectionModelViewMatrix();
+
+            geomPlotter.draw(mvp);
+            trayPlotter.draw(mvp);
+
+            // Swap frames and Process Events
+            pangolin::FinishFrame();
+        }
+
+        return 0;
     }
 
     float meanViewAngle(keyFrameCPU &kframe, SE3f pose1, SE3f pose2)
@@ -393,6 +477,7 @@ private:
 
     std::thread tLocalization;
     std::thread tMapping;
+    std::thread tVisualization;
 
     ThreadSafeQueue<dataCPU<imageType>> iQueue;
     ThreadSafeQueue<frameCPU> fQueue;
