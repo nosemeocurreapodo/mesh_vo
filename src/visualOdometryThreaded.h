@@ -404,11 +404,11 @@ private:
                 for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
                 {
                     poseOptimizer.init(frame, kframe, cam, lvl);
-                    // if (plotDebug)
-                    //{
-                    //     std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
-                    //     debugLocalizationQueue.push(debugData);
-                    // }
+                    if (plotDebug)
+                    {
+                         std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
+                         debugLocalizationQueue.push(debugData);
+                     }
                     while (true)
                     {
                         poseOptimizer.step(frame, kframe, cam, lvl);
@@ -426,11 +426,10 @@ private:
                 std::cout << "localization time " << tt.toc() << std::endl;
 
                 // update the global pose
-                SE3f newGlobalPose = kframe.localPoseToGlobal(frame.getLocalPose());
-                frame.setGlobalPose(newGlobalPose);
+                frame.setGlobalPose(kframe.localPoseToGlobal(frame.getLocalPose()));
 
-                lastGlobalMovement = newGlobalPose * lastGlobalPose.inverse();
-                lastGlobalPose = newGlobalPose;
+                lastGlobalMovement = frame.getGlobalPose() * lastGlobalPose.inverse();
+                lastGlobalPose = frame.getGlobalPose();
 
                 frameId++;
 
@@ -438,7 +437,7 @@ private:
                 float lastMinViewAngle = M_PI;
                 for (frameCPU f : frameStack)
                 {
-                    float lastViewAngle = meanViewAngle(kframe, kframe.globalPoseToLocal(f.getGlobalPose()), kframe.globalPoseToLocal(frame.getGlobalPose()));
+                    float lastViewAngle = meanViewAngle(kframe, f.getLocalPose(), frame.getLocalPose());
                     if (lastViewAngle < lastMinViewAngle)
                         lastMinViewAngle = lastViewAngle;
                 }
@@ -456,10 +455,10 @@ private:
                 if (frameStack.size() < 2)
                     continue;
 
-                float keyframeViewAngle = meanViewAngle(kframe, SE3f(), kframe.globalPoseToLocal(frame.getGlobalPose()));
+                float keyframeViewAngle = meanViewAngle(kframe, SE3f(), frame.getLocalPose());
 
                 depth_buffer.setToNoData(1);
-                renderer.renderImageParallel(kframe, kframe.globalPoseToLocal(frame.getGlobalPose()), depth_buffer, cam, 1);
+                renderer.renderImageParallel(kframe, frame.getLocalPose(), depth_buffer, cam, 1);
                 float pnodata = depth_buffer.get(1).getPercentNoData();
                 float viewPercent = 1.0 - pnodata;
 
@@ -475,16 +474,15 @@ private:
                 // int newKeyframeIndex = int(goodFrames.size() - 1);
                 frameCPU newKeyframe = frameStack[newKeyframeIndex];
 
-                // depth_buffer.setToNoData(0);
-                // weight_buffer.setToNoData(0);
-                // renderer.renderDepthParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), depth_buffer, cam, 0);
-                // renderer.renderWeightParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), weight_buffer, cam, 0);
+                depth_buffer.setToNoData(1);
+                weight_buffer.setToNoData(1);
+                renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, 1);
+                renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, 1);
                 // renderer.renderInterpolate(depth_buffer.get(0));
 
                 kframe = keyFrameCPU(newKeyframe.getRawImage(0), vec2f(0.0, 0.0), newKeyframe.getGlobalPose(), kframe.getGlobalScale());
-                // kframe.initGeometryFromDepth(depth_buffer.get(0), weight_buffer.get(0), cam);
-                kframe.initGeometryVerticallySmooth(cam);
-                renderer.renderIdepthLineSearch(kframe, frameStack[0], cam, 0);
+                kframe.initGeometryFromDepth(depth_buffer.get(1), weight_buffer.get(1), cam);
+                //kframe.initGeometryVerticallySmooth(cam);
 
                 vec2f meanStd = kframe.getGeometry().meanStdDepth();
                 // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
@@ -493,17 +491,19 @@ private:
 
                 kframe.scaleVerticesAndWeights(scale);
 
+                // initialize the local poses
+                for (size_t i = 0; i < frameStack.size(); i++)
+                {
+                    frameStack[i].setLocalPose(kframe.globalPoseToLocal(frameStack[i].getGlobalPose()));
+                }
+
                 keyframes = frameStack;
                 keyframes.erase(keyframes.begin() + newKeyframeIndex);
 
                 // init the posemapoptimizer
                 poseMapOptimizer.init(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
 
-                // initialize the local poses
-                for (size_t i = 0; i < keyframes.size(); i++)
-                {
-                    keyframes[i].setLocalPose(kframe.globalPoseToLocal(keyframes[i].getGlobalPose()));
-                }
+                renderer.renderIdepthLineSearch(kframe, frameStack[0], cam, 1);
             }
 
             if (keyframes.size() < 1)
@@ -516,7 +516,7 @@ private:
                 std::vector<dataCPU<float>> debugData = poseMapOptimizer.getDebugData(keyframes, kframe, cam, 1);
                 debugMappingQueue.push(debugData);
             }
-            poseMapOptimizer.step(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
+            //poseMapOptimizer.step(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
             std::cout << "mapping time " << tt.toc() << std::endl;
 
             // update the global poses

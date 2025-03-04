@@ -562,9 +562,8 @@ private:
 
     void renderIdepthLineSearchWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, SE3f imagePose, cameraType cam, window<float> win)
     {
-        float min_idepth = 1.0 / 5.0;
+        float min_idepth = 1.0 / 10.0;
         float max_idepth = 1.0 / 0.1;
-        float step_idepth = (max_idepth - min_idepth)/100.0;
 
         float x_step = 1.0 / kimage.width;
         float y_step = 1.0 / kimage.height;
@@ -575,6 +574,7 @@ private:
         float beta = imageAffine(1);
 
         SE3f kfToPose = imagePose;
+        SE3f fToKfPose = imagePose.inverse();
 
         std::vector<int> t_ids = scene1.getParamIds();
 
@@ -586,21 +586,33 @@ private:
             //     continue;
 
             vec3f kf_ray = vert.ray;
-            vec2f kf_pix = cam.rayToPix(kf_ray);
+            vec2f kf_pix = vert.pix;
 
             if (!win.isPixInWindow(kf_pix))
                 continue;
 
+            //vec3f kf_ver_min = kf_ray / min_idepth;
+            //vec3f f_ver_min = kfToPose * kf_ver_min;
+            //vec3f f_ray_min = f_ver_min / f_ver_min(2);
+            //vec2f f_pix_min = cam.rayToPix(f_ray_min);
+
+            //vec3f kf_ver_max = kf_ray / max_idepth;
+            //vec3f f_ver_max = kfToPose * kf_ver_max;
+            //vec3f f_ray_max = f_ver_max / f_ver_max(2);
+            //vec2f f_pix_max = cam.rayToPix(f_ray_max);
+
+            //vec2f f_pix_diff = f_pix_max - f_pix_min;
+            //float pix_dist = f_pix_diff.norm();
+            //if (pix_dist < 1.0)
+            //    continue;
+
+            float idepth_step = (max_idepth - min_idepth)/10.0;//pix_dist
+
             float best_residual = 100000000000.0;
-            for (float kf_idepth = min_idepth; kf_idepth < max_idepth; kf_idepth += step_idepth)
+            for (float kf_idepth = min_idepth; kf_idepth < max_idepth; kf_idepth += idepth_step)
             {
                 vec3f kf_ver = kf_ray / kf_idepth;
-
                 vec3f f_ver = kfToPose * kf_ver;
-
-                if (f_ver(2) <= 0)
-                    continue;
-
                 vec3f f_ray = f_ver / f_ver(2);
                 vec2f f_pix = cam.rayToPix(f_ray);
 
