@@ -90,5 +90,5 @@ static void show(std::vector<dataCPU<float>> &data, std::string window_name)
     // cv::Mat toShow = prepareToShow(data[0], false);
 
     cv::imshow(window_name, toShow);
-    cv::waitKey(1);
+    cv::waitKey(30);
 }

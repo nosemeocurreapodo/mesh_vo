@@ -120,8 +120,8 @@ public:
         frameId = 0;
 
         tLocalization = std::thread(&visualOdometryThreaded::voThread, this);
-        //tLocalization = std::thread(&visualOdometryThreaded::localizationThread, this);
-        //tMapping = std::thread(&visualOdometryThreaded::mappingThread, this);
+        // tLocalization = std::thread(&visualOdometryThreaded::localizationThread, this);
+        // tMapping = std::thread(&visualOdometryThreaded::mappingThread, this);
         tVisualization = std::thread(&visualOdometryThreaded::visualizationThread, this);
 
         plotDebug = true;
@@ -475,14 +475,16 @@ private:
                 // int newKeyframeIndex = int(goodFrames.size() - 1);
                 frameCPU newKeyframe = frameStack[newKeyframeIndex];
 
-                depth_buffer.setToNoData(0);
-                weight_buffer.setToNoData(0);
-                renderer.renderDepthParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), depth_buffer, cam, 0);
-                renderer.renderWeightParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), weight_buffer, cam, 0);
-                renderer.renderInterpolate(depth_buffer.get(0));
+                // depth_buffer.setToNoData(0);
+                // weight_buffer.setToNoData(0);
+                // renderer.renderDepthParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), depth_buffer, cam, 0);
+                // renderer.renderWeightParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), weight_buffer, cam, 0);
+                // renderer.renderInterpolate(depth_buffer.get(0));
 
                 kframe = keyFrameCPU(newKeyframe.getRawImage(0), vec2f(0.0, 0.0), newKeyframe.getGlobalPose(), kframe.getGlobalScale());
-                kframe.initGeometryFromDepth(depth_buffer.get(0), weight_buffer.get(0), cam);
+                // kframe.initGeometryFromDepth(depth_buffer.get(0), weight_buffer.get(0), cam);
+                kframe.initGeometryVerticallySmooth(cam);
+                renderer.renderIdepthLineSearch(kframe, frameStack[0], cam, 0);
 
                 vec2f meanStd = kframe.getGeometry().meanStdDepth();
                 // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
@@ -504,17 +506,17 @@ private:
                 }
             }
 
-            if(keyframes.size() < 1)
+            if (keyframes.size() < 1)
                 continue;
 
             // this will update the local pose and the local map
             tt.tic();
-            poseMapOptimizer.step(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
             if (plotDebug)
             {
                 std::vector<dataCPU<float>> debugData = poseMapOptimizer.getDebugData(keyframes, kframe, cam, 1);
                 debugMappingQueue.push(debugData);
             }
+            poseMapOptimizer.step(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
             std::cout << "mapping time " << tt.toc() << std::endl;
 
             // update the global poses

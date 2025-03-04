@@ -48,23 +48,24 @@ public:
 
     void setBuffers(dataCPU<float> &image, geometryType &geometry)
     {
-        int vertices_size = geometry.getVerticesIds().size();
-        float vertex_buffer[vertices_size * 5];
-        for (int i = 0; i < vertices_size; i++)
+        int vertices_size = geometry.getVerticesIds().size() * 5; // 3 for the position, 2 for the texcoord
+        float vertex_buffer[vertices_size];
+        for (int i = 0; i < geometry.getVerticesIds().size(); i++)
         {
             vec3f ver = geometry.getVertex(i).ver;
+            vec2f pix = geometry.getVertex(i).pix;
+
             vertex_buffer[i * 5 + 0] = ver(0);
             vertex_buffer[i * 5 + 1] = ver(1);
             vertex_buffer[i * 5 + 2] = ver(2);
 
-            vec2f pix = geometry.getVertex(i).pix;
             vertex_buffer[i * 5 + 3] = pix(0);
             vertex_buffer[i * 5 + 4] = pix(1);
         }
 
-        int indices_size = geometry.getShapesIds().size();
-        unsigned int indices_buffer[indices_size * 3];
-        for (int i = 0; i < indices_size; i++)
+        int indices_size = geometry.getShapesIds().size() * 3;
+        unsigned int indices_buffer[indices_size];
+        for (int i = 0; i < geometry.getShapesIds().size(); i++)
         {
             vec3i ids = geometry.getShape(i).getParamIds();
             indices_buffer[i * 3 + 0] = ids(0);
@@ -77,12 +78,12 @@ public:
 
         // VBO: Upload the vertex data to the GPU.
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, vertices_size * 5 * sizeof(float),
+        glBufferData(GL_ARRAY_BUFFER, vertices_size * sizeof(float),
                      vertex_buffer, GL_STATIC_DRAW);
 
         // EBO: Upload the index data to the GPU.
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size * 3 * sizeof(unsigned int),
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size * sizeof(unsigned int),
                      indices_buffer, GL_STATIC_DRAW);
 
         // Vertex Attribute: We assume each vertex only has a 3D position.
@@ -105,6 +106,7 @@ public:
         glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, image.width, image.height, 0, GL_RED, GL_FLOAT, image.get());
         glGenerateMipmap(GL_TEXTURE_2D);
 
+        verticesSize = vertices_size;
         indicesSize = indices_size;
     }
 
@@ -186,7 +188,9 @@ public:
         glUniform1i(glGetUniformLocation(shaderProgram, "image"), 0);
 
         glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indicesSize * 3), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indicesSize), GL_UNSIGNED_INT, 0);
+        //glDrawElements(GL_LINE_STRIP, static_cast<GLsizei>(indicesSize), GL_UNSIGNED_INT, 0);
+        //glDrawArrays(GL_LINE_STRIP, 0, verticesSize);
         glBindVertexArray(0);
         glUseProgram(0);
     }
@@ -198,5 +202,6 @@ private:
     GLint mvpLoc;
     GLint timeLoc;
     GLint imageLoc;
+    int verticesSize;
     int indicesSize;
 };

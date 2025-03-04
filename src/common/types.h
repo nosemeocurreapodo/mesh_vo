@@ -67,8 +67,8 @@ using solverType = LDLT<matxf>;
 class pinholeCamera;
 class pinholeDistortedCamera;
 
-using cameraType = pinholeDistortedCamera;
-using cameraParamType = vec5f;
+using cameraType = pinholeCamera;
+using cameraParamType = vec4f;
 
 using imageType = float;
 using jmapType = vec3f;

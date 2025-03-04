@@ -226,7 +226,7 @@ void poseMapOptimizerCPU::step(std::vector<frameCPU> &frames, keyFrameCPU &kfram
 
             init_error = error;
 
-            if (p > mesh_vo::mapping_convergence_p)
+            if (p >= mesh_vo::mapping_convergence_p)
             {
                 // std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
                 //  if converged, do next level
@@ -251,7 +251,7 @@ void poseMapOptimizerCPU::step(std::vector<frameCPU> &frames, keyFrameCPU &kfram
 
             // reject update, increase lambda, use un-updated data
 
-            if (poseInc.dot(poseInc) < 1e-16 && mapInc.dot(mapInc) < 1e-16)
+            if (poseInc.dot(poseInc) <= mesh_vo::mapping_convergence_v && mapInc.dot(mapInc) <= mesh_vo::mapping_convergence_v)
             {
                 // if too small, do next level!
                 reachedConvergence = true;

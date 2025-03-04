@@ -96,7 +96,7 @@ void poseOptimizerCPU::step(frameCPU &frame, keyFrameCPU &kframe, cameraType &ca
 
             init_error = new_error;
 
-            if (p > mesh_vo::tracking_convergence_p)
+            if (p >= mesh_vo::tracking_convergence_p)
             {
                 reachedConvergence = true;
             }
@@ -107,7 +107,7 @@ void poseOptimizerCPU::step(frameCPU &frame, keyFrameCPU &kframe, cameraType &ca
         {
             frame.setLocalPose(best_pose);
 
-            if (inc.dot(inc) < mesh_vo::tracking_convergence_v)
+            if (inc.dot(inc) <= mesh_vo::tracking_convergence_v)
             {
                 // std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations and " << t_try << " total tries, with lambda " << lambda << std::endl;
                 // if too small, do next level!

@@ -562,11 +562,14 @@ private:
 
     void renderIdepthLineSearchWindow(dataCPU<float> &kimage, dataCPU<float> &image, vec2f imageAffine, SE3f imagePose, cameraType cam, window<float> win)
     {
-        float min_idepth = 1.0 / 1.5;
-        float max_idepth = 1.0 / 0.5;
-        float step_idepth = 0.01;
+        float min_idepth = 1.0 / 5.0;
+        float max_idepth = 1.0 / 0.1;
+        float step_idepth = (max_idepth - min_idepth)/100.0;
 
-        float win_size = 2;
+        float x_step = 1.0 / kimage.width;
+        float y_step = 1.0 / kimage.height;
+        float x_size = 5.0 / kimage.width; // 2 pixels
+        float y_size = 5.0 / kimage.height;
 
         float alpha = std::exp(-imageAffine(0));
         float beta = imageAffine(1);
@@ -579,8 +582,8 @@ private:
         {
             vertex vert = scene1.getVertex(t_id);
 
-            if (vert.weight > 1.0 / mesh_vo::mapping_param_initial_var)
-                continue;
+            // if (vert.weight > 1.0 / mesh_vo::mapping_param_initial_var)
+            //     continue;
 
             vec3f kf_ray = vert.ray;
             vec2f kf_pix = cam.rayToPix(kf_ray);
@@ -606,9 +609,9 @@ private:
 
                 float residual = 0.0;
                 int count = 0;
-                for (int y = -win_size; y <= win_size; y++)
+                for (float y = -y_size; y <= y_size; y += y_step)
                 {
-                    for (int x = -win_size; x <= win_size; x++)
+                    for (float x = -x_size; x <= x_size; x += x_step)
                     {
                         vec2f shift_pix(x, y);
                         vec2f kf_pix_ = kf_pix + shift_pix;

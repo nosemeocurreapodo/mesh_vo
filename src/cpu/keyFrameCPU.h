@@ -76,12 +76,26 @@ public:
 
     void initGeometryVerticallySmooth(cameraType cam)
     {
+        /*
         std::vector<vec3f> rays = uniformRays(cam);
         std::vector<float> depths;
         std::vector<float> weights;
         for (vec3f ray : rays)
         {
             vec2f pix = cam.rayToPix(ray);
+            float depth = verticallySmoothDepth(pix, 0.5, 1.5);
+            depths.push_back(depth);
+            weights.push_back(1.0 / mesh_vo::mapping_param_initial_var);
+        }
+        */
+
+        std::vector<vec2f> texcoords = uniformTexCoords();
+        std::vector<vec3f> rays;
+        std::vector<float> depths;
+        std::vector<float> weights;
+        for (vec2f pix : texcoords)
+        {
+            rays.push_back(cam.pixToRay(pix));
             float depth = verticallySmoothDepth(pix, 0.5, 1.5);
             depths.push_back(depth);
             weights.push_back(1.0 / mesh_vo::mapping_param_initial_var);
@@ -292,7 +306,6 @@ private:
     {
         // max depth when y = 0
         float depth = max_depth + (min_depth - max_depth) * pix(1);
-        depth = std::clamp(depth, min_depth, max_depth);
         return depth;
     }
 
