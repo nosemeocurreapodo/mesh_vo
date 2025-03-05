@@ -8,7 +8,7 @@ namespace mesh_vo
     inline constexpr int mesh_height = 32;
     inline constexpr int max_vertex_size = mesh_width * mesh_height;
     inline constexpr int max_triangle_size = (mesh_width - 1) * (mesh_height - 1) * 2;
-    inline constexpr int num_frames = 3;
+    inline constexpr int num_frames = 9;
     inline constexpr int renderer_nthreads = 1;
     inline constexpr int reducer_nthreads = 1;
 
@@ -31,7 +31,8 @@ namespace mesh_vo
     extern float mapping_regu_weight;
     extern float mapping_prior_weight;
     extern float mapping_convergence_p;
-    extern float mapping_convergence_v;
+    extern float mapping_convergence_p_v;
+    extern float mapping_convergence_m_v;
     extern float mapping_intrinsic_initial_var;
     extern float mapping_intrinsic_good_var;
     extern float mapping_pose_initial_var;

@@ -217,7 +217,7 @@ void poseMapOptimizerCPU::step(std::vector<frameCPU> &frames, keyFrameCPU &kfram
             error += priorError;
         }
 
-        std::cout << "poseMapOptimizer new error " << error << " " << lambda << " " << n_try << " lvl: " << lvl << std::endl;
+        std::cout << "poseMapOptimizer new error " << error << " " << lambda << " " << n_try << " lvl: " << lvl << " mesh_regu: " << mesh_vo::mapping_regu_weight << std::endl;
 
         if (error <= init_error)
         {
@@ -250,12 +250,14 @@ void poseMapOptimizerCPU::step(std::vector<frameCPU> &frames, keyFrameCPU &kfram
             }
 
             // reject update, increase lambda, use un-updated data
+            float poseIncMag = poseInc.dot(poseInc)/numPoseParams;
+            float mapIncMag = mapInc.dot(mapInc)/numMapParams;
 
-            if (poseInc.dot(poseInc) <= mesh_vo::mapping_convergence_v && mapInc.dot(mapInc) <= mesh_vo::mapping_convergence_v)
+            if (poseIncMag <= mesh_vo::mapping_convergence_p_v && mapIncMag <= mesh_vo::mapping_convergence_m_v)
             {
                 // if too small, do next level!
                 reachedConvergence = true;
-                std::cout << "poseMapOptimizer too small " << poseInc.dot(poseInc) << " " << mapInc.dot(mapInc) << std::endl;
+                std::cout << "poseMapOptimizer too small " << poseIncMag << " " << mapIncMag << std::endl;
                 break;
             }
         }

@@ -303,7 +303,7 @@ private:
             return mesh_vo::mapping_mean_depth;
         */
 
-        float sigma = 0.25;
+        float sigma = 0.1;
 
         float depth_sum = 0.0;
         float weight_sum = 0.0;
