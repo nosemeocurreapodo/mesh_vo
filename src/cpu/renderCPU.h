@@ -609,7 +609,7 @@ private:
             float idepth_step = (max_idepth - min_idepth)/10.0;//pix_dist
 
             float best_residual = 100000000000.0;
-            for (float kf_idepth = min_idepth; kf_idepth < max_idepth; kf_idepth += idepth_step)
+            for (float kf_idepth = min_idepth; kf_idepth <= max_idepth; kf_idepth += idepth_step)
             {
                 vec3f kf_ver = kf_ray / kf_idepth;
                 vec3f f_ver = kfToPose * kf_ver;

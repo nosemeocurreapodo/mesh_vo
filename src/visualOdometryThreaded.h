@@ -303,7 +303,7 @@ private:
             vec2f meanStd = kframe.getGeometry().meanStdDepth();
             // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
             // vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
-            float scale = 1.0 / meanStd(0);
+            float scale = mesh_vo::mapping_mean_depth / meanStd(0);
 
             kframe.scaleVerticesAndWeights(scale);
 
@@ -404,25 +404,31 @@ private:
                 for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
                 {
                     poseOptimizer.init(frame, kframe, cam, lvl);
-                    if (plotDebug)
-                    {
-                         std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
-                         debugLocalizationQueue.push(debugData);
-                     }
+                    // if (plotDebug)
+                    //{
+                    //      std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
+                    //      debugLocalizationQueue.push(debugData);
+                    //  }
                     while (true)
                     {
                         poseOptimizer.step(frame, kframe, cam, lvl);
                         if (poseOptimizer.converged())
                         {
-                            if (plotDebug)
-                            {
-                                std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
-                                debugLocalizationQueue.push(debugData);
-                            }
+                            //     if (plotDebug)
+                            //     {
+                            //         std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
+                            //         debugLocalizationQueue.push(debugData);
+                            //     }
                             break;
                         }
                     }
                 }
+                if (plotDebug)
+                {
+                    std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
+                    debugLocalizationQueue.push(debugData);
+                }
+
                 std::cout << "localization time " << tt.toc() << std::endl;
 
                 // update the global pose
@@ -478,11 +484,12 @@ private:
                 weight_buffer.setToNoData(1);
                 renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, 1);
                 renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, 1);
-                // renderer.renderInterpolate(depth_buffer.get(0));
+                dataCPU<float> depth = depth_buffer.get(1);
+                renderer.renderInterpolate(depth);
 
                 kframe = keyFrameCPU(newKeyframe.getRawImage(0), vec2f(0.0, 0.0), newKeyframe.getGlobalPose(), kframe.getGlobalScale());
-                kframe.initGeometryFromDepth(depth_buffer.get(1), weight_buffer.get(1), cam);
-                //kframe.initGeometryVerticallySmooth(cam);
+                kframe.initGeometryFromDepth(depth, weight_buffer.get(1), cam);
+                // kframe.initGeometryVerticallySmooth(cam);
 
                 vec2f meanStd = kframe.getGeometry().meanStdDepth();
                 // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
@@ -500,10 +507,10 @@ private:
                 keyframes = frameStack;
                 keyframes.erase(keyframes.begin() + newKeyframeIndex);
 
+                // renderer.renderIdepthLineSearch(kframe, frameStack[0], cam, 1);
+
                 // init the posemapoptimizer
                 poseMapOptimizer.init(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
-
-                renderer.renderIdepthLineSearch(kframe, frameStack[0], cam, 1);
             }
 
             if (keyframes.size() < 1)
@@ -516,7 +523,7 @@ private:
                 std::vector<dataCPU<float>> debugData = poseMapOptimizer.getDebugData(keyframes, kframe, cam, 1);
                 debugMappingQueue.push(debugData);
             }
-            //poseMapOptimizer.step(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
+            poseMapOptimizer.step(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
             std::cout << "mapping time " << tt.toc() << std::endl;
 
             // update the global poses
