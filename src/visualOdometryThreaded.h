@@ -365,8 +365,7 @@ private:
     void voThread()
     {
         poseOptimizerCPU poseOptimizer(width, height);
-        poseMapOptimizerCPU closePoseMapOptimizer(width, height);
-        poseMapOptimizerCPU farPoseMapOptimizer(width, height);
+        poseMapOptimizerCPU poseMapOptimizer(width, height);
 
         renderCPU renderer(width, height);
         dataMipMapCPU<float> depth_buffer(width, height, -1);
@@ -374,8 +373,7 @@ private:
 
         dataCPU<imageType> image;
         std::vector<frameCPU> frameStack;
-        std::vector<frameCPU> closeKeyframes;
-        std::vector<frameCPU> farKeyframes;
+        std::vector<frameCPU> keyframes;
 
         keyFrameCPU kframe = initialKeyframe;
 
@@ -479,8 +477,8 @@ private:
 
                 // select new keyframe
                 // int newKeyframeIndex = 0;
-                //int newKeyframeIndex = int(frameStack.size() / 2);
-                int newKeyframeIndex = int(frameStack.size() - 2);
+                int newKeyframeIndex = int(frameStack.size() / 2);
+                //int newKeyframeIndex = int(frameStack.size() - 2);
                 frameCPU newKeyframe = frameStack[newKeyframeIndex];
 
                 depth_buffer.setToNoData(1);
@@ -497,7 +495,7 @@ private:
                 vec2f meanStd = kframe.getGeometry().meanStdDepth();
                 // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
                 // vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
-                float scale = 1.0 / meanStd(0);
+                float scale = mesh_vo::mapping_mean_depth / meanStd(0);
 
                 kframe.scaleVerticesAndWeights(scale);
 
@@ -507,81 +505,38 @@ private:
                     frameStack[i].setLocalPose(kframe.globalPoseToLocal(frameStack[i].getGlobalPose()));
                 }
 
-                closeKeyframes.clear();
-                farKeyframes.clear();
-
-                closeKeyframes.push_back(frameStack[newKeyframeIndex-1]);
-                closeKeyframes.push_back(frameStack[newKeyframeIndex+1]);
-                // closeKeyframes.erase(closeKeyframes.begin() + newKeyframeIndex);
-                farKeyframes.push_back(frameStack[0]);
-                farKeyframes.push_back(frameStack[frameStack.size()-1]);
+                keyframes = frameStack;
+                keyframes.erase(keyframes.begin() + newKeyframeIndex);
 
                 // renderer.renderIdepthLineSearch(kframe, frameStack[0], cam, 1);
 
                 // init the posemapoptimizer
-                closePoseMapOptimizer.init(closeKeyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
-                farPoseMapOptimizer.init(farKeyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
+                poseMapOptimizer.init(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
             }
 
-            if (closeKeyframes.size() < 1 || farKeyframes.size() < 1)
+            if (keyframes.size() < 1)
                 continue;
 
-            if (!closePoseMapOptimizer.converged())
+            // this will update the local pose and the local map
+            tt.tic();
+            poseMapOptimizer.step(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
+            std::cout << "mapping time " << tt.toc() << std::endl;
+            if (plotDebug)
             {
-                // this will update the local pose and the local map
-                mesh_vo::mapping_regu_weight = 10.0;
-
-                tt.tic();
-                closePoseMapOptimizer.step(closeKeyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
-                std::cout << "mapping time " << tt.toc() << std::endl;
-                if (plotDebug)
-                {
-                    std::vector<dataCPU<float>> debugData = closePoseMapOptimizer.getDebugData(closeKeyframes, kframe, cam, 1);
-                    debugMappingQueue.push(debugData);
-                }
-
-                // update the global poses
-                for (size_t i = 0; i < closeKeyframes.size(); i++)
-                {
-                    closeKeyframes[i].setGlobalPose(kframe.localPoseToGlobal(closeKeyframes[i].getLocalPose()));
-                    for (size_t j = 0; j < frameStack.size(); j++)
-                    {
-                        if (closeKeyframes[i].getId() == frameStack[j].getId())
-                        {
-                            frameStack[j].setLocalPose(closeKeyframes[i].getLocalPose());
-                            frameStack[j].setGlobalPose(closeKeyframes[i].getGlobalPose());
-                        }
-                    }
-                }
+                std::vector<dataCPU<float>> debugData = poseMapOptimizer.getDebugData(keyframes, kframe, cam, 1);
+                debugMappingQueue.push(debugData);
             }
-            else
-            {
-                //if (!farPoseMapOptimizer.converged())
-                {
-                    // this will update the local pose and the local map
-                    mesh_vo::mapping_regu_weight = 1.0;
-                    
-                    tt.tic();
-                    farPoseMapOptimizer.step(farKeyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
-                    std::cout << "mapping time " << tt.toc() << std::endl;
-                    if (plotDebug)
-                    {
-                        std::vector<dataCPU<float>> debugData = farPoseMapOptimizer.getDebugData(farKeyframes, kframe, cam, 1);
-                        debugMappingQueue.push(debugData);
-                    }
 
-                    // update the global poses
-                    for (size_t i = 0; i < farKeyframes.size(); i++)
+            // update the global poses
+            for (size_t i = 0; i < keyframes.size(); i++)
+            {
+                keyframes[i].setGlobalPose(kframe.localPoseToGlobal(keyframes[i].getLocalPose()));
+                for (size_t j = 0; j < frameStack.size(); j++)
+                {
+                    if (keyframes[i].getId() == frameStack[j].getId())
                     {
-                        farKeyframes[i].setGlobalPose(kframe.localPoseToGlobal(farKeyframes[i].getLocalPose()));
-                        for (size_t j = 0; j < frameStack.size(); j++)
-                        {
-                            if (farKeyframes[i].getId() == frameStack[j].getId())
-                            {
-                                frameStack[j].setLocalPose(farKeyframes[i].getLocalPose());
-                                frameStack[j].setGlobalPose(farKeyframes[i].getGlobalPose());
-                            }
-                        }
+                        frameStack[j].setLocalPose(keyframes[i].getLocalPose());
+                        frameStack[j].setGlobalPose(keyframes[i].getGlobalPose());
                     }
                 }
             }
