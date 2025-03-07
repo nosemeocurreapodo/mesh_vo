@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <vector>
 
 #include "cpu/frameCPU.h"
 #include "cpu/keyFrameCPU.h"
@@ -17,11 +18,11 @@ public:
     visualOdometry(dataCPU<imageType> &image, SE3f globalPose, cameraType cam);
     visualOdometry(dataCPU<imageType> &image, dataCPU<float> &depth, dataCPU<float> &weight, SE3f globalPose, cameraType cam);
 
-    int locAndMap(dataCPU<float> &image);
-    void intrinsicAndLocAndMap(dataCPU<float> &image);
-    void lightaffine(dataCPU<float> &image, Sophus::SE3f globalPose);
-    void localization(dataCPU<float> &image);
-    void mapping(dataCPU<float> &image, Sophus::SE3f globalPose, vec2f exposure);
+    int locAndMap(dataCPU<imageType> &image);
+    void intrinsicAndLocAndMap(dataCPU<imageType> &image);
+    void lightaffine(dataCPU<imageType> &image, SE3f globalPose);
+    void localization(dataCPU<imageType> &image);
+    void mapping(dataCPU<imageType> &image, SE3f globalPose, vec2f exposure);
 
     std::vector<frameCPU> getFrames();
     keyFrameCPU getKeyframe();

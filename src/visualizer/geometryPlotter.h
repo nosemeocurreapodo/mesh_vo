@@ -103,7 +103,10 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, image.width, image.height, 0, GL_RED, GL_FLOAT, image.get());
+        GLint internalFormat = GL_R32F;
+        GLenum openglImageType = GL_FLOAT;
+
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, image.width, image.height, 0, GL_RED, openglImageType, image.get());
         glGenerateMipmap(GL_TEXTURE_2D);
 
         verticesSize = vertices_size;

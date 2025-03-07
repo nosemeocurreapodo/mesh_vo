@@ -37,7 +37,12 @@ int main(int argc, char *argv[])
     // cv::Mat idepthMat = cv::imread(dataset_path + "depths/scene_000.png", cv::IMREAD_GRAYSCALE);
     Sophus::SE3f initPose = readPose(dataset_path + "poses/scene_000.txt");
 
-    imageMat.convertTo(imageMat, CV_32FC1);
+    if (std::is_same<imageType, uchar>::value)
+        imageMat.convertTo(imageMat, CV_8UC1);
+    else if (std::is_same<imageType, int>::value)
+        imageMat.convertTo(imageMat, CV_32SC1);
+    else if (std::is_same<imageType, float>::value)
+        imageMat.convertTo(imageMat, CV_32FC1);
 
     int width = imageMat.cols;
     int height = imageMat.rows;
@@ -54,10 +59,10 @@ int main(int argc, char *argv[])
     // idepthMat.convertTo(idepthMat, CV_32FC1);
     // cv::resize(idepthMat, idepthMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
-    dataCPU<float> image(width, height, -1.0);
+    dataCPU<imageType> image(width, height, 0);
     // dataCPU<float> idepth(IMAGE_WIDTH, IMAGE_HEIGHT, -1.0);
 
-    image.set((float *)imageMat.data);
+    image.set((imageType *)imageMat.data);
     // idepth.set((float*)idepthMat.data);
 
     /*
@@ -126,10 +131,15 @@ int main(int argc, char *argv[])
         // scale the translation, so that the initial map has a mean depth of 1.0
         realPose.translation() = realPose.translation() * 0.25;
 
-        imageMat.convertTo(imageMat, CV_32FC1);
+        if (std::is_same<imageType, uchar>::value)
+            imageMat.convertTo(imageMat, CV_8UC1);
+        else if (std::is_same<imageType, int>::value)
+            imageMat.convertTo(imageMat, CV_32SC1);
+        else if (std::is_same<imageType, float>::value)
+            imageMat.convertTo(imageMat, CV_32FC1);
         // cv::resize(imageMat, imageMat, cv::Size(mesh_vo::image_width, mesh_vo::image_height), cv::INTER_AREA);
 
-        image.set((float *)imageMat.data);
+        image.set((imageType *)imageMat.data);
         odometry.locAndMap(image);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));

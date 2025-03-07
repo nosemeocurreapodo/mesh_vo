@@ -234,6 +234,67 @@ public:
         return {new_m, sqrt(new_s / (n - 1))};
     }
 
+    template <typename type2>
+    dataCPU<Type> operator*(type2 c)
+    {
+        dataCPU<Type> result(width, height, nodata);
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                Type d = getTexel(y, x);
+                if (d == nodata)
+                    continue;
+                Type res = d * c;
+                result.setTexel(res, y, x);
+            }
+        return result;
+    }
+
+    template <typename type2>
+    dataCPU<Type> operator+(type2 c)
+    {
+        dataCPU<Type> result(width, height, nodata);
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                Type d = getTexel(y, x);
+                if (d == nodata)
+                    continue;
+                Type res = d + c;
+                result.setTexel(res, y, x);
+            }
+        return result;
+    }
+
+    void normalize(float min, float max)
+    {
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                Type d = getTexel(y, x);
+                if (d == nodata)
+                    continue;
+                Type res = (d - min) / (max - min);
+                setTexel(res, y, x);
+            }
+    }
+
+    template <typename type2>
+    dataCPU<type2> convert()
+    {
+        dataCPU<type2> result(width, height, type2(nodata));
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                Type d = getTexel(y, x);
+                if (d == nodata)
+                    continue;
+                type2 res = type2(d);
+                result.setTexel(res, y, x);
+            }
+        return result;
+    }
+
     /*
     dataCPU add(dataCPU &other, int lvl)
     {
@@ -299,10 +360,10 @@ private:
         if (tl == nodata || tr == nodata || bl == nodata || br == nodata)
             return nodata;
 
-        Type pix = tl * weight_tl +
-                   tr * weight_tr +
-                   bl * weight_bl +
-                   br * weight_br;
+        Type pix = Type(tl * weight_tl +
+                        tr * weight_tr +
+                        bl * weight_bl +
+                        br * weight_br);
 
         return pix;
     }
@@ -323,7 +384,7 @@ private:
         if (tl == nodata || tr == nodata || bl == nodata || br == nodata)
             return nodata;
 
-        Type pix = (tl + tr + bl + br) / 4.0;
+        Type pix = Type((tl + tr + bl + br) / 4.0f);
 
         return pix;
     }
@@ -335,10 +396,8 @@ template <typename Type>
 class dataMipMapCPU
 {
 public:
-
     dataMipMapCPU()
     {
-
     }
 
     dataMipMapCPU(int _width, int _height, Type _nodata_value)
@@ -359,7 +418,7 @@ public:
                 break;
         }
     }
-    
+
     dataMipMapCPU(const dataCPU<Type> image)
     {
         dataCPU<Type> imageLoD = image;

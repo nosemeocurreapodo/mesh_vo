@@ -146,7 +146,7 @@ void visualOdometry::optimizePoseMap(std::vector<frameCPU> &frames, keyFrameCPU 
     }
 }
 
-int visualOdometry::locAndMap(dataCPU<float> &image)
+int visualOdometry::locAndMap(dataCPU<imageType> &image)
 {
     tic_toc t;
     bool optimize = false;
@@ -290,7 +290,7 @@ int visualOdometry::locAndMap(dataCPU<float> &image)
     return int(optimize);
 }
 
-void visualOdometry::intrinsicAndLocAndMap(dataCPU<float> &image)
+void visualOdometry::intrinsicAndLocAndMap(dataCPU<imageType> &image)
 {
     tic_toc t;
     bool optimize = false;
@@ -437,7 +437,7 @@ void visualOdometry::intrinsicAndLocAndMap(dataCPU<float> &image)
     lastLocalMovement = lastFrame.getLocalPose() * lastLocalPose.inverse();
 }
 
-void visualOdometry::lightaffine(dataCPU<float> &image, SE3f globalPose)
+void visualOdometry::lightaffine(dataCPU<imageType> &image, SE3f globalPose)
 {
     tic_toc t;
 
@@ -451,7 +451,7 @@ void visualOdometry::lightaffine(dataCPU<float> &image, SE3f globalPose)
     std::cout << "optmap time " << t.toc() << std::endl;
 }
 
-void visualOdometry::localization(dataCPU<float> &image)
+void visualOdometry::localization(dataCPU<imageType> &image)
 {
     tic_toc t;
 
@@ -471,7 +471,7 @@ void visualOdometry::localization(dataCPU<float> &image)
     lastLocalMovement = lastFrame.getLocalPose() * lastLocalPose.inverse();
 }
 
-void visualOdometry::mapping(dataCPU<float> &image, SE3f globalPose, vec2f exp)
+void visualOdometry::mapping(dataCPU<imageType> &image, SE3f globalPose, vec2f exp)
 {
     tic_toc t;
     bool optimize = false;

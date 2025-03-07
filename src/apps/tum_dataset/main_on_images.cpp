@@ -22,6 +22,7 @@
 #include <fstream>
 #include <dirent.h>
 #include <algorithm>
+#include <iostream>
 
 #include "opencv2/opencv.hpp"
 #include "Undistorter.h"
@@ -194,7 +195,7 @@ int main(int argc, char **argv)
 
 	visualOdometryThreaded odometry(cam);
 
-	for (unsigned int i = start_index+1; i < end_index; i++) // files.size()
+	for (unsigned int i = start_index + 1; i < end_index; i++) // files.size()
 	{
 		cv::Mat imageDist = cv::imread(files[i], cv::IMREAD_GRAYSCALE);
 
@@ -217,11 +218,16 @@ int main(int argc, char **argv)
 		// cv::imshow("image", image);
 		// cv::waitKey(30);
 
-		image.convertTo(image, CV_32FC1);
+		if (std::is_same<imageType, uchar>::value)
+			image.convertTo(image, CV_8UC1);
+		else if (std::is_same<imageType, int>::value)
+			image.convertTo(image, CV_32SC1);
+		else if (std::is_same<imageType, float>::value)
+			image.convertTo(image, CV_32FC1);
 		// cv::resize(image, image, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
-		dataCPU<float> imageData(w, h, -1.0);
-		imageData.set((float *)image.data);
+		dataCPU<imageType> imageData(w, h, 0);
+		imageData.set((imageType *)image.data);
 
 		if (runningIDX == 0)
 		{
@@ -235,7 +241,7 @@ int main(int argc, char **argv)
 		runningIDX++;
 		fakeTimeStamp += 0.03;
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
 		// if(hz != 0)
 		//	r.sleep();

@@ -283,18 +283,18 @@ std::vector<dataCPU<float>> poseMapOptimizerCPU::getDebugData(std::vector<frameC
 {
     std::vector<dataCPU<float>> toShow;
 
-    toShow.push_back(kframe.getRawImage(lvl));
+    toShow.push_back(kframe.getRawImage(lvl).convert<float>());
 
     depth_buffer.setToNoData(lvl);
-    weight_buffer.setToNoData(lvl);
+    //weight_buffer.setToNoData(lvl);
 
     renderer.renderDepthParallel(kframe, SE3f(), depth_buffer, cam, lvl);
-    renderer.renderWeightParallel(kframe, SE3f(), weight_buffer, cam, lvl);
+    //renderer.renderWeightParallel(kframe, SE3f(), weight_buffer, cam, lvl);
 
     depth_buffer.get(lvl).invert();
 
     toShow.push_back(depth_buffer.get(lvl));
-    toShow.push_back(weight_buffer.get(lvl));
+    //toShow.push_back(weight_buffer.get(lvl));
 
     for (frameCPU frame : frames)
     {
@@ -302,7 +302,7 @@ std::vector<dataCPU<float>> poseMapOptimizerCPU::getDebugData(std::vector<frameC
         // depth_buffer.setToNoData(lvl);
         renderer.renderResidualParallel(kframe, frame, error_buffer, cam, lvl);
         // renderer.renderDepthParallel(kframe, frames[i].getLocalPose(), depth_buffer, cam, lvl);
-        toShow.push_back(frame.getRawImage(lvl));
+        toShow.push_back(frame.getRawImage(lvl).convert<float>());
         toShow.push_back(error_buffer.get(lvl));
         // toShow.push_back(depth_buffer.get(lvl));
     }

@@ -15,6 +15,7 @@
 
 #include "visualizer/geometryPlotter.h"
 #include "visualizer/trayectoryPlotter.h"
+#include "visualizer/imagePlotter.h"
 #include "cpu/OpenCVDebug.h"
 #include "utils/tictoc.h"
 
@@ -99,7 +100,7 @@ public:
     {
     }
 
-    visualOdometryThreaded(dataCPU<float> &image, SE3f globalPose, cameraType _cam) : cam(_cam)
+    visualOdometryThreaded(dataCPU<imageType> &image, SE3f globalPose, cameraType _cam) : cam(_cam)
     {
         init(image, globalPose);
     }
@@ -110,7 +111,7 @@ public:
         tMapping.join();
     }
 
-    void init(dataCPU<float> &image, SE3f globalPose)
+    void init(dataCPU<imageType> &image, SE3f globalPose)
     {
         initialKeyframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
         initialKeyframe.initGeometryVerticallySmooth(cam);
@@ -127,28 +128,9 @@ public:
         plotDebug = true;
     }
 
-    void locAndMap(dataCPU<float> &image)
+    void locAndMap(dataCPU<imageType> &image)
     {
-        // frameCPU frame(image, 0);
-        // fQueue.push(frame);
-        // if(fQueue.size() > 5)
-        //     fQueue.pop();
-
         iQueue.push(image);
-
-        if (plotDebug)
-        {
-            while (!debugLocalizationQueue.empty())
-            {
-                std::vector<dataCPU<float>> debugLoc = debugLocalizationQueue.pop();
-                show(debugLoc, "localization Debug");
-            }
-            while (!debugMappingQueue.empty())
-            {
-                std::vector<dataCPU<float>> debugLoc = debugMappingQueue.pop();
-                show(debugLoc, "mapping Debug");
-            }
-        }
     }
 
     bool isIdle()
@@ -478,7 +460,7 @@ private:
                 // select new keyframe
                 // int newKeyframeIndex = 0;
                 int newKeyframeIndex = int(frameStack.size() / 2);
-                //int newKeyframeIndex = int(frameStack.size() - 2);
+                // int newKeyframeIndex = int(frameStack.size() - 2);
                 frameCPU newKeyframe = frameStack[newKeyframeIndex];
 
                 depth_buffer.setToNoData(1);
@@ -564,14 +546,22 @@ private:
 
         geometryPlotter geomPlotter;
         trayectoryPlotter trayPlotter;
+        std::vector<imagePlotter> imgPlotter;
+        imgPlotter.push_back(imagePlotter(0));
+        imgPlotter.push_back(imagePlotter(1));
+        imgPlotter.push_back(imagePlotter(2));
+        imgPlotter.push_back(imagePlotter(3));
 
         geomPlotter.compileShaders();
         trayPlotter.compileShaders();
+        for (imagePlotter &imgPlotter : imgPlotter)
+            imgPlotter.compileShaders();
 
         keyFrameCPU kframe = initialKeyframe;
         frameCPU frame;
 
-        geomPlotter.setBuffers(kframe.getRawImage(0), kframe.getGeometry());
+        dataCPU<float> imageFloat = kframe.getRawImage(0).convert<float>();
+        geomPlotter.setBuffers(imageFloat, kframe.getGeometry());
 
         while (!pangolin::ShouldQuit())
         {
@@ -581,7 +571,22 @@ private:
                 kframe.getGeometry().transform(kframe.getGlobalPose().inverse());
                 poses.push_back(kframe.getGlobalPose());
                 trayPlotter.setBuffers(poses, cam);
-                geomPlotter.setBuffers(kframe.getRawImage(0), kframe.getGeometry());
+                dataCPU<float> imageFloat2 = kframe.getRawImage(0).convert<float>();
+                geomPlotter.setBuffers(imageFloat2, kframe.getGeometry());
+            }
+
+            if (!debugLocalizationQueue.empty())
+            {
+                std::vector<dataCPU<float>> debugLoc = debugLocalizationQueue.pop();
+
+                for (int i = 0; i < debugLoc.size(); i++)
+                {
+                    if (i >= imgPlotter.size())
+                        break;
+                    vec2f minMax = debugLoc[i].getMinMax();
+                    debugLoc[i].normalize(minMax(0), minMax(1));
+                    imgPlotter[i].setBuffers(debugLoc[i]);
+                }
             }
 
             /*
@@ -600,6 +605,8 @@ private:
 
             geomPlotter.draw(mvp);
             trayPlotter.draw(mvp);
+            for (imagePlotter &iPlotter : imgPlotter)
+                iPlotter.draw();
 
             // Swap frames and Process Events
             pangolin::FinishFrame();

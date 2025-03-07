@@ -13,6 +13,10 @@ public:
         fy = _fy / _height;
         cx = _cx / _width;
         cy = _cy / _height;
+
+        //float alpha = std::exp(-imageExp(0));
+        //float beta = imageExp(1);
+        //imageType f_i_cor = alpha * (f_i - beta);
     }
 
     pinholeCamera(const pinholeCamera &other)

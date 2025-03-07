@@ -227,7 +227,7 @@ public:
         return globalPose;
     }
 
-    dataCPU<float> &getRawImage(int lvl)
+    dataCPU<imageType> &getRawImage(int lvl)
     {
         return raw_image.get(lvl);
     }

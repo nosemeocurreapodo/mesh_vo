@@ -26,7 +26,7 @@ void poseOptimizerCPU::init(frameCPU &frame, keyFrameCPU &kframe, cameraType &ca
         init_error += weight * (res.dot(conv_dot_res));
     }
 
-    //std::cout << "poseOptimizer initial error " << init_error << " " << lvl << std::endl;
+    std::cout << "poseOptimizer initial error " << init_error << " " << lvl << std::endl;
     reachedConvergence = false;
 }
 
@@ -88,7 +88,7 @@ void poseOptimizerCPU::step(frameCPU &frame, keyFrameCPU &kframe, cameraType &ca
             new_error += weight * (res.dot(conv_dot_res));
         }
 
-        //std::cout << "poseOptimizer new error " << new_error << " " << lambda << " " << " " << lvl << std::endl;
+        std::cout << "poseOptimizer new error " << new_error << " " << lambda << " " << " " << lvl << std::endl;
 
         if (new_error <= init_error)
         {
@@ -136,13 +136,13 @@ std::vector<dataCPU<float>> poseOptimizerCPU::getDebugData(frameCPU &frame, keyF
 {
     std::vector<dataCPU<float>> toShow;
 
-    toShow.push_back(kframe.getRawImage(lvl));
+    toShow.push_back(kframe.getRawImage(lvl).convert<float>());
 
     depth_buffer.setToNoData(lvl);
-    weight_buffer.setToNoData(lvl);
+    //weight_buffer.setToNoData(lvl);
 
     renderer.renderDepthParallel(kframe, SE3f(), depth_buffer, cam, lvl);
-    renderer.renderWeightParallel(kframe, SE3f(), weight_buffer, cam, lvl);
+    //renderer.renderWeightParallel(kframe, SE3f(), weight_buffer, cam, lvl);
 
     depth_buffer.get(lvl).invert();
 
@@ -153,7 +153,7 @@ std::vector<dataCPU<float>> poseOptimizerCPU::getDebugData(frameCPU &frame, keyF
     // depth_buffer.setToNoData(lvl);
     renderer.renderResidualParallel(kframe, frame, error_buffer, cam, lvl);
     // renderer.renderDepthParallel(kframe, frames[i].getLocalPose(), depth_buffer, cam, lvl);
-    toShow.push_back(frame.getRawImage(lvl));
+    toShow.push_back(frame.getRawImage(lvl).convert<float>());
     toShow.push_back(error_buffer.get(lvl));
     // toShow.push_back(depth_buffer.get(lvl));
 

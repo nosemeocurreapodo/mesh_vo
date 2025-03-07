@@ -8,6 +8,7 @@
 #include "cpu/dataCPU.h"
 #include "cpu/frameCPU.h"
 #include "common/DenseLinearProblem.h"
+#include "threadpoolCPU.h"
 
 class reduceCPU
 {
@@ -38,11 +39,11 @@ public:
                 window<int> win(min_x, max_x, min_y, max_y);
 
                 reduceErrorWindow(win, residual, partialerr[tx + ty * divi_x]);
-                // pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, win, &residual, &weights, &partialerr[tx + ty * divi_x], lvl));
+                //pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, win, &residual, &partialerr[tx + ty * divi_x]));
             }
         }
 
-        // pool.waitUntilDone();
+        //pool.waitUntilDone();
 
         for (int i = 1; i < divi_y * divi_x; i++)
         {
@@ -275,8 +276,8 @@ public:
 private:
     void reduceErrorWindow(window<int> win, dataCPU<float> &residual, Error &err)
     {
-        for (int y = win.min_y; y < win.max_y; y+=1)
-            for (int x = win.min_x; x < win.max_x; x+=1)
+        for (int y = win.min_y; y < win.max_y; y += 1)
+            for (int x = win.min_x; x < win.max_x; x += 1)
             {
                 float res = residual.getTexel(y, x);
                 if (res == residual.nodata)
@@ -291,9 +292,9 @@ private:
 
     void reduceHGExpWindow(window<int> win, dataCPU<vec2f> &jexp_buffer, dataCPU<float> &res_buffer, DenseLinearProblem &hg)
     {
-        for (int y = win.min_y; y < win.max_y; y+=1)
+        for (int y = win.min_y; y < win.max_y; y += 1)
         {
-            for (int x = win.min_x; x < win.max_x; x+=1)
+            for (int x = win.min_x; x < win.max_x; x += 1)
             {
                 vec2f J = jexp_buffer.getTexel(y, x);
                 float res = res_buffer.getTexel(y, x);
@@ -311,9 +312,9 @@ private:
 
     void reduceHGPoseWindow(window<int> win, dataCPU<vec6f> &jpose_buffer, dataCPU<float> &res_buffer, DenseLinearProblem &hg)
     {
-        for (int y = win.min_y; y < win.max_y; y+=1)
+        for (int y = win.min_y; y < win.max_y; y += 1)
         {
-            for (int x = win.min_x; x < win.max_x; x+=1)
+            for (int x = win.min_x; x < win.max_x; x += 1)
             {
                 vec6f J = jpose_buffer.getTexel(y, x);
                 float res = res_buffer.getTexel(y, x);
@@ -331,9 +332,9 @@ private:
 
     void reduceHGMapWindow(window<int> win, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
     {
-        for (int y = win.min_y; y < win.max_y; y+=1)
+        for (int y = win.min_y; y < win.max_y; y += 1)
         {
-            for (int x = win.min_x; x < win.max_x; x+=1)
+            for (int x = win.min_x; x < win.max_x; x += 1)
             {
                 jmapType jac = jmap_buffer.getTexel(y, x);
                 float res = res_buffer.getTexel(y, x);
@@ -354,9 +355,9 @@ private:
 
     void reduceHGPoseMapWindow(window<int> win, int frameId, int numFrames, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
     {
-        for (int y = win.min_y; y < win.max_y; y+=1)
+        for (int y = win.min_y; y < win.max_y; y += 1)
         {
-            for (int x = win.min_x; x < win.max_x; x+=1)
+            for (int x = win.min_x; x < win.max_x; x += 1)
             {
                 vec6f J_pose = jpose_buffer.getTexel(y, x);
                 jmapType J_map = jmap_buffer.getTexel(y, x);
@@ -371,20 +372,21 @@ private:
                 if (absres > mesh_vo::huber_thresh_pix)
                     hw = mesh_vo::huber_thresh_pix / absres;
 
-                //hg.add(J_pose, J_map, res, hw, frameId, map_ids);
+                // hg.add(J_pose, J_map, res, hw, frameId, map_ids);
 
                 vecxf J(6 + J_map.rows());
                 vecxi ids(6 + J_map.rows());
 
-                for(int i = 0; i < 6; i++)
+                for (int i = 0; i < 6; i++)
                 {
                     J(i) = J_pose(i);
-                    ids(i) = frameId * 6 + i;;
+                    ids(i) = frameId * 6 + i;
+                    ;
                 }
-                for(int i = 0; i < J_map.rows(); i++)
+                for (int i = 0; i < J_map.rows(); i++)
                 {
                     J(i + 6) = J_map(i);
-                    ids(i + 6) = map_ids(i) + numFrames*6;
+                    ids(i + 6) = map_ids(i) + numFrames * 6;
                 }
 
                 hg.add(J, res, hw, ids);
@@ -394,9 +396,9 @@ private:
 
     void reduceHGIntrinsicPoseMapWindow(window<int> win, int frameId, int numFrames, dataCPU<cameraParamType> &jintrinsic_buffer, dataCPU<vec6f> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<float> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
     {
-        for (int y = win.min_y; y < win.max_y; y+=1)
+        for (int y = win.min_y; y < win.max_y; y += 1)
         {
-            for (int x = win.min_x; x < win.max_x; x+=1)
+            for (int x = win.min_x; x < win.max_x; x += 1)
             {
                 cameraParamType J_int = jintrinsic_buffer.getTexel(y, x);
                 vec6f J_pose = jpose_buffer.getTexel(y, x);
@@ -412,25 +414,25 @@ private:
                 if (absres > mesh_vo::huber_thresh_pix)
                     hw = mesh_vo::huber_thresh_pix / absres;
 
-                //hg.add(J_pose, J_map, res, hw, frameId, map_ids);
+                // hg.add(J_pose, J_map, res, hw, frameId, map_ids);
 
                 vecxf J(J_int.rows() + 6 + J_map.rows());
                 vecxi ids(J_int.rows() + 6 + J_map.rows());
 
-                for(int i = 0; i < J_int.rows(); i++)
+                for (int i = 0; i < J_int.rows(); i++)
                 {
                     J(i) = J_int(i);
                     ids(i) = i;
                 }
-                for(int i = 0; i < 6; i++)
+                for (int i = 0; i < 6; i++)
                 {
                     J(i + J_int.rows()) = J_pose(i);
                     ids(i + J_int.rows()) = frameId * 6 + i + J_int.rows();
                 }
-                for(int i = 0; i < J_map.rows(); i++)
+                for (int i = 0; i < J_map.rows(); i++)
                 {
                     J(i + 6 + J_int.rows()) = J_map(i);
-                    ids(i + 6 + J_int.rows()) = map_ids(i) + numFrames*6 + J_int.rows();
+                    ids(i + 6 + J_int.rows()) = map_ids(i) + numFrames * 6 + J_int.rows();
                 }
 
                 hg.add(J, res, hw, ids);
