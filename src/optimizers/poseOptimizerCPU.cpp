@@ -128,6 +128,8 @@ DenseLinearProblem poseOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU
     error_buffer.setToNoData(lvl);
 
     renderer.renderJPoseParallel(kframe, frame, j_buffer, error_buffer, cam, lvl);
+    //renderer.renderJPoseParallel(kframe.getGeometry(), kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getdIdpixImage(lvl), frame.getLocalPose(), j_buffer.get(lvl), error_buffer.get(lvl), cam);
+
     DenseLinearProblem problem = reducer.reduceHGPoseParallel(j_buffer.get(lvl), error_buffer.get(lvl));
     return problem;
 }
@@ -154,7 +156,7 @@ std::vector<dataCPU<float>> poseOptimizerCPU::getDebugData(frameCPU &frame, keyF
     renderer.renderResidualParallel(kframe, frame, error_buffer, cam, lvl);
     // renderer.renderDepthParallel(kframe, frames[i].getLocalPose(), depth_buffer, cam, lvl);
     toShow.push_back(frame.getRawImage(lvl).convert<float>());
-    toShow.push_back(error_buffer.get(lvl));
+    toShow.push_back(error_buffer.get(lvl).convert<float>());
     // toShow.push_back(depth_buffer.get(lvl));
 
     return toShow;

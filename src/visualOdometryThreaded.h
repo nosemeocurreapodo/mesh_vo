@@ -221,6 +221,7 @@ private:
     {
         poseMapOptimizerCPU optimizer(width, height);
         renderCPU renderer(width, height);
+        dataMipMapCPU<imageType> image_buffer(width, height, -1);
         dataMipMapCPU<float> depth_buffer(width, height, -1);
         dataMipMapCPU<float> weight_buffer(width, height, -1);
 
@@ -259,9 +260,9 @@ private:
 
             float keyframeViewAngle = meanViewAngle(kframe, SE3f(), kframe.globalPoseToLocal(frame.getGlobalPose()));
 
-            depth_buffer.setToNoData(1);
-            renderer.renderImageParallel(kframe, kframe.globalPoseToLocal(frame.getGlobalPose()), depth_buffer, cam, 1);
-            float pnodata = depth_buffer.get(1).getPercentNoData();
+            image_buffer.setToNoData(1);
+            renderer.renderImageParallel(kframe, kframe.globalPoseToLocal(frame.getGlobalPose()), image_buffer, cam, 1);
+            float pnodata = image_buffer.get(1).getPercentNoData();
             float viewPercent = 1.0 - pnodata;
 
             if (viewPercent > mesh_vo::min_view_perc && keyframeViewAngle < mesh_vo::key_max_angle)
@@ -350,6 +351,7 @@ private:
         poseMapOptimizerCPU poseMapOptimizer(width, height);
 
         renderCPU renderer(width, height);
+        dataMipMapCPU<imageType> image_buffer(width, height, -1);
         dataMipMapCPU<float> depth_buffer(width, height, -1);
         dataMipMapCPU<float> weight_buffer(width, height, -1);
 
@@ -446,9 +448,9 @@ private:
 
                 float keyframeViewAngle = meanViewAngle(kframe, SE3f(), frame.getLocalPose());
 
-                depth_buffer.setToNoData(1);
-                renderer.renderImageParallel(kframe, frame.getLocalPose(), depth_buffer, cam, 1);
-                float pnodata = depth_buffer.get(1).getPercentNoData();
+                image_buffer.setToNoData(1);
+                renderer.renderImageParallel(kframe, frame.getLocalPose(), image_buffer, cam, 1);
+                float pnodata = image_buffer.get(1).getPercentNoData();
                 float viewPercent = 1.0 - pnodata;
 
                 if (viewPercent > mesh_vo::min_view_perc && keyframeViewAngle < mesh_vo::key_max_angle)
@@ -467,11 +469,11 @@ private:
                 weight_buffer.setToNoData(1);
                 renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, 1);
                 renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, 1);
-                dataCPU<float> depth = depth_buffer.get(1);
-                // renderer.renderInterpolate(depth);
+                //dataCPU<float> depth = depth_buffer.get(1);
+                renderer.renderInterpolate(depth_buffer.get(1));
 
                 kframe = keyFrameCPU(newKeyframe.getRawImage(0), vec2f(0.0, 0.0), newKeyframe.getGlobalPose(), kframe.getGlobalScale());
-                kframe.initGeometryFromDepth(depth, weight_buffer.get(1), cam);
+                kframe.initGeometryFromDepth(depth_buffer.get(1), weight_buffer.get(1), cam);
                 // kframe.initGeometryVerticallySmooth(cam);
 
                 vec2f meanStd = kframe.getGeometry().meanStdDepth();

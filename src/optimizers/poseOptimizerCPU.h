@@ -23,7 +23,7 @@ public:
 private:
     DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl);
 
-    dataMipMapCPU<vec6f> j_buffer;
+    dataMipMapCPU<jposeType> j_buffer;
     mat6f invCovariance;
 
     vec6f init_pose;

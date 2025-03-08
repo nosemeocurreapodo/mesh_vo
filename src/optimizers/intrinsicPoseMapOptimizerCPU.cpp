@@ -2,8 +2,8 @@
 
 intrinsicPoseMapOptimizerCPU::intrinsicPoseMapOptimizerCPU(int width, int height)
     : baseOptimizerCPU(width, height),
-      jintrinsic_buffer(width, height, cameraParamType::Zero()),
-      jpose_buffer(width, height, vec6f::Zero()),
+      jintrinsic_buffer(width, height, jcamType::Zero()),
+      jpose_buffer(width, height, jposeType::Zero()),
       jmap_buffer(width, height, jmapType::Zero()),
       pId_buffer(width, height, idsType::Zero())
 {

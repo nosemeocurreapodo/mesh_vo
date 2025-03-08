@@ -303,7 +303,7 @@ std::vector<dataCPU<float>> poseMapOptimizerCPU::getDebugData(std::vector<frameC
         renderer.renderResidualParallel(kframe, frame, error_buffer, cam, lvl);
         // renderer.renderDepthParallel(kframe, frames[i].getLocalPose(), depth_buffer, cam, lvl);
         toShow.push_back(frame.getRawImage(lvl).convert<float>());
-        toShow.push_back(error_buffer.get(lvl));
+        toShow.push_back(error_buffer.get(lvl).convert<float>());
         // toShow.push_back(depth_buffer.get(lvl));
     }
 

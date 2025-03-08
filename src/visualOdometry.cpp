@@ -111,10 +111,10 @@ float visualOdometry::getViewPercent(frameCPU &frame)
 
     */
 
-    dataMipMapCPU<float> depth(frame.getRawImage(0).width, frame.getRawImage(0).height, -1);
+    dataMipMapCPU<imageType> image(frame.getRawImage(0).width, frame.getRawImage(0).height, -1);
     int lvl = 1;
-    renderer.renderImageParallel(kframe, frame.getLocalPose(), depth, cam, lvl);
-    float pnodata = depth.get(lvl).getPercentNoData();
+    renderer.renderImageParallel(kframe, frame.getLocalPose(), image, cam, lvl);
+    float pnodata = image.get(lvl).getPercentNoData();
     return 1.0 - pnodata;
 }
 

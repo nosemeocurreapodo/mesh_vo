@@ -22,9 +22,9 @@ protected:
     void plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &frames, cameraType &cam, std::string window_name);
     Error computeError(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl);
 
-    dataMipMapCPU<float> image_buffer;
+    dataMipMapCPU<imageType> image_buffer;
     dataMipMapCPU<float> depth_buffer;
-    dataMipMapCPU<float> error_buffer;
+    dataMipMapCPU<errorType> error_buffer;
     dataMipMapCPU<float> weight_buffer;
 
     renderCPU renderer;

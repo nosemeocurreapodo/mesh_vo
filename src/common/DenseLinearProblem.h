@@ -42,7 +42,7 @@ public:
         m_G += G * weight;
         m_H += J * weight;
     }
-
+    /*
     // for vector error (not scalar error like pixel errors)
     template <typename jacType, typename errType, typename idsType>
     void add(jacType jac, errType error, float weight, idsType ids)
@@ -60,7 +60,7 @@ public:
         m_G += G * weight;
         m_H += J * weight;
     }
-
+    */
     template <typename jacType>
     void add(jacType jac, float error, float weight)
     {

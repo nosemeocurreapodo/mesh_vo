@@ -1,9 +1,9 @@
 #include "optimizers/baseOptimizerCPU.h"
 
 baseOptimizerCPU::baseOptimizerCPU(int width, int height)
-    : image_buffer(width, height, -1.0),
+    : image_buffer(width, height, 0),
       depth_buffer(width, height, -1.0),
-      error_buffer(width, height, -1.0),
+      error_buffer(width, height, 0),
       weight_buffer(width, height, -1.0),
       renderer(width, height)
 {

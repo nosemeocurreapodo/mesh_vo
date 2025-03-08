@@ -68,12 +68,13 @@ class pinholeCamera;
 class pinholeDistortedCamera;
 
 using cameraType = pinholeCamera;
-using cameraParamType = vec4f;
 
-using imageType = short;
+using imageType = unsigned char;
+using errorType = int;
 using jimgType = vec2f;
 using jposeType = vec6f;
 using jmapType = vec3f;
+using jcamType = vec4f;
 using idsType = vec3i;
 
 class ShapeTriangleFlat;
