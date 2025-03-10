@@ -30,7 +30,7 @@ const char *iplotter_fragment_shader = R"Shader(
 class imagePlotter
 {
 public:
-    imagePlotter(int index)
+    imagePlotter(int x, int y)
     {
         glGenVertexArrays(1, &VAO);
         glGenBuffers(1, &VBO);
@@ -41,9 +41,9 @@ public:
         float x_size = 0.5;
         float y_size = 0.5;
 
-        float left = -1.0 + index * x_size; //-1.0;
-        float right = left + x_size;        // 1.0;
-        float bottom = -1.0;
+        float left = -1.0 + x * x_size; //-1.0;
+        float right = left + x_size;    // 1.0;
+        float bottom = -1.0 + y * y_size;
         float top = bottom + y_size; // 1.0;
 
         std::vector<float> frame_vertices;

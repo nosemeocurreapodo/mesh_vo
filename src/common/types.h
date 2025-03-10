@@ -69,8 +69,8 @@ class pinholeDistortedCamera;
 
 using cameraType = pinholeCamera;
 
-using imageType = unsigned char;
-using errorType = int;
+using imageType = float;
+using errorType = float;
 using jimgType = vec2f;
 using jposeType = vec6f;
 using jmapType = vec3f;

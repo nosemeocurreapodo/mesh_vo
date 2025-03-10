@@ -149,7 +149,7 @@ std::vector<dataCPU<float>> poseOptimizerCPU::getDebugData(frameCPU &frame, keyF
     depth_buffer.get(lvl).invert();
 
     toShow.push_back(depth_buffer.get(lvl));
-    toShow.push_back(weight_buffer.get(lvl));
+    //toShow.push_back(weight_buffer.get(lvl));
 
     error_buffer.setToNoData(lvl);
     // depth_buffer.setToNoData(lvl);

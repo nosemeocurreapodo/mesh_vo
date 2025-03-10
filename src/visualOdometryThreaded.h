@@ -548,15 +548,25 @@ private:
 
         geometryPlotter geomPlotter;
         trayectoryPlotter trayPlotter;
-        std::vector<imagePlotter> imgPlotter;
-        imgPlotter.push_back(imagePlotter(0));
-        imgPlotter.push_back(imagePlotter(1));
-        imgPlotter.push_back(imagePlotter(2));
-        imgPlotter.push_back(imagePlotter(3));
+        std::vector<imagePlotter> imgPosePlotter;
+        imgPosePlotter.push_back(imagePlotter(0, 0));//keyframe
+        imgPosePlotter.push_back(imagePlotter(0, 1));//depth
+        imgPosePlotter.push_back(imagePlotter(0, 2));//frame
+        imgPosePlotter.push_back(imagePlotter(0, 3));//errpr
+
+        std::vector<imagePlotter> imgMapPlotter;
+        imgMapPlotter.push_back(imagePlotter(1, 0));//keyframe
+        imgMapPlotter.push_back(imagePlotter(1, 1));//depth
+        imgMapPlotter.push_back(imagePlotter(2, 0));//frame
+        imgMapPlotter.push_back(imagePlotter(2, 1));//error
+        imgMapPlotter.push_back(imagePlotter(3, 0));//frame
+        imgMapPlotter.push_back(imagePlotter(3, 1));//error
 
         geomPlotter.compileShaders();
         trayPlotter.compileShaders();
-        for (imagePlotter &imgPlotter : imgPlotter)
+        for (imagePlotter &imgPlotter : imgPosePlotter)
+            imgPlotter.compileShaders();
+        for (imagePlotter &imgPlotter : imgMapPlotter)
             imgPlotter.compileShaders();
 
         keyFrameCPU kframe = initialKeyframe;
@@ -583,11 +593,25 @@ private:
 
                 for (int i = 0; i < debugLoc.size(); i++)
                 {
-                    if (i >= imgPlotter.size())
+                    if (i >= imgPosePlotter.size())
                         break;
                     vec2f minMax = debugLoc[i].getMinMax();
                     debugLoc[i].normalize(minMax(0), minMax(1));
-                    imgPlotter[i].setBuffers(debugLoc[i]);
+                    imgPosePlotter[i].setBuffers(debugLoc[i]);
+                }
+            }
+
+            if (!debugMappingQueue.empty())
+            {
+                std::vector<dataCPU<float>> debugLoc = debugMappingQueue.pop();
+
+                for (int i = 0; i < debugLoc.size(); i++)
+                {
+                    if (i >= imgMapPlotter.size())
+                        break;
+                    vec2f minMax = debugLoc[i].getMinMax();
+                    debugLoc[i].normalize(minMax(0), minMax(1));
+                    imgMapPlotter[i].setBuffers(debugLoc[i]);
                 }
             }
 
@@ -607,7 +631,9 @@ private:
 
             geomPlotter.draw(mvp);
             trayPlotter.draw(mvp);
-            for (imagePlotter &iPlotter : imgPlotter)
+            for (imagePlotter &iPlotter : imgPosePlotter)
+                iPlotter.draw();
+            for (imagePlotter &iPlotter : imgMapPlotter)
                 iPlotter.draw();
 
             // Swap frames and Process Events
