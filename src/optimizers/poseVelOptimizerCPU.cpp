@@ -78,7 +78,8 @@ void poseVelOptimizerCPU::step(frameCPU &frame, keyFrameCPU &kframe, cameraType 
 
         SE3f best_pose = frame.getLocalPose();
         SE3f new_pose = frame.getLocalPose() * SE3f::exp(poseInc).inverse();
-        jvelType new_vel = frame.getLocalVel() - velInc;
+        jvelType best_vel = frame.getLocalVel();
+        jvelType new_vel = frame.getLocalVel();// - velInc;
         frame.setLocalPose(new_pose);
         frame.setLocalVel(new_vel);
 
@@ -121,6 +122,7 @@ void poseVelOptimizerCPU::step(frameCPU &frame, keyFrameCPU &kframe, cameraType 
         else
         {
             frame.setLocalPose(best_pose);
+            frame.setLocalVel(best_vel);
 
             float poseIncMag = inc.dot(inc)/numParams;
 

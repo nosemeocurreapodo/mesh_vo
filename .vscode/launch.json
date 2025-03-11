@@ -39,7 +39,7 @@
             "program": "${workspaceFolder}/build/rgbd_dataset",
             "args": [
                 //"/home/emanuel/workspace/datasets/desktop_dataset/",
-                "/datasets/rgbd_datasets/rgbd_dataset_freiburg2_pioneer_slam/rgb/"
+                "/datasets/rgbd_datasets/rgbd_dataset_freiburg1_floor/rgb/"
                 //"/media/emanuel/1cad5e38-efe0-4887-bcc6-c9ae353fe1b7/datasets/rgbd_dataset/rgbd_dataset_freiburg1_360/rgb/",
             ],
             "stopAtEntry": false,
@@ -95,35 +95,17 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/tum_dataset",
             //"args": [
-            //    "/media/emanuel/1cad5e38-efe0-4887-bcc6-c9ae353fe1b7/datasets/tum_datasets/sequence_48/camera.txt",
-            //    "/media/emanuel/1cad5e38-efe0-4887-bcc6-c9ae353fe1b7/datasets/tum_datasets/sequence_48/images/",
-            //    "0",
-            //    "10000"
-            //],
-            "args": [
-                "/media/emanuel/1cad5e38-efe0-4887-bcc6-c9ae353fe1b7/datasets/LSD_foodcourt/cameraCalibration.cfg",
-                "/media/emanuel/1cad5e38-efe0-4887-bcc6-c9ae353fe1b7/datasets/LSD_foodcourt/images/",
-                "0",
-                "10000"
-            ],
-            //"args": [
-            //    "/home/emanuel/workspace/datasets/tum_datasets/sequence_50/camera.txt",
-            //    "/home/emanuel/workspace/datasets/tum_datasets/sequence_50/images/",
-            //    "0",
-            //    "100000"
-            //],
-            //"args": [
             //    "/datasets/tum_datasets/sequence_48/camera.txt",
             //    "/datasets/tum_datasets/sequence_48/images/",
             //    "0",
             //    "100000"
             //],
-            //"args": [
-            //    "/datasets/tum_datasets/LSD_foodcourt/cameraCalibration.cfg",
-            //    "/datasets/tum_datasets/LSD_foodcourt/images/",
-            //    "0",
-            //    "100000"
-            //],
+            "args": [
+                "/datasets/LSD_foodcourt/cameraCalibration.cfg",
+                "/datasets/LSD_foodcourt/images/",
+                "0",
+                "100000"
+            ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

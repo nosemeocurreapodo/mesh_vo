@@ -928,7 +928,7 @@ private:
             {
                 for (int x = pol_win_2.min_x; x <= pol_win_2.max_x; x += 1)
                 {
-                    SE3f fTokfPoseVel = fTokfPose * SE3f::exp(fTokfVel * (y - image.height));
+                    SE3f fTokfPoseVel = fTokfPose;// * SE3f::exp(fTokfVel * (y - image.height/2));
 
                     vec2i f_pix_tex(x, y);
                     vec2f f_pix(float(x) / (width - 1), float(y) / (height - 1));
