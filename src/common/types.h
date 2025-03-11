@@ -73,6 +73,7 @@ using imageType = float;
 using errorType = float;
 using jimgType = vec2f;
 using jposeType = vec6f;
+using jvelType = vec6f;
 using jmapType = vec3f;
 using jcamType = vec4f;
 using idsType = vec3i;

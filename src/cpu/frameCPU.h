@@ -79,6 +79,16 @@ public:
         return localPose;
     }
 
+    void setLocalVel(jvelType newLocalVel)
+    {
+        localVel = newLocalVel;
+    }
+
+    jvelType getLocalVel()
+    {
+        return localVel;
+    }
+
     void setGlobalPose(SE3f newGlobalPose)
     {
         globalPose = newGlobalPose;
@@ -109,6 +119,7 @@ private:
     dataMipMapCPU<vec2f> dIdpix_image;
 
     SE3f localPose;
+    jvelType localVel;
     SE3f globalPose;
     vec2f localExp;
     int id;

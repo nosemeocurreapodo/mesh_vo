@@ -9,6 +9,7 @@
 #include "cpu/keyFrameCPU.h"
 
 #include "optimizers/poseOptimizerCPU.h"
+#include "optimizers/poseVelOptimizerCPU.h"
 #include "optimizers/mapOptimizerCPU.h"
 #include "optimizers/poseMapOptimizerCPU.h"
 #include "optimizers/intrinsicPoseMapOptimizerCPU.h"
@@ -347,7 +348,8 @@ private:
 
     void voThread()
     {
-        poseOptimizerCPU poseOptimizer(width, height);
+        //poseOptimizerCPU poseOptimizer(width, height);
+        poseVelOptimizerCPU poseOptimizer(width, height);
         poseMapOptimizerCPU poseMapOptimizer(width, height);
 
         renderCPU renderer(width, height);

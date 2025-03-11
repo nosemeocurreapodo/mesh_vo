@@ -96,6 +96,49 @@ public:
         return partialhg[0];
     }
 
+    DenseLinearProblem reduceHGPoseVelParallel(dataCPU<jposeType> &jpose_buffer, dataCPU<jvelType> &jvel_buffer, dataCPU<errorType> &err_buffer)
+    {
+        const int divi_y = ThreadPool<mesh_vo::reducer_nthreads>::getNumThreads();
+        const int divi_x = 1;
+
+        std::vector<DenseLinearProblem> partialhg;
+
+        // calling constructor
+        // for each index of array
+        for (int i = 0; i < divi_x * divi_y; i++)
+        {
+            partialhg.push_back(DenseLinearProblem(12));
+        }
+
+        int width = jpose_buffer.width / divi_x;
+        int height = jpose_buffer.height / divi_y;
+
+        for (int ty = 0; ty < divi_y; ty++)
+        {
+            for (int tx = 0; tx < divi_x; tx++)
+            {
+                int min_x = tx * width;
+                int max_x = (tx + 1) * width;
+                int min_y = ty * height;
+                int max_y = (ty + 1) * height;
+
+                window<int> win(min_x, max_x, min_y, max_y);
+
+                reduceHGPoseVelWindow(win, jpose_buffer, jvel_buffer, err_buffer, partialhg[tx + ty * divi_x]);
+                // pool.enqueue(std::bind(&reduceCPU::reduceHGPoseWindow, this, win, &jpose_buffer, &err_buffer, &weights_buffer, &partialhg[tx + ty * divi_x]), lvl);
+            }
+        }
+
+        // pool.waitUntilDone();
+
+        for (int i = 1; i < divi_y * divi_x; i++)
+        {
+            partialhg[0] += partialhg[i];
+        }
+
+        return partialhg[0];
+    }
+
     DenseLinearProblem reduceHGMapParallel(int maxNumParams, dataCPU<jmapType> &j_buffer, dataCPU<errorType> &err_buffer, dataCPU<idsType> &pId_buffer)
     {
         const int divi_y = ThreadPool<mesh_vo::reducer_nthreads>::getNumThreads();
@@ -261,6 +304,38 @@ private:
                 float hw = 1.0;
                 if (absres > mesh_vo::huber_thresh_pix)
                     hw = mesh_vo::huber_thresh_pix / absres;
+
+                hg.add(J, res, hw);
+            }
+        }
+    }
+
+    void reduceHGPoseVelWindow(window<int> win, dataCPU<jposeType> &jpose_buffer, dataCPU<jvelType> &jvel_buffer, dataCPU<errorType> &res_buffer, DenseLinearProblem &hg)
+    {
+        for (int y = win.min_y; y < win.max_y; y += 1)
+        {
+            for (int x = win.min_x; x < win.max_x; x += 1)
+            {
+                vec6f J_pose = jpose_buffer.getTexel(y, x);
+                vec6f J_vel = jvel_buffer.getTexel(y, x);
+                float res = res_buffer.getTexel(y, x);
+                if (J_pose == jpose_buffer.nodata || J_vel == jvel_buffer.nodata || res == res_buffer.nodata)
+                    continue;
+                float absres = std::fabs(res);
+                float hw = 1.0;
+                if (absres > mesh_vo::huber_thresh_pix)
+                    hw = mesh_vo::huber_thresh_pix / absres;
+
+                vecxf J(12);
+
+                for (int i = 0; i < 6; i++)
+                {
+                    J(i) = J_pose(i);
+                }
+                for (int i = 0; i < 6; i++)
+                {
+                    J(i + 6) = J_vel(i);
+                }
 
                 hg.add(J, res, hw);
             }

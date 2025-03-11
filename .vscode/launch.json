@@ -39,7 +39,7 @@
             "program": "${workspaceFolder}/build/rgbd_dataset",
             "args": [
                 //"/home/emanuel/workspace/datasets/desktop_dataset/",
-                "/datasets/rgbd_dataset/rgbd_dataset_freiburg2_large_no_loop/rgb/"
+                "/datasets/rgbd_datasets/rgbd_dataset_freiburg2_pioneer_slam/rgb/"
                 //"/media/emanuel/1cad5e38-efe0-4887-bcc6-c9ae353fe1b7/datasets/rgbd_dataset/rgbd_dataset_freiburg1_360/rgb/",
             ],
             "stopAtEntry": false,
