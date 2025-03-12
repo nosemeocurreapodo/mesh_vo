@@ -348,8 +348,8 @@ private:
 
     void voThread()
     {
-        //poseOptimizerCPU poseOptimizer(width, height);
-        poseVelOptimizerCPU poseOptimizer(width, height);
+        poseOptimizerCPU poseOptimizer(width, height);
+        //poseVelOptimizerCPU poseOptimizer(width, height);
         poseMapOptimizerCPU poseMapOptimizer(width, height);
 
         renderCPU renderer(width, height);

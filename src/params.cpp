@@ -3,7 +3,7 @@
 
 namespace mesh_vo
 {
-    float last_min_angle = M_PI / 64.0;
+    float last_min_angle = M_PI / 256.0;
     float key_max_angle = M_PI / 20.0;
     float min_view_perc = 0.8;
     float min_lambda = 0.00001f;
