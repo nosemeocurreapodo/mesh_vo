@@ -8,6 +8,7 @@ namespace mesh_vo
     float min_view_perc = 0.8;
     float min_lambda = 0.00001f;
     float huber_thresh_pix = 9.0; //9.0 taken from dso
+    float line_capture_time = 1.0;
 
     int tracking_ini_lvl = 3;
     int tracking_fin_lvl = 1;

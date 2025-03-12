@@ -299,7 +299,7 @@ public:
         return keys;
     }
 
-    void transform(Sophus::SE3f pose)
+    void transform(SE3f pose)
     {
         for (int it = 0; it < mesh_vo::max_vertex_size; ++it)
         {
@@ -307,7 +307,6 @@ public:
                 continue;
             vec3f ver = pose * m_vertices[it].ver;
             m_vertices[it].ver = ver;
-            m_vertices[it].ray = ver / ver(2);
         }
     }
 
@@ -317,6 +316,7 @@ public:
         {
             if (!m_vertices[it].used)
                 continue;
+            m_vertices[it].ray = m_vertices[it].ver / m_vertices[it].ver(2);
             m_vertices[it].pix = cam.rayToPix(m_vertices[it].ray);
         }
     }

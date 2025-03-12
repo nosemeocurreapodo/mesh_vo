@@ -79,7 +79,7 @@ void poseVelOptimizerCPU::step(frameCPU &frame, keyFrameCPU &kframe, cameraType 
         SE3f best_pose = frame.getLocalPose();
         SE3f new_pose = frame.getLocalPose() * SE3f::exp(poseInc).inverse();
         jvelType best_vel = frame.getLocalVel();
-        jvelType new_vel = frame.getLocalVel();// - velInc;
+        jvelType new_vel = frame.getLocalVel() - velInc;
         frame.setLocalPose(new_pose);
         frame.setLocalVel(new_vel);
 
@@ -146,6 +146,7 @@ DenseLinearProblem poseVelOptimizerCPU::computeProblem(frameCPU &frame, keyFrame
 
     renderer.renderJPoseVelParallel(kframe, frame, jpose_buffer, jvel_buffer, error_buffer, cam, lvl);
     DenseLinearProblem problem = reducer.reduceHGPoseVelParallel(jpose_buffer.get(lvl), jvel_buffer.get(lvl), error_buffer.get(lvl));
+
     return problem;
 }
 

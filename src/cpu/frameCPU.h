@@ -12,6 +12,8 @@ public:
         id = 0;
         localPose = SE3f();
         globalPose = SE3f();
+        localVel = jvelType::Zero();
+        globalVel = jvelType::Zero();
         localExp = vec2f(0.0f, 0.0f);
     };
 
@@ -30,6 +32,8 @@ public:
         id = _id;
         localPose = SE3f();
         globalPose = SE3f();
+        localVel = jvelType::Zero();
+        globalVel = jvelType::Zero();
         localExp = vec2f(0.0, 0.0);
     }
 
@@ -41,6 +45,8 @@ public:
         id = other.id;
         localPose = other.localPose;
         globalPose = other.globalPose;
+        localVel = other.localVel;
+        globalVel = other.globalVel;
         localExp = other.localExp;
     }
 
@@ -51,6 +57,8 @@ public:
             id = other.id;
             localPose = other.localPose;
             globalPose = other.globalPose;
+            localVel = other.localVel;
+            globalVel = other.globalVel;
             localExp = other.localExp;
 
             raw_image = other.raw_image;
@@ -89,6 +97,16 @@ public:
         return localVel;
     }
 
+    void setGlobalVel(jvelType newGlobalVel)
+    {
+        globalVel = newGlobalVel;
+    }
+
+    jvelType getGlobalVel()
+    {
+        return globalVel;
+    }
+
     void setGlobalPose(SE3f newGlobalPose)
     {
         globalPose = newGlobalPose;
@@ -119,8 +137,9 @@ private:
     dataMipMapCPU<vec2f> dIdpix_image;
 
     SE3f localPose;
-    jvelType localVel;
     SE3f globalPose;
+    jvelType localVel;
+    jvelType globalVel;
     vec2f localExp;
     int id;
 };

@@ -17,6 +17,7 @@ namespace mesh_vo
     extern float min_view_perc;
     extern float min_lambda;
     extern float huber_thresh_pix;
+    extern float line_capture_time;
 
     extern int tracking_ini_lvl;
     extern int tracking_fin_lvl;

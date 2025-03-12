@@ -894,7 +894,7 @@ private:
         }
     }
 
-    void renderResidualWindow(dataCPU<imageType> &kimage, dataCPU<imageType> &image, SE3f fTokfPose, jvelType fTokfVel, dataCPU<errorType> &e_buffer, cameraType cam, window<float> win)
+    void renderResidualWindow(dataCPU<imageType> &kimage, dataCPU<imageType> &image, SE3f fTokfPose, jvelType kfVel, jvelTpe fVel, dataCPU<errorType> &e_buffer, cameraType cam, window<float> win)
     {
         int width = e_buffer.width;
         int height = e_buffer.height;
@@ -928,10 +928,11 @@ private:
             {
                 for (int x = pol_win_2.min_x; x <= pol_win_2.max_x; x += 1)
                 {
-                    SE3f fTokfPoseVel = fTokfPose;// * SE3f::exp(fTokfVel * (y - image.height/2));
-
                     vec2i f_pix_tex(x, y);
                     vec2f f_pix(float(x) / (width - 1), float(y) / (height - 1));
+
+                    float dt = mesh_vo::line_capture_time * (f_pix(1) - 0.5);
+                    SE3f fTokfPoseVel = SE3f::exp((fVel - kfVel) * dt) * fTokfPose;
 
                     f_pol.usePixel(f_pix);
 
@@ -1183,13 +1184,13 @@ private:
             {
                 for (int x = pol_win_2.min_x; x <= pol_win_2.max_x; x += 1)
                 {
-                    //pose = last_pose * SE3f::exp(pinc + vinc * (y - image.height / 2))
-
-                    SE3f poseVel = SE3f::exp(fTokfVel * (y - image.height / 2));
-                    SE3f fTokfPoseVel = fTokfPose * poseVel;
+                    // pose = last_pose * SE3f::exp(pinc + vinc * (y - image.height / 2))
 
                     vec2i f_pix_tex(x, y);
                     vec2f f_pix(float(x) / (width - 1), float(y) / (height - 1));
+
+                    float dt = mesh_vo::line_capture_time * (f_pix(1) - 0.5);
+                    SE3f fTokfPoseVel = SE3f::exp(fTokfVel * dt) * fTokfPose;
 
                     f_pol.usePixel(f_pix);
 
@@ -1230,7 +1231,7 @@ private:
                     jposeType j_pose;
                     j_pose << d_f_i_d_tra(0), d_f_i_d_tra(1), d_f_i_d_tra(2), d_f_i_d_rot(0), d_f_i_d_rot(1), d_f_i_d_rot(2);
 
-                    jvelType j_vel = j_pose * (y - image.height / 2);
+                    jvelType j_vel = j_pose * dt;
 
                     errorType residual = errorType(f_i) - errorType(kf_i);
 
