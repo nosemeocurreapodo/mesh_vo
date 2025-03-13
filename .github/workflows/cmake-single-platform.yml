@@ -24,7 +24,7 @@ jobs:
 
     - name: Install dependencies
       # Install any dependencies required by your CMake project
-      run: sudo apt-get install -y git libsuitesparse-dev libeigen3-dev libglfw3-dev libopencv-dev
+      run: sudo apt-get install -y git libsuitesparse-dev libeigen3-dev libglfw3-dev libopencv-dev libepoxy-dev
     
     - name: Install Pangolin
       run: git clone --recursive https://github.com/stevenlovegrove/Pangolin.git && cd Pangolin && mkdir build && cd build && cmake ../ && make -j4 && make install && ldconfig
