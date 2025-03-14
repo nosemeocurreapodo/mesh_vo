@@ -97,14 +97,28 @@ private:
 class visualOdometryThreaded
 {
 public:
-    visualOdometryThreaded(cameraType _cam) : cam(_cam)
+    visualOdometryThreaded(int _width, int _height, bool _doMapping = true, bool _doVisualization = true)
     {
+        width = _width;
+        height = _height;
+
+        doMapping = _doMapping;
+        doVisualization = _doVisualization;
+
+        // tLocalization = std::thread(&visualOdometryThreaded::voThread, this);
+        //  tLocalization = std::thread(&visualOdometryThreaded::localizationThread, this);
+        //  tMapping = std::thread(&visualOdometryThreaded::mappingThread, this);
+
+        if (doVisualization)
+            tVisualization = std::thread(&visualOdometryThreaded::visualizationThread, this);
     }
 
+    /*
     visualOdometryThreaded(dataCPU<imageType> &image, SE3f globalPose, cameraType _cam) : cam(_cam)
     {
         init(image, globalPose);
     }
+    */
 
     ~visualOdometryThreaded()
     {
@@ -112,21 +126,29 @@ public:
         tMapping.join();
     }
 
-    void init(dataCPU<imageType> &image, SE3f globalPose)
+    void init(dataCPU<imageType> &image, SE3f globalPose, cameraType _cam)
     {
-        initialKeyframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
-        initialKeyframe.initGeometryVerticallySmooth(cam);
+        cam = _cam;
+        kframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
+
+        kframe.initGeometryVerticallySmooth(cam);
 
         width = image.width;
         height = image.height;
         frameId = 0;
+    }
 
-        tLocalization = std::thread(&visualOdometryThreaded::voThread, this);
-        // tLocalization = std::thread(&visualOdometryThreaded::localizationThread, this);
-        // tMapping = std::thread(&visualOdometryThreaded::mappingThread, this);
-        tVisualization = std::thread(&visualOdometryThreaded::visualizationThread, this);
+    void init(dataCPU<imageType> &image, dataCPU<float> &depth, SE3f globalPose, cameraType _cam)
+    {
+        cam = _cam;
+        kframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
 
-        plotDebug = true;
+        dataCPU<float> weight(image.width, image.height, 1.0 / mesh_vo::mapping_param_initial_var);
+        kframe.initGeometryFromDepth(depth, weight, cam);
+
+        width = image.width;
+        height = image.height;
+        frameId = 0;
     }
 
     void locAndMap(dataCPU<imageType> &image)
@@ -144,11 +166,43 @@ public:
         return kfQueue.peek();
     }
 
+    SE3f localize(dataCPU<imageType> &image, SE3f initialGuess)
+    {
+        frameCPU frame(image, frameId);
+        poseOptimizerCPU optimizer(width, height);
+
+        // initialize the global and local pose
+        frame.setGlobalPose(initialGuess);
+        frame.setLocalPose(kframe.globalPoseToLocal(frame.getGlobalPose()));
+
+        // this will update the local pose
+        for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
+        {
+            optimizer.init(frame, kframe, cam, lvl);
+            while (!optimizer.converged())
+            {
+                optimizer.step(frame, kframe, cam, lvl);
+
+                if (doVisualization)
+                {
+                    std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frame, kframe, cam, 1);
+                    debugLocalizationQueue.push(debugData);
+                }
+            }
+        }
+
+        // update the global pose
+        SE3f newGlobalPose = kframe.localPoseToGlobal(frame.getLocalPose());
+        frame.setGlobalPose(newGlobalPose);
+
+        return frame.getGlobalPose();
+    }
+
 private:
     void localizationThread()
     {
         poseOptimizerCPU optimizer(width, height);
-        keyFrameCPU kframe = initialKeyframe;
+        keyFrameCPU _kframe = kframe;
 
         SE3f lastGlobalPose;
         SE3f lastGlobalMovement;
@@ -194,11 +248,11 @@ private:
                     optimizer.step(frame, kframe, cam, lvl);
                     if (optimizer.converged())
                     {
-                        if (plotDebug)
-                        {
-                            std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frame, kframe, cam, 1);
-                            debugLocalizationQueue.push(debugData);
-                        }
+                        // if (plotDebug)
+                        //{
+                        //     std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frame, kframe, cam, 1);
+                        //     debugLocalizationQueue.push(debugData);
+                        // }
                         break;
                     }
                 }
@@ -227,7 +281,7 @@ private:
         dataMipMapCPU<float> weight_buffer(width, height, -1);
 
         std::vector<frameCPU> frameStack;
-        keyFrameCPU kframe = initialKeyframe;
+        keyFrameCPU _kframe = kframe;
 
         tic_toc tt;
 
@@ -307,21 +361,21 @@ private:
             for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
             {
                 optimizer.init(keyframes, kframe, cam, lvl);
-                if (plotDebug)
-                {
-                    std::vector<dataCPU<float>> debugData = optimizer.getDebugData(keyframes, kframe, cam, 1);
-                    debugMappingQueue.push(debugData);
-                }
+                // if (plotDebug)
+                //{
+                //     std::vector<dataCPU<float>> debugData = optimizer.getDebugData(keyframes, kframe, cam, 1);
+                //     debugMappingQueue.push(debugData);
+                // }
                 while (true)
                 {
                     optimizer.step(keyframes, kframe, cam, lvl);
                     if (optimizer.converged())
                     {
-                        if (plotDebug)
-                        {
-                            std::vector<dataCPU<float>> debugData = optimizer.getDebugData(keyframes, kframe, cam, 1);
-                            debugMappingQueue.push(debugData);
-                        }
+                        // if (plotDebug)
+                        //{
+                        //     std::vector<dataCPU<float>> debugData = optimizer.getDebugData(keyframes, kframe, cam, 1);
+                        //     debugMappingQueue.push(debugData);
+                        // }
                         break;
                     }
                 }
@@ -349,7 +403,7 @@ private:
     void voThread()
     {
         poseOptimizerCPU poseOptimizer(width, height);
-        //poseVelOptimizerCPU poseOptimizer(width, height);
+        // poseVelOptimizerCPU poseOptimizer(width, height);
         poseMapOptimizerCPU poseMapOptimizer(width, height);
 
         renderCPU renderer(width, height);
@@ -361,7 +415,7 @@ private:
         std::vector<frameCPU> frameStack;
         std::vector<frameCPU> keyframes;
 
-        keyFrameCPU kframe = initialKeyframe;
+        keyFrameCPU _kframe = kframe;
 
         tic_toc tt;
 
@@ -410,11 +464,11 @@ private:
                         }
                     }
                 }
-                if (plotDebug)
-                {
-                    std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
-                    debugLocalizationQueue.push(debugData);
-                }
+                // if (plotDebug)
+                //{
+                //     std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
+                //     debugLocalizationQueue.push(debugData);
+                // }
 
                 std::cout << "localization time " << tt.toc() << std::endl;
 
@@ -471,7 +525,7 @@ private:
                 weight_buffer.setToNoData(1);
                 renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, 1);
                 renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, 1);
-                //dataCPU<float> depth = depth_buffer.get(1);
+                // dataCPU<float> depth = depth_buffer.get(1);
                 renderer.renderInterpolate(depth_buffer.get(1));
 
                 kframe = keyFrameCPU(newKeyframe.getRawImage(0), vec2f(0.0, 0.0), newKeyframe.getGlobalPose(), kframe.getGlobalScale());
@@ -507,11 +561,11 @@ private:
             tt.tic();
             poseMapOptimizer.step(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
             std::cout << "mapping time " << tt.toc() << std::endl;
-            if (plotDebug)
-            {
-                std::vector<dataCPU<float>> debugData = poseMapOptimizer.getDebugData(keyframes, kframe, cam, 1);
-                debugMappingQueue.push(debugData);
-            }
+            // if (plotDebug)
+            //{
+            //     std::vector<dataCPU<float>> debugData = poseMapOptimizer.getDebugData(keyframes, kframe, cam, 1);
+            //     debugMappingQueue.push(debugData);
+            // }
 
             // update the global poses
             for (size_t i = 0; i < keyframes.size(); i++)
@@ -551,18 +605,18 @@ private:
         geometryPlotter geomPlotter;
         trayectoryPlotter trayPlotter;
         std::vector<imagePlotter> imgPosePlotter;
-        imgPosePlotter.push_back(imagePlotter(0, 0));//keyframe
-        imgPosePlotter.push_back(imagePlotter(0, 1));//depth
-        imgPosePlotter.push_back(imagePlotter(0, 2));//frame
-        imgPosePlotter.push_back(imagePlotter(0, 3));//errpr
+        imgPosePlotter.push_back(imagePlotter(0, 0)); // keyframe
+        imgPosePlotter.push_back(imagePlotter(0, 1)); // depth
+        imgPosePlotter.push_back(imagePlotter(0, 2)); // frame
+        imgPosePlotter.push_back(imagePlotter(0, 3)); // errpr
 
         std::vector<imagePlotter> imgMapPlotter;
-        imgMapPlotter.push_back(imagePlotter(1, 0));//keyframe
-        imgMapPlotter.push_back(imagePlotter(1, 1));//depth
-        imgMapPlotter.push_back(imagePlotter(2, 0));//frame
-        imgMapPlotter.push_back(imagePlotter(2, 1));//error
-        imgMapPlotter.push_back(imagePlotter(3, 0));//frame
-        imgMapPlotter.push_back(imagePlotter(3, 1));//error
+        imgMapPlotter.push_back(imagePlotter(1, 0)); // keyframe
+        imgMapPlotter.push_back(imagePlotter(1, 1)); // depth
+        imgMapPlotter.push_back(imagePlotter(2, 0)); // frame
+        imgMapPlotter.push_back(imagePlotter(2, 1)); // error
+        imgMapPlotter.push_back(imagePlotter(3, 0)); // frame
+        imgMapPlotter.push_back(imagePlotter(3, 1)); // error
 
         geomPlotter.compileShaders();
         trayPlotter.compileShaders();
@@ -571,7 +625,7 @@ private:
         for (imagePlotter &imgPlotter : imgMapPlotter)
             imgPlotter.compileShaders();
 
-        keyFrameCPU kframe = initialKeyframe;
+        keyFrameCPU _kframe = kframe;
         frameCPU frame;
 
         dataCPU<float> imageFloat = kframe.getRawImage(0).convert<float>();
@@ -710,7 +764,8 @@ private:
     int height;
     int frameId;
 
-    keyFrameCPU initialKeyframe;
+    keyFrameCPU kframe;
 
-    bool plotDebug;
+    bool doMapping;
+    bool doVisualization;
 };

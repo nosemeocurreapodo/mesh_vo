@@ -135,7 +135,7 @@ int main(int argc, char **argv)
 
 	cameraType cam(fx, fy, cx, cy, w, h);
 
-	visualOdometryThreaded odometry(cam);
+	visualOdometryThreaded odometry(w, h, true, true);
 
 	for (unsigned int i = 0; i < files.size(); i++)
 	{
@@ -164,7 +164,7 @@ int main(int argc, char **argv)
 
 		if (i == 0)
 		{
-			odometry.init(imageData, SE3f());
+			odometry.init(imageData, SE3f(), cam);
 		}
 		else
 			odometry.locAndMap(imageData);

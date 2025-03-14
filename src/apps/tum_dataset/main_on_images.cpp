@@ -193,7 +193,7 @@ int main(int argc, char **argv)
 
 	cameraType cam(fx, fy, cx, cy, w, h);
 
-	visualOdometryThreaded odometry(cam);
+	visualOdometryThreaded odometry(w, h);
 
 	for (unsigned int i = start_index + 1; i < end_index; i++) // files.size()
 	{
@@ -231,7 +231,7 @@ int main(int argc, char **argv)
 
 		if (runningIDX == 0)
 		{
-			odometry.init(imageData, SE3f());
+			odometry.init(imageData, SE3f(), cam);
 			// system->randomInit(image.data, fakeTimeStamp, runningIDX);
 		}
 		else

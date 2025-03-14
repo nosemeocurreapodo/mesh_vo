@@ -1,18 +1,9 @@
 cmake_minimum_required(VERSION 3.16.3)
 project(mesh_vo)
 
-#set(CMAKE_BUILD_TYPE Debug)
-
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-#set(CMAKE_CXX_FLAGS
-#   "-O3 -ffast-math -fno-math-errno -DNDEBUG"
-#"-O3 -ffast-math -march=native -fopenmp -DNDEBUG"
-#"-g -DEBUG -fno-omit-frame-pointer -DDEBUG"
-#"-O3 -Wall -Wextra -pedantic -DNDEBUG"
-#)
 
 find_package(SuiteParse REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -25,7 +16,7 @@ if(NOT TARGET Eigen3::Eigen)
 endif()
 
 include_directories("src")
-include_directories("include")
+#include_directories("include")
 include_directories(
         ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
         ${EIGEN3_INCLUDE_DIR}
@@ -107,3 +98,37 @@ target_link_libraries(rgbd_dataset mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} 
 #target_link_libraries(kitti_dataset ${OpenCV_LIBS} pthread)
 #target_link_libraries(kitti_binocular ${OpenCV_LIBS} pthread)
 #target_link_libraries(syfra mesh_vo ${OpenCV_LIBS} pthread)
+
+
+
+
+
+# --- Testing Setup ---
+
+# Enable testing
+enable_testing()
+
+# Fetch GoogleTest
+include(FetchContent)
+FetchContent_Declare(
+    googletest
+    URL https://github.com/google/googletest/archive/release-1.12.1.zip
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+
+# Create test executable(s)
+add_executable(mesh_vo_tests
+    tests/rendererCPU_test.cpp
+)
+
+# Link your test executable with Google Test and your project library
+target_link_libraries(mesh_vo_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
+
+# Pass the absolute path to the test data directory as a compile definition
+target_compile_definitions(mesh_vo_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+
+# Register the test with CTest
+add_test(NAME mesh_vo_tests COMMAND mesh_vo_tests)

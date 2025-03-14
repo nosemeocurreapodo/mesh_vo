@@ -99,7 +99,8 @@ int main(int argc, char *argv[])
     }
     */
 
-    visualOdometryThreaded odometry(image, SE3f(), cam);
+    visualOdometryThreaded odometry(width, height);
+    odometry.init(image, SE3f(), cam);
 
     // odometry.initScene(image, pixels, idepths, Sophus::SE3f());
     // odometry.init(image, idepth, Sophus::SE3f());

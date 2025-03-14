@@ -1,10 +1,11 @@
 #include "optimizers/poseOptimizerCPU.h"
 
-poseOptimizerCPU::poseOptimizerCPU(int width, int height)
+poseOptimizerCPU::poseOptimizerCPU(int width, int height, bool _printLog)
     : baseOptimizerCPU(width, height),
       j_buffer(width, height, vec6f::Zero())
 {
     invCovariance = mat6f::Identity() / mesh_vo::tracking_pose_initial_var;
+    printLog = _printLog;
 }
 
 void poseOptimizerCPU::init(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl)
@@ -26,7 +27,9 @@ void poseOptimizerCPU::init(frameCPU &frame, keyFrameCPU &kframe, cameraType &ca
         init_error += weight * (res.dot(conv_dot_res));
     }
 
-    std::cout << "poseOptimizer initial error " << init_error << " " << lvl << std::endl;
+    if (printLog)
+        std::cout << "poseOptimizer initial error " << init_error << " " << lvl << std::endl;
+
     reachedConvergence = false;
 }
 
@@ -88,7 +91,8 @@ void poseOptimizerCPU::step(frameCPU &frame, keyFrameCPU &kframe, cameraType &ca
             new_error += weight * (res.dot(conv_dot_res));
         }
 
-        std::cout << "poseOptimizer new error " << new_error << " " << lambda << " " << " " << lvl << std::endl;
+        if (printLog)
+            std::cout << "poseOptimizer new error " << new_error << " " << lambda << " " << " " << lvl << std::endl;
 
         if (new_error <= init_error)
         {
@@ -99,7 +103,9 @@ void poseOptimizerCPU::step(frameCPU &frame, keyFrameCPU &kframe, cameraType &ca
             if (p >= mesh_vo::tracking_convergence_p)
             {
                 reachedConvergence = true;
-                std::cout << "poseOptimizer converged p:" << p << " lvl: " << lvl << std::endl;
+
+                if (printLog)
+                    std::cout << "poseOptimizer converged p:" << p << " lvl: " << lvl << std::endl;
             }
             // if update accepted, do next iteration
             break;
@@ -108,14 +114,17 @@ void poseOptimizerCPU::step(frameCPU &frame, keyFrameCPU &kframe, cameraType &ca
         {
             frame.setLocalPose(best_pose);
 
-            float poseIncMag = inc.dot(inc)/6.0;
+            float poseIncMag = inc.dot(inc) / 6.0;
 
             if (poseIncMag <= mesh_vo::tracking_convergence_v)
             {
                 // std::cout << "lvl " << lvl << " inc size too small, after " << it << " itarations and " << t_try << " total tries, with lambda " << lambda << std::endl;
                 // if too small, do next level!
                 reachedConvergence = true;
-                std::cout << "poseOptimizer too small " << poseIncMag << " lvl: " << lvl << std::endl;
+
+                if (printLog)
+                    std::cout << "poseOptimizer too small " << poseIncMag << " lvl: " << lvl << std::endl;
+
                 break;
             }
         }
@@ -128,7 +137,7 @@ DenseLinearProblem poseOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU
     error_buffer.setToNoData(lvl);
 
     renderer.renderJPoseParallel(kframe, frame, j_buffer, error_buffer, cam, lvl);
-    //renderer.renderJPoseParallel(kframe.getGeometry(), kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getdIdpixImage(lvl), frame.getLocalPose(), j_buffer.get(lvl), error_buffer.get(lvl), cam);
+    // renderer.renderJPoseParallel(kframe.getGeometry(), kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getdIdpixImage(lvl), frame.getLocalPose(), j_buffer.get(lvl), error_buffer.get(lvl), cam);
 
     DenseLinearProblem problem = reducer.reduceHGPoseParallel(j_buffer.get(lvl), error_buffer.get(lvl));
     return problem;
@@ -141,15 +150,15 @@ std::vector<dataCPU<float>> poseOptimizerCPU::getDebugData(frameCPU &frame, keyF
     toShow.push_back(kframe.getRawImage(lvl).convert<float>());
 
     depth_buffer.setToNoData(lvl);
-    //weight_buffer.setToNoData(lvl);
+    // weight_buffer.setToNoData(lvl);
 
     renderer.renderDepthParallel(kframe, SE3f(), depth_buffer, cam, lvl);
-    //renderer.renderWeightParallel(kframe, SE3f(), weight_buffer, cam, lvl);
+    // renderer.renderWeightParallel(kframe, SE3f(), weight_buffer, cam, lvl);
 
     depth_buffer.get(lvl).invert();
 
     toShow.push_back(depth_buffer.get(lvl));
-    //toShow.push_back(weight_buffer.get(lvl));
+    // toShow.push_back(weight_buffer.get(lvl));
 
     error_buffer.setToNoData(lvl);
     // depth_buffer.setToNoData(lvl);

@@ -14,7 +14,7 @@
 class poseOptimizerCPU : public baseOptimizerCPU
 {
 public:
-    poseOptimizerCPU(int width, int height);
+    poseOptimizerCPU(int width, int height, bool _printLog = false);
 
     void init(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl);
     void step(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl);
@@ -30,4 +30,6 @@ private:
     mat6f init_invcovariance;
     mat6f init_invcovariancesqrt;
     float init_error;
+
+    bool printLog;
 };

@@ -7,6 +7,14 @@
 class pinholeCamera
 {
 public:
+    pinholeCamera()
+    {
+        fx = 0;
+        fy = 0;
+        cx = 0;
+        cy = 0;
+    }
+
     pinholeCamera(float _fx, float _fy, float _cx, float _cy, int _width, int _height)
     {
         fx = _fx / _width;
@@ -155,6 +163,20 @@ private:
 class pinholeDistortedCamera
 {
 public:
+
+    pinholeDistortedCamera()
+    {
+        fx = 0;
+        fy = 0;
+        cx = 0;
+        cy = 0;
+        k1 = 0;
+        // k2 = 0.0;
+        // p1 = 0.0;
+        // p2 = 0.0;
+        // k3 = 0.0;
+    }
+
     pinholeDistortedCamera(float _fx, float _fy, float _cx, float _cy, float _k1, int _width, int _height)
     {
         fx = _fx / _width;
