@@ -66,6 +66,13 @@ static cv::Mat prepareToShow(dataCPU<float> &data, bool colorize)
     return toShow2;
 }
 
+static void show(dataCPU<float> &data, std::string window_name)
+{
+    cv::Mat toShow = prepareToShow(data, false);
+    cv::imshow(window_name, toShow);
+    cv::waitKey(30);
+}
+
 static void show(std::vector<dataCPU<float>> &data, std::string window_name)
 {
     for (int i = 0; i < data.size(); i++)
@@ -75,7 +82,7 @@ static void show(std::vector<dataCPU<float>> &data, std::string window_name)
 
     int nImagesWidth = 4;
     int nImagesHeight = int(data.size() / nImagesWidth);
-    if(data.size() % nImagesWidth != 0)
+    if (data.size() % nImagesWidth != 0)
         nImagesHeight += 1;
 
     cv::Mat toShow(data[0].height * nImagesHeight, data[0].width * nImagesWidth, CV_8UC1, cv::Scalar(0));

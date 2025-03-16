@@ -30,7 +30,14 @@ TEST(RendererCPUTest, renderDepth)
     // EXPECT_NEAR(pose.translation.y, 0.0, 0.001);
     // EXPECT_NEAR(pose.translation.z, 0.0, 0.001);
 
-
+    load_dataset_tum_rgbd dataset;
+    std::vector<std::string> image_files = dataset.getImageFiles();
+    std::vector<std::string> depth_files = dataset.getDepthFiles();
+    std::vector<SE3f> poses = dataset.getPoses();
+    std::vector<double> timestamps = dataset.getTimestamps();
+    cameraType cam = dataset.getCamera();
+    int w = dataset.getWidth();
+    int h = dataset.getHeight();
 
     keyFrameCPU kframe;
     frameCPU frame;
@@ -41,7 +48,7 @@ TEST(RendererCPUTest, renderDepth)
     {
         cv::Mat image = cv::imread(image_files[i], cv::IMREAD_GRAYSCALE);
         cv::Mat gtDepth = cv::imread(depth_files[i], cv::IMREAD_GRAYSCALE);
-        SE3f gtPose = poses[i]*(poses[0].inverse()).inverse();
+        SE3f gtPose = poses[i].inverse();
 
         if (std::is_same<imageType, uchar>::value)
             image.convertTo(image, CV_8UC1);
@@ -51,7 +58,8 @@ TEST(RendererCPUTest, renderDepth)
             image.convertTo(image, CV_32FC1);
 
         gtDepth.convertTo(gtDepth, CV_32FC1);
-        //gtDepth /= 5000.0;
+        gtDepth /= dataset.getDepthFactor();
+        gtDepth *= 100.0;
 
         dataCPU<imageType> imageData(w, h, 0);
         imageData.set((imageType *)image.data);
@@ -65,7 +73,7 @@ TEST(RendererCPUTest, renderDepth)
 
         if (i == 0)
         {
-            kframe = keyFrameCPU(imageData, vec2f(0.0, 0.0), SE3f(), 1.0);
+            kframe = keyFrameCPU(imageData, vec2f(0.0, 0.0), gtPose, 1.0);
             kframe.initGeometryFromDepth(gtDepthData, dataCPU<float>(w, h, 1.0 / mesh_vo::mapping_param_initial_var), cam);
             //kframe.initGeometryVerticallySmooth(cam);
         }
@@ -90,11 +98,8 @@ TEST(RendererCPUTest, renderDepth)
                 << "renderDepth error (" << error
                 << ") exceeds the acceptable threshold (" << errorThreshold << ").";
 
-            std::vector<dataCPU<float>> debugdata;
-            debugdata.push_back(gtMipMapDepthData.get(lvl));
-            debugdata.push_back(estMipMapDepthData.get(lvl));
-
-            show(debugdata, "Depth");
+            show(gtMipMapDepthData.get(lvl), "gt depth");
+            show(estMipMapDepthData.get(lvl), "est depth");
         }
     }
 }
