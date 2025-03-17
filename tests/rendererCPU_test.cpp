@@ -82,7 +82,7 @@ TEST(RendererCPUTest, renderDepth)
             auto endTime = std::chrono::high_resolution_clock::now();
             auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
-            std::cout << "render depth took " << durationMs << " ms" << std::endl;
+            // std::cout << "render depth took " << durationMs << " ms" << std::endl;
 
             //EXPECT_LE(durationMs, acceptableTimeMs)
             //    << "renderDepth took " << durationMs << "ms, which exceeds the acceptable threshold of "
@@ -90,7 +90,7 @@ TEST(RendererCPUTest, renderDepth)
 
             float error = computeImageError(estMipMapDepthData.get(lvl), gtMipMapDepthData.get(lvl));
 
-            std::cout << "depth error " << error << std::endl;
+            // std::cout << "depth error " << error << std::endl;
 
             // The test passes if the error is below the threshold
             EXPECT_LT(error, errorThreshold)

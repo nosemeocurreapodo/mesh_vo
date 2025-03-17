@@ -26,7 +26,7 @@ TEST(PoseEstimatorTest, ComputePose)
     // EXPECT_NEAR(pose.translation.y, 0.0, 0.001);
     // EXPECT_NEAR(pose.translation.z, 0.0, 0.001);
 
-    //load_dataset_tum_rgbd dataset;
+    // load_dataset_tum_rgbd dataset;
     load_dataset_icl_nuim dataset;
 
     std::vector<std::string> image_files = dataset.getImageFiles();
@@ -37,11 +37,13 @@ TEST(PoseEstimatorTest, ComputePose)
     int w = dataset.getWidth();
     int h = dataset.getHeight();
 
-    poseOptimizerCPU optimizer(w, h, true);
+    poseOptimizerCPU optimizer(w, h, false);
     renderCPU renderer(w, h);
 
     keyFrameCPU kframe;
     frameCPU frame;
+
+    SE3f lastEstimatedGlobalPose;
 
     for (unsigned int i = 0; i < image_files.size(); i++)
     {
@@ -68,7 +70,12 @@ TEST(PoseEstimatorTest, ComputePose)
 
         frame = frameCPU(imageData, i);
 
-        if (i == 0)
+        if(i == 0)
+        {
+            lastEstimatedGlobalPose = gtPose;
+        }
+
+        if (i % 20 == 0)
         {
             kframe = keyFrameCPU(imageData, vec2f(0.0, 0.0), gtPose, 1.0);
             kframe.initGeometryFromDepth(gtDepthData, dataCPU<float>(w, h, 1.0 / mesh_vo::mapping_param_initial_var), cam);
@@ -76,12 +83,9 @@ TEST(PoseEstimatorTest, ComputePose)
         else
         {
             SE3f gtLocalPose = kframe.globalPoseToLocal(gtPose);
-            //SE3f gtLocalPose = gtPose * kframe.getGlobalPose().inverse();
-            //SE3f gtLocalPose = gtPose.inverse() * kframe.getGlobalPose();
-            //SE3f gtLocalPose = kframe.getGlobalPose() * gtPose.inverse();
-            //SE3f gtLocalPose = kframe.getGlobalPose().inverse() * gtPose;
 
-            // frame.setLocalPose(gtLocalPose);
+            frame.setGlobalPose(lastEstimatedGlobalPose);
+            frame.setLocalPose(kframe.globalPoseToLocal(lastEstimatedGlobalPose));
 
             auto startTime = std::chrono::high_resolution_clock::now();
             for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
@@ -91,23 +95,25 @@ TEST(PoseEstimatorTest, ComputePose)
                 {
                     optimizer.step(frame, kframe, cam, lvl);
 
-                    //dataMipMapCPU<float> error(w, h, -1.0);
-                    //renderer.renderResidualParallel(kframe, frame, error, cam, lvl);
-                    //show(error.get(lvl), "Error");
+                    dataMipMapCPU<float> error(w, h, -1.0);
+                    renderer.renderResidualParallel(kframe, frame, error, cam, lvl);
+                    show(error.get(lvl), "Error");
                 }
             }
             auto endTime = std::chrono::high_resolution_clock::now();
             auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
-            std::cout << "Pose estimation took " << durationMs << " ms" << std::endl;
+            lastEstimatedGlobalPose = kframe.localPoseToGlobal(frame.getLocalPose());
 
-            //EXPECT_LE(durationMs, acceptableTimeMs)
-            //    << "Pose estimation took " << durationMs << "ms, which exceeds the acceptable threshold of "
-            //    << acceptableTimeMs << "ms.";
+            // std::cout << "Pose estimation took " << durationMs << " ms" << std::endl;
+
+            // EXPECT_LE(durationMs, acceptableTimeMs)
+            //     << "Pose estimation took " << durationMs << "ms, which exceeds the acceptable threshold of "
+            //     << acceptableTimeMs << "ms.";
 
             std::array<float, 2> error = computeSE3Error(frame.getLocalPose(), gtLocalPose);
 
-            std::cout << "translation error " << error[0] << " rotation error " << error[1] << std::endl;
+            // std::cout << "translation error " << error[0] << " rotation error " << error[1] << std::endl;
 
             // The test passes if the error is below the threshold
             EXPECT_LT(error[0], translationErrorThreshold)
