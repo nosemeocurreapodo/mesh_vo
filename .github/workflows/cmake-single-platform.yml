@@ -36,5 +36,8 @@ jobs:
       # working-directory: ${{github.workspace}}/build
       # Execute tests defined by the CMake configuration.
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: cd ${{github.workspace}}/build && ctest -C ${{env.BUILD_TYPE}}
+      run: cd ${{github.workspace}}/build && ctest -C ${{env.BUILD_TYPE}} --output-on-failure
+
+    - name: Print LastTest.log
+      run: cat /home/runner/work/mesh_vo/mesh_vo/build/Testing/Temporary/LastTest.log
 

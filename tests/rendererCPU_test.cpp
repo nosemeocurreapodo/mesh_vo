@@ -18,13 +18,6 @@ TEST(RendererCPUTest, renderDepth)
     const long long acceptableTimeMs = 1;
     const float errorThreshold = 0.05;
 
-    // PoseEstimator estimator;
-    //  Simulated input data
-    // std::vector<cv::Point2f> imagePoints = {/* simulated data */};
-    // std::vector<cv::Point3f> worldPoints = {/* corresponding world points */};
-
-    // auto pose = estimator.computePose(imagePoints, worldPoints);
-
     // Validate that the pose is within expected bounds
     // EXPECT_NEAR(pose.translation.x, 0.0, 0.001);
     // EXPECT_NEAR(pose.translation.y, 0.0, 0.001);
@@ -88,6 +81,8 @@ TEST(RendererCPUTest, renderDepth)
             renderer.renderDepthParallel(kframe, gtLocalPose, estMipMapDepthData, cam, lvl);
             auto endTime = std::chrono::high_resolution_clock::now();
             auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+
+            std::cout << "render depth took " << durationMs << " ms" << std::endl;
 
             //EXPECT_LE(durationMs, acceptableTimeMs)
             //    << "renderDepth took " << durationMs << "ms, which exceeds the acceptable threshold of "

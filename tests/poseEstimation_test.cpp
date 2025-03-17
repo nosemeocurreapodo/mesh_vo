@@ -99,6 +99,8 @@ TEST(PoseEstimatorTest, ComputePose)
             auto endTime = std::chrono::high_resolution_clock::now();
             auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
+            std::cout << "Pose estimation took " << durationMs << " ms" << std::endl;
+
             //EXPECT_LE(durationMs, acceptableTimeMs)
             //    << "Pose estimation took " << durationMs << "ms, which exceeds the acceptable threshold of "
             //    << acceptableTimeMs << "ms.";
