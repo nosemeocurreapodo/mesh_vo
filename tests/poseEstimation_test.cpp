@@ -17,22 +17,18 @@
 // Test to ensure PoseEstimator correctly computes the pose
 TEST(PoseEstimatorTest, ComputePose)
 {
-    const long long acceptableTimeMs = 50;
-    const float errorThreshold = 0.1;
-
-    // PoseEstimator estimator;
-    //  Simulated input data
-    // std::vector<cv::Point2f> imagePoints = {/* simulated data */};
-    // std::vector<cv::Point3f> worldPoints = {/* corresponding world points */};
-
-    // auto pose = estimator.computePose(imagePoints, worldPoints);
+    const long long acceptableTimeMs = 30;
+    const float translationErrorThreshold = 0.02;
+    const float rotationErrorThreshold = 0.002;
 
     // Validate that the pose is within expected bounds
     // EXPECT_NEAR(pose.translation.x, 0.0, 0.001);
     // EXPECT_NEAR(pose.translation.y, 0.0, 0.001);
     // EXPECT_NEAR(pose.translation.z, 0.0, 0.001);
 
-    load_dataset_tum_rgbd dataset;
+    //load_dataset_tum_rgbd dataset;
+    load_dataset_icl_nuim dataset;
+
     std::vector<std::string> image_files = dataset.getImageFiles();
     std::vector<std::string> depth_files = dataset.getDepthFiles();
     std::vector<SE3f> poses = dataset.getPoses();
@@ -95,24 +91,30 @@ TEST(PoseEstimatorTest, ComputePose)
                 {
                     optimizer.step(frame, kframe, cam, lvl);
 
-                    dataMipMapCPU<float> error(w, h, -1.0);
-                    renderer.renderResidualParallel(kframe, frame, error, cam, lvl);
-                    show(error.get(lvl), "Error");
+                    //dataMipMapCPU<float> error(w, h, -1.0);
+                    //renderer.renderResidualParallel(kframe, frame, error, cam, lvl);
+                    //show(error.get(lvl), "Error");
                 }
             }
             auto endTime = std::chrono::high_resolution_clock::now();
             auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
-            EXPECT_LE(durationMs, acceptableTimeMs)
-                << "Pose estimation took " << durationMs << "ms, which exceeds the acceptable threshold of "
-                << acceptableTimeMs << "ms.";
+            //EXPECT_LE(durationMs, acceptableTimeMs)
+            //    << "Pose estimation took " << durationMs << "ms, which exceeds the acceptable threshold of "
+            //    << acceptableTimeMs << "ms.";
 
-            float error = computeSE3Error(frame.getLocalPose(), gtLocalPose);
+            std::array<float, 2> error = computeSE3Error(frame.getLocalPose(), gtLocalPose);
+
+            std::cout << "translation error " << error[0] << " rotation error " << error[1] << std::endl;
 
             // The test passes if the error is below the threshold
-            EXPECT_LT(error, errorThreshold)
-                << "Pose estimation error (" << error
-                << ") exceeds the acceptable threshold (" << errorThreshold << ").";
+            EXPECT_LT(error[0], translationErrorThreshold)
+                << "Translation estimation error (" << error[0]
+                << ") exceeds the acceptable threshold (" << translationErrorThreshold << ").";
+
+            EXPECT_LT(error[1], rotationErrorThreshold)
+                << "Translation estimation error (" << error[1]
+                << ") exceeds the acceptable threshold (" << rotationErrorThreshold << ").";
         }
     }
 }

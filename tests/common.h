@@ -107,137 +107,24 @@ inline int getFile(std::string source, std::vector<std::string> &files)
     }
 }
 
-inline int getFilesAndTimestamps(std::string dir, std::string file, std::vector<std::string> &files, std::vector<double> &timestamps)
-{
-    std::ifstream f((dir + file).c_str());
-
-    if (f.good() && f.is_open())
-    {
-        std::vector<std::string> lines;
-
-        while (!f.eof())
-        {
-            std::string l;
-            std::getline(f, l);
-
-            l = trim(l);
-
-            if (l == "" || l[0] == '#')
-                continue;
-
-            lines.push_back(l);
-        }
-
-        f.close();
-
-        for (std::string line : lines)
-        {
-            std::stringstream ss(line);
-            std::string timestamp_token;
-            std::string filepath_token;
-            std::getline(ss, timestamp_token, ' ');
-            std::getline(ss, filepath_token, ' ');
-
-            std::string file_path = dir + "/" + filepath_token;
-
-            std::ifstream _f(file_path.c_str());
-
-            if (_f.good())
-            {
-                files.push_back(file_path);
-                timestamps.push_back(std::stod(timestamp_token));
-            }
-        }
-
-        return files.size();
-    }
-    else
-    {
-        f.close();
-        return -1;
-    }
-}
-
-inline int getPosesAndTimestamps(std::string dir, std::string file, std::vector<SE3f> &poses, std::vector<double> &timestamps)
-{
-    std::ifstream f((dir + file).c_str());
-
-    if (f.good() && f.is_open())
-    {
-        std::vector<std::string> lines;
-
-        while (!f.eof())
-        {
-            std::string l;
-            std::getline(f, l);
-
-            l = trim(l);
-
-            if (l == "" || l[0] == '#')
-                continue;
-
-            lines.push_back(l);
-        }
-
-        f.close();
-
-        for (std::string line : lines)
-        {
-            std::stringstream ss(line);
-            std::string token;
-            std::vector<double> values;
-            while (std::getline(ss, token, ' '))
-            {
-                values.push_back(std::stod(token));
-            }
-
-            SE3f pose;
-            pose.setQuaternion(Eigen::Quaternionf(values[7], values[4], values[5], values[6]));
-            pose.translation() = Eigen::Vector3f(values[1], values[2], values[3]);
-
-            poses.push_back(pose);
-            timestamps.push_back(values[0]);
-        }
-
-        return poses.size();
-    }
-    else
-    {
-        f.close();
-        return -1;
-    }
-}
-
-inline SE3f getClosestPose(std::vector<SE3f> poses, std::vector<double> timestamps, double target_timestamp)
-{
-    SE3f closest_pose;
-    double closest_diff = 10000000000.0;
-    for (int i = 0; i < poses.size(); i++)
-    {
-        double timestamp = timestamps[i];
-        SE3f pose = poses[i];
-
-        double diff = std::abs(timestamp - target_timestamp);
-        if (diff < closest_diff)
-        {
-            closest_pose = pose;
-            closest_diff = diff;
-        }
-    }
-    return closest_pose;
-}
-
 // Function to compute error between two SE3 poses
-inline float computeSE3Error(const SE3f &pose_est, const SE3f &pose_gt)
+inline std::array<float, 2> computeSE3Error(const SE3f &pose_est, const SE3f &pose_gt)
 {
     // Compute the relative transformation: error transformation T_error
     SE3f T_error = pose_est.inverse() * pose_gt;
 
+    float translation_error = T_error.translation().norm();
+    float rotation_error = T_error.so3().log().norm();
+
+    std::array<float, 2> error = {translation_error, rotation_error};
+
+    return error;
+
     // Convert T_error to a 6D vector (Lie algebra) representing the error
-    vec6f error_vector = T_error.log();
+    //vec6f error_vector = T_error.log();
 
     // Return the norm of the error vector
-    return error_vector.norm();
+    //return error_vector.norm();
 }
 
 // Function to compute error between two SE3 poses
@@ -311,6 +198,25 @@ public:
     }
 
 protected:
+    SE3f getClosestPose(std::vector<SE3f> poses, std::vector<double> timestamps, double target_timestamp)
+    {
+        SE3f closest_pose;
+        double closest_diff = 10000000000.0;
+        for (int i = 0; i < poses.size(); i++)
+        {
+            double timestamp = timestamps[i];
+            SE3f pose = poses[i];
+
+            double diff = std::abs(timestamp - target_timestamp);
+            if (diff < closest_diff)
+            {
+                closest_pose = pose;
+                closest_diff = diff;
+            }
+        }
+        return closest_pose;
+    }
+
     int w, h;
     float depthFactor;
 
@@ -367,41 +273,12 @@ public:
 
         image_files = image_file_paths;
         depth_files = depth_file_paths;
-        poses = sync_poses;
         timestamps = image_timestamps;
+        poses = sync_poses;
     }
 
 private:
-};
-
-class load_dataset_icl_nuim : public load_dataset_base
-{
-public:
-    load_dataset_icl_nuim()
-        : load_dataset_base()
-    {
-        std::string dataset_path = std::string(TEST_DATA_DIR) + "/traj3n_frei_png_part";
-        std::string assosiations_path = dataset_path + "/associations.txt";
-        std::string pose_path = dataset_path + "/traj3n.gt.freiburg";
-
-        w = 640;
-        h = 480;
-        depthFactor = 5000.0;
-
-        float fx = 481.20;
-        float fy = -480.0;
-        float cx = 319.5;
-        float cy = 239.5;
-
-        cam = cameraType(fx, fy, cx, cy, w, h);
-
-        readAssociationsFile(dataset_path, assosiations_path, image_files, depth_files);
-
-        
-    }
-
-private:
-    int readAssociationsFile(std::string dir, std::string file, std::vector<std::string> &image_files, std::vector<std::string> &depth_files)
+    inline int getFilesAndTimestamps(std::string dir, std::string file, std::vector<std::string> &files, std::vector<double> &timestamps)
     {
         std::ifstream f((dir + file).c_str());
 
@@ -427,26 +304,219 @@ private:
             for (std::string line : lines)
             {
                 std::stringstream ss(line);
-                std::string index_token;
-                std::string depth_token;
-                std::string image_token;
-                std::getline(ss, index_token, ' ');
-                std::getline(ss, depth_token, ' ');
-                std::getline(ss, image_token, ' ');
+                std::string timestamp_token;
+                std::string filepath_token;
+                std::getline(ss, timestamp_token, ' ');
+                std::getline(ss, filepath_token, ' ');
 
-                std::string image_path = dir + "/" + image_token;
-                std::string depth_path = dir + "/" + depth_token;
+                std::string file_path = dir + "/" + filepath_token;
 
-                std::ifstream _f(image_path.c_str());
+                std::ifstream _f(file_path.c_str());
 
                 if (_f.good())
                 {
+                    files.push_back(file_path);
+                    timestamps.push_back(std::stod(timestamp_token));
+                }
+            }
+
+            return files.size();
+        }
+        else
+        {
+            f.close();
+            return -1;
+        }
+    }
+
+    int getPosesAndTimestamps(std::string dir, std::string file, std::vector<SE3f> &poses, std::vector<double> &timestamps)
+    {
+        std::ifstream f((dir + file).c_str());
+
+        if (f.good() && f.is_open())
+        {
+            std::vector<std::string> lines;
+
+            while (!f.eof())
+            {
+                std::string l;
+                std::getline(f, l);
+
+                l = trim(l);
+
+                if (l == "" || l[0] == '#')
+                    continue;
+
+                lines.push_back(l);
+            }
+
+            f.close();
+
+            for (std::string line : lines)
+            {
+                std::stringstream ss(line);
+                std::string token;
+                std::vector<double> values;
+                while (std::getline(ss, token, ' '))
+                {
+                    values.push_back(std::stod(token));
+                }
+
+                SE3f pose;
+                pose.setQuaternion(Eigen::Quaternionf(values[7], values[4], values[5], values[6]));
+                pose.translation() = Eigen::Vector3f(values[1], values[2], values[3]);
+
+                poses.push_back(pose);
+                timestamps.push_back(values[0]);
+            }
+
+            return poses.size();
+        }
+        else
+        {
+            f.close();
+            return -1;
+        }
+    }
+};
+
+class load_dataset_icl_nuim : public load_dataset_base
+{
+public:
+    load_dataset_icl_nuim()
+        : load_dataset_base()
+    {
+        std::string dataset_path = std::string(TEST_DATA_DIR) + "/traj3n_frei_png_part";
+        std::string assosiations_path = "/associations.txt";
+        std::string pose_path = "/traj3n.gt.freiburg";
+
+        w = 640;
+        h = 480;
+        depthFactor = 5000.0;
+
+        float fx = 481.20;
+        float fy = -480.0;
+        float cx = 319.5;
+        float cy = 239.5;
+
+        cam = cameraType(fx, fy, cx, cy, w, h);
+
+        readAssociationsFile(dataset_path, assosiations_path, image_files, depth_files, timestamps);
+
+        std::vector<SE3f> pose_list;
+        std::vector<double> poses_timestamps;
+        getPosesAndTimestamps(dataset_path, pose_path, pose_list, poses_timestamps);
+
+        std::vector<SE3f> sync_poses;
+        for (double timestamp : timestamps)
+        {
+            sync_poses.push_back(getClosestPose(pose_list, poses_timestamps, timestamp));
+        }
+
+        poses = sync_poses;
+    }
+
+private:
+    int readAssociationsFile(std::string dir, std::string file, std::vector<std::string> &image_files, std::vector<std::string> &depth_files, std::vector<double> &timestamps)
+    {
+        std::ifstream f((dir + file).c_str());
+
+        if (f.good() && f.is_open())
+        {
+            std::vector<std::string> lines;
+
+            while (!f.eof())
+            {
+                std::string l;
+                std::getline(f, l);
+
+                l = trim(l);
+
+                if (l == "" || l[0] == '#')
+                    continue;
+
+                lines.push_back(l);
+            }
+
+            f.close();
+
+            for (std::string line : lines)
+            {
+                std::stringstream ss(line);
+                std::string token;
+                std::vector<std::string> tokens;
+                while (std::getline(ss, token, ' '))
+                {
+                    tokens.push_back(token);
+                }
+
+                double image_index = std::stod(tokens[0]);
+                double depth_index = std::stod(tokens[2]);
+                std::string image_path = dir + "/" + tokens[3];
+                std::string depth_path = dir + "/" + tokens[1];
+
+                std::ifstream _f(image_path.c_str());
+                std::ifstream __f(depth_path.c_str());
+
+                if (_f.good() && __f.good())
+                {
                     image_files.push_back(image_path);
                     depth_files.push_back(depth_path);
+                    timestamps.push_back(image_index);
                 }
             }
 
             return image_files.size();
+        }
+        else
+        {
+            f.close();
+            return -1;
+        }
+    }
+
+    int getPosesAndTimestamps(std::string dir, std::string file, std::vector<SE3f> &poses, std::vector<double> &timestamps)
+    {
+        std::ifstream f((dir + file).c_str());
+
+        if (f.good() && f.is_open())
+        {
+            std::vector<std::string> lines;
+
+            while (!f.eof())
+            {
+                std::string l;
+                std::getline(f, l);
+
+                l = trim(l);
+
+                if (l == "" || l[0] == '#')
+                    continue;
+
+                lines.push_back(l);
+            }
+
+            f.close();
+
+            for (std::string line : lines)
+            {
+                std::stringstream ss(line);
+                std::string token;
+                std::vector<double> values;
+                while (std::getline(ss, token, ' '))
+                {
+                    values.push_back(std::stod(token));
+                }
+
+                SE3f pose;
+                pose.setQuaternion(Eigen::Quaternionf(values[7], values[4], values[5], values[6]));
+                pose.translation() = Eigen::Vector3f(values[1], values[2], values[3]);
+
+                poses.push_back(pose);
+                timestamps.push_back(values[0]);
+            }
+
+            return poses.size();
         }
         else
         {

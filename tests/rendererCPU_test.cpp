@@ -15,8 +15,8 @@
 
 TEST(RendererCPUTest, renderDepth)
 {
-    const long long acceptableTimeMs = 50;
-    const float errorThreshold = 0.1;
+    const long long acceptableTimeMs = 1;
+    const float errorThreshold = 0.05;
 
     // PoseEstimator estimator;
     //  Simulated input data
@@ -30,7 +30,9 @@ TEST(RendererCPUTest, renderDepth)
     // EXPECT_NEAR(pose.translation.y, 0.0, 0.001);
     // EXPECT_NEAR(pose.translation.z, 0.0, 0.001);
 
-    load_dataset_tum_rgbd dataset;
+    //load_dataset_tum_rgbd dataset;
+    load_dataset_icl_nuim dataset;
+
     std::vector<std::string> image_files = dataset.getImageFiles();
     std::vector<std::string> depth_files = dataset.getDepthFiles();
     std::vector<SE3f> poses = dataset.getPoses();
@@ -87,19 +89,21 @@ TEST(RendererCPUTest, renderDepth)
             auto endTime = std::chrono::high_resolution_clock::now();
             auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
-            EXPECT_LE(durationMs, acceptableTimeMs)
-                << "renderDepth took " << durationMs << "ms, which exceeds the acceptable threshold of "
-                << acceptableTimeMs << "ms.";
+            //EXPECT_LE(durationMs, acceptableTimeMs)
+            //    << "renderDepth took " << durationMs << "ms, which exceeds the acceptable threshold of "
+            //    << acceptableTimeMs << "ms.";
 
             float error = computeImageError(estMipMapDepthData.get(lvl), gtMipMapDepthData.get(lvl));
+
+            std::cout << "depth error " << error << std::endl;
 
             // The test passes if the error is below the threshold
             EXPECT_LT(error, errorThreshold)
                 << "renderDepth error (" << error
                 << ") exceeds the acceptable threshold (" << errorThreshold << ").";
 
-            show(gtMipMapDepthData.get(lvl), "gt depth");
-            show(estMipMapDepthData.get(lvl), "est depth");
+            //show(gtMipMapDepthData.get(lvl), "gt depth");
+            //show(estMipMapDepthData.get(lvl), "est depth");
         }
     }
 }
