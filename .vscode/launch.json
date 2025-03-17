@@ -11,8 +11,8 @@
             "program": "${workspaceFolder}/build/testapp",
             "args": [
                 //"/home/emanuel/workspace/datasets/desktop_dataset/",
-                //"/datasets/desktop_dataset/"
-                "/media/emanuel/1cad5e38-efe0-4887-bcc6-c9ae353fe1b7/datasets/desktop_dataset/",
+                "/datasets/desktop_dataset/"
+                //"/media/emanuel/1cad5e38-efe0-4887-bcc6-c9ae353fe1b7/datasets/desktop_dataset/",
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
@@ -39,7 +39,7 @@
             "program": "${workspaceFolder}/build/rgbd_dataset",
             "args": [
                 //"/home/emanuel/workspace/datasets/desktop_dataset/",
-                "/datasets/rgbd_datasets/rgbd_dataset_freiburg1_floor/rgb/"
+                "/datasets/rgbd_datasets/traj1_frei_png/rgb/"
                 //"/media/emanuel/1cad5e38-efe0-4887-bcc6-c9ae353fe1b7/datasets/rgbd_dataset/rgbd_dataset_freiburg1_360/rgb/",
             ],
             "stopAtEntry": false,
@@ -94,18 +94,18 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/tum_dataset",
-            //"args": [
-            //    "/datasets/tum_datasets/sequence_48/camera.txt",
-            //    "/datasets/tum_datasets/sequence_48/images/",
-            //    "0",
-            //    "100000"
-            //],
             "args": [
-                "/datasets/LSD_foodcourt/cameraCalibration.cfg",
-                "/datasets/LSD_foodcourt/images/",
+                "/datasets/tum_datasets/sequence_50/camera.txt",
+                "/datasets/tum_datasets/sequence_50/images/",
                 "0",
                 "100000"
             ],
+            //"args": [
+            //    "/datasets/LSD_foodcourt/cameraCalibration.cfg",
+            //    "/datasets/LSD_foodcourt/images/",
+            //    "0",
+            //    "100000"
+            //],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

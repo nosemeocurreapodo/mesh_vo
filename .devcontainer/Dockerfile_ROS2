@@ -8,6 +8,12 @@ xhost +si:localuser:root
 sudo docker run --runtime=nvidia -ti --rm -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix glxgears
 docker run -it -v /home/emanuel/workspace/datasets:/datasets -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix  osrf/ros:rolling-desktop
 
+
+export CR_PAT=YOUR_TOKEN
+echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
+docker build -t ghcr.io/<YOUR_USERNAME>/<IMAGE_NAME>:latest -f Dockerfile.ci .
+docker push ghcr.io/NAMESPACE/IMAGE_NAME:latest
+
 RUN apt-get update &&  DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
   build-essential \
   cmake \
