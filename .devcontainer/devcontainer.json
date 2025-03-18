@@ -10,9 +10,9 @@
 		//"args": { "VARIANT": "3" }
 	},
 	"mounts": [
-		//"source=/home/emanuel/workspace/datasets,target=/datasets,type=bind,consistency=cached",
+		"source=/home/emanuel/workspace/datasets,target=/datasets,type=bind,consistency=cached",
 		//"source=/mnt/nvme0n1p5/datasets,target=/datasets,type=bind,consistency=cached"
-		"source=/media/emanuel/94953a31-3cde-4e27-90d7-3e3184a184a8/datasets,target=/datasets,type=bind,consistency=cached"
+		//"source=/media/emanuel/94953a31-3cde-4e27-90d7-3e3184a184a8/datasets,target=/datasets,type=bind,consistency=cached"
 	  ]
 	// Set *default* container specific settings.json values on container create.
 	//"settings": { 

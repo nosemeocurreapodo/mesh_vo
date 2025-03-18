@@ -23,7 +23,7 @@ TEST(RendererCPUTest, renderDepth)
     // EXPECT_NEAR(pose.translation.y, 0.0, 0.001);
     // EXPECT_NEAR(pose.translation.z, 0.0, 0.001);
 
-    //load_dataset_tum_rgbd dataset;
+    // load_dataset_tum_rgbd dataset;
     load_dataset_icl_nuim dataset;
 
     std::vector<std::string> image_files = dataset.getImageFiles();
@@ -38,6 +38,9 @@ TEST(RendererCPUTest, renderDepth)
     frameCPU frame;
 
     renderCPU renderer(w, h);
+
+    std::chrono::milliseconds accProcessingTime = std::chrono::milliseconds(0);
+    int framesProcessedCounter = 0;
 
     for (unsigned int i = 0; i < image_files.size(); i++)
     {
@@ -70,7 +73,7 @@ TEST(RendererCPUTest, renderDepth)
         {
             kframe = keyFrameCPU(imageData, vec2f(0.0, 0.0), gtPose, 1.0);
             kframe.initGeometryFromDepth(gtDepthData, dataCPU<float>(w, h, 1.0 / mesh_vo::mapping_param_initial_var), cam);
-            //kframe.initGeometryVerticallySmooth(cam);
+            // kframe.initGeometryVerticallySmooth(cam);
         }
         else
         {
@@ -82,23 +85,25 @@ TEST(RendererCPUTest, renderDepth)
             auto endTime = std::chrono::high_resolution_clock::now();
             auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
-            // std::cout << "render depth took " << durationMs << " ms" << std::endl;
-
-            //EXPECT_LE(durationMs, acceptableTimeMs)
-            //    << "renderDepth took " << durationMs << "ms, which exceeds the acceptable threshold of "
-            //    << acceptableTimeMs << "ms.";
+            accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - endTime);
+            framesProcessedCounter++;
 
             float error = computeImageError(estMipMapDepthData.get(lvl), gtMipMapDepthData.get(lvl));
-
-            // std::cout << "depth error " << error << std::endl;
 
             // The test passes if the error is below the threshold
             EXPECT_LT(error, errorThreshold)
                 << "renderDepth error (" << error
                 << ") exceeds the acceptable threshold (" << errorThreshold << ").";
 
-            //show(gtMipMapDepthData.get(lvl), "gt depth");
-            //show(estMipMapDepthData.get(lvl), "est depth");
+            // show(gtMipMapDepthData.get(lvl), "gt depth");
+            // show(estMipMapDepthData.get(lvl), "est depth");
         }
     }
+
+    auto durationMs = accProcessingTime.count() / framesProcessedCounter;
+    std::cout << "Mean processing time " << durationMs << " ms" << std::endl;
+
+    // EXPECT_LE(durationMs, acceptableTimeMs)
+    //     << "Pose estimation took " << durationMs << "ms, which exceeds the acceptable threshold of "
+    //     << acceptableTimeMs << "ms.";
 }

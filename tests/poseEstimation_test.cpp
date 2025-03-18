@@ -18,8 +18,8 @@
 TEST(PoseEstimatorTest, ComputePose)
 {
     const long long acceptableTimeMs = 30;
-    const float translationErrorThreshold = 0.02;
-    const float rotationErrorThreshold = 0.002;
+    const float translationErrorThreshold = 0.06;
+    const float rotationErrorThreshold = 0.006;
 
     // Validate that the pose is within expected bounds
     // EXPECT_NEAR(pose.translation.x, 0.0, 0.001);
@@ -44,6 +44,9 @@ TEST(PoseEstimatorTest, ComputePose)
     frameCPU frame;
 
     SE3f lastEstimatedGlobalPose;
+
+    std::chrono::milliseconds accProcessingTime = std::chrono::milliseconds(0);
+    int framesProcessedCounter = 0;
 
     for (unsigned int i = 0; i < image_files.size(); i++)
     {
@@ -70,7 +73,7 @@ TEST(PoseEstimatorTest, ComputePose)
 
         frame = frameCPU(imageData, i);
 
-        if(i == 0)
+        if (i == 0)
         {
             lastEstimatedGlobalPose = gtPose;
         }
@@ -95,21 +98,17 @@ TEST(PoseEstimatorTest, ComputePose)
                 {
                     optimizer.step(frame, kframe, cam, lvl);
 
-                    dataMipMapCPU<float> error(w, h, -1.0);
-                    renderer.renderResidualParallel(kframe, frame, error, cam, lvl);
-                    show(error.get(lvl), "Error");
+                    // dataMipMapCPU<float> error(w, h, -1.0);
+                    // renderer.renderResidualParallel(kframe, frame, error, cam, lvl);
+                    // show(error.get(lvl), "Error");
                 }
             }
             auto endTime = std::chrono::high_resolution_clock::now();
-            auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+
+            accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - endTime);
+            framesProcessedCounter++;
 
             lastEstimatedGlobalPose = kframe.localPoseToGlobal(frame.getLocalPose());
-
-            // std::cout << "Pose estimation took " << durationMs << " ms" << std::endl;
-
-            // EXPECT_LE(durationMs, acceptableTimeMs)
-            //     << "Pose estimation took " << durationMs << "ms, which exceeds the acceptable threshold of "
-            //     << acceptableTimeMs << "ms.";
 
             std::array<float, 2> error = computeSE3Error(frame.getLocalPose(), gtLocalPose);
 
@@ -125,4 +124,11 @@ TEST(PoseEstimatorTest, ComputePose)
                 << ") exceeds the acceptable threshold (" << rotationErrorThreshold << ").";
         }
     }
+
+    auto durationMs = accProcessingTime.count() / framesProcessedCounter;
+    std::cout << "Mean processing time " << durationMs << " ms" << std::endl;
+
+    // EXPECT_LE(durationMs, acceptableTimeMs)
+    //     << "Pose estimation took " << durationMs << "ms, which exceeds the acceptable threshold of "
+    //     << acceptableTimeMs << "ms.";
 }

@@ -13,10 +13,10 @@
 #include "cpu/GeometryMesh.h"
 #include "threadpoolCPU.h"
 
-class renderCPU
+class renderCPU2
 {
 public:
-    renderCPU(unsigned int width, unsigned int height)
+    renderCPU2(unsigned int width, unsigned int height)
         : z_buffer(width, height, -1)
     {
     }
@@ -1507,7 +1507,6 @@ private:
         }
     }
 
-
     void renderJMapWindow(dataCPU<imageType> &kimage, dataCPU<imageType> &image, dataCPU<jimgType> &d_image_d_pix, SE3f kfTofPose, SE3f fTokfPose, jvelType fTokfVel, dataCPU<jmapType> &jmap_buffer, dataCPU<errorType> &e_buffer, dataCPU<idsType> &pId_buffer, cameraType cam, window<float> win)
     {
         int width = e_buffer.width;
@@ -1892,6 +1891,114 @@ private:
                     else
                         // buffer->set(1.0 / f_depth, y, x, lvl);
                         buffer.setTexel(f_i, f_pix_tex(1), f_pix_tex(0));
+                }
+            }
+        }
+    }
+
+    // Draw a single triangle with perspective-correct texture mapping and z-buffer
+    void drawTriangle(std::vector<Color> &framebuffer,
+                      std::vector<float> &zbuffer,
+                      int width,
+                      int height,
+                      // Projected screen coords (x, y) and reciprocal w for each vertex
+                      float x0, float y0, float invW0, float z0, float u0, float v0,
+                      float x1, float y1, float invW1, float z1, float u1, float v1,
+                      float x2, float y2, float invW2, float z2, float u2, float v2,
+                      const std::vector<Color> &texture,
+                      int texWidth,
+                      int texHeight,
+                      ShapeTriangleFlat triangle,
+                      window<float> win)
+    {
+        // Compute bounding box of the triangle
+        //float minX = std::fmin(std::fmin(x0, x1), x2);
+        //float maxX = std::fmax(std::fmax(x0, x1), x2);
+        //float minY = std::fmin(std::fmin(y0, y1), y2);
+        //float maxY = std::fmax(std::fmax(y0, y1), y2);
+
+        window<float> pol_win = triangle.getScreenBounds();
+
+        // Clamp to screen
+        //int startX = (int)std::floor(std::fmax(0.0f, minX));
+        //int endX = (int)std::ceil(std::fmin((float)width - 1, maxX));
+        //int startY = (int)std::floor(std::fmax(0.0f, minY));
+        //int endY = (int)std::ceil(std::fmin((float)height - 1, maxY));
+
+        pol_win.intersect(win);
+
+        // Precompute the area for the triangle (using edge function)
+        //float area = edgeFunction(x0, y0, x1, y1, x2, y2);
+
+        float area = triangle.getScreenArea();
+
+        //for (int py = startY; py <= endY; ++py)
+        //{
+        //    for (int px = startX; px <= endX; ++px)
+        //    {
+        for (int py = pol_win.min_y; py <= pol_win.max_y; ++py)
+        {
+            for (int px = pol_win.min_x; px <= pol_win.max_x; ++px)
+            {
+                // +0.5f for sampling at pixel center
+                //float fx = px + 0.5f;
+                //float fy = py + 0.5f;
+
+                vec2f pix(px + 0.5f, py + 0.5f);
+
+                // Compute barycentric coordinates
+                //float w0 = edgeFunction(x1, y1, x2, y2, fx, fy);
+                //float w1 = edgeFunction(x2, y2, x0, y0, fx, fy);
+                //float w2 = edgeFunction(x0, y0, x1, y1, fx, fy);
+
+                triangle.usePixel(pix);
+
+
+                //if ((w0 >= 0.0f && w1 >= 0.0f && w2 >= 0.0f && area > 0.0f) ||
+                //    (w0 <= 0.0f && w1 <= 0.0f && w2 <= 0.0f && area < 0.0f))
+                //{
+
+                if(triangle.isPixInShape())
+                {
+                    // Perspective-correct interpolation
+                    // First convert from "raw" barycentric (w0,w1,w2) to normalized
+                    // but also incorporate the per-vertex 1/w.
+                    //float alpha = w0 / area;
+                    //float beta = w1 / area;
+                    //float gamma = w2 / area;
+
+                    // Each vertex had invW = 1.0 / wClip
+                    // Weighted sum of reciprocal W:
+                    float invW = alpha * invW0 + beta * invW1 + gamma * invW2;
+
+                    // Final Z in clip space: we do a similar interpolation
+                    float depth = (alpha * z0 * invW0 +
+                                   beta * z1 * invW1 +
+                                   gamma * z2 * invW2) /
+                                  invW;
+
+                    // Check z-buffer
+                    int index = py * width + px;
+                    if (depth < zbuffer[index])
+                    {
+                        // Compute perspective-correct (u, v)
+                        float u = (alpha * u0 * invW0 +
+                                   beta * u1 * invW1 +
+                                   gamma * u2 * invW2) /
+                                  invW;
+
+                        float v = (alpha * v0 * invW0 +
+                                   beta * v1 * invW1 +
+                                   gamma * v2 * invW2) /
+                                  invW;
+
+                        // Update z-buffer
+                        zbuffer[index] = depth;
+
+                        // Sample the texture
+                        Color texColor = sampleTexture(texture, texWidth, texHeight, u, v);
+                        framebuffer[index] = texColor;
+                    }
                 }
             }
         }
