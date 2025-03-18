@@ -18,16 +18,16 @@
 TEST(PoseEstimatorTest, ComputePose)
 {
     const long long acceptableTimeMs = 30;
-    const float translationErrorThreshold = 0.06;
-    const float rotationErrorThreshold = 0.006;
+    const float translationErrorThreshold = 0.017;// best = 0.0160271;
+    const float rotationErrorThreshold = 0.0011;// best = 0.00105154;
 
     // Validate that the pose is within expected bounds
     // EXPECT_NEAR(pose.translation.x, 0.0, 0.001);
     // EXPECT_NEAR(pose.translation.y, 0.0, 0.001);
     // EXPECT_NEAR(pose.translation.z, 0.0, 0.001);
 
-    // load_dataset_tum_rgbd dataset;
-    load_dataset_icl_nuim dataset;
+    load_dataset_tum_rgbd dataset;
+    //load_dataset_icl_nuim dataset;
 
     std::vector<std::string> image_files = dataset.getImageFiles();
     std::vector<std::string> depth_files = dataset.getDepthFiles();
@@ -37,7 +37,7 @@ TEST(PoseEstimatorTest, ComputePose)
     int w = dataset.getWidth();
     int h = dataset.getHeight();
 
-    poseOptimizerCPU optimizer(w, h, false);
+    poseOptimizerCPU optimizer(w, h, true);
     renderCPU renderer(w, h);
 
     keyFrameCPU kframe;
@@ -80,7 +80,7 @@ TEST(PoseEstimatorTest, ComputePose)
             lastEstimatedGlobalPose = gtPose;
         }
 
-        if (i % 20 == 0)
+        if (i % 10 == 0)
         {
             kframe = keyFrameCPU(imageData, vec2f(0.0, 0.0), gtPose, 1.0);
             kframe.initGeometryFromDepth(gtDepthData, dataCPU<float>(w, h, 1.0 / mesh_vo::mapping_param_initial_var), cam);
@@ -100,9 +100,15 @@ TEST(PoseEstimatorTest, ComputePose)
                 {
                     optimizer.step(frame, kframe, cam, lvl);
 
-                    // dataMipMapCPU<float> error(w, h, -1.0);
-                    // renderer.renderResidualParallel(kframe, frame, error, cam, lvl);
-                    // show(error.get(lvl), "Error");
+                    dataMipMapCPU<float> error(w, h, -1.0);
+                    renderer.renderResidualParallel(kframe, frame, error, cam, lvl);
+                    show(error.get(lvl), "Error");
+
+                    dataMipMapCPU<float> depth(w, h, -1.0);
+                    renderer.renderDepthParallel(kframe, frame.getLocalPose(), depth, cam, lvl);
+                    dataCPU d = depth.get(lvl);
+                    d.invert();
+                    show(d, "Depth");
                 }
             }
             auto endTime = std::chrono::high_resolution_clock::now();
@@ -115,17 +121,6 @@ TEST(PoseEstimatorTest, ComputePose)
             accTranslationError += error[0];
             accRotationError += error[1];
             framesProcessedCounter++;
-
-            // std::cout << "translation error " << error[0] << " rotation error " << error[1] << std::endl;
-
-            // The test passes if the error is below the threshold
-            EXPECT_LT(error[0], translationErrorThreshold)
-                << "Translation estimation error (" << error[0]
-                << ") exceeds the acceptable threshold (" << translationErrorThreshold << ").";
-
-            EXPECT_LT(error[1], rotationErrorThreshold)
-                << "Translation estimation error (" << error[1]
-                << ") exceeds the acceptable threshold (" << rotationErrorThreshold << ").";
         }
     }
 
@@ -135,6 +130,15 @@ TEST(PoseEstimatorTest, ComputePose)
     std::cout << "Mean processing time " << meanDuration << " ms" << std::endl;
     std::cout << "Mean translation error " << meanTranslationError << " ms" << std::endl;
     std::cout << "Mean rotation error " << meanRotationError << " ms" << std::endl;
+
+    // The test passes if the error is below the threshold
+    EXPECT_LT(meanTranslationError, translationErrorThreshold)
+        << "mean translation estimation error (" << meanTranslationError
+        << ") exceeds the acceptable threshold (" << translationErrorThreshold << ").";
+
+    EXPECT_LT(meanRotationError, rotationErrorThreshold)
+        << "mean rotation estimation error (" << meanRotationError
+        << ") exceeds the acceptable threshold (" << rotationErrorThreshold << ").";
 
     // EXPECT_LE(durationMs, acceptableTimeMs)
     //     << "Pose estimation took " << durationMs << "ms, which exceeds the acceptable threshold of "

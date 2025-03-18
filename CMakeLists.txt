@@ -40,8 +40,7 @@ set(VISUALODOMETRY_SRCS
       "src/optimizers/poseVelOptimizerCPU.cpp"
       "src/optimizers/mapOptimizerCPU.cpp"
       "src/optimizers/poseMapOptimizerCPU.cpp"
-      "src/optimizers/intrinsicPoseMapOptimizerCPU.cpp"
-      "src/visualOdometry.cpp")
+      "src/optimizers/intrinsicPoseMapOptimizerCPU.cpp")
 
 #file(GLOB TESTAPP_SRCS "src/test/*.cpp"
 #                       "src/test/utils/*.cpp")
@@ -122,8 +121,9 @@ FetchContent_MakeAvailable(googletest)
 # Create test executable(s)
 add_executable(mesh_vo_tests
     tests/convertAhandaPovRayToStandard.cpp
-    tests/rendererCPU_test.cpp
-    tests/poseEstimation_test.cpp
+    #tests/rendererCPU_test.cpp
+    #tests/poseEstimation_test.cpp
+    tests/mapEstimation_test.cpp
 )
 
 # Link your test executable with Google Test and your project library

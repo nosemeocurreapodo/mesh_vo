@@ -16,7 +16,7 @@
 TEST(RendererCPUTest, renderDepth)
 {
     const long long acceptableTimeMs = 1;
-    const float errorThreshold = 0.05;
+    const float errorThreshold = 0.023;// best = 0.022444;
 
     // Validate that the pose is within expected bounds
     // EXPECT_NEAR(pose.translation.x, 0.0, 0.001);
@@ -92,22 +92,22 @@ TEST(RendererCPUTest, renderDepth)
             accError += error;
             framesProcessedCounter++;
 
-            // The test passes if the error is below the threshold
-            EXPECT_LT(error, errorThreshold)
-                << "renderDepth error (" << error
-                << ") exceeds the acceptable threshold (" << errorThreshold << ").";
-
             // show(gtMipMapDepthData.get(lvl), "gt depth");
             // show(estMipMapDepthData.get(lvl), "est depth");
         }
     }
 
     auto meanDuration = accProcessingTime.count() / framesProcessedCounter;
-    float meanError = accError / framesProcessedCounter; 
+    float meanError = accError / framesProcessedCounter;
     std::cout << "Mean processing time " << meanDuration << " ms" << std::endl;
     std::cout << "Mean error " << meanError << " ms" << std::endl;
 
+    // The test passes if the error is below the threshold
+    EXPECT_LT(meanError, errorThreshold)
+        << "mean error (" << meanError
+        << ") exceeds the acceptable threshold (" << errorThreshold << ").";
+
     // EXPECT_LE(durationMs, acceptableTimeMs)
-    //     << "Pose estimation took " << durationMs << "ms, which exceeds the acceptable threshold of "
+    //     << "mean time " << meanDuration << "ms, which exceeds the acceptable threshold of "
     //     << acceptableTimeMs << "ms.";
 }

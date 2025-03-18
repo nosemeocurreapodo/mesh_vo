@@ -16,14 +16,24 @@
 class mapOptimizerCPU : public baseOptimizerCPU
 {
 public:
-    mapOptimizerCPU(int width, int height);
-    void optimize(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam);
+    mapOptimizerCPU(int width, int height, bool _printLog = false);
+    
+    void init(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl);
+    void step(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl);
+    std::vector<dataCPU<float>> getDebugData(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl);
 
 private:
     DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl);
 
-    dataMipMapCPU<jmapType> j_buffer;
+    dataMipMapCPU<jmapType> jmap_buffer;
     dataMipMapCPU<idsType> pId_buffer;
 
     matxf invCovariance;
+
+    vecxf init_params;
+    matxf init_invcovariance;
+    matxf init_invcovariancesqrt;
+    float init_error;
+
+    bool printLog;
 };
