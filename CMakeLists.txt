@@ -121,8 +121,8 @@ FetchContent_MakeAvailable(googletest)
 # Create test executable(s)
 add_executable(mesh_vo_tests
     tests/convertAhandaPovRayToStandard.cpp
-    #tests/rendererCPU_test.cpp
-    #tests/poseEstimation_test.cpp
+    tests/rendererCPU_test.cpp
+    tests/poseEstimation_test.cpp
     tests/mapEstimation_test.cpp
 )
 

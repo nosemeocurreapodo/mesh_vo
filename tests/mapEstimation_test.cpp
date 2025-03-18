@@ -25,8 +25,8 @@ TEST(MapEstimatorTest, ComputeMapFromInitial)
     // EXPECT_NEAR(pose.translation.y, 0.0, 0.001);
     // EXPECT_NEAR(pose.translation.z, 0.0, 0.001);
 
-    load_dataset_tum_rgbd dataset;
-    //load_dataset_icl_nuim dataset;
+    //load_dataset_tum_rgbd dataset;
+    load_dataset_icl_nuim dataset;
 
     std::vector<std::string> image_files = dataset.getImageFiles();
     std::vector<std::string> depth_files = dataset.getDepthFiles();
@@ -36,17 +36,16 @@ TEST(MapEstimatorTest, ComputeMapFromInitial)
     int w = dataset.getWidth();
     int h = dataset.getHeight();
 
-    mapOptimizerCPU optimizer(w, h, true);
-    renderCPU renderer(w, h);
-
-    keyFrameCPU kframe;
-    std::vector<frameCPU> frames;
-
     std::chrono::milliseconds accProcessingTime = std::chrono::milliseconds(0);
     float accError = 0;
     int framesProcessedCounter = 0;
 
-    for (unsigned int i = 0; i < image_files.size(); i += 5)
+    mapOptimizerCPU optimizer(w, h, false);
+    renderCPU renderer(w, h);
+    keyFrameCPU kframe;
+    std::vector<frameCPU> frames;
+
+    for (unsigned int i = 0; i < image_files.size(); i ++)
     {
         cv::Mat image = cv::imread(image_files[i], cv::IMREAD_GRAYSCALE);
         cv::Mat gtDepth = cv::imread(depth_files[i], cv::IMREAD_GRAYSCALE);
@@ -71,18 +70,19 @@ TEST(MapEstimatorTest, ComputeMapFromInitial)
 
         if(i == 0)
         {
-            keyFrameCPU kframe(imageData, vec2f(0.0, 0.0), gtPose, 1.0);
+            kframe = keyFrameCPU(imageData, vec2f(0.0, 0.0), gtPose, 1.0);
             kframe.initGeometryVerticallySmooth(cam);
             continue;
         }
 
         frameCPU frame(imageData, i);
         frame.setGlobalPose(gtPose);
+        frame.setLocalPose(kframe.globalPoseToLocal(gtPose));
 
-        float minViewAngle = 1000000000.0;
+        float minViewAngle = M_PI;
         for(int i = 0; i < frames.size(); i++)
         {
-            float viewAngle = meanViewAngle(kframe, frame, frames[i]);
+            float viewAngle = kframe.meanViewAngle(frame.getLocalPose(), frames[i].getLocalPose());
             if(viewAngle < minViewAngle)
                 minViewAngle = viewAngle;
         }
@@ -104,6 +104,9 @@ TEST(MapEstimatorTest, ComputeMapFromInitial)
         std::vector<frameCPU> oframes = frames;
         oframes.erase(oframes.begin() + kframeIndex);
 
+        kframe = keyFrameCPU(frames[kframeIndex].getRawImage(0), vec2f(0.0, 0.0), frames[kframeIndex].getGlobalPose(), 1.0);
+        kframe.initGeometryVerticallySmooth(cam);
+
         for (int i = 0; i < oframes.size(); i++)
         {
             oframes[i].setLocalPose(kframe.globalPoseToLocal(oframes[i].getGlobalPose()));
@@ -116,24 +119,24 @@ TEST(MapEstimatorTest, ComputeMapFromInitial)
             while (!optimizer.converged())
             {
                 optimizer.step(oframes, kframe, cam, lvl);
-
-                dataMipMapCPU<float> error(w, h, -1.0);
-                renderer.renderResidualParallel(kframe, oframes[oframes.size() - 1], error, cam, lvl);
-                show(error.get(lvl), "Error");
-
-                dataMipMapCPU<float> depth(w, h, -1.0);
-                renderer.renderDepthParallel(kframe, oframes[oframes.size() - 1].getLocalPose(), depth, cam, lvl);
-                dataCPU d = depth.get(lvl);
-                d.invert();
-                show(d, "Depth");
             }
         }
         auto endTime = std::chrono::high_resolution_clock::now();
 
-        dataMipMapCPU<float> estMipMapDepthData(w, h, 0);
+        /*
+        dataMipMapCPU<float> error_buffer(w, h, -1.0);
+        renderer.renderResidualParallel(kframe, oframes[oframes.size() - 1], error_buffer, cam, 1);
+        show(error_buffer.get(1), "Error");
 
+        dataMipMapCPU<float> depth_buffer(w, h, -1.0);
+        renderer.renderDepthParallel(kframe, oframes[oframes.size() - 1].getLocalPose(), depth_buffer, cam, 1);
+        dataCPU d = depth_buffer.get(1);
+        d.invert();
+        show(d, "Depth");
+        */
+
+        dataMipMapCPU<float> estMipMapDepthData(w, h, -1);
         renderer.renderDepthParallel(kframe, oframes[oframes.size() - 1].getLocalPose(), estMipMapDepthData, cam, 0);
-
         float error = computeImageError(estMipMapDepthData.get(0), gtDepthData);
 
         accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);

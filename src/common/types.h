@@ -69,6 +69,9 @@ class pinholeDistortedCamera;
 
 using cameraType = pinholeCamera;
 
+class keyFrameCPU;
+class frameCPU;
+
 using imageType = float;
 using errorType = float;
 using jimgType = vec2f;

@@ -294,7 +294,7 @@ private:
                 float lastMinViewAngle = M_PI;
                 for (frameCPU f : frameStack)
                 {
-                    float lastViewAngle = meanViewAngle(kframe, kframe.globalPoseToLocal(f.getGlobalPose()), kframe.globalPoseToLocal(frame.getGlobalPose()));
+                    float lastViewAngle = kframe.meanViewAngle(kframe.globalPoseToLocal(f.getGlobalPose()), kframe.globalPoseToLocal(frame.getGlobalPose()));
                     if (lastViewAngle < lastMinViewAngle)
                         lastMinViewAngle = lastViewAngle;
                 }
@@ -313,7 +313,7 @@ private:
             if (frameStack.size() < mesh_vo::num_frames)
                 continue;
 
-            float keyframeViewAngle = meanViewAngle(kframe, SE3f(), kframe.globalPoseToLocal(frame.getGlobalPose()));
+            float keyframeViewAngle = kframe.meanViewAngle(SE3f(), kframe.globalPoseToLocal(frame.getGlobalPose()));
 
             image_buffer.setToNoData(1);
             renderer.renderImageParallel(kframe, kframe.globalPoseToLocal(frame.getGlobalPose()), image_buffer, cam, 1);
@@ -484,7 +484,7 @@ private:
                 float lastMinViewAngle = M_PI;
                 for (frameCPU f : frameStack)
                 {
-                    float lastViewAngle = meanViewAngle(kframe, f.getLocalPose(), frame.getLocalPose());
+                    float lastViewAngle = kframe.meanViewAngle(f.getLocalPose(), frame.getLocalPose());
                     if (lastViewAngle < lastMinViewAngle)
                         lastMinViewAngle = lastViewAngle;
                 }
@@ -502,7 +502,7 @@ private:
                 if (frameStack.size() < mesh_vo::num_frames)
                     continue;
 
-                float keyframeViewAngle = meanViewAngle(kframe, SE3f(), frame.getLocalPose());
+                float keyframeViewAngle = kframe.meanViewAngle(SE3f(), frame.getLocalPose());
 
                 image_buffer.setToNoData(1);
                 renderer.renderImageParallel(kframe, frame.getLocalPose(), image_buffer, cam, 1);
