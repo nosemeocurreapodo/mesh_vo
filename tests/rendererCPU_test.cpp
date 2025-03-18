@@ -40,6 +40,7 @@ TEST(RendererCPUTest, renderDepth)
     renderCPU renderer(w, h);
 
     std::chrono::milliseconds accProcessingTime = std::chrono::milliseconds(0);
+    float accError = 0;
     int framesProcessedCounter = 0;
 
     for (unsigned int i = 0; i < image_files.size(); i++)
@@ -85,10 +86,11 @@ TEST(RendererCPUTest, renderDepth)
             auto endTime = std::chrono::high_resolution_clock::now();
             auto durationMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
-            accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - endTime);
-            framesProcessedCounter++;
-
             float error = computeImageError(estMipMapDepthData.get(lvl), gtMipMapDepthData.get(lvl));
+
+            accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+            accError += error;
+            framesProcessedCounter++;
 
             // The test passes if the error is below the threshold
             EXPECT_LT(error, errorThreshold)
@@ -100,8 +102,10 @@ TEST(RendererCPUTest, renderDepth)
         }
     }
 
-    auto durationMs = accProcessingTime.count() / framesProcessedCounter;
-    std::cout << "Mean processing time " << durationMs << " ms" << std::endl;
+    auto meanDuration = accProcessingTime.count() / framesProcessedCounter;
+    float meanError = accError / framesProcessedCounter; 
+    std::cout << "Mean processing time " << meanDuration << " ms" << std::endl;
+    std::cout << "Mean error " << meanError << " ms" << std::endl;
 
     // EXPECT_LE(durationMs, acceptableTimeMs)
     //     << "Pose estimation took " << durationMs << "ms, which exceeds the acceptable threshold of "

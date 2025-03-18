@@ -1896,16 +1896,20 @@ private:
         }
     }
 
+    /*
     // Draw a single triangle with perspective-correct texture mapping and z-buffer
-    void drawTriangle(std::vector<Color> &framebuffer,
-                      std::vector<float> &zbuffer,
-                      int width,
-                      int height,
+    void drawTriangle(//std::vector<Color> &framebuffer,
+                      //std::vector<float> &zbuffer,
+                      dataCPU<float> &framebuffer,
+                      dataCPU<float> &zbuffer,
+                      //int width,
+                      //int height,
                       // Projected screen coords (x, y) and reciprocal w for each vertex
-                      float x0, float y0, float invW0, float z0, float u0, float v0,
-                      float x1, float y1, float invW1, float z1, float u1, float v1,
-                      float x2, float y2, float invW2, float z2, float u2, float v2,
-                      const std::vector<Color> &texture,
+                      //float x0, float y0, float invW0, float z0, float u0, float v0,
+                      //float x1, float y1, float invW1, float z1, float u1, float v1,
+                      //float x2, float y2, float invW2, float z2, float u2, float v2,
+                      //const std::vector<Color> &texture,
+                      dataCPU<float> &texture,
                       int texWidth,
                       int texHeight,
                       ShapeTriangleFlat triangle,
@@ -1930,7 +1934,7 @@ private:
         // Precompute the area for the triangle (using edge function)
         //float area = edgeFunction(x0, y0, x1, y1, x2, y2);
 
-        float area = triangle.getScreenArea();
+        //float area = triangle.getScreenArea();
 
         //for (int py = startY; py <= endY; ++py)
         //{
@@ -1969,17 +1973,21 @@ private:
 
                     // Each vertex had invW = 1.0 / wClip
                     // Weighted sum of reciprocal W:
-                    float invW = alpha * invW0 + beta * invW1 + gamma * invW2;
+                    //float invW = alpha * invW0 + beta * invW1 + gamma * invW2;
+                    float invW = triangle.getInvDepth();
 
                     // Final Z in clip space: we do a similar interpolation
-                    float depth = (alpha * z0 * invW0 +
-                                   beta * z1 * invW1 +
-                                   gamma * z2 * invW2) /
-                                  invW;
+                    //float depth = (alpha * z0 * invW0 +
+                    //               beta * z1 * invW1 +
+                    //               gamma * z2 * invW2) /
+                    //              invW;
+
+                    float depth = triangle.getDepth();
 
                     // Check z-buffer
-                    int index = py * width + px;
-                    if (depth < zbuffer[index])
+                    //int index = py * width + px;
+                    //if (depth < zbuffer[index])
+                    if(depth < zbuffer.getTexel(px, py))
                     {
                         // Compute perspective-correct (u, v)
                         float u = (alpha * u0 * invW0 +
@@ -1993,16 +2001,21 @@ private:
                                   invW;
 
                         // Update z-buffer
-                        zbuffer[index] = depth;
+                        //zbuffer[index] = depth;
+                        zbuffer.setTexel(depth, px, py);
 
                         // Sample the texture
-                        Color texColor = sampleTexture(texture, texWidth, texHeight, u, v);
-                        framebuffer[index] = texColor;
+                        //Color texColor = sampleTexture(texture, texWidth, texHeight, u, v);
+                        //framebuffer[index] = texColor;
+
+                        float texColor = texture.get(u, v);
+                        framebuffer.setTexel(texColor, px, py);
                     }
                 }
             }
         }
     }
+    */
 
     geometryType scene1;
     geometryType scene2;

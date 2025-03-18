@@ -46,6 +46,8 @@ TEST(PoseEstimatorTest, ComputePose)
     SE3f lastEstimatedGlobalPose;
 
     std::chrono::milliseconds accProcessingTime = std::chrono::milliseconds(0);
+    float accTranslationError = 0;
+    float accRotationError = 0;
     int framesProcessedCounter = 0;
 
     for (unsigned int i = 0; i < image_files.size(); i++)
@@ -105,12 +107,14 @@ TEST(PoseEstimatorTest, ComputePose)
             }
             auto endTime = std::chrono::high_resolution_clock::now();
 
-            accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - endTime);
-            framesProcessedCounter++;
-
             lastEstimatedGlobalPose = kframe.localPoseToGlobal(frame.getLocalPose());
 
             std::array<float, 2> error = computeSE3Error(frame.getLocalPose(), gtLocalPose);
+
+            accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+            accTranslationError += error[0];
+            accRotationError += error[1];
+            framesProcessedCounter++;
 
             // std::cout << "translation error " << error[0] << " rotation error " << error[1] << std::endl;
 
@@ -125,8 +129,12 @@ TEST(PoseEstimatorTest, ComputePose)
         }
     }
 
-    auto durationMs = accProcessingTime.count() / framesProcessedCounter;
-    std::cout << "Mean processing time " << durationMs << " ms" << std::endl;
+    auto meanDuration = accProcessingTime.count() / framesProcessedCounter;
+    float meanTranslationError = accTranslationError / framesProcessedCounter;
+    float meanRotationError = accRotationError / framesProcessedCounter;
+    std::cout << "Mean processing time " << meanDuration << " ms" << std::endl;
+    std::cout << "Mean translation error " << meanTranslationError << " ms" << std::endl;
+    std::cout << "Mean rotation error " << meanRotationError << " ms" << std::endl;
 
     // EXPECT_LE(durationMs, acceptableTimeMs)
     //     << "Pose estimation took " << durationMs << "ms, which exceeds the acceptable threshold of "

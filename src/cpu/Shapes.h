@@ -331,50 +331,72 @@ public:
     float getDepth()
     {
         // float ray_depth = vertices[0].dot(normal) / ray.dot(normal);
-        float ray_depth = m_barycentric(0) * m_vert0.ver(2) +
-                          m_barycentric(1) * m_vert1.ver(2) +
-                          m_barycentric(2) * m_vert2.ver(2);
+        float depth = m_barycentric(0) * m_vert0.ver(2) +
+                      m_barycentric(1) * m_vert1.ver(2) +
+                      m_barycentric(2) * m_vert2.ver(2);
 
-        return ray_depth;
+        return depth;
     }
 
     float getWeight()
     {
         // float ray_depth = vertices[0].dot(normal) / ray.dot(normal);
-        float ray_weight = m_barycentric(0) * m_vert0.weight +
-                           m_barycentric(1) * m_vert1.weight +
-                           m_barycentric(2) * m_vert2.weight;
+        float weight = m_barycentric(0) * m_vert0.weight +
+                       m_barycentric(1) * m_vert1.weight +
+                       m_barycentric(2) * m_vert2.weight;
 
-        return ray_weight;
+        return weight;
     }
 
-    //I think these are incorrect, projective geometry does not allow to use the same barycentrics
-    //I have to get the original 3D point, then project it to the other camera
     /*
     vec2f getPix(ShapeTriangleFlat &shape)
     {
-        vec2f pix = shape.m_vert0.pix * m_barycentric(0) +
-                    shape.m_vert1.pix * m_barycentric(1) +
-                    shape.m_vert2.pix * m_barycentric(2);
+        float invW = m_barycentric(0) / m_vert0.ver(2) +
+                     m_barycentric(1) / m_vert1.ver(2) +
+                     m_barycentric(2) / m_vert2.ver(2);
+
+        // Compute perspective-correct (u, v)
+        float u = (m_barycentric(0) * shape.m_vert0.pix(0) / m_vert0.ver(2) +
+                   m_barycentric(1) * shape.m_vert1.pix(0) / m_vert1.ver(2) +
+                   m_barycentric(2) * shape.m_vert2.pix(0) / m_vert2.ver(2)) /
+                  invW;
+
+        float v = (m_barycentric(0) * shape.m_vert0.pix(1) / m_vert0.ver(2) +
+                   m_barycentric(1) * shape.m_vert1.pix(1) / m_vert1.ver(2) +
+                   m_barycentric(2) * shape.m_vert2.pix(1) / m_vert2.ver(2)) /
+                  invW;
+
+        return vec2f(u, v);
+    }
+    */
+
+    // I am not sure that these are correct, projective geometry does not allow to use the same barycentrics
+    // I use a corrected barycentric, taken from an implementation by chatgpu
+    // I think these are the ones used in GPUs
+    // otherwise, I have to get the original 3D point, then project it to the other camera
+    vec2f getPix(ShapeTriangleFlat &shape)
+    {
+        vec2f pix = shape.m_vert0.pix * m_corrBarycentric(0) +
+                    shape.m_vert1.pix * m_corrBarycentric(1) +
+                    shape.m_vert2.pix * m_corrBarycentric(2);
         return pix;
     }
 
     vec3f getRay(ShapeTriangleFlat &shape)
     {
-        vec3f ray = shape.m_vert0.ray * m_barycentric(0) +
-                    shape.m_vert1.ray * m_barycentric(1) +
-                    shape.m_vert2.ray * m_barycentric(2);
+        vec3f ray = shape.m_vert0.ray * m_corrBarycentric(0) +
+                    shape.m_vert1.ray * m_corrBarycentric(1) +
+                    shape.m_vert2.ray * m_corrBarycentric(2);
         return ray;
     }
 
     float getDepth(ShapeTriangleFlat &shape)
     {
-        float depth = shape.m_vert0.ver(2) * m_barycentric(0) +
-                      shape.m_vert1.ver(2) * m_barycentric(1) +
-                      shape.m_vert2.ver(2) * m_barycentric(2);
+        float depth = shape.m_vert0.ver(2) * m_corrBarycentric(0) +
+                      shape.m_vert1.ver(2) * m_corrBarycentric(1) +
+                      shape.m_vert2.ver(2) * m_corrBarycentric(2);
         return depth;
     }
-    */
 
     bool isPixInShape()
     {
@@ -460,6 +482,14 @@ private:
         m_barycentric(0) = m_p_m1.dot(diff) / m_p_denominator;
         m_barycentric(1) = m_p_m2.dot(diff) / m_p_denominator;
         m_barycentric(2) = 1.0f - m_barycentric(0) - m_barycentric(1);
+
+        float invW = m_barycentric(0) / m_vert0.ver(2) +
+                     m_barycentric(1) / m_vert1.ver(2) +
+                     m_barycentric(2) / m_vert2.ver(2);
+
+        m_corrBarycentric(0) = (m_barycentric(0) / m_vert0.ver(2)) / invW;
+        m_corrBarycentric(1) = (m_barycentric(1) / m_vert1.ver(2)) / invW;
+        m_corrBarycentric(2) = (m_barycentric(2) / m_vert2.ver(2)) / invW;
     }
 
     vertex m_vert0;
@@ -471,6 +501,7 @@ private:
     int m_paramId2;
 
     vec3f m_barycentric;
+    vec3f m_corrBarycentric;
 
     vec2f m_p_m1;
     vec2f m_p_m2;

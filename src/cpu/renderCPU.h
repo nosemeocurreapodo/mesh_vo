@@ -951,9 +951,11 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    vec3f kf_ver = fTokfPose * f_ver;
-                    vec3f kf_ray = kf_ver / kf_ver(2);
-                    vec2f kf_pix = cam.rayToPix(kf_ray);
+                    //vec3f kf_ver = fTokfPose * f_ver;
+                    //vec3f kf_ray = kf_ver / kf_ver(2);
+                    //vec2f kf_pix = cam.rayToPix(kf_ray);
+
+                    vec2f kf_pix = f_pol.getPix(kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
@@ -1193,9 +1195,11 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    vec3f kf_ver = fTokfPose * f_ver;
-                    vec3f kf_ray = kf_ver / kf_ver(2);
-                    vec2f kf_pix = cam.rayToPix(kf_ray);
+                    //vec3f kf_ver = fTokfPose * f_ver;
+                    //vec3f kf_ray = kf_ver / kf_ver(2);
+                    //vec2f kf_pix = cam.rayToPix(kf_ray);
+
+                    vec2f kf_pix = f_pol.getPix(kf_pol);
 
                     if (!cam.isPixVisible(kf_pix))
                         continue;
