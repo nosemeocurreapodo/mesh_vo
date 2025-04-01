@@ -22,9 +22,9 @@ public:
         cx = _cx / _width;
         cy = _cy / _height;
 
-        //float alpha = std::exp(-imageExp(0));
-        //float beta = imageExp(1);
-        //imageType f_i_cor = alpha * (f_i - beta);
+        // float alpha = std::exp(-imageExp(0));
+        // float beta = imageExp(1);
+        // imageType f_i_cor = alpha * (f_i - beta);
     }
 
     pinholeCamera(const pinholeCamera &other)
@@ -33,6 +33,21 @@ public:
         fy = other.fy;
         cx = other.cx;
         cy = other.cy;
+    }
+
+    mat4f getProjectiveMatrix(float znear, float zfar)
+    {
+        mat4f projmat;
+
+        projmat(0, 0) = 2.0f * fx;
+        projmat(1, 1) = 2.0f * fy;
+        projmat(2, 0) = 1.0f - 2.0f * cx;
+        projmat(2, 1) = -1.0f + 2.0f * cy;
+        projmat(2, 2) = -(zfar + znear) / (zfar - znear);
+        projmat(2, 3) = -1.0f;
+        projmat(3, 2) = -2.0f * zfar * znear / (zfar - znear);
+
+        return projmat;
     }
 
     bool isPixVisible(vec2f pix)
@@ -163,7 +178,6 @@ private:
 class pinholeDistortedCamera
 {
 public:
-
     pinholeDistortedCamera()
     {
         fx = 0;
@@ -284,7 +298,6 @@ public:
         return d_pix_d_int;
     }
 
-    
     vec3f pixToRay(vec2f pix)
     {
         vec3f distRay;
@@ -293,7 +306,7 @@ public:
         distRay(2) = 1.0;
 
         vec3f ray = correctRay(distRay);
-        
+
         return ray;
     }
 
@@ -441,16 +454,17 @@ private:
     {
         vec3f cRay = distRay;
         const int maxIterations = 5; // Number of iterations (adjust if needed)
-        for (int i = 0; i < maxIterations; i++) {
+        for (int i = 0; i < maxIterations; i++)
+        {
             float r2 = cRay(0) * cRay(0) + cRay(1) * cRay(1);
-            //float r4 = r2 * r2;
-            //float r6 = r4 * r2;
-            // Radial distortion factor.
-            float radial = 1 + k1 * r2;// + k2 * r4 + k3 * r6;
+            // float r4 = r2 * r2;
+            // float r6 = r4 * r2;
+            //  Radial distortion factor.
+            float radial = 1 + k1 * r2; // + k2 * r4 + k3 * r6;
             // Tangential distortion components.
-            float deltaX = 0.0; //2 * p1 * cRay(0) * cRay(1) + p2 * (r2 + 2 * cRay(0) * cRay(0));
-            float deltaY = 0.0; //p1 * (r2 + 2 * cRay(1) * cRay(1)) + 2 * p2 * cRay(0) * cRay(1);
-            
+            float deltaX = 0.0; // 2 * p1 * cRay(0) * cRay(1) + p2 * (r2 + 2 * cRay(0) * cRay(0));
+            float deltaY = 0.0; // p1 * (r2 + 2 * cRay(1) * cRay(1)) + 2 * p2 * cRay(0) * cRay(1);
+
             // Compute the undistorted estimate from the distorted normalized coordinates.
             cRay(0) = (distRay(0) - deltaX) / radial;
             cRay(1) = (distRay(1) - deltaY) / radial;

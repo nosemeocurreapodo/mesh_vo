@@ -25,6 +25,7 @@ using vecxi = Eigen::Matrix<int, Eigen::Dynamic, 1>;
 template <typename type, int rows, int cols>
 using mat = Eigen::Matrix<type, rows, cols>;
 using mat3f = Eigen::Matrix<float, 3, 3>;
+using mat4f = Eigen::Matrix<float, 4, 4>;
 using mat6f = Eigen::Matrix<float, 6, 6>;
 using matxf = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>;
 

@@ -119,18 +119,24 @@ FetchContent_MakeAvailable(googletest)
 
 
 # Create test executable(s)
-add_executable(mesh_vo_tests
-    tests/convertAhandaPovRayToStandard.cpp
-    tests/rendererCPU_test.cpp
-    tests/poseEstimation_test.cpp
-    tests/mapEstimation_test.cpp
-)
 
-# Link your test executable with Google Test and your project library
-target_link_libraries(mesh_vo_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
+# Create test executable(s)
+add_executable(renderer_tests tests/rendererCPU_test.cpp)
+target_link_libraries(renderer_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
+target_compile_definitions(renderer_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+add_test(NAME renderer_tests COMMAND renderer_tests)
 
-# Pass the absolute path to the test data directory as a compile definition
-target_compile_definitions(mesh_vo_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+add_executable(poseEstimation_tests tests/poseEstimation_test.cpp)
+target_link_libraries(poseEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
+target_compile_definitions(poseEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+add_test(NAME poseEstimation_tests COMMAND poseEstimation_tests)
 
-# Register the test with CTest
-add_test(NAME mesh_vo_tests COMMAND mesh_vo_tests)
+add_executable(poseVelEstimation_tests tests/poseVelEstimation_test.cpp)
+target_link_libraries(poseVelEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
+target_compile_definitions(poseVelEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+add_test(NAME poseVelEstimation_tests COMMAND poseVelEstimation_tests)
+
+add_executable(mapEstimation_tests tests/mapEstimation_test.cpp)
+target_link_libraries(mapEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
+target_compile_definitions(mapEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+add_test(NAME mapEstimation_tests COMMAND mapEstimation_tests)

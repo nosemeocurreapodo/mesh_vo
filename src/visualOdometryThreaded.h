@@ -105,7 +105,7 @@ public:
         doMapping = _doMapping;
         doVisualization = _doVisualization;
 
-        // tLocalization = std::thread(&visualOdometryThreaded::voThread, this);
+        tLocalization = std::thread(&visualOdometryThreaded::voThread, this);
         //  tLocalization = std::thread(&visualOdometryThreaded::localizationThread, this);
         //  tMapping = std::thread(&visualOdometryThreaded::mappingThread, this);
 
@@ -455,11 +455,11 @@ private:
                         poseOptimizer.step(frame, kframe, cam, lvl);
                         if (poseOptimizer.converged())
                         {
-                            //     if (plotDebug)
-                            //     {
-                            //         std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
-                            //         debugLocalizationQueue.push(debugData);
-                            //     }
+                            if (doVisualization)
+                            {
+                                std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
+                                debugLocalizationQueue.push(debugData);
+                            }
                             break;
                         }
                     }
@@ -561,11 +561,11 @@ private:
             tt.tic();
             poseMapOptimizer.step(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
             std::cout << "mapping time " << tt.toc() << std::endl;
-            // if (plotDebug)
-            //{
-            //     std::vector<dataCPU<float>> debugData = poseMapOptimizer.getDebugData(keyframes, kframe, cam, 1);
-            //     debugMappingQueue.push(debugData);
-            // }
+            if (doVisualization)
+            {
+                std::vector<dataCPU<float>> debugData = poseMapOptimizer.getDebugData(keyframes, kframe, cam, 1);
+                debugMappingQueue.push(debugData);
+            }
 
             // update the global poses
             for (size_t i = 0; i < keyframes.size(); i++)

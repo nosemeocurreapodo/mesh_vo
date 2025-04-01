@@ -10,10 +10,10 @@
 #include "opencv2/opencv.hpp"
 
 #include "common.h"
-#include "devices/cpu/renderCPU.h"
-#include "devices/cpu/OpenCVDebug.h"
+#include "devices/opengl/renderGPU.h"
+#include "devices/opengl/OpenCVDebug.h"
 
-TEST(RendererCPUTest, renderDepth)
+TEST(RendererGPUTest, renderDepth)
 {
     const long long acceptableTimeMs = 1;
     const float errorThreshold = 0.023; // best = 0.022444;
@@ -37,7 +37,7 @@ TEST(RendererCPUTest, renderDepth)
     keyFrameCPU kframe;
     frameCPU frame;
 
-    renderCPU renderer(w, h);
+    renderGPU renderer(w, h);
 
     std::chrono::milliseconds accProcessingTime = std::chrono::milliseconds(0);
     float accError = 0;

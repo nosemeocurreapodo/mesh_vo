@@ -7,11 +7,42 @@
 #include "common/types.h"
 #include "common/camera.h"
 #include "common/window.h"
-#include "cpu/dataCPU.h"
-#include "cpu/frameCPU.h"
-#include "cpu/keyFrameCPU.h"
-#include "cpu/GeometryMesh.h"
+#include "devices/cpu/dataCPU.h"
+#include "devices/cpu/frameCPU.h"
+#include "devices/cpu/keyFrameCPU.h"
+#include "devices/cpu/GeometryVertices.h"
+#include "devices/cpu/GeometryMesh.h"
 #include "threadpoolCPU.h"
+
+class BaseRendererCPU
+{
+    BaseRendererCPU()
+    {
+    }
+
+    void transform(GeometryVertices vertices, SE3f pose)
+    {
+        for (int it = 0; it < vertices.size(); ++it)
+        {
+            if (!m_vertices[it].used)
+                continue;
+            vec3f ver = pose * m_vertices[it].ver;
+            m_vertices[it].ver = ver;
+        }
+    }
+
+    void project(GeometryVertices vertices, cameraType cam)
+    {
+        for (int it = 0; it < mesh_vo::max_vertex_size; ++it)
+        {
+            if (!m_vertices[it].used)
+                continue;
+            m_vertices[it].ray = m_vertices[it].ver / m_vertices[it].ver(2);
+            m_vertices[it].pix = cam.rayToPix(m_vertices[it].ray);
+        }
+    }
+
+}
 
 class renderCPU
 {
@@ -951,9 +982,9 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    //vec3f kf_ver = fTokfPose * f_ver;
-                    //vec3f kf_ray = kf_ver / kf_ver(2);
-                    //vec2f kf_pix = cam.rayToPix(kf_ray);
+                    // vec3f kf_ver = fTokfPose * f_ver;
+                    // vec3f kf_ray = kf_ver / kf_ver(2);
+                    // vec2f kf_pix = cam.rayToPix(kf_ray);
 
                     vec2f kf_pix = f_pol.getPix(kf_pol);
 
@@ -1195,9 +1226,9 @@ private:
                     if (l_depth < f_depth && l_depth != z_buffer.nodata)
                         continue;
 
-                    //vec3f kf_ver = fTokfPose * f_ver;
-                    //vec3f kf_ray = kf_ver / kf_ver(2);
-                    //vec2f kf_pix = cam.rayToPix(kf_ray);
+                    // vec3f kf_ver = fTokfPose * f_ver;
+                    // vec3f kf_ray = kf_ver / kf_ver(2);
+                    // vec2f kf_pix = cam.rayToPix(kf_ray);
 
                     vec2f kf_pix = f_pol.getPix(kf_pol);
 
@@ -1510,7 +1541,6 @@ private:
             }
         }
     }
-
 
     void renderJMapWindow(dataCPU<imageType> &kimage, dataCPU<imageType> &image, dataCPU<jimgType> &d_image_d_pix, SE3f kfTofPose, SE3f fTokfPose, jvelType fTokfVel, dataCPU<jmapType> &jmap_buffer, dataCPU<errorType> &e_buffer, dataCPU<idsType> &pId_buffer, cameraType cam, window<float> win)
     {
