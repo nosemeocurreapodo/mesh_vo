@@ -191,7 +191,7 @@ int main(int argc, char **argv)
 	int runningIDX = 0;
 	float fakeTimeStamp = 0;
 
-	cameraType cam(fx, fy, cx, cy, w, h);
+	CameraType cam(fx, fy, cx, cy, w, h);
 
 	visualOdometryThreaded odometry(w, h);
 

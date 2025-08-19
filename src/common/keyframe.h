@@ -1,10 +1,9 @@
 #pragma once
 
 #include "params.h"
-#include "common/types.h"
-#include "common/camera.h"
-#include "cpu/GeometryMesh.h"
-#include "dataCPU.h"
+#include "core/types.h"
+#include "core/camera.h"
+#include "backends/cpu/texturecpu.h"
 
 class KeyFrame
 {
@@ -17,17 +16,74 @@ public:
             globalScale = 1.0;
         };
     */
-    KeyFrame(const ImageType *im, int id, Vec2 globalExp, SE3 globalPose, float globalScale) : frame(im, id, localPose, globalPose)
+    KeyFrame(const TextureCPU<ImageType> image, CameraType cam) : frame_(image, 0)
     {
-        globalScale_ = globalScale;
-        // pose = SIM3f(scale, p.unit_quaternion(), p.translation());
+        unsigned int w = image.width(0);
+        unsigned int h = image.height(0);
+
+        std::vector<Vec3> vertices;
+        std::vector<Vec2> texcoords;
+        std::vector<float> weights;
+
+        std::vector<Vec2> tex_coords = UniformTexCoords(32, 32);
+
+        for (Vec2 tex_coord : tex_coords)
+        {
+            Vec2 img_coord = Vec2(tex_coord(0) * (w - 1), tex_coord(1) * (h - 1));
+            // float depth = depth_src_CV.at<float>(int(img_coord(1)), int(img_coord(0)));
+            float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
+            if (depth <= 0.0f)
+                continue;
+            Vec3 ray = cam.PixToRay(tex_coord);
+            Vec3 vertex = ray * depth;
+            vertices.push_back(vertex(0));
+            vertices.push_back(vertex(1));
+            vertices.push_back(vertex(2));
+            texcoords.push_back(tex_coord(0));
+            texcoords.push_back(tex_coord(1));
+            weights.push_back(1.0f);
+        }
+
+        mesh_ = MeshCPU(vertices, texcoords, weights);
+    }
+
+    KeyFrame(const TextureCPU<ImageType> &image,
+             const TextureCPU<float> &depth,
+             CameraType cam) : frame_(image, 0)
+    {
+        unsigned int w = image.width(0);
+        unsigned int h = image.height(0);
+
+        std::vector<Vec3> vertices;
+        std::vector<Vec2> texcoords;
+        std::vector<float> weights;
+
+        std::vector<Vec2> tex_coords = UniformTexCoords(32, 32);
+
+        for (Vec2 tex_coord : tex_coords)
+        {
+            Vec2 img_coord = Vec2(tex_coord(0) * (w - 1), tex_coord(1) * (h - 1));
+            float depth = depth.GetTexel(int(img_coord(1)), int(img_coord(0)), 0);
+            // float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
+            if (depth <= 0.0f)
+                continue;
+            Vec3 ray = cam.PixToRay(tex_coord);
+            Vec3 vertex = ray * depth;
+            vertices.push_back(vertex(0));
+            vertices.push_back(vertex(1));
+            vertices.push_back(vertex(2));
+            texcoords.push_back(tex_coord(0));
+            texcoords.push_back(tex_coord(1));
+            weights.push_back(1.0f);
+        }
+
+        mesh_ = MeshCPU(vertices, texcoords, weights);
     }
 
     KeyFrame(const KeyFrame &other)
     {
         frame_ = other.frame_;
         mesh_ = other.mesh_;
-        globalScale_ = other.globalScale_;
     }
 
     KeyFrame &operator=(const KeyFrame &other)
@@ -36,44 +92,8 @@ public:
         {
             frame_ = other.frame_;
             mesh_ = other.mesh_;
-            globalScale_ = other.globalScale_;
         }
         return *this;
-    }
-
-    void initGeometryRandom(cameraType cam)
-    {
-        std::vector<vec2f> texcoords = uniformTexCoords();
-        std::vector<vec3f> rays;
-        std::vector<float> depths;
-        std::vector<float> weights;
-        for (vec2f pix : texcoords)
-        {
-            vec3f ray = cam.pixToRay(pix);
-            rays.push_back(ray);
-            float depth = randomDepth(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5);
-            depths.push_back(depth);
-            weights.push_back(1.0 / mesh_vo::mapping_param_initial_var);
-        }
-
-        geometry.init(rays, depths, weights, cam);
-    }
-
-    void initGeometryVerticallySmooth(cameraType cam)
-    {
-        std::vector<vec2f> texcoords = uniformTexCoords();
-        std::vector<vec3f> rays;
-        std::vector<float> depths;
-        std::vector<float> weights;
-        for (vec2f pix : texcoords)
-        {
-            rays.push_back(cam.pixToRay(pix));
-            float depth = verticallySmoothDepth(pix, mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5);
-            depths.push_back(depth);
-            weights.push_back(1.0 / mesh_vo::mapping_param_initial_var);
-        }
-
-        geometry.init(rays, depths, weights, cam);
     }
 
     void initGeometryFromDepth(const dataCPU<float> &depth, const dataCPU<float> &weight, cameraType cam)
@@ -279,37 +299,6 @@ public:
     }
 
 private:
-    std::vector<vec2f> uniformTexCoords()
-    {
-        std::vector<vec2f> texcoords;
-        for (float y = 0.0; y < mesh_vo::mesh_height; y++)
-        {
-            for (float x = 0.0; x < mesh_vo::mesh_width; x++)
-            {
-                vec2f pix;
-                pix(0) = x / (mesh_vo::mesh_width - 1);
-                pix(1) = y / (mesh_vo::mesh_height - 1);
-
-                texcoords.push_back(pix);
-            }
-        }
-
-        return texcoords;
-    }
-
-    float randomDepth(float min_depth, float max_depth)
-    {
-        float depth = (max_depth - min_depth) * float(rand() % 1000) / 1000.0 + min_depth;
-        return depth;
-    }
-
-    float verticallySmoothDepth(vec2f pix, float min_depth, float max_depth)
-    {
-        // max depth when y = 0
-        float depth = max_depth + (min_depth - max_depth) * pix(1);
-        return depth;
-    }
-
     float getDepthFromClosestShape(vec2f texcoord, cameraType cam)
     {
         std::vector<int> s_ids = geometry.getShapesIds();
@@ -357,6 +346,5 @@ private:
 
     Frame frame_;
     MeshCPU mesh_;
-
-    float globalScale_;
+    CameraType cam_;
 };

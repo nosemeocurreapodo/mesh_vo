@@ -6,9 +6,8 @@
 #include <opencv2/imgproc.hpp>
 
 #include "utils/convertAhandaPovRayToStandard.h"
-#include "common/camera.h"
-#include "cpu/dataCPU.h"
-#include "cpu/frameCPU.h"
+#include "core/camera.h"
+#include "backends/cpu/texturecpu.h"
 #include "visualOdometry.h"
 #include "visualOdometryThreaded.h"
 
@@ -52,18 +51,15 @@ int main(int argc, char *argv[])
     float cx = width / 2;  // 319.5;
     float cy = height / 2; // 239.5;
 
-    cameraType cam(fx, fy, cx, cy, width, height);
+    CameraType cam(fx, fy, cx, cy, width, height);
 
     // to avoid idepth = 0 in the data
     // idepthMat = idepthMat + 1.0;
     // idepthMat.convertTo(idepthMat, CV_32FC1);
     // cv::resize(idepthMat, idepthMat, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
-    dataCPU<imageType> image(width, height, 0);
-    // dataCPU<float> idepth(IMAGE_WIDTH, IMAGE_HEIGHT, -1.0);
-
-    image.set((imageType *)imageMat.data);
-    // idepth.set((float*)idepthMat.data);
+    TextureCPU<imageType> image(width, height, 0, imageMat.data);
+    // TextureCPU<float> idepth(width, height, -1.0, idepthMat.data);
 
     /*
     //get corner from image
@@ -100,7 +96,7 @@ int main(int argc, char *argv[])
     */
 
     visualOdometryThreaded odometry(width, height);
-    odometry.init(image, SE3f(), cam);
+    odometry.init(image, cam);
 
     // odometry.initScene(image, pixels, idepths, Sophus::SE3f());
     // odometry.init(image, idepth, Sophus::SE3f());

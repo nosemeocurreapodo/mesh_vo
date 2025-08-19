@@ -2,28 +2,27 @@
 
 #include "params.h"
 #include "core/camera.h"
+#include "core/types.h"
 #include "common/types.h"
-#include "common/Error.h"
-#include "cpu/dataCPU.h"
-#include "cpu/frameCPU.h"
-#include "cpu/keyFrameCPU.h"
+#include "common/Frame.h"
+#include "common/KeyFrame.h"
 #include "cpu/renderCPU.h"
 #include "cpu/reduceCPU.h"
 #include "common/DenseLinearProblem.h"
 #include "cpu/OpenCVDebug.h"
 
-class baseOptimizerCPU
+class BaseOptimizer
 {
 public:
-    baseOptimizerCPU(int width, int height);
+    BaseOptimizer(int width, int height);
 
-    virtual void init(FrameCPU &frame, KeyFrameCPU &kframe, CameraType &cam, int lvl) = 0;
-    virtual void step(FrameCPU &frame, KeyFrameCPU &kframe, CameraType &cam, int lvl) = 0;
+    virtual void init(Frame &frame, KeyFrame &kframe, CameraType &cam, int lvl) = 0;
+    virtual void step(Frame &frame, KeyFrame &kframe, CameraType &cam, int lvl) = 0;
 
     bool converged();
 
 protected:
-    void plotDebug(keyFrameCPU &kframe, std::vector<frameCPU> &frames, cameraType &cam, std::string window_name);
+    void plotDebug(keyFrame &kframe, std::vector<Frame> &frames, cameraType &cam, std::string window_name);
 
     TextureCPU<imageType> image_buffer;
     TextureCPU<float> depth_buffer;

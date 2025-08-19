@@ -49,7 +49,6 @@ set(VISUALODOMETRY_SRCS
 
 set(TESTAPP_SRCS
       "src/apps/test/main.cpp"
-      "src/apps/test/utils/convertAhandaPovRayToStandard.cpp"
 )
 
 set(TUMDATASET_SRCS

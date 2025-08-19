@@ -9,10 +9,10 @@
 #include "common/keyframe.h"
 
 #include "optimizers/poseOptimizerCPU.h"
-//#include "optimizers/poseVelOptimizerCPU.h"
+// #include "optimizers/poseVelOptimizerCPU.h"
 #include "optimizers/mapOptimizerCPU.h"
 #include "optimizers/poseMapOptimizerCPU.h"
-//#include "optimizers/intrinsicPoseMapOptimizerCPU.h"
+// #include "optimizers/intrinsicPoseMapOptimizerCPU.h"
 
 #include "visualizer/geometryPlotter.h"
 #include "visualizer/trayectoryPlotter.h"
@@ -126,24 +126,24 @@ public:
         tMapping.join();
     }
 
-    void init(const ImageType *image_data, SE3 globalPose, CameraType _cam)
+    void init(const TextureCPU<ImageType> &image, CameraType cam)
     {
-        cam = _cam;
-        kframe = KeyFrame(image_data, Vec2(0.0, 0.0), globalPose, 1.0);
+        Frame frame = Frame(image, 0);
+        kframe_ = KeyFrame(frame, cam);
 
-        kframe.initGeometryVerticallySmooth(cam);
-
+        cam_ = cam;
         width = image.width;
         height = image.height;
         frameId = 0;
     }
 
-    void init(const ImageType *image_data, const float *depth_data, SE3 globalPose, CameraType _cam)
+    void init(const TextureCPU<ImageType> &image, const TextureCPU<float> &depth, SE3 globalPose, CameraType cam)
     {
-        cam = _cam;
-        kframe = keyFrameCPU(image_data, Vec2(0.0, 0.0), globalPose, 1.0);
+        Frame frame = Frame(image, 0, SE3(), globalPose);
+        kframe_ = KeyFrame(frame, cam);
 
-        dataCPU<float> weight(image.width, image.height, 1.0 / mesh_vo::mapping_param_initial_var);
+        cam_ = cam;
+        TextureCPU<float> weight(image.width, image.height, 1.0 / mesh_vo::mapping_param_initial_var);
         kframe.initGeometryFromDepth(depth, weight, cam);
 
         width = image.width;
@@ -151,7 +151,7 @@ public:
         frameId = 0;
     }
 
-    void locAndMap(dataCPU<imageType> &image)
+    void locAndMap(TextureCPU<imageType> &image)
     {
         iQueue.push(image);
     }
@@ -166,10 +166,10 @@ public:
         return kfQueue.peek();
     }
 
-    SE3f localize(dataCPU<imageType> &image, SE3f initialGuess)
+    SE3f localize(TextureCPU<imageType> &image, SE3 initialGuess)
     {
-        frameCPU frame(image, frameId);
-        poseOptimizerCPU optimizer(width, height);
+        Frame frame(image, frameId);
+        PoseOptimizerCPU optimizer(width, height);
 
         // initialize the global and local pose
         frame.setGlobalPose(initialGuess);
@@ -201,11 +201,11 @@ public:
 private:
     void localizationThread()
     {
-        poseOptimizerCPU optimizer(width, height);
-        keyFrameCPU _kframe = kframe;
+        PoseOptimizerCPU optimizer;
+        KeyFrame kframe = kframe_;
 
-        SE3f lastGlobalPose;
-        SE3f lastGlobalMovement;
+        SE3 lastGlobalPose;
+        SE3 lastGlobalMovement;
 
         tic_toc tt;
 
@@ -218,7 +218,7 @@ private:
                     break;
             }
 
-            dataCPU<imageType> image = iQueue.pop();
+            TextureCPU<ImageType> image = iQueue.pop();
 
             // keep on reading and keep the last image
             while (true)
@@ -227,7 +227,7 @@ private:
                     break;
             }
 
-            frameCPU frame(image, frameId);
+            Frame frame(image, frameId);
 
             // initialize the global and local pose
             frame.setGlobalPose(lastGlobalMovement * lastGlobalPose);
@@ -260,7 +260,7 @@ private:
             std::cout << "localization time " << tt.toc() << std::endl;
 
             // update the global pose
-            SE3f newGlobalPose = kframe.localPoseToGlobal(frame.getLocalPose());
+            SE3 newGlobalPose = kframe.localPoseToGlobal(frame.getLocalPose());
             frame.setGlobalPose(newGlobalPose);
 
             lastGlobalMovement = newGlobalPose * lastGlobalPose.inverse();
@@ -274,7 +274,7 @@ private:
 
     void mappingThread()
     {
-        poseMapOptimizerCPU optimizer(width, height);
+        PoseMapOptimizerCPU optimizer;
         renderCPU renderer(width, height);
         dataMipMapCPU<imageType> image_buffer(width, height, -1);
         dataMipMapCPU<float> depth_buffer(width, height, -1);
@@ -703,14 +703,14 @@ private:
     std::thread tMapping;
     std::thread tVisualization;
 
-    ThreadSafeQueue<dataCPU<imageType>> iQueue;
-    ThreadSafeQueue<frameCPU> fQueue;
-    ThreadSafeQueue<keyFrameCPU> kfQueue;
+    ThreadSafeQueue<TextureCPu<ImageType>> iQueue;
+    ThreadSafeQueue<Frame> fQueue;
+    ThreadSafeQueue<KeyFrame> kfQueue;
 
-    ThreadSafeQueue<std::vector<dataCPU<float>>> debugLocalizationQueue;
-    ThreadSafeQueue<std::vector<dataCPU<float>>> debugMappingQueue;
+    ThreadSafeQueue<std::vector<TextureCPU<float>>> debugLocalizationQueue;
+    ThreadSafeQueue<std::vector<TextureCPU<float>>> debugMappingQueue;
 
-    cameraType cam;
+    CameraType cam;
     int width;
     int height;
     int frameId;

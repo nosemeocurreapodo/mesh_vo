@@ -32,7 +32,7 @@
 //using SE3f = Sophus::SE3f;
 //using SIM3f = Sophus::Sim3f;
 
-using solverType = Eigen::LDLT<Eigen::MatrixXf>;
+using SolverType = Eigen::LDLT<Eigen::MatrixXf>;
 // using solverType = Eigen::LLT<Eigen::MatrixXf>;
 
 // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> ssolver;
@@ -65,65 +65,19 @@ using SE3f = SE3<float>;
 using solverType = LDLT<matxf>;
 */
 
-class pinholeCamera;
-class pinholeDistortedCamera;
+class PinholeCamera;
+class PinholeDistortedCamera;
 
-using cameraType = pinholeCamera;
+using CameraType = PinholeCamera;
 
-class keyFrameCPU;
+class KeyFrameCPU;
 class FrameCPU;
 
-using imageType = float;
-using errorType = float;
-using jimgType = Vec2;
-using jposeType = Vec6;
-using jvelType = Vec6;
-using jmapType = Vec3;
-using jcamType = Vec4;
-using idsType = Vec3i;
-
-class ShapeTriangleFlat;
-class GeometryMesh;
-
-using shapeType = ShapeTriangleFlat;
-using geometryType = GeometryMesh;
-
-struct vertex
-{
-    vertex()
-    {
-        used = false;
-    }
-
-    vertex(vec3f v, vec3f r, vec2f p, float w)
-    {
-        ver = v;
-        ray = r;
-        pix = p;
-        weight = w;
-        used = true;
-    }
-
-    vec3f ver;
-    vec3f ray;
-    vec2f pix;
-    float weight;
-    bool used;
-};
-
-struct triangle
-{
-    triangle()
-    {
-        used = false;
-    }
-
-    triangle(vec3i i)
-    {
-        vertexIds = i;
-        used = true;
-    }
-
-    vec3i vertexIds;
-    bool used;
-};
+using ImageType = float;
+using ErrorType = float;
+using JimgType = Vec2;
+using JposeType = Vec6;
+using JvelType = Vec6;
+using JmapType = Vec3;
+using JcamType = Vec4;
+using IdsType = Vec3i;
