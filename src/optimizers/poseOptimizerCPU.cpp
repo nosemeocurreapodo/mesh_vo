@@ -2,13 +2,13 @@
 
 poseOptimizerCPU::poseOptimizerCPU(int width, int height, bool _printLog)
     : baseOptimizerCPU(width, height),
-      j_buffer(width, height, vec6f::Zero())
+      j_buffer(width, height, Vec6::Zero())
 {
     invCovariance = mat6f::Identity() / mesh_vo::tracking_pose_initial_var;
     printLog = _printLog;
 }
 
-void poseOptimizerCPU::init(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl)
+void poseOptimizerCPU::init(Frame &frame, keyFrameCPU &kframe, cameraType &cam, int lvl)
 {
     init_pose = frame.getLocalPose().log();
     init_invcovariance = invCovariance;
@@ -33,7 +33,7 @@ void poseOptimizerCPU::init(frameCPU &frame, keyFrameCPU &kframe, cameraType &ca
     reachedConvergence = false;
 }
 
-void poseOptimizerCPU::step(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl)
+void poseOptimizerCPU::step(FrameCPU &frame, KeyFrameCPU &kframe, CameraType &cam, int lvl)
 {
     DenseLinearProblem problem = computeProblem(frame, kframe, cam, lvl);
     problem *= 1.0 / problem.getCount();
@@ -131,42 +131,13 @@ void poseOptimizerCPU::step(frameCPU &frame, keyFrameCPU &kframe, cameraType &ca
     }
 }
 
-DenseLinearProblem poseOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl)
+DenseLinearProblem poseOptimizerCPU::computeProblem(Frame &frame, KeyFrame &kframe, CameraType &cam, int lvl)
 {
-    j_buffer.setToNoData(lvl);
-    error_buffer.setToNoData(lvl);
+    jposerenderer.Render(kframe.mesh, frame.pose * kframe.pose.inverse(), cam, frame.didxy, j_buffer, lvl, lvl);
+    imagerenderer.Render(kframe.mesh, frame.pose * kframe.pose.inverse(), cam, kframe.image, i_buffer, lvl, lvl);
 
-    renderer.renderJPoseParallel(kframe, frame, j_buffer, error_buffer, cam, lvl);
-    // renderer.renderJPoseParallel(kframe.getGeometry(), kframe.getRawImage(lvl), frame.getRawImage(lvl), frame.getdIdpixImage(lvl), frame.getLocalPose(), j_buffer.get(lvl), error_buffer.get(lvl), cam);
+    DenseLinearProblem problem = hgposereducer.reduce(j_buffer.get(lvl), frame.image.get(lvl), i_buffer);
 
-    DenseLinearProblem problem = reducer.reduceHGPoseParallel(j_buffer.get(lvl), error_buffer.get(lvl));
     return problem;
 }
 
-std::vector<dataCPU<float>> poseOptimizerCPU::getDebugData(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl)
-{
-    std::vector<dataCPU<float>> toShow;
-
-    toShow.push_back(kframe.getRawImage(lvl).convert<float>());
-
-    depth_buffer.setToNoData(lvl);
-    // weight_buffer.setToNoData(lvl);
-
-    renderer.renderDepthParallel(kframe, SE3f(), depth_buffer, cam, lvl);
-    // renderer.renderWeightParallel(kframe, SE3f(), weight_buffer, cam, lvl);
-
-    depth_buffer.get(lvl).invert();
-
-    toShow.push_back(depth_buffer.get(lvl));
-    // toShow.push_back(weight_buffer.get(lvl));
-
-    error_buffer.setToNoData(lvl);
-    // depth_buffer.setToNoData(lvl);
-    renderer.renderResidualParallel(kframe, frame, error_buffer, cam, lvl);
-    // renderer.renderDepthParallel(kframe, frames[i].getLocalPose(), depth_buffer, cam, lvl);
-    toShow.push_back(frame.getRawImage(lvl).convert<float>());
-    toShow.push_back(error_buffer.get(lvl).convert<float>());
-    // toShow.push_back(depth_buffer.get(lvl));
-
-    return toShow;
-}

@@ -6,55 +6,37 @@
 #include "cpu/GeometryMesh.h"
 #include "dataCPU.h"
 
-class keyFrameCPU
+class KeyFrame
 {
 public:
-    keyFrameCPU()
-    {
-        globalPose = SE3f();
-        globalExp = vec2f(0.0f, 0.0f);
-        globalScale = 1.0;
-    };
-
-    keyFrameCPU(const dataCPU<imageType> &im, vec2f _globalExp, SE3f _globalPose, float _globalScale)
-    {
-        raw_image = dataMipMapCPU<imageType>(im);
-        // raw_image.generateMipmaps();
-
-        dIdpix_image = dataMipMapCPU<vec2f>(im.width, im.height, vec2f(0.0, 0.0));
-
-        for (int lvl = 0; lvl < raw_image.getLvls(); lvl++)
+    /*
+        keyFrame()
         {
-            dIdpix_image.get(lvl) = raw_image.get(lvl).computeFrameDerivative();
-        }
-
-        globalExp = _globalExp;
-        globalPose = _globalPose;
-        globalScale = _globalScale;
+            globalPose = SE3();
+            globalExp = Vec2(0.0f, 0.0f);
+            globalScale = 1.0;
+        };
+    */
+    KeyFrame(const ImageType *im, int id, Vec2 globalExp, SE3 globalPose, float globalScale) : frame(im, id, localPose, globalPose)
+    {
+        globalScale_ = globalScale;
         // pose = SIM3f(scale, p.unit_quaternion(), p.translation());
     }
 
-    keyFrameCPU(const keyFrameCPU &other)
+    KeyFrame(const KeyFrame &other)
     {
-        raw_image = other.raw_image;
-        dIdpix_image = other.dIdpix_image;
-
-        globalPose = other.globalPose;
-        globalExp = other.globalExp;
-        globalScale = other.globalScale;
-        geometry = other.geometry;
+        frame_ = other.frame_;
+        mesh_ = other.mesh_;
+        globalScale_ = other.globalScale_;
     }
 
-    keyFrameCPU &operator=(const keyFrameCPU &other)
+    KeyFrame &operator=(const KeyFrame &other)
     {
         if (this != &other)
         {
-            globalPose = other.globalPose;
-            globalExp = other.globalExp;
-            raw_image = other.raw_image;
-            dIdpix_image = other.dIdpix_image;
-            globalScale = other.globalScale;
-            geometry = other.geometry;
+            frame_ = other.frame_;
+            mesh_ = other.mesh_;
+            globalScale_ = other.globalScale_;
         }
         return *this;
     }
@@ -373,11 +355,8 @@ private:
         return depth_sum / weight_sum;
     }
 
-    dataMipMapCPU<imageType> raw_image;
-    dataMipMapCPU<vec2f> dIdpix_image;
-    geometryType geometry;
-    float globalScale;
+    Frame frame_;
+    MeshCPU mesh_;
 
-    SE3f globalPose;
-    vec2f globalExp;
+    float globalScale_;
 };

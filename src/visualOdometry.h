@@ -10,12 +10,12 @@
 #include "optimizers/poseOptimizerCPU.h"
 #include "optimizers/mapOptimizerCPU.h"
 #include "optimizers/poseMapOptimizerCPU.h"
-#include "optimizers/intrinsicPoseMapOptimizerCPU.h"
+//#include "optimizers/intrinsicPoseMapOptimizerCPU.h"
 
 class visualOdometry
 {
 public:
-    visualOdometry(dataCPU<imageType> &image, SE3f globalPose, cameraType cam);
+    visualOdometry(TextureCPU<imageType> &image, SE3 globalPose, cameraType cam);
     visualOdometry(dataCPU<imageType> &image, dataCPU<float> &depth, dataCPU<float> &weight, SE3f globalPose, cameraType cam);
 
     int locAndMap(dataCPU<imageType> &image);
@@ -29,8 +29,8 @@ public:
 
 private:
 
-    void optimizePose(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam);
-    void optimizePoseMap(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam);
+    void optimizePose(FrameCPU &frame, KeyFrameCPU &kframe, CameraType &cam);
+    void optimizePoseMap(std::vector<FrameCPU> &frames, KeyFrameCPU &kframe, CameraType &cam);
 
     float meanViewAngle(SE3f pose1, SE3f pose2);
     float getViewPercent(frameCPU &frame);
@@ -46,10 +46,8 @@ private:
     poseOptimizerCPU poseOptimizer;
     mapOptimizerCPU mapOptimizer;
     poseMapOptimizerCPU poseMapOptimizer;
-    intrinsicPoseMapOptimizerCPU intrinsicPoseMapOptimizer;
+    //intrinsicPoseMapOptimizerCPU intrinsicPoseMapOptimizer;
     //sceneOptimizerCPU<SceneMesh, vec3<float>, vec3<int>> sceneOptimizer;
     
-    renderCPU renderer;
-
     SE3f lastLocalMovement;
 };

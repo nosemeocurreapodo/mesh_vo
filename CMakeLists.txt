@@ -16,6 +16,7 @@ if(NOT TARGET Eigen3::Eigen)
 endif()
 
 include_directories("src")
+include_directories("MultiPlatformRenderer/src")
 #include_directories("include")
 include_directories(
         ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
@@ -34,7 +35,6 @@ include_directories( ${CSPARSE_INCLUDE_DIR} ${CHOLMOD_INCLUDE_DIR})
 
 set(VISUALODOMETRY_SRCS
       "src/params.cpp"
-      "src/common/DelaunayTriangulation.cpp"
       "src/optimizers/baseOptimizerCPU.cpp"
       "src/optimizers/poseOptimizerCPU.cpp"
       "src/optimizers/poseVelOptimizerCPU.cpp"

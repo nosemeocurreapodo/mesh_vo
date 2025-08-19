@@ -5,14 +5,14 @@
 
 #include <pangolin/pangolin.h>
 
-#include "cpu/frameCPU.h"
-#include "cpu/keyFrameCPU.h"
+#include "common/frame.h"
+#include "common/keyframe.h"
 
 #include "optimizers/poseOptimizerCPU.h"
-#include "optimizers/poseVelOptimizerCPU.h"
+//#include "optimizers/poseVelOptimizerCPU.h"
 #include "optimizers/mapOptimizerCPU.h"
 #include "optimizers/poseMapOptimizerCPU.h"
-#include "optimizers/intrinsicPoseMapOptimizerCPU.h"
+//#include "optimizers/intrinsicPoseMapOptimizerCPU.h"
 
 #include "visualizer/geometryPlotter.h"
 #include "visualizer/trayectoryPlotter.h"
@@ -126,10 +126,10 @@ public:
         tMapping.join();
     }
 
-    void init(dataCPU<imageType> &image, SE3f globalPose, cameraType _cam)
+    void init(const ImageType *image_data, SE3 globalPose, CameraType _cam)
     {
         cam = _cam;
-        kframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
+        kframe = KeyFrame(image_data, Vec2(0.0, 0.0), globalPose, 1.0);
 
         kframe.initGeometryVerticallySmooth(cam);
 
@@ -138,10 +138,10 @@ public:
         frameId = 0;
     }
 
-    void init(dataCPU<imageType> &image, dataCPU<float> &depth, SE3f globalPose, cameraType _cam)
+    void init(const ImageType *image_data, const float *depth_data, SE3 globalPose, CameraType _cam)
     {
         cam = _cam;
-        kframe = keyFrameCPU(image, vec2f(0.0, 0.0), globalPose, 1.0);
+        kframe = keyFrameCPU(image_data, Vec2(0.0, 0.0), globalPose, 1.0);
 
         dataCPU<float> weight(image.width, image.height, 1.0 / mesh_vo::mapping_param_initial_var);
         kframe.initGeometryFromDepth(depth, weight, cam);

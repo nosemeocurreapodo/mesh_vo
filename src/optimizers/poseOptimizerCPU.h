@@ -1,34 +1,29 @@
 #pragma once
 
 #include "params.h"
-#include "common/camera.h"
-#include "common/types.h"
-#include "common/Error.h"
-#include "cpu/dataCPU.h"
-#include "cpu/frameCPU.h"
-#include "cpu/renderCPU.h"
-#include "cpu/reduceCPU.h"
-#include "common/DenseLinearProblem.h"
-#include "optimizers/baseOptimizerCPU.h"
+#include "core/camera.h"
 
-class poseOptimizerCPU : public baseOptimizerCPU
+class PoseOptimizer : public BaseOptimizer
 {
 public:
-    poseOptimizerCPU(int width, int height, bool _printLog = false);
-
-    void init(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl);
-    void step(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl);
-    std::vector<dataCPU<float>> getDebugData(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl);
+    PoseOptimizer(int width, int height, bool _printLog = false);
 
 private:
-    DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl);
+    DenseLinearProblem computeProblem(Frame &frame, KeyFrame &kframe, CameraType &cam, int lvl);
 
-    dataMipMapCPU<jposeType> j_buffer;
-    mat6f invCovariance;
+    JPoseRendererCPU jposerenderer;
+    ImageRendererCPU imagerenderer;
 
-    vec6f init_pose;
-    mat6f init_invcovariance;
-    mat6f init_invcovariancesqrt;
+    HGPoseReducerCPU hgposereducer;
+
+    TextureCPU<jposeType> j_buffer;
+    TextureCPU<jposeType> i_buffer;
+
+    Mat6 invCovariance;
+
+    Vec6 init_pose;
+    Mat6 init_invcovariance;
+    Mat6 init_invcovariancesqrt;
     float init_error;
 
     bool printLog;

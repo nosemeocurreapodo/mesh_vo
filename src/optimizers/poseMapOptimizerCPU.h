@@ -1,7 +1,7 @@
 #pragma once
 
 #include "params.h"
-#include "common/camera.h"
+#include "core/camera.h"
 #include "common/types.h"
 #include "common/Error.h"
 #include "cpu/dataCPU.h"
@@ -27,9 +27,10 @@ public:
 private:
     DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int frameId, int numFrames, int lvl);
 
-    dataMipMapCPU<vec6f> jpose_buffer;
-    dataMipMapCPU<jmapType> jmap_buffer;
-    dataMipMapCPU<idsType> pId_buffer;
+    TextureCPU<Vec3> jtra_buffer;
+    TextureCPU<Vec3> jrot_buffer;
+    TextureCPU<jmapType> jmap_buffer;
+    TextureCPU<idsType> pId_buffer;
 
     matxf invCovariance;
 

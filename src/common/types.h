@@ -8,29 +8,29 @@
 #include "sophus/se3.hpp"
 #include "sophus/sim3.hpp"
 
-template <typename type, int rows>
-using vec = Eigen::Matrix<type, rows, 1>;
+//template <typename type, int rows>
+//using vec = Eigen::Matrix<type, rows, 1>;
 
-using vec2f = Eigen::Matrix<float, 2, 1>;
-using vec3f = Eigen::Matrix<float, 3, 1>;
-using vec4f = Eigen::Matrix<float, 4, 1>;
-using vec5f = Eigen::Matrix<float, 5, 1>;
-using vec6f = Eigen::Matrix<float, 6, 1>;
-using vecxf = Eigen::Matrix<float, Eigen::Dynamic, 1>;
+//using vec2f = Eigen::Matrix<float, 2, 1>;
+//using vec3f = Eigen::Matrix<float, 3, 1>;
+//using vec4f = Eigen::Matrix<float, 4, 1>;
+//using vec5f = Eigen::Matrix<float, 5, 1>;
+//using vec6f = Eigen::Matrix<float, 6, 1>;
+//using vecxf = Eigen::Matrix<float, Eigen::Dynamic, 1>;
 
-using vec2i = Eigen::Matrix<int, 2, 1>;
-using vec3i = Eigen::Matrix<int, 3, 1>;
-using vecxi = Eigen::Matrix<int, Eigen::Dynamic, 1>;
+//using vec2i = Eigen::Matrix<int, 2, 1>;
+//using vec3i = Eigen::Matrix<int, 3, 1>;
+//using vecxi = Eigen::Matrix<int, Eigen::Dynamic, 1>;
 
-template <typename type, int rows, int cols>
-using mat = Eigen::Matrix<type, rows, cols>;
-using mat3f = Eigen::Matrix<float, 3, 3>;
-using mat4f = Eigen::Matrix<float, 4, 4>;
-using mat6f = Eigen::Matrix<float, 6, 6>;
-using matxf = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>;
+//template <typename type, int rows, int cols>
+//using mat = Eigen::Matrix<type, rows, cols>;
+//using mat3f = Eigen::Matrix<float, 3, 3>;
+//using mat4f = Eigen::Matrix<float, 4, 4>;
+//using mat6f = Eigen::Matrix<float, 6, 6>;
+//using matxf = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>;
 
-using SE3f = Sophus::SE3f;
-using SIM3f = Sophus::Sim3f;
+//using SE3f = Sophus::SE3f;
+//using SIM3f = Sophus::Sim3f;
 
 using solverType = Eigen::LDLT<Eigen::MatrixXf>;
 // using solverType = Eigen::LLT<Eigen::MatrixXf>;
@@ -71,16 +71,16 @@ class pinholeDistortedCamera;
 using cameraType = pinholeCamera;
 
 class keyFrameCPU;
-class frameCPU;
+class FrameCPU;
 
 using imageType = float;
 using errorType = float;
-using jimgType = vec2f;
-using jposeType = vec6f;
-using jvelType = vec6f;
-using jmapType = vec3f;
-using jcamType = vec4f;
-using idsType = vec3i;
+using jimgType = Vec2;
+using jposeType = Vec6;
+using jvelType = Vec6;
+using jmapType = Vec3;
+using jcamType = Vec4;
+using idsType = Vec3i;
 
 class ShapeTriangleFlat;
 class GeometryMesh;

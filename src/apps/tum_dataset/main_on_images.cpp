@@ -226,16 +226,13 @@ int main(int argc, char **argv)
 			image.convertTo(image, CV_32FC1);
 		// cv::resize(image, image, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
-		dataCPU<imageType> imageData(w, h, 0);
-		imageData.set((imageType *)image.data);
-
 		if (runningIDX == 0)
 		{
-			odometry.init(imageData, SE3f(), cam);
+			odometry.init(image.data, SE3, cam);
 			// system->randomInit(image.data, fakeTimeStamp, runningIDX);
 		}
 		else
-			odometry.locAndMap(imageData);
+			odometry.locAndMap(image.data);
 		// system->trackFrame(image.data, runningIDX ,hz == 0,fakeTimeStamp);
 
 		runningIDX++;

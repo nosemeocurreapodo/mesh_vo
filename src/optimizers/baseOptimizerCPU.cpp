@@ -9,14 +9,6 @@ baseOptimizerCPU::baseOptimizerCPU(int width, int height)
 {
 }
 
-Error baseOptimizerCPU::computeError(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl)
-{
-    error_buffer.setToNoData(lvl);
-    renderer.renderResidualParallel(kframe, frame, error_buffer, cam, lvl);
-    Error e = reducer.reduceErrorParallel(error_buffer.get(lvl));
-    return e;
-}
-
 bool baseOptimizerCPU::converged()
 {
     return reachedConvergence;
