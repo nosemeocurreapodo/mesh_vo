@@ -14,11 +14,12 @@ public:
     PoseOptimizer(int width, int height, bool _printLog = false);
 
 private:
-    DenseLinearProblem computeProblem(Frame &frame, KeyFrame &kframe, CameraType &cam, int lvl);
+    DenseLinearProblem computeProblem(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
     JposeRendererCPU jposerenderer_;
     ImageRendererCPU imagerenderer_;
 
+    ErrorReducerCPU errprreducer_;
     HGPoseReducerCPU hgposereducer_;
 
     TextureCPU<JposeType> j_buffer_;

@@ -8,7 +8,7 @@ PoseOptimizer::PoseOptimizer(int width, int height, bool _printLog)
     printLog = _printLog;
 }
 
-void PoseOptimizer::init(Frame &frame, keyFrameCPU &kframe, cameraType &cam, int lvl)
+void PoseOptimizer::init(Frame &frame, keyFrame &kframe, Camera &cam, int lvl)
 {
     init_pose = frame.getLocalPose().log();
     init_invcovariance = invCovariance;
@@ -33,7 +33,7 @@ void PoseOptimizer::init(Frame &frame, keyFrameCPU &kframe, cameraType &cam, int
     reachedConvergence = false;
 }
 
-void PoseOptimizer::step(FrameCPU &frame, KeyFrameCPU &kframe, CameraType &cam, int lvl)
+void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
     DenseLinearProblem problem = computeProblem(frame, kframe, cam, lvl);
     problem *= 1.0 / problem.getCount();
@@ -131,13 +131,26 @@ void PoseOptimizer::step(FrameCPU &frame, KeyFrameCPU &kframe, CameraType &cam, 
     }
 }
 
+Error PoseOptimizer::computeError(Frame &frame, KeyFrame &kframe, CameraType &cam, int lvl)
+{
+    imagerenderer_.Render(kframe.mesh_, frame.pose_ * kframe.pose_.inverse(), cam, kframe.image_, i_buffer_, lvl, lvl);
+    
+    Buffer<Image> image = frame.image_.toCPU(lvl);
+    Buffer<Image> kframe_projected = i_buffer_.toCPU(lvl);
+
+    errorreducer_.reduce(image, kframe_projected)
+}
+
 DenseLinearProblem PoseOptimizer::computeProblem(Frame &frame, KeyFrame &kframe, CameraType &cam, int lvl)
 {
     jposerenderer_.Render(kframe.mesh_, frame.pose_ * kframe.pose_.inverse(), cam, frame.didxy_, j_buffer_, lvl, lvl);
     imagerenderer_.Render(kframe.mesh_, frame.pose_ * kframe.pose_.inverse(), cam, kframe.image_, i_buffer_, lvl, lvl);
 
-    DenseLinearProblem problem = hgposereducer_.reduce(j_buffer.get(lvl), frame.image.get(lvl), i_buffer);
+    Buffer<Jpose> jpose = j_buffer_.toCPU(lvl);
+    Buffer<Image> image = frame.image_.toCPU(lvl);
+    Buffer<Image> kframe_projected = i_buffer_.toCPU(lvl);
+
+    DenseLinearProblem problem = hgposereducer_.reduce(jpose, image, kframe_projected);
 
     return problem;
 }
-

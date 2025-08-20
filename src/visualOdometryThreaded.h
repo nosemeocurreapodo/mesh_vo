@@ -8,10 +8,10 @@
 #include "common/frame.h"
 #include "common/keyframe.h"
 
-#include "optimizers/poseOptimizerCPU.h"
+#include "optimizers/PoseOptimizer.h"
 // #include "optimizers/poseVelOptimizerCPU.h"
-#include "optimizers/mapOptimizerCPU.h"
-#include "optimizers/poseMapOptimizerCPU.h"
+#include "optimizers/MapOptimizer.h"
+#include "optimizers/PoseMapOptimizer.h"
 // #include "optimizers/intrinsicPoseMapOptimizerCPU.h"
 
 #include "visualizer/geometryPlotter.h"
@@ -94,13 +94,13 @@ private:
     std::condition_variable cv_;
 };
 
-class visualOdometryThreaded
+class VisualOdometryThreaded
 {
 public:
-    visualOdometryThreaded(int _width, int _height, bool _doMapping = true, bool _doVisualization = true)
+    VisualOdometryThreaded(int _width, int _height, bool _doMapping = true, bool _doVisualization = true)
     {
-        width = _width;
-        height = _height;
+        //width = _width;
+        //height = _height;
 
         doMapping = _doMapping;
         doVisualization = _doVisualization;
@@ -120,38 +120,34 @@ public:
     }
     */
 
-    ~visualOdometryThreaded()
+    ~VisualOdometryThreaded()
     {
         tLocalization.join();
         tMapping.join();
     }
 
-    void init(const TextureCPU<ImageType> &image, CameraType cam)
+    void init(const Texture<Image> &image, Camera cam)
     {
-        Frame frame = Frame(image, 0);
-        kframe_ = KeyFrame(frame, cam);
+        kframe_ = KeyFrame(image, cam);
 
         cam_ = cam;
-        width = image.width;
-        height = image.height;
+        //width = image.width;
+        //height = image.height;
         frameId = 0;
     }
 
-    void init(const TextureCPU<ImageType> &image, const TextureCPU<float> &depth, SE3 globalPose, CameraType cam)
+    void init(const Texture<Image> &image, const Texture<float> &depth, SE3 globalPose, Camera cam)
     {
-        Frame frame = Frame(image, 0, SE3(), globalPose);
-        kframe_ = KeyFrame(frame, cam);
+        kframe_ = KeyFrame(image, depth, cam);
 
         cam_ = cam;
-        TextureCPU<float> weight(image.width, image.height, 1.0 / mesh_vo::mapping_param_initial_var);
-        kframe.initGeometryFromDepth(depth, weight, cam);
 
-        width = image.width;
-        height = image.height;
+        //width = image.width;
+        //height = image.height;
         frameId = 0;
     }
 
-    void locAndMap(TextureCPU<imageType> &image)
+    void locAndMap(Texture<Image> &image)
     {
         iQueue.push(image);
     }
@@ -161,15 +157,15 @@ public:
         return false;
     }
 
-    keyFrameCPU getKeyframe()
+    keyFrame getKeyframe()
     {
         return kfQueue.peek();
     }
 
-    SE3f localize(TextureCPU<imageType> &image, SE3 initialGuess)
+    SE3 localize(Texture<Image> &image, SE3 initialGuess)
     {
         Frame frame(image, frameId);
-        PoseOptimizerCPU optimizer(width, height);
+        PoseOptimizer optimizer;
 
         // initialize the global and local pose
         frame.setGlobalPose(initialGuess);

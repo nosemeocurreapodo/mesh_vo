@@ -3,6 +3,7 @@
 #include "params.h"
 // #include "common/types.h"
 #include "core/types.h"
+#include "common/types.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/renderercpu.h"
 
@@ -21,16 +22,15 @@ public:
         };
         */
 
-    Frame(const TextureCPU<imageType> &im, int id,
+    Frame(const Texture<Image> &im, int id,
           SE3 localPose = SE3(),
           SE3 globalPose = SE3(),
           SE3 localExp = Vec2(0.0, 0.0)) : image_(im),
-                                           didxy_(im.width, im.height, Vec2(0.0, 0.0)),
-                                           two_triangles_mesh()
+                                           didxy_(im.width, im.height, Vec2(0.0, 0.0))
     {
         for (int lvl = 0; lvl < image.getLvls(); lvl++)
         {
-            didxy_renderer_.Render(two_triangles_mesh, SE3(), Camera(), image, didxy, lvl, lvl);
+            didxy_renderer_.Render(two_triangles_mesh_, SE3(), Camera(), image_, didxy_, lvl, lvl);
             // dIdpix_image.get(lvl) = raw_image.get(lvl).computeFrameDerivative();
         }
 
@@ -42,7 +42,7 @@ public:
         localExp_ = localExp;
     }
 
-    Frame(const FrameCPU &other)
+    Frame(const Frame &other)
     {
         image_ = other.image_;
         didxy_ = other.didxy_;
@@ -140,12 +140,12 @@ public:
     */
 
 protected:
-    TextureCPU<ImageType> image_;
-    TextureCPU<Vec2> didxy_;
+    Texture<Image> image_;
+    Texture<Vec2> didxy_;
 
-    DIDxyRendererCPU didxy_renderer_;
+    DIDxyRenderer didxy_renderer_;
 
-    MeshCPU two_triangles_mesh_;
+    Mesh two_triangles_mesh_;
 
     SE3 localPose_;
     SE3 globalPose_;

@@ -2,6 +2,7 @@
 
 #include "params.h"
 #include "core/types.h"
+#include "common/types.h"
 #include "core/camera.h"
 #include "backends/cpu/texturecpu.h"
 
@@ -16,7 +17,7 @@ public:
             globalScale = 1.0;
         };
     */
-    KeyFrame(const TextureCPU<ImageType> image, CameraType cam) : frame_(image, 0)
+    KeyFrame(const Texture<Image> image, Camera cam) : frame_(image, 0)
     {
         unsigned int w = image.width(0);
         unsigned int h = image.height(0);
@@ -44,11 +45,11 @@ public:
             weights.push_back(1.0f);
         }
 
-        mesh_ = MeshCPU(vertices, texcoords, weights);
+        mesh_ = Mesh(vertices, texcoords, weights);
     }
 
-    KeyFrame(const TextureCPU<ImageType> &image,
-             const TextureCPU<float> &depth,
+    KeyFrame(const Texture<Image> &image,
+             const Texture<float> &depth,
              CameraType cam) : frame_(image, 0)
     {
         unsigned int w = image.width(0);
@@ -77,7 +78,7 @@ public:
             weights.push_back(1.0f);
         }
 
-        mesh_ = MeshCPU(vertices, texcoords, weights);
+        mesh_ = Mesh(vertices, texcoords, weights);
     }
 
     KeyFrame(const KeyFrame &other)
@@ -96,255 +97,102 @@ public:
         return *this;
     }
 
-    void initGeometryFromDepth(const dataCPU<float> &depth, const dataCPU<float> &weight, cameraType cam)
+    SE3 localPoseToGlobal(SE3 localPose)
     {
-        std::vector<vec2f> texcoords = uniformTexCoords();
-        std::vector<float> depths;
-        std::vector<float> weights;
-
-        std::vector<vec3f> rays;
-        std::vector<vec2f> pixsWithNoData;
-
-        for (vec2f texcoord : texcoords)
-        {
-            float dph = depth.get(texcoord(1), texcoord(0));
-            float wght = weight.get(texcoord(1), texcoord(0));
-
-            // assert(idph != idepth.nodata);
-            if (dph == depth.nodata)
-            {
-                pixsWithNoData.push_back(texcoord);
-                continue;
-            }
-            if (wght == weight.nodata)
-            {
-                wght = 1.0 / mesh_vo::mapping_param_initial_var;
-            }
-
-            assert(dph > 0.0);
-            assert(!std::isnan(dph));
-            assert(!std::isinf(dph));
-
-            vec3f ray = cam.pixToRay(texcoord);
-
-            rays.push_back(ray);
-            depths.push_back(dph);
-            weights.push_back(wght);
-
-            assert(depths.size() <= mesh_vo::max_vertex_size);
-        }
-
-        geometry.init(rays, depths, weights, cam);
-
-        vec2f minMax = geometry.minMaxDepthVertices();
-
-        for (vec2f pixWithNoData : pixsWithNoData)
-        {
-            float depth = getDepthFromClosestShape(pixWithNoData, cam);
-            // float depth = verticallySmoothDepth(texWithNoData, fromParamToDepth(MIN_PARAM), fromParamToDepth(MAX_PARAM), cam);
-            // float depth = 1.0; // randomDepth(minMax(0), minMax(1));
-            assert(depth > 0.0);
-
-            // if(depth < fromParamToDepth(MIN_PARAM))
-            //     depth = fromParamToDepth(MIN_PARAM);
-            // if(depth > fromParamToDepth(MAX_PARAM))
-            //     depth = fromParamToDepth(MAX_PARAM);
-
-            float weight = 1.0 / mesh_vo::mapping_param_initial_var;
-
-            vec3f ray = cam.pixToRay(pixWithNoData);
-            rays.push_back(ray);
-            depths.push_back(depth);
-            weights.push_back(weight);
-        }
-
-        geometry.init(rays, depths, weights, cam);
+        SE3 localPoseScaled = localPose;
+        localPoseScaled.translation() /= globalScale_;
+        SE3 globalPose = localPoseScaled * globalPose_;
+        return globalPose;
     }
 
-    SE3f localPoseToGlobal(SE3f _localPose)
+    SE3 globalPoseToLocal(SE3 globalPose)
     {
-        SE3f localPoseScaled = _localPose;
-        localPoseScaled.translation() /= globalScale;
-        SE3f _globalPose = localPoseScaled * globalPose;
-        return _globalPose;
+        SE3 localPose = globalPose * globalPose_.inverse();
+        localPose.translation() *= globalScale_;
+        return localPose;
     }
 
-    SE3f globalPoseToLocal(SE3f _globalPose)
+    Vec2 localExpToGlobal(Vec2 localExp)
     {
-        SE3f _localPose = _globalPose * globalPose.inverse();
-        _localPose.translation() *= globalScale;
-        return _localPose;
+        Vec2 globalExp;
+        float alpha1 = std::exp(localExp(0));
+        float alpha2 = std::exp(globalExp_(0));
+        globalExp(0) = std::log(alpha1 / alpha2);
+        globalExp(1) = localExp(1) - globalExp_(1) / alpha1;
+        return globalExp;
     }
 
-    vec2f localExpToGlobal(vec2f _localExp)
+    Vec2 globalExpToLocal(Vec2 globalExp)
     {
-        vec2f _globalExp;
-        float alpha1 = std::exp(_localExp(0));
-        float alpha2 = std::exp(globalExp(0));
-        _globalExp(0) = std::log(alpha1 / alpha2);
-        _globalExp(1) = _localExp(1) - globalExp(1) / alpha1;
-        return _globalExp;
-    }
-
-    vec2f globalExpToLocal(vec2f _globalExp)
-    {
-        vec2f _localExp;
-        float alpha1 = std::exp(-_globalExp(0));
-        float alpha2 = std::exp(-globalExp(0));
-        _localExp(0) = std::log(alpha1 / alpha2);
-        _localExp(1) = -_globalExp(1) + (alpha2 / alpha1) * globalExp(1);
+        Vec2 localExp;
+        float alpha1 = std::exp(-globalExp(0));
+        float alpha2 = std::exp(-globalExp_(0));
+        localExp(0) = std::log(alpha1 / alpha2);
+        localExp(1) = -globalExp(1) + (alpha2 / alpha1) * globalExp_(1);
         return _localExp;
     }
 
+    /*
     void scaleVerticesAndWeights(float scale)
     {
-        globalScale *= scale;
+        globalScale_ *= scale;
         geometry.scaleVertices(scale);
         // add a bit more of uncertanty to the weights
         // geometry.scaleWeights(scale * 1.2);
     }
+    */
 
-    float getGlobalScale()
-    {
-        return globalScale;
-    }
-
-    void setGlobalExp(vec2f newGlobalExp)
-    {
-        globalExp = newGlobalExp;
-    }
-
-    vec2f getGlobalExp()
-    {
-        return globalExp;
-    }
-
-    void setGlobalPose(SE3f newGlobalPose)
-    {
-        globalPose = newGlobalPose;
-    }
-
-    SE3f getGlobalPose()
-    {
-        return globalPose;
-    }
-
-    dataCPU<imageType> &getRawImage(int lvl)
-    {
-        return raw_image.get(lvl);
-    }
-
-    dataCPU<vec2f> &getdIdpixImage(int lvl)
-    {
-        return dIdpix_image.get(lvl);
-    }
-
-    geometryType &getGeometry()
-    {
-        return geometry;
-    }
-
-    void setGeometry(const geometryType &_geometry)
-    {
-        geometry = _geometry;
-    }
-
-    float meanViewAngle(SE3f pose1, SE3f pose2)
-    {
-        int lvl = 1;
-
-        geometryType scene1 = geometry;
-        scene1.transform(pose1);
-        // scene1.project(cam);
-
-        geometryType scene2 = geometry;
-        scene2.transform(pose2);
-        // scene2.project(cam);
-
-        SE3f relativePose = pose1 * pose2.inverse();
-
-        SE3f frame1PoseInv = relativePose.inverse();
-        SE3f frame2PoseInv = SE3f();
-
-        vec3f frame1Translation = frame1PoseInv.translation();
-        vec3f frame2Translation = frame2PoseInv.translation();
-
-        std::vector<int> vIds = scene2.getVerticesIds();
-
-        float accAngle = 0;
-        int count = 0;
-        for (int vId : vIds)
+    /*
+        float meanViewAngle(SE3f pose1, SE3f pose2)
         {
-            vertex vert = scene2.getVertex(vId);
+            int lvl = 1;
 
-            vec3f diff1 = vert.ver - frame1Translation;
-            vec3f diff2 = vert.ver - frame2Translation;
+            geometryType scene1 = geometry;
+            scene1.transform(pose1);
+            // scene1.project(cam);
 
-            assert(diff1.norm() > 0 && diff2.norm() > 0);
+            geometryType scene2 = geometry;
+            scene2.transform(pose2);
+            // scene2.project(cam);
 
-            vec3f diff1Normalized = diff1 / diff1.norm();
-            vec3f diff2Normalized = diff2 / diff2.norm();
+            SE3f relativePose = pose1 * pose2.inverse();
 
-            float cos_angle = diff1Normalized.dot(diff2Normalized);
-            cos_angle = std::clamp(cos_angle, -1.0f, 1.0f);
-            float angle = std::acos(cos_angle);
+            SE3f frame1PoseInv = relativePose.inverse();
+            SE3f frame2PoseInv = SE3f();
 
-            assert(!std::isnan(angle));
+            vec3f frame1Translation = frame1PoseInv.translation();
+            vec3f frame2Translation = frame2PoseInv.translation();
 
-            accAngle += angle;
-            count += 1;
-        }
+            std::vector<int> vIds = scene2.getVerticesIds();
 
-        return accAngle / count;
-    }
-
-private:
-    float getDepthFromClosestShape(vec2f texcoord, cameraType cam)
-    {
-        std::vector<int> s_ids = geometry.getShapesIds();
-
-        /*
-        float best_depth = -1;
-        float best_distance = 2.0;
-        for(int s_id : s_ids)
-        {
-            shapeType shape = geometry.getShape(s_id);
-            float distance = (texcoord - shape.getCenterPix()).norm();
-            if(distance < best_distance)
+            float accAngle = 0;
+            int count = 0;
+            for (int vId : vIds)
             {
-                best_distance = distance;
-                shape.usePixel(texcoord);
-                best_depth = shape.getDepth();
+                vertex vert = scene2.getVertex(vId);
+
+                vec3f diff1 = vert.ver - frame1Translation;
+                vec3f diff2 = vert.ver - frame2Translation;
+
+                assert(diff1.norm() > 0 && diff2.norm() > 0);
+
+                vec3f diff1Normalized = diff1 / diff1.norm();
+                vec3f diff2Normalized = diff2 / diff2.norm();
+
+                float cos_angle = diff1Normalized.dot(diff2Normalized);
+                cos_angle = std::clamp(cos_angle, -1.0f, 1.0f);
+                float angle = std::acos(cos_angle);
+
+                assert(!std::isnan(angle));
+
+                accAngle += angle;
+                count += 1;
             }
+
+            return accAngle / count;
         }
-        if(best_depth > 0.0)
-            return best_depth;
-        else
-            return mesh_vo::mapping_mean_depth;
-        */
-
-        float sigma = 0.1;
-
-        float depth_sum = 0.0;
-        float weight_sum = 0.0;
-        for (int s_id : s_ids)
-        {
-            shapeType shape = geometry.getShape(s_id);
-            float distance = (texcoord - shape.getCenterPix()).norm();
-            float weight = std::exp(-(distance * distance) / (2 * sigma * sigma));
-
-            shape.usePixel(texcoord);
-            float depth = shape.getDepth();
-            if (depth <= 0.0)
-                continue;
-            depth_sum += depth * weight;
-            weight_sum += weight;
-        }
-
-        return depth_sum / weight_sum;
-    }
-
+    */
+private:
     Frame frame_;
     MeshCPU mesh_;
-    CameraType cam_;
 };

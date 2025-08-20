@@ -3,7 +3,8 @@
 #include <thread>
 
 #include "params.h"
-
+#include "core/types.h"
+#include "common/types.h"
 #include "common/DenseLinearProblem.h"
 
 template <typename In1Type, typename In2Type, typename In3Type, typename OutType>
@@ -55,12 +56,12 @@ class ErrorReducerCPU : public BaseReducerCPU<ImageType, Error>
 {
 
 public:
-    void reducepartial(int min, int max, BufferCPU<ImageType> &image, BufferCPU<ImageType> kimage_projected, BufferCPU<ImageType> &notused, Error &err)
+    void reducepartial(int min, int max, Buffer<Image> &image, Buffer<Image> kimage_projected, Buffer<Image> &notused, Error &err) override
     {
         for (int i = min; i < max; i++)
         {
-            ImageType val = image[i];
-            ImageType kval = kimage_projected[i];
+            Image val = image[i];
+            Image kval = kimage_projected[i];
             // if (val == image.nodata || kval == kimage_projected.nodata)
             //     continue;
             float res = val - kval;
@@ -176,91 +177,91 @@ class HGPoseMapReducerCPU : public BaseReducerCPU<JMapType, ImageType, ImageType
 {
 public:
     void reducepartial(int min, int max,
- int frameId, int numFrames, dataCPU<jposeType> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<errorType> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
-{
-    for (int y = win.min_y; y < win.max_y; y += 1)
+                       int frameId, int numFrames, dataCPU<jposeType> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<errorType> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
     {
-        for (int x = win.min_x; x < win.max_x; x += 1)
+        for (int y = win.min_y; y < win.max_y; y += 1)
         {
-            vec6f J_pose = jpose_buffer.getTexel(y, x);
-            jmapType J_map = jmap_buffer.getTexel(y, x);
-            float res = res_buffer.getTexel(y, x);
-            idsType map_ids = pId_buffer.getTexel(y, x);
-
-            if (res == res_buffer.nodata || J_pose == jpose_buffer.nodata || J_map == jmap_buffer.nodata || map_ids == pId_buffer.nodata)
-                continue;
-
-            float absres = std::fabs(res);
-            float hw = 1.0;
-            if (absres > mesh_vo::huber_thresh_pix)
-                hw = mesh_vo::huber_thresh_pix / absres;
-
-            // hg.add(J_pose, J_map, res, hw, frameId, map_ids);
-
-            vecxf J(6 + J_map.rows());
-            vecxi ids(6 + J_map.rows());
-
-            for (int i = 0; i < 6; i++)
+            for (int x = win.min_x; x < win.max_x; x += 1)
             {
-                J(i) = J_pose(i);
-                ids(i) = frameId * 6 + i;
-                ;
-            }
-            for (int i = 0; i < J_map.rows(); i++)
-            {
-                J(i + 6) = J_map(i);
-                ids(i + 6) = map_ids(i) + numFrames * 6;
-            }
+                vec6f J_pose = jpose_buffer.getTexel(y, x);
+                jmapType J_map = jmap_buffer.getTexel(y, x);
+                float res = res_buffer.getTexel(y, x);
+                idsType map_ids = pId_buffer.getTexel(y, x);
 
-            hg.add(J, res, hw, ids);
+                if (res == res_buffer.nodata || J_pose == jpose_buffer.nodata || J_map == jmap_buffer.nodata || map_ids == pId_buffer.nodata)
+                    continue;
+
+                float absres = std::fabs(res);
+                float hw = 1.0;
+                if (absres > mesh_vo::huber_thresh_pix)
+                    hw = mesh_vo::huber_thresh_pix / absres;
+
+                // hg.add(J_pose, J_map, res, hw, frameId, map_ids);
+
+                vecxf J(6 + J_map.rows());
+                vecxi ids(6 + J_map.rows());
+
+                for (int i = 0; i < 6; i++)
+                {
+                    J(i) = J_pose(i);
+                    ids(i) = frameId * 6 + i;
+                    ;
+                }
+                for (int i = 0; i < J_map.rows(); i++)
+                {
+                    J(i + 6) = J_map(i);
+                    ids(i + 6) = map_ids(i) + numFrames * 6;
+                }
+
+                hg.add(J, res, hw, ids);
+            }
         }
     }
-}
 
-/*
-void reduceHGIntrinsicPoseMapWindow(window<int> win, int frameId, int numFrames, dataCPU<jcamType> &jintrinsic_buffer, dataCPU<jposeType> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<errorType> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
-{
-    for (int y = win.min_y; y < win.max_y; y += 1)
+    /*
+    void reduceHGIntrinsicPoseMapWindow(window<int> win, int frameId, int numFrames, dataCPU<jcamType> &jintrinsic_buffer, dataCPU<jposeType> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<errorType> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
     {
-        for (int x = win.min_x; x < win.max_x; x += 1)
+        for (int y = win.min_y; y < win.max_y; y += 1)
         {
-            jcamType J_int = jintrinsic_buffer.getTexel(y, x);
-            jposeType J_pose = jpose_buffer.getTexel(y, x);
-            jmapType J_map = jmap_buffer.getTexel(y, x);
-            errorType res = res_buffer.getTexel(y, x);
-            idsType map_ids = pId_buffer.getTexel(y, x);
-
-            if (res == res_buffer.nodata || J_int == jintrinsic_buffer.nodata || J_pose == jpose_buffer.nodata || J_map == jmap_buffer.nodata || map_ids == pId_buffer.nodata)
-                continue;
-
-            float absres = std::fabs(res);
-            float hw = 1.0;
-            if (absres > mesh_vo::huber_thresh_pix)
-                hw = mesh_vo::huber_thresh_pix / absres;
-
-            // hg.add(J_pose, J_map, res, hw, frameId, map_ids);
-
-            vecxf J(J_int.rows() + 6 + J_map.rows());
-            vecxi ids(J_int.rows() + 6 + J_map.rows());
-
-            for (int i = 0; i < J_int.rows(); i++)
+            for (int x = win.min_x; x < win.max_x; x += 1)
             {
-                J(i) = J_int(i);
-                ids(i) = i;
-            }
-            for (int i = 0; i < 6; i++)
-            {
-                J(i + J_int.rows()) = J_pose(i);
-                ids(i + J_int.rows()) = frameId * 6 + i + J_int.rows();
-            }
-            for (int i = 0; i < J_map.rows(); i++)
-            {
-                J(i + 6 + J_int.rows()) = J_map(i);
-                ids(i + 6 + J_int.rows()) = map_ids(i) + numFrames * 6 + J_int.rows();
-            }
+                jcamType J_int = jintrinsic_buffer.getTexel(y, x);
+                jposeType J_pose = jpose_buffer.getTexel(y, x);
+                jmapType J_map = jmap_buffer.getTexel(y, x);
+                errorType res = res_buffer.getTexel(y, x);
+                idsType map_ids = pId_buffer.getTexel(y, x);
 
-            hg.add(J, res, hw, ids);
+                if (res == res_buffer.nodata || J_int == jintrinsic_buffer.nodata || J_pose == jpose_buffer.nodata || J_map == jmap_buffer.nodata || map_ids == pId_buffer.nodata)
+                    continue;
+
+                float absres = std::fabs(res);
+                float hw = 1.0;
+                if (absres > mesh_vo::huber_thresh_pix)
+                    hw = mesh_vo::huber_thresh_pix / absres;
+
+                // hg.add(J_pose, J_map, res, hw, frameId, map_ids);
+
+                vecxf J(J_int.rows() + 6 + J_map.rows());
+                vecxi ids(J_int.rows() + 6 + J_map.rows());
+
+                for (int i = 0; i < J_int.rows(); i++)
+                {
+                    J(i) = J_int(i);
+                    ids(i) = i;
+                }
+                for (int i = 0; i < 6; i++)
+                {
+                    J(i + J_int.rows()) = J_pose(i);
+                    ids(i + J_int.rows()) = frameId * 6 + i + J_int.rows();
+                }
+                for (int i = 0; i < J_map.rows(); i++)
+                {
+                    J(i + 6 + J_int.rows()) = J_map(i);
+                    ids(i + 6 + J_int.rows()) = map_ids(i) + numFrames * 6 + J_int.rows();
+                }
+
+                hg.add(J, res, hw, ids);
+            }
         }
     }
-}
-*/
+    */
