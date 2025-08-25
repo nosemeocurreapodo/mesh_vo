@@ -36,9 +36,9 @@ include_directories( ${CSPARSE_INCLUDE_DIR} ${CHOLMOD_INCLUDE_DIR})
 set(VISUALODOMETRY_SRCS
       "src/params.cpp"
       "src/optimizers/baseOptimizer.cpp"
-      "src/optimizers/poseOptimizer.cpp"
-      "src/optimizers/mapOptimizer.cpp"
-      "src/optimizers/poseMapOptimizer.cpp")
+      "src/optimizers/poseOptimizer.cpp")
+#      "src/optimizers/mapOptimizer.cpp"
+#      "src/optimizers/poseMapOptimizer.cpp")
 
 #file(GLOB TESTAPP_SRCS "src/test/*.cpp"
 #                       "src/test/utils/*.cpp")

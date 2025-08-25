@@ -131,7 +131,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
     }
 }
 
-Error PoseOptimizer::computeError(Frame &frame, KeyFrame &kframe, CameraType &cam, int lvl)
+Error PoseOptimizer::computeError(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
     imagerenderer_.Render(kframe.mesh_, frame.pose_ * kframe.pose_.inverse(), cam, kframe.image_, i_buffer_, lvl, lvl);
     

@@ -8,6 +8,11 @@
 #include "sophus/se3.hpp"
 #include "sophus/sim3.hpp"
 
+#include "backends/cpu/buffercpu.h"
+#include "backends/cpu/texturecpu.h"
+#include "backends/cpu/meshcpu.h"
+#include "backends/cpu/renderercpu.h"
+
 // template <typename type, int rows>
 // using vec = Eigen::Matrix<type, rows, 1>;
 
@@ -77,8 +82,12 @@ class BufferCPU;
 class TextureCPU;
 class MeshCPU;
 class DIDxyRendererCPU;
+class JtraRendererCPU;
+class JrotRendererCPU;
 
 using Buffer = BufferCPU;
 using Texture = TextureCPU;
 using Mesh = MeshCPU;
 using DIDxyRenderer = DIDxyRendererCPU;
+using JtraRenderer = JtraRendererCPU;
+using JrotRenderer = JrotRendererCPU;

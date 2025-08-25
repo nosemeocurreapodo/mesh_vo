@@ -15,10 +15,11 @@ public:
     virtual ~BaseReducerCPU() = default;
 
     virtual void reducepartial(int min, int max,
-                               BufferCPU<In1Type> &reduce1,
-                               BufferCPU<In2Type> &reduce2,
-                               BufferCPU<In3Type> &reduce3,
-                               OutType &out) = 0;
+                               Texture<In1Type> &reduce1,
+                               Texture<In2Type> &reduce2,
+                               Texture<In3Type> &reduce3,
+                               OutType &out,
+                               int lvl) = 0;
 
     OutType reduce(BufferCPU<In1Type> &reduce1, BufferCPU<In2Type> &reduce2, BufferCPU<In3Type> &reduce3)
     {

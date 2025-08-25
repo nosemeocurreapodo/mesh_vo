@@ -2,9 +2,8 @@
 
 #include "params.h"
 #include "core/types.h"
-#include "common/types.h"
 #include "core/camera.h"
-#include "backends/cpu/texturecpu.h"
+#include "common/types.h"
 
 class KeyFrame
 {
