@@ -65,10 +65,14 @@ TEST_F(RendererTestBase, ComputePose)
     std::vector<float> pos_buff_, tex_buff_, wei_buff_;
     CreateScreenQuad(pos_buff_, tex_buff_, wei_buff_);
     MeshCPU screen_mesh(pos_buff_, tex_buff_, wei_buff_);
-    MeshCPU mesh(vertices_, texcoords_, weights_);
 
     TextureCPU<float> kimage_cpu(w_, h_, 0.0f);
     UploadMatToTexture(kimage_cpu, 0, image_src_cv_);
+
+    TextureCPU<float> kdepth_cpu(w_, h_, 0.0f);
+    UploadMatToTexture(kdepth_cpu, 0, depth_src_cv_);
+
+    MeshCPU mesh = CreateMesh(kdepth_cpu, cam_, 32);
 
     TextureCPU<Vec3> kdidxy_cpu(w_, h_, Vec3(0.0, 0.0, 0.0));
 
@@ -80,7 +84,7 @@ TEST_F(RendererTestBase, ComputePose)
 
     KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3(), pose_src_), mesh);
 
-    PoseOptimizer optimizer(w_, h_, true);
+    PoseOptimizer optimizer(w_, h_, false);
 
     SE3 tracked_global_pose = kframe.frame().global_pose();
 
@@ -91,12 +95,15 @@ TEST_F(RendererTestBase, ComputePose)
         SE3 gt_pose = poses_[i].inverse();
 
         image_cv.convertTo(image_cv, CV_32FC1);
-        // gt_depth_cv.convertTo(gt_depth_cv, CV_32FC1);
+        gt_depth_cv.convertTo(gt_depth_cv, CV_32FC1);
         //  gt_depth_cv /= dataset.getDepthFactor();
         //  gt_depth_cv *= 100.0;
 
         TextureCPU<float> image_cpu(w_, h_, 0);
         UploadMatToTexture(image_cpu, 0, image_cv);
+
+        TextureCPU<float> depth_cpu(w_, h_, 0);
+        UploadMatToTexture(depth_cpu, 0, gt_depth_cv);
 
         TextureCPU<Vec3> didxy_cpu(w_, h_, Vec3(0.0, 0.0, 0.0));
         for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
@@ -126,28 +133,32 @@ TEST_F(RendererTestBase, ComputePose)
         framesProcessedCounter++;
 
         // change keyframe logic
-        //float keyframeViewAngle = kframe.meanViewAngle(SE3(), frame.local_pose());
+        // float keyframeViewAngle = kframe.meanViewAngle(SE3(), frame.local_pose());
 
         TextureCPU<float> image_buffer(w_, h_, -1);
         image_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, kframe.frame().image(), image_buffer, 1, 1);
 
         int count = 0;
         auto mm = image_buffer.MapRead(1);
-        for(int i = 0; i < image_buffer.size(1); i++)
+        for (int i = 0; i < image_buffer.size(1); i++)
         {
-            if(mm[i] == image_buffer.nodata())
+            if (mm[i] == image_buffer.nodata())
                 count++;
         }
 
-        float pnodata = float(count)/image_buffer.size(1);
+        float pnodata = float(count) / image_buffer.size(1);
         float viewPercent = 1.0 - pnodata;
 
-        if (viewPercent < mesh_vo::min_view_perc)// || keyframeViewAngle > mesh_vo::key_max_angle)
+        std::cout << "view percent " << viewPercent << std::endl;
+
+        if (viewPercent < mesh_vo::min_view_perc) // || keyframeViewAngle > mesh_vo::key_max_angle)
         {
-            kframe = KeyFrame(imageData, vec2f(0.0, 0.0), gtPose, 1.0);
-            kframe.initGeometryFromDepth(gtDepthData, dataCPU<float>(w, h, 1.0 / mesh_vo::mapping_param_initial_var), cam);
+            MeshCPU new_mesh = CreateMesh(depth_cpu, cam_, 32);
+            kframe = KeyFrame(frame, new_mesh);
+
+            cv::Mat kf_mat = DownloadTexture(image_buffer, 1, CV_32FC1);
+            SaveDebugImageColor(kf_mat, "keyframe_" + std::to_string(i) + ".png");
         }
-        */
     }
 
     auto meanDuration = accProcessingTime.count() / framesProcessedCounter;
