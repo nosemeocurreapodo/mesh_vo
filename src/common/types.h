@@ -70,6 +70,7 @@ using SE3f = SE3<float>;
 using solverType = LDLT<matxf>;
 */
 
+/*
 using Image = float;
 using Jimg = Vec2;
 using Jpose = Vec6;
@@ -78,7 +79,9 @@ using Jmap = Vec3;
 using Jcam = Vec4;
 using Ids = Vec3i;
 
+template <typename T>
 class BufferCPU;
+template <class T>
 class TextureCPU;
 class MeshCPU;
 class DIDxyRendererCPU;
@@ -91,3 +94,4 @@ using Mesh = MeshCPU;
 using DIDxyRenderer = DIDxyRendererCPU;
 using JtraRenderer = JtraRendererCPU;
 using JrotRenderer = JrotRendererCPU;
+*/

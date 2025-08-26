@@ -1,250 +1,144 @@
 #pragma once
 
-#include "common/types.h"
+#include "common/types.h" // expects typedefs: using vecxf = Eigen::VectorXf; using matxf = Eigen::MatrixXf; etc.
+#include <cassert>
+#include <cstdint>
+#include <vector>
 
+// ===== Dense normal-equation accumulator with packed H for thread scalability =====
 class DenseLinearProblem
 {
 public:
-    DenseLinearProblem(int numParams)
+    DenseLinearProblem() : m_numParams(0), m_count(0) {}
+    explicit DenseLinearProblem(int numParams) { reset(numParams); }
+
+    void reset(int n)
     {
-        m_numParams = numParams;
-
-        m_H = matxf::Zero(numParams, numParams);
-        m_lH = matxf::Zero(numParams, numParams);
-        m_G = vecxf::Zero(numParams);
-
+        assert(n >= 0);
+        m_numParams = n;
+        m_Hp = Matx::Zero(n, n);
+        m_G = Vecx::Zero(n);
+        //m_Hp.setZero();
+        //m_G.setZero();
         m_count = 0;
     }
 
-    void setZero()
+    void clear()
     {
-        m_H.setZero();
-        m_lH.setZero();
+        if (m_numParams == 0)
+            return;
+        // m_Hp.reset(m_numParams);
+        m_Hp.setZero();
         m_G.setZero();
         m_count = 0;
     }
 
-    // for vector error (not scalar error like pixel errors)
-    // and matrix jacobian (not vector)
-    template <typename jacType, typename errType>
-    void add(jacType jac, errType error, float weight)
+    int size() const { return m_numParams; }
+
+    // Add dense contribution without scatter
+    template <typename Jac>
+    inline void add(const Jac &J, float r, float w = 1.0f)
     {
-        assert(error.cols() == 1);
-        assert(error.rows() == jac.rows());
-        assert(jac.cols() == m_numParams);
-        assert(jac.rows() == m_numParams);
-
-        m_count++;
-
-        jacType J = jac * jac.transpose();
-        errType G = jac * error;
-
-        m_G += G * weight;
-        m_H += J * weight;
-    }
-    /*
-    // for vector error (not scalar error like pixel errors)
-    template <typename jacType, typename errType, typename idsType>
-    void add(jacType jac, errType error, float weight, idsType ids)
-    {
-        assert(error.cols() == 1);
-        assert(error.rows() == jac.rows());
-        assert(jac.cols() == m_numParams);
-        assert(jac.rows() == m_numParams);
-
-        m_count++;
-
-        jacType J = jac * jac.transpose();
-        errType G = jac * error;
-
-        m_G += G * weight;
-        m_H += J * weight;
-    }
-    */
-    template <typename jacType>
-    void add(jacType jac, float error, float weight)
-    {
-        assert(jac.rows() == m_numParams);
-
-        m_count++;
-
-        // G += J * error;
-        // H += J * J.transpose();
-
-        for (int i = 0; i < jac.rows(); i++)
-        {
-            m_G(i) += jac(i) * error * weight;
-            m_H(i, i) += jac(i) * jac(i) * weight;
-
-            for (int j = i + 1; j < jac.rows(); j++)
-            {
-                float jj = jac(i) * jac(j) * weight;
-                m_H(i, j) += jj;
-                m_H(j, i) += jj;
-            }
-        }
+        assert(J.size() == m_numParams);
+        if (w <= 0.0f)
+            return;
+        // m_Hp.rank1(J, w);
+        m_Hp += w * (J * J.transpose());
+        m_G.noalias() += w * (J * r);
+        ++m_count;
     }
 
-    template <typename jacType, typename idsType>
-    void add(jacType jac, float error, float weight, idsType ids)
+    // Add with scatter indices
+    template <typename Jac, typename Idx>
+    inline void add(const Jac &J,
+                    float r,
+                    float w,
+                    const Idx &ids)
     {
-        assert(jac.rows() == ids.rows());
-        assert(jac.cols() == 1);
-        assert(ids.cols() == 1);
-        assert(jac.rows() <= m_numParams);
-
-        m_count++;
-
-        // G += J * error;
-        // H += J * J.transpose();
-
-        for (int i = 0; i < jac.rows(); i++)
-        {
-            m_G(ids(i)) += jac(i) * error * weight;
-            m_H(ids(i), ids(i)) += jac(i) * jac(i) * weight;
-
-            for (int j = i + 1; j < jac.rows(); j++)
-            {
-                float jj = jac(i) * jac(j) * weight;
-                m_H(ids(i), ids(j)) += jj;
-                m_H(ids(j), ids(i)) += jj;
-            }
-        }
-    }
-
-    DenseLinearProblem operator+(DenseLinearProblem a)
-    {
-        assert(m_numParams == a.m_numParams);
-
-        DenseLinearProblem sum(m_numParams);
-
+        if (w <= 0.0f)
+            return;
         /*
-        if(m_count == 0)
+        m_Hp.rank1_scatter(J, ids, w);
+        const int m = static_cast<int>(J.rows());
+        for (int i = 0; i < m; ++i)
         {
-            sum.m_H = a.m_H/a.m_count;
-            sum.m_G = a.m_G/a.m_count;
+            const int ii = ids(i);
+            assert(ii >= 0 && ii < m_numParams);
+            m_G(ii) += w * J(i) * r;
         }
-        else
-        {
-            sum.m_H = m_H/m_count + a.m_H/a.m_count;
-            sum.m_G = m_G/m_count + a.m_G/a.m_count;
-        }
-
-        sum.m_count = 1;
         */
 
-        sum.m_H = m_H + a.m_H;
-        sum.m_G = m_G + a.m_G;
-        sum.m_count = m_count + a.m_count;
-
-        return sum;
-    }
-
-    void operator+=(DenseLinearProblem a)
-    {
-        assert(m_numParams == a.m_numParams);
-
-        /*
-        if(m_count == 0)
+        for (int i = 0; i < J.rows(); i++)
         {
-            m_H = a.m_H/a.m_count;
-            m_G = a.m_G/a.m_count;
-        }
-        else
-        {
-            m_H = m_H/m_count + a.m_H/a.m_count;
-            m_G = m_G/m_count + a.m_G/a.m_count;
-        }
+            // assert(ii >= 0 && ii < m_numParams);
 
-        m_count = 1;
-        */
+            m_G(ids(i)) += J(i) * r * w;
+            m_Hp(ids(i), ids(i)) += J(i) * J(i) * w;
 
-        m_H += a.m_H;
-        m_G += a.m_G;
-        m_count += a.m_count;
-    }
-
-    template <typename type>
-    void operator*=(type a)
-    {
-        m_H *= a;
-        m_G *= a;
-    }
-
-    /*
-    std::vector<int> removeUnobservedParams()
-    {
-        std::vector<int> indicesToKeep;
-
-        for (int i = 0; i < m_G.size(); ++i)
-        {
-            if (m_G[i] != 0.0)
+            for (int j = i + 1; j < J.rows(); j++)
             {
-                indicesToKeep.push_back(i);
+                float jj = J(i) * J(j) * w;
+                m_Hp(ids(i), ids(j)) += jj;
+                m_Hp(ids(j), ids(i)) += jj;
             }
         }
 
-        Eigen::VectorXi indicesToKeepVector(indicesToKeep.size());
+        ++m_count;
+    }
 
-        for (size_t i = 0; i < indicesToKeep.size(); i++)
+    // Merge thread-local accumulators
+    DenseLinearProblem &operator+=(const DenseLinearProblem &other)
+    {
+        if (other.m_numParams == 0)
+            return *this;
+        if (m_numParams == 0)
         {
-            indicesToKeepVector(i) = indicesToKeep[i];
+            *this = other;
+            return *this;
         }
-
-        m_H = m_H(indicesToKeepVector, indicesToKeepVector);
-        m_G = m_G(indicesToKeepVector);
-
-        return indicesToKeep;
+        assert(m_numParams == other.m_numParams);
+        m_Hp += other.m_Hp;
+        m_G.noalias() += other.m_G;
+        m_count += other.m_count;
+        return *this;
     }
-    */
 
-    std::vector<int> getParamIds()
+    // Solve (H + damping) x = -G using LDLT
+    Vecx solve(float lambda = 0.0f, int lambda_mode = 1)
     {
-        std::vector<int> indicesToKeep;
+        // if (m_numParams == 0)
+        //     return false;
+        Matx H = m_Hp;
 
-        for (int i = 0; i < m_G.size(); ++i)
+        if (lambda > 0.0f)
         {
-            indicesToKeep.push_back(i);
+            if (lambda_mode == 0)
+            {
+                H.diagonal().array() += lambda;
+            }
+            else
+            {
+                Eigen::VectorXf d = H.diagonal().array().abs().max(1e-8f);
+                H.diagonal().noalias() += lambda * d;
+            }
         }
-
-        return indicesToKeep;
+        // Eigen::LDLT<matxf> ldlt(H);
+        solver.compute(H);
+        // if (ldlt.info() != Eigen::Success)
+        //     return false;
+        Vecx dx = solver.solve(-m_G);
+        // return ldlt.info() == Eigen::Success;
+        return dx;
     }
 
-    bool prepareH(float lambda)
-    {
-        m_lH = m_H;
-        for (int j = 0; j < m_G.size(); j++)
-        {
-            m_lH(j, j) *= (1.0 + lambda);
-        }
-        solver.compute(m_lH);
-        return (solver.info() == Eigen::Success);
-    }
-
-    matxf getH()
-    {
-        return m_H;
-    }
-
-    vecxf solve()
-    {
-        vecxf res = solver.solve(m_G);
-        assert(solver.info() == Eigen::Success);
-        return res;
-    }
-
-    int getCount()
-    {
-        return m_count;
-    }
+    // Accessors
+    int count() const { return m_count; }
+    const Vecx &G() const { return m_G; }
 
 private:
-    matxf m_H;
-    vecxf m_G;
-    matxf m_lH;
-
-    solverType solver;
-
-    int m_numParams;
-    int m_count;
+    Matx m_Hp; // packed upper triangle
+    Vecx m_G;
+    Solver solver;
+    int m_numParams{0};
+    int m_count{0};
 };

@@ -16,74 +16,12 @@ public:
             globalScale = 1.0;
         };
     */
-    KeyFrame(const Texture<Image> image, Camera cam) : frame_(image, 0)
+    KeyFrame(const Frame frame, MeshCPU mesh) : frame_(frame), mesh_(mesh)
     {
-        unsigned int w = image.width(0);
-        unsigned int h = image.height(0);
-
-        std::vector<Vec3> vertices;
-        std::vector<Vec2> texcoords;
-        std::vector<float> weights;
-
-        std::vector<Vec2> tex_coords = UniformTexCoords(32, 32);
-
-        for (Vec2 tex_coord : tex_coords)
-        {
-            Vec2 img_coord = Vec2(tex_coord(0) * (w - 1), tex_coord(1) * (h - 1));
-            // float depth = depth_src_CV.at<float>(int(img_coord(1)), int(img_coord(0)));
-            float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
-            if (depth <= 0.0f)
-                continue;
-            Vec3 ray = cam.PixToRay(tex_coord);
-            Vec3 vertex = ray * depth;
-            vertices.push_back(vertex(0));
-            vertices.push_back(vertex(1));
-            vertices.push_back(vertex(2));
-            texcoords.push_back(tex_coord(0));
-            texcoords.push_back(tex_coord(1));
-            weights.push_back(1.0f);
-        }
-
-        mesh_ = Mesh(vertices, texcoords, weights);
     }
 
-    KeyFrame(const Texture<Image> &image,
-             const Texture<float> &depth,
-             CameraType cam) : frame_(image, 0)
+    KeyFrame(const KeyFrame &other) : frame_(other.frame_), mesh_(other.mesh_)
     {
-        unsigned int w = image.width(0);
-        unsigned int h = image.height(0);
-
-        std::vector<Vec3> vertices;
-        std::vector<Vec2> texcoords;
-        std::vector<float> weights;
-
-        std::vector<Vec2> tex_coords = UniformTexCoords(32, 32);
-
-        for (Vec2 tex_coord : tex_coords)
-        {
-            Vec2 img_coord = Vec2(tex_coord(0) * (w - 1), tex_coord(1) * (h - 1));
-            float depth = depth.GetTexel(int(img_coord(1)), int(img_coord(0)), 0);
-            // float depth = VerticallySmoothDepth(tex_coord, 0.1f, 10.0f);
-            if (depth <= 0.0f)
-                continue;
-            Vec3 ray = cam.PixToRay(tex_coord);
-            Vec3 vertex = ray * depth;
-            vertices.push_back(vertex(0));
-            vertices.push_back(vertex(1));
-            vertices.push_back(vertex(2));
-            texcoords.push_back(tex_coord(0));
-            texcoords.push_back(tex_coord(1));
-            weights.push_back(1.0f);
-        }
-
-        mesh_ = Mesh(vertices, texcoords, weights);
-    }
-
-    KeyFrame(const KeyFrame &other)
-    {
-        frame_ = other.frame_;
-        mesh_ = other.mesh_;
     }
 
     KeyFrame &operator=(const KeyFrame &other)
@@ -96,21 +34,31 @@ public:
         return *this;
     }
 
+    const Frame &frame()
+    {
+        return frame_;
+    }
+
+    const MeshCPU &mesh()
+    {
+        return mesh_;
+    }
+
     SE3 localPoseToGlobal(SE3 localPose)
     {
         SE3 localPoseScaled = localPose;
-        localPoseScaled.translation() /= globalScale_;
-        SE3 globalPose = localPoseScaled * globalPose_;
+        //localPoseScaled.translation() /= globalScale_;
+        SE3 globalPose = localPoseScaled * frame_.global_pose();
         return globalPose;
     }
 
     SE3 globalPoseToLocal(SE3 globalPose)
     {
-        SE3 localPose = globalPose * globalPose_.inverse();
-        localPose.translation() *= globalScale_;
+        SE3 localPose = globalPose * frame_.global_pose().inverse();
+        //localPose.translation() *= globalScale_;
         return localPose;
     }
-
+/*
     Vec2 localExpToGlobal(Vec2 localExp)
     {
         Vec2 globalExp;
@@ -130,6 +78,7 @@ public:
         localExp(1) = -globalExp(1) + (alpha2 / alpha1) * globalExp_(1);
         return _localExp;
     }
+    */
 
     /*
     void scaleVerticesAndWeights(float scale)

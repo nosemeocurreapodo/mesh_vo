@@ -9,28 +9,44 @@
 #include "backends/cpu/renderercpu.h"
 #include "common/reducer.h"
 #include "common/DenseLinearProblem.h"
-//#include "cpu/OpenCVDebug.h"
+// #include "cpu/OpenCVDebug.h"
 
 class BaseOptimizer
 {
 public:
-    BaseOptimizer(int width, int height);
+    BaseOptimizer(int w, int h) : image_buffer_(w, h, 0.0)
+    {
+    }
 
-    virtual void init(Frame &frame, KeyFrame &kframe, CameraType &cam, int lvl) = 0;
-    virtual void step(Frame &frame, KeyFrame &kframe, CameraType &cam, int lvl) = 0;
+    //virtual void init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl) = 0;
+    //virtual void step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl) = 0;
 
-    bool converged();
+    bool converged()
+    {
+        return reached_convergence_;
+    }
 
 protected:
-    //void plotDebug(keyFrame &kframe, std::vector<Frame> &frames, cameraType &cam, std::string window_name);
+    Error computeError(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+    {
+        imagerenderer_.Render(kframe.mesh(), frame.local_pose() * kframe.frame().local_pose().inverse(), cam, kframe.frame().image(), image_buffer_, lvl, lvl);
+        return errorreducer_.reduce(frame.image(), image_buffer_, image_buffer_, lvl);
+    }
 
-    //TextureCPU<imageType> image_buffer;
-    //TextureCPU<float> depth_buffer;
-    //TextureCPU<errorType> error_buffer;
-    //TextureCPU<float> weight_buffer;
+    // void plotDebug(keyFrame &kframe, std::vector<Frame> &frames, cameraType &cam, std::string window_name);
 
-    //renderCPU renderer;
-    //reduceCPU reducer;
+    // TextureCPU<imageType> image_buffer;
+    // TextureCPU<float> depth_buffer;
+    // TextureCPU<errorType> error_buffer;
+    // TextureCPU<float> weight_buffer;
 
-    bool reachedConvergence;
+    // renderCPU renderer;
+    // reduceCPU reducer;
+
+    ImageRendererCPU imagerenderer_;
+    ErrorReducerCPU errorreducer_;
+
+    TextureCPU<float> image_buffer_;
+
+    bool reached_convergence_;
 };

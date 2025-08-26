@@ -17,6 +17,7 @@ endif()
 
 include_directories("src")
 include_directories("MultiPlatformRenderer/src")
+include_directories("MultiPlatformRenderer/tests")
 #include_directories("include")
 include_directories(
         ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
@@ -35,7 +36,6 @@ include_directories( ${CSPARSE_INCLUDE_DIR} ${CHOLMOD_INCLUDE_DIR})
 
 set(VISUALODOMETRY_SRCS
       "src/params.cpp"
-      "src/optimizers/baseOptimizer.cpp"
       "src/optimizers/poseOptimizer.cpp")
 #      "src/optimizers/mapOptimizer.cpp"
 #      "src/optimizers/poseMapOptimizer.cpp")
@@ -80,17 +80,17 @@ add_library(mesh_vo STATIC ${VISUALODOMETRY_SRCS})
 #target_precompile_headers(mesh_vo PRIVATE "include/pch.h")
 target_include_directories(mesh_vo PRIVATE ${OpenCV_INCLUDE_DIRS})
 
-add_executable(testapp ${TESTAPP_SRCS})
-add_executable(tum_dataset ${TUMDATASET_SRCS})
-add_executable(rgbd_dataset ${RGBD_SRCS})
+#add_executable(testapp ${TESTAPP_SRCS})
+#add_executable(tum_dataset ${TUMDATASET_SRCS})
+#add_executable(rgbd_dataset ${RGBD_SRCS})
 #add_executable(kitti_dataset ${KITTI_SRCS} ${VISUALODOMETRY_SRCS})
 #add_executable(kitti_binocular ${KITTI_BINOCULAR_SRCS} ${VISUALODOMETRY_SRCS})
 #add_executable(syfra ${SYFRA_SRCS})
 
 #target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})
-target_link_libraries(testapp mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-target_link_libraries(tum_dataset mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-target_link_libraries(rgbd_dataset mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
+#target_link_libraries(testapp mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
+#target_link_libraries(tum_dataset mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
+#target_link_libraries(rgbd_dataset mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
 #target_link_libraries(kitti_dataset ${OpenCV_LIBS} pthread)
 #target_link_libraries(kitti_binocular ${OpenCV_LIBS} pthread)
 #target_link_libraries(syfra mesh_vo ${OpenCV_LIBS} pthread)
@@ -118,22 +118,18 @@ FetchContent_MakeAvailable(googletest)
 # Create test executable(s)
 
 # Create test executable(s)
-add_executable(renderer_tests tests/rendererCPU_test.cpp)
-target_link_libraries(renderer_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-target_compile_definitions(renderer_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-add_test(NAME renderer_tests COMMAND renderer_tests)
 
 add_executable(poseEstimation_tests tests/poseEstimation_test.cpp)
 target_link_libraries(poseEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
 target_compile_definitions(poseEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
 add_test(NAME poseEstimation_tests COMMAND poseEstimation_tests)
 
-add_executable(poseVelEstimation_tests tests/poseVelEstimation_test.cpp)
-target_link_libraries(poseVelEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-target_compile_definitions(poseVelEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-add_test(NAME poseVelEstimation_tests COMMAND poseVelEstimation_tests)
+#add_executable(poseVelEstimation_tests tests/poseVelEstimation_test.cpp)
+#target_link_libraries(poseVelEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
+#target_compile_definitions(poseVelEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+#add_test(NAME poseVelEstimation_tests COMMAND poseVelEstimation_tests)
 
-add_executable(mapEstimation_tests tests/mapEstimation_test.cpp)
-target_link_libraries(mapEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-target_compile_definitions(mapEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-add_test(NAME mapEstimation_tests COMMAND mapEstimation_tests)
+#add_executable(mapEstimation_tests tests/mapEstimation_test.cpp)
+#target_link_libraries(mapEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
+#target_compile_definitions(mapEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+#add_test(NAME mapEstimation_tests COMMAND mapEstimation_tests)

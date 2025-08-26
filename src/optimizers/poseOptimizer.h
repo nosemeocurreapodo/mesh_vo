@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include "params.h"
 #include "core/camera.h"
 #include "core/types.h"
@@ -10,27 +11,25 @@
 class PoseOptimizer : public BaseOptimizer
 {
 public:
-    PoseOptimizer(int width, int height, bool _printLog = false);
+    PoseOptimizer(int w, int h, bool print_log = false);
+
+    void init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
+    void step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
 private:
-    Error PoseOptimizer::computeError(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
     DenseLinearProblem computeProblem(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
-    JposeRenderer jposerenderer_;
-    ImageRenderer imagerenderer_;
+    JposeRendererCPU jposerenderer_;
+    HGPoseReducerCPU hgposereducer_;
 
-    ErrorReducer errprreducer_;
-    HGPoseReducer hgposereducer_;
+    TextureCPU<Vec6> jac_buffer_;
 
-    TextureCPU<JposeType> j_buffer_;
-    TextureCPU<ImageType> i_buffer_;
-
-    Mat6 invCovariance_;
+    Mat6 inv_covariance_;
 
     Vec6 init_pose_;
     Mat6 init_invcovariance_;
     Mat6 init_invcovariancesqrt_;
     float init_error_;
 
-    bool printLog_;
+    bool print_log_;
 };

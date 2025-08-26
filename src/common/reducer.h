@@ -1,268 +1,261 @@
 #pragma once
 
 #include <thread>
+#include <vector>
+#include <algorithm>
+#include <cassert>
+#include <cmath>
 
 #include "params.h"
 #include "core/types.h"
 #include "common/types.h"
 #include "common/DenseLinearProblem.h"
+#include "common/error.h"
 
+// Generic, thread-safe reducer base. Splits [0, N) into contiguous chunks and aggregates results.
 template <typename In1Type, typename In2Type, typename In3Type, typename OutType>
 class BaseReducerCPU
 {
 public:
-    BaseReducerCPU() = default;
-    virtual ~BaseReducerCPU() = default;
+	BaseReducerCPU() noexcept : threads_(1/*std::max(1u, std::thread::hardware_concurrency())*/) {}
+	explicit BaseReducerCPU(unsigned threads) noexcept : threads_(threads == 0 ? 1u : threads) {}
+	virtual ~BaseReducerCPU() = default;
 
-    virtual void reducepartial(int min, int max,
-                               Texture<In1Type> &reduce1,
-                               Texture<In2Type> &reduce2,
-                               Texture<In3Type> &reduce3,
-                               OutType &out,
-                               int lvl) = 0;
+	OutType reduce(const TextureCPU<In1Type> &reduce1,
+				   const TextureCPU<In2Type> &reduce2,
+				   const TextureCPU<In3Type> &reduce3,
+				   int lvl)
+	{
+		const int n1 = reduce1.size(lvl);
+		const int n2 = reduce2.size(lvl);
+		const int n3 = reduce3.size(lvl);
+		const int N = std::min({n1, n2, n3});
+		assert(N >= 0);
+		if (N <= 0)
+			return OutType{};
 
-    OutType reduce(BufferCPU<In1Type> &reduce1, BufferCPU<In2Type> &reduce2, BufferCPU<In3Type> &reduce3)
-    {
-        static_assert(reduce1.size() == reduce2.size())
+		const unsigned T = std::min<unsigned>(threads_, static_cast<unsigned>(N));
+		const int chunk = (N + static_cast<int>(T) - 1) / static_cast<int>(T);
 
-            const int divi = 1; // ThreadPool<mesh_vo::reducer_nthreads>::getNumThreads();
+		std::vector<OutType> partial(T);
+		std::vector<std::thread> pool;
+		pool.reserve(T > 0 ? T - 1 : 0);
 
-        OutType partial[divi];
+		for (unsigned t = 1; t < T; ++t)
+		{
+			const int begin = static_cast<int>(t) * chunk;
+			const int end = std::min(N, begin + chunk);
+			pool.emplace_back([&, begin, end]()
+							  { partial[t] = reducepartial(begin, end, reduce1, reduce2, reduce3, lvl); });
+		}
+		{
+			const int begin = 0;
+			const int end = std::min(N, chunk);
+			partial[0] = reducepartial(begin, end, reduce1, reduce2, reduce3, lvl);
+		}
+		for (auto &th : pool)
+			th.join();
 
-        int size = reduce1.size();
-        int step = reduce1.size() / divi;
+		OutType total{};
+		for (unsigned t = 0; t < T; ++t)
+			total += partial[t];
+		return total;
+	}
 
-        for (int t = 0; t < size; t += step)
-        {
-            int min = t;
-            int max = t + step - 1;
+protected:
+	virtual OutType reducepartial(int begin, int end,
+								  const TextureCPU<In1Type> &reduce1,
+								  const TextureCPU<In2Type> &reduce2,
+								  const TextureCPU<In3Type> &reduce3,
+								  int lvl) = 0;
 
-            reducepartial(min, max, reduce1, reduce2, reduce3, partial[t]);
-            // pool.enqueue(std::bind(&reduceCPU::reduceErrorWindow, this, win, &residual, &partialerr[tx + ty * divi_x]));
-        }
-    }
+	static inline float huber_weight(float r, float thresh) noexcept
+	{
+		const float a = std::fabs(r);
+		if (a <= thresh || a == 0.0f)
+			return 1.0f;
+		return thresh / a;
+	}
 
-    // pool.waitUntilDone();
+private:
+	unsigned threads_;
+};
 
-    for (int i = 1; i < divi_y * divi_x; i++)
-    {
-        partial[0] += partial[i];
-    }
-
-    return partial[0];
-}
-}
-
-class ErrorReducerCPU : public BaseReducerCPU<ImageType, Error>
+// Photometric L2 with Huber loss. Third input unused.
+class ErrorReducerCPU : public BaseReducerCPU<float, float, float, Error>
 {
+protected:
+	Error reducepartial(int begin, int end,
+						const TextureCPU<float> &image,
+						const TextureCPU<float> &kimage_projected,
+						const TextureCPU<float> & /*unused*/,
+						int lvl) override
+	{
+		auto img = image.MapRead(lvl);
+		auto kin = kimage_projected.MapRead(lvl);
 
-public:
-    void reducepartial(int min, int max, Buffer<Image> &image, Buffer<Image> kimage_projected, Buffer<Image> &notused, Error &err) override
-    {
-        for (int i = min; i < max; i++)
-        {
-            Image val = image[i];
-            Image kval = kimage_projected[i];
-            // if (val == image.nodata || kval == kimage_projected.nodata)
-            //     continue;
-            float res = val - kval;
-            float absresidual = std::fabs(res);
-            float hw = 1.0;
-            if (absresidual > mesh_vo::huber_thresh_pix)
-                hw = mesh_vo::huber_thresh_pix / absresidual;
-            err += hw * res * res;
-        }
-    }
-}
+		Error err;
+		for (int i = begin; i < end; ++i)
+		{
+			const float v = img[i];
+			const float k = kin[i];
+			if (v == image.nodata() || k == kimage_projected.nodata())
+				continue;
+			const float r = v - k;
+			const float w = huber_weight(r, mesh_vo::huber_thresh_pix);
+			err += w * r * r;
+		}
+		return err;
+	}
+};
 
-class HGPoseReducerCPU : public BaseReducerCPU<JPoseType, ImageType, ImageType, DenseLinearProblem>
+// Pose-only Jacobian -> DenseLinearProblem reducer
+class HGPoseReducerCPU : public BaseReducerCPU<float, float, Vec6, DenseLinearProblem>
 {
 public:
-    void reducepartial(int min, int max,
-                       BufferCPU<jposeType> &jpose_buffer,
-                       BufferCPU<imageType> &image,
-                       BufferCPU<imageType> &kimage_projected,
-                       DenseLinearProblem &hg)
-    {
-        for (int i = min; i < max; i++)
-        {
-            JPoseType J = jpose_buffer[i];
-            ImageType val = image[i];
-            ImageType kval = kimage_projected[i];
-            // if (J == jpose_buffer.nodata || val == image.nodata || kval == kimage_projected.nodata)
-            //     continue;
-            float res = val - kval;
-            float absres = std::fabs(res);
-            float hw = 1.0;
-            if (absres > mesh_vo::huber_thresh_pix)
-                hw = mesh_vo::huber_thresh_pix / absres;
+	using Base = BaseReducerCPU<float, float, Vec6, DenseLinearProblem>;
+	explicit HGPoseReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-            hg.add(J, res, hw);
-        }
-    }
-}
+protected:
+	DenseLinearProblem reducepartial(int begin, int end,
+									 const TextureCPU<float> &image,
+									 const TextureCPU<float> &kimage_projected,
+									 const TextureCPU<Vec6> &jpose,
+									 int lvl) override
+	{
+		DenseLinearProblem hg(6);
+		auto ibuf = image.MapRead(lvl);
+		auto kbuf = kimage_projected.MapRead(lvl);
+		auto jbuf = jpose.MapRead(lvl);
+		Vec6i ids(0, 1, 2, 3, 4, 5);
+
+		for (int i = begin; i < end; ++i)
+		{
+			const float img = ibuf[i];
+			const float kimg = kbuf[i];
+			const Vec6 J = jbuf[i];
+			if (img == image.nodata() || kimg == kimage_projected.nodata() || J == jpose.nodata())
+				continue;
+			float res = img - kimg;
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
+
+			hg.add(J, res, w, ids);
+		}
+		return hg;
+	}
+};
 
 /*
-class HGPoseVelReducerCPU : public BaseReducerCPU<JPoseType, ImageType, ImageType, DenseLinearProblem>
+// ===== Map Jacobian container with fixed arity K per observation =====
+template <int K>
+struct MapJacobianBlock
+{
+	Eigen::Matrix<float, K, 1> J; // values
+	Eigen::Matrix<int, K, 1> ids; // global parameter indices
+	uint8_t nnz{0};				  // number of valid entries in [0, K]
+};
+
+// Map-only reducer: residuals + map jacobians (sparse with ids)
+template <int K>
+class HGMapReducerCPU : public BaseReducerCPU<float, float, MapJacobianBlock<K>, DenseLinearProblem>
 {
 public:
-    void
-    reducepartial(int min, int max,
-                  BufferCPU<jposeType> &jpose_buffer,
-                  BufferCPU<jvelType> &jvel_buffer,
-                  BufferCPU<errorType> &res_buffer, DenseLinearProblem &hg)
-    {
-        for (int y = win.min_y; y < win.max_y; y += 1)
-        {
-            for (int x = win.min_x; x < win.max_x; x += 1)
-            {
-                vec6f J_pose = jpose_buffer.getTexel(y, x);
-                vec6f J_vel = jvel_buffer.getTexel(y, x);
-                float res = res_buffer.getTexel(y, x);
-                if (J_pose == jpose_buffer.nodata || J_vel == jvel_buffer.nodata || res == res_buffer.nodata)
-                    continue;
-                float absres = std::fabs(res);
-                float hw = 1.0;
-                if (absres > mesh_vo::huber_thresh_pix)
-                    hw = mesh_vo::huber_thresh_pix / absres;
+	using Block = MapJacobianBlock<K>;
+	explicit HGMapReducerCPU(int num_map_params,
+							 unsigned threads = std::max(1u, std::thread::hardware_concurrency()))
+		: num_map_params_(num_map_params), BaseReducerCPU<float, float, Block, DenseLinearProblem>(threads) {}
 
-                vecxf J(12);
+protected:
+	DenseLinearProblem reducepartial(int begin, int end,
+									 const TextureCPU<float> &residuals,
+									 const TextureCPU<float> & *//*unused*//*,
+									 const TextureCPU<Block> &jmap,
+									 int lvl) override
+	{
+		DenseLinearProblem hg(num_map_params_);
+		auto rbuf = residuals.MapRead(lvl);
+		auto mbuf = jmap.MapRead(lvl);
 
-                for (int i = 0; i < 6; i++)
-                {
-                    J(i) = J_pose(i);
-                }
-                for (int i = 0; i < 6; i++)
-                {
-                    J(i + 6) = J_vel(i);
-                }
+		Eigen::Matrix<float, K, 1> Jtmp;
+		Eigen::Matrix<int, K, 1> Itmp;
 
-                hg.add(J, res, hw);
-            }
-        }
-    }
-}
+		for (int i = begin; i < end; ++i)
+		{
+			const float res = rbuf[i];
+			if (res == residuals.nodata())
+				continue;
+			const float w = BaseReducerCPU<float, float, Block, DenseLinearProblem>::huber_weight(res, mesh_vo::huber_thresh_pix);
+			const Block &b = mbuf[i];
+			const int m = static_cast<int>(b.nnz);
+			if (m <= 0)
+				continue;
+			Jtmp.head(m) = b.J.head(m);
+			Itmp.head(m) = b.ids.head(m);
+			hg.add(Jtmp.head(m), res, w, Itmp.head(m));
+		}
+		return hg;
+	}
+
+private:
+	int num_map_params_;
+};
 */
 
-class HGMapReducerCPU : public BaseReducerCPU<JMapType, ImageType, ImageType, DenseLinearProblem>
+/*
+// Joint pose+map reducer: residuals + pose jacobians + map jacobians
+template <int K>
+class HGPoseMapReducerCPU : public BaseReducerCPU<float, Vec6, MapJacobianBlock<K>, DenseLinearProblem>
 {
 public:
-    void
-    reducepartial(int min, int max,
-                  BufferCPU<jposeType> &jpose_buffer,
-                  BufferCPU<ImageType> &image_buffer,
-                  BufferCPU<ImageType> &kimage_projected_buffer,
-                  DenseLinearProblem &hg)
-    {
-        for (int i = min; i < max; i++)
-        {
-            JMapType jac = jmap_buffer[i];
-            ImageType val = image_buffer[i];
-            ImageType kval = kimage_projected_buffer[i];
-            IdsType ids = pId_buffer.getTexel(y, x);
+	using Block = MapJacobianBlock<K>;
+	explicit HGPoseMapReducerCPU(int num_map_params,
+								 unsigned threads = std::max(1u, std::thread::hardware_concurrency()))
+		: num_map_params_(num_map_params), BaseReducerCPU<float, Vec6, Block, DenseLinearProblem>(threads) {}
 
-            if (res == res_buffer.nodata || jac == jmap_buffer.nodata || ids == pId_buffer.nodata)
-                continue;
+protected:
+	DenseLinearProblem reducepartial(int begin, int end,
+									 const TextureCPU<float> &residuals,
+									 const TextureCPU<Vec6> &jpose,
+									 const TextureCPU<Block> &jmap,
+									 int lvl) override
+	{
+		const int N = 6 + num_map_params_;
+		DenseLinearProblem hg(N);
+		auto rbuf = residuals.MapRead(lvl);
+		auto pbuf = jpose.MapRead(lvl);
+		auto mbuf = jmap.MapRead(lvl);
 
-            float absres = std::fabs(res);
-            float hw = 1.0;
-            if (absres > mesh_vo::huber_thresh_pix)
-                hw = mesh_vo::huber_thresh_pix / absres;
+		Vec6i poseIds;
+		poseIds << 0, 1, 2, 3, 4, 5;
+		Eigen::Matrix<float, K, 1> Jm;
+		Eigen::Matrix<int, K, 1> Im;
 
-            hg.add(jac, res, hw, ids);
-        }
-    }
-}
+		for (int i = begin; i < end; ++i)
+		{
+			const float res = rbuf[i];
+			if (res == residuals.nodata())
+				continue;
+			const float w = BaseReducerCPU<float, Vec6, Block, DenseLinearProblem>::huber_weight(res, mesh_vo::huber_thresh_pix);
 
-class HGPoseMapReducerCPU : public BaseReducerCPU<JMapType, ImageType, ImageType, DenseLinearProblem>
-{
-public:
-    void reducepartial(int min, int max,
-                       int frameId, int numFrames, dataCPU<jposeType> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<errorType> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
-    {
-        for (int y = win.min_y; y < win.max_y; y += 1)
-        {
-            for (int x = win.min_x; x < win.max_x; x += 1)
-            {
-                vec6f J_pose = jpose_buffer.getTexel(y, x);
-                jmapType J_map = jmap_buffer.getTexel(y, x);
-                float res = res_buffer.getTexel(y, x);
-                idsType map_ids = pId_buffer.getTexel(y, x);
+			// Pose block
+			const Vec6 Jp = pbuf[i];
+			hg.add(Jp, res, w, poseIds);
 
-                if (res == res_buffer.nodata || J_pose == jpose_buffer.nodata || J_map == jmap_buffer.nodata || map_ids == pId_buffer.nodata)
-                    continue;
+			// Map block with offset
+			const Block &b = mbuf[i];
+			const int m = static_cast<int>(b.nnz);
+			if (m > 0)
+			{
+				for (int t = 0; t < m; ++t)
+					Im(t) = b.ids(t) + 6; // offset after pose
+				Jm.head(m) = b.J.head(m);
+				hg.add(Jm.head(m), res, w, Im.head(m));
+			}
+		}
+		return hg;
+	}
 
-                float absres = std::fabs(res);
-                float hw = 1.0;
-                if (absres > mesh_vo::huber_thresh_pix)
-                    hw = mesh_vo::huber_thresh_pix / absres;
-
-                // hg.add(J_pose, J_map, res, hw, frameId, map_ids);
-
-                vecxf J(6 + J_map.rows());
-                vecxi ids(6 + J_map.rows());
-
-                for (int i = 0; i < 6; i++)
-                {
-                    J(i) = J_pose(i);
-                    ids(i) = frameId * 6 + i;
-                    ;
-                }
-                for (int i = 0; i < J_map.rows(); i++)
-                {
-                    J(i + 6) = J_map(i);
-                    ids(i + 6) = map_ids(i) + numFrames * 6;
-                }
-
-                hg.add(J, res, hw, ids);
-            }
-        }
-    }
-
-    /*
-    void reduceHGIntrinsicPoseMapWindow(window<int> win, int frameId, int numFrames, dataCPU<jcamType> &jintrinsic_buffer, dataCPU<jposeType> &jpose_buffer, dataCPU<jmapType> &jmap_buffer, dataCPU<errorType> &res_buffer, dataCPU<idsType> &pId_buffer, DenseLinearProblem &hg)
-    {
-        for (int y = win.min_y; y < win.max_y; y += 1)
-        {
-            for (int x = win.min_x; x < win.max_x; x += 1)
-            {
-                jcamType J_int = jintrinsic_buffer.getTexel(y, x);
-                jposeType J_pose = jpose_buffer.getTexel(y, x);
-                jmapType J_map = jmap_buffer.getTexel(y, x);
-                errorType res = res_buffer.getTexel(y, x);
-                idsType map_ids = pId_buffer.getTexel(y, x);
-
-                if (res == res_buffer.nodata || J_int == jintrinsic_buffer.nodata || J_pose == jpose_buffer.nodata || J_map == jmap_buffer.nodata || map_ids == pId_buffer.nodata)
-                    continue;
-
-                float absres = std::fabs(res);
-                float hw = 1.0;
-                if (absres > mesh_vo::huber_thresh_pix)
-                    hw = mesh_vo::huber_thresh_pix / absres;
-
-                // hg.add(J_pose, J_map, res, hw, frameId, map_ids);
-
-                vecxf J(J_int.rows() + 6 + J_map.rows());
-                vecxi ids(J_int.rows() + 6 + J_map.rows());
-
-                for (int i = 0; i < J_int.rows(); i++)
-                {
-                    J(i) = J_int(i);
-                    ids(i) = i;
-                }
-                for (int i = 0; i < 6; i++)
-                {
-                    J(i + J_int.rows()) = J_pose(i);
-                    ids(i + J_int.rows()) = frameId * 6 + i + J_int.rows();
-                }
-                for (int i = 0; i < J_map.rows(); i++)
-                {
-                    J(i + 6 + J_int.rows()) = J_map(i);
-                    ids(i + 6 + J_int.rows()) = map_ids(i) + numFrames * 6 + J_int.rows();
-                }
-
-                hg.add(J, res, hw, ids);
-            }
-        }
-    }
-    */
+private:
+	int num_map_params_;
+};
+*/

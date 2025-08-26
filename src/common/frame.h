@@ -22,24 +22,20 @@ public:
         };
         */
 
-    Frame(const Texture<Image> &im, int id,
-          SE3 localPose = SE3(),
-          SE3 globalPose = SE3(),
-          SE3 localExp = Vec2(0.0, 0.0)) : image_(im),
-                                           didxy_(im.width, im.height, Vec2(0.0, 0.0))
+    Frame(const TextureCPU<float> &im,
+          const TextureCPU<Vec3> &di,
+          int id,
+          SE3 local_pose = SE3(),
+          SE3 global_pose = SE3(),
+          Vec2 local_exp = Vec2(0.0, 0.0)) : image_(im),
+                                            didxy_(di)
     {
-        for (int lvl = 0; lvl < image.getLvls(); lvl++)
-        {
-            didxy_renderer_.Render(two_triangles_mesh_, SE3(), Camera(), image_, didxy_, lvl, lvl);
-            // dIdpix_image.get(lvl) = raw_image.get(lvl).computeFrameDerivative();
-        }
-
         id_ = id;
-        localPose_ = localPose;
-        globalPose_ = globalPose;
+        local_pose_ = local_pose;
+        global_pose_ = global_pose;
         // localVel = JvelType::Zero();
         // globalVel = JvelType::Zero();
-        localExp_ = localExp;
+        local_exp_ = local_exp;
     }
 
     Frame(const Frame &other)
@@ -48,11 +44,11 @@ public:
         didxy_ = other.didxy_;
 
         id_ = other.id_;
-        localPose_ = other.localPose_;
-        globalPose_ = other.globalPose_;
+        local_pose_ = other.local_pose_;
+        global_pose_ = other.global_pose_;
         // localVel = other.localVel;
         // globalVel = other.globalVel;
-        localExp_ = other.localExp_;
+        local_exp_ = other.local_exp_;
     }
 
     Frame &operator=(const Frame &other)
@@ -60,11 +56,11 @@ public:
         if (this != &other)
         {
             id_ = other.id_;
-            localPose_ = other.localPose_;
-            globalPose_ = other.globalPose_;
+            local_pose_ = other.local_pose_;
+            global_pose_ = other.global_pose_;
             // localVel = other.localVel;
             // globalVel = other.globalVel;
-            localExp_ = other.localExp_;
+            local_exp_ = other.local_exp_;
 
             image_ = other.image_;
             didxy_ = other.didxy_;
@@ -72,85 +68,44 @@ public:
         return *this;
     }
 
-    /*
-    void setLocalExp(vec2f newLocalExp)
+    const TextureCPU<float> &image() const
     {
-        localExp = newLocalExp;
+        return image_;
     }
 
-    vec2f getLocalExp()
+    const TextureCPU<Vec3> &didxy() const
     {
-        return localExp;
+        return didxy_;
     }
 
-    void setLocalPose(SE3f newLocalPose)
+    const SE3 &local_pose() const
     {
-        localPose = newLocalPose;
+        return local_pose_;
     }
 
-    SE3f getLocalPose()
+    const SE3 &global_pose() const
     {
-        return localPose;
+        return global_pose_;
     }
 
-    void setLocalVel(jvelType newLocalVel)
+    SE3 &local_pose()
     {
-        localVel = newLocalVel;
+        return local_pose_;
     }
 
-    jvelType getLocalVel()
+    SE3 &global_pose()
     {
-        return localVel;
+        return global_pose_;
     }
-
-    void setGlobalVel(jvelType newGlobalVel)
-    {
-        globalVel = newGlobalVel;
-    }
-
-    jvelType getGlobalVel()
-    {
-        return globalVel;
-    }
-
-    void setGlobalPose(SE3 newGlobalPose)
-    {
-        globalPose = newGlobalPose;
-    }
-
-    SE3 getGlobalPose()
-    {
-        return globalPose;
-    }
-
-    TextureCPU<imageType> &getRawImage(int lvl)
-    {
-        return raw_image.get(lvl);
-    }
-
-    TextureCPU<Vec2> &getdIdpixImage(int lvl)
-    {
-        return dIdpix_image.get(lvl);
-    }
-
-    int getId()
-    {
-        return id;
-    }
-    */
 
 protected:
-    Texture<Image> image_;
-    Texture<Vec2> didxy_;
+    TextureCPU<float> image_;
+    TextureCPU<Vec3> didxy_;
 
-    DIDxyRenderer didxy_renderer_;
-
-    Mesh two_triangles_mesh_;
-
-    SE3 localPose_;
-    SE3 globalPose_;
+    SE3 local_pose_;
+    SE3 global_pose_;
     // JvelType localVel;
     // JvelType globalVel;
-    Vec2 localExp_;
+    Vec2 local_exp_;
     int id_;
 };
