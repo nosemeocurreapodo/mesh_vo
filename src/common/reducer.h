@@ -13,26 +13,26 @@
 #include "common/error.h"
 
 // Generic, thread-safe reducer base. Splits [0, N) into contiguous chunks and aggregates results.
-template <typename In1Type, typename In2Type, typename In3Type, typename OutType>
+template <class Derived, typename OutType>
 class BaseReducerCPU
 {
 public:
-	BaseReducerCPU() noexcept : threads_(1/*std::max(1u, std::thread::hardware_concurrency())*/) {}
+	BaseReducerCPU() noexcept : threads_(1 /*std::max(1u, std::thread::hardware_concurrency())*/) {}
 	explicit BaseReducerCPU(unsigned threads) noexcept : threads_(threads == 0 ? 1u : threads) {}
 	virtual ~BaseReducerCPU() = default;
 
-	OutType reduce(const TextureCPU<In1Type> &reduce1,
-				   const TextureCPU<In2Type> &reduce2,
-				   const TextureCPU<In3Type> &reduce3,
-				   int lvl)
+	template <typename... Texture>
+	OutType reduce(int lvl, const Texture &...texs)
 	{
-		const int n1 = reduce1.size(lvl);
-		const int n2 = reduce2.size(lvl);
-		const int n3 = reduce3.size(lvl);
-		const int N = std::min({n1, n2, n3});
-		assert(N >= 0);
-		if (N <= 0)
-			return OutType{};
+		// const int n1 = reduce1.size(lvl);
+		// const int n2 = reduce2.size(lvl);
+		// const int n3 = reduce3.size(lvl);
+		// const int N = std::min({n1, n2, n3});
+		// assert(N >= 0);
+		// if (N <= 0)
+		//	return OutType{};
+
+		const int N = min_size(lvl, texs...);
 
 		const unsigned T = std::min<unsigned>(threads_, static_cast<unsigned>(N));
 		const int chunk = (N + static_cast<int>(T) - 1) / static_cast<int>(T);
@@ -46,12 +46,12 @@ public:
 			const int begin = static_cast<int>(t) * chunk;
 			const int end = std::min(N, begin + chunk);
 			pool.emplace_back([&, begin, end]()
-							  { partial[t] = reducepartial(begin, end, reduce1, reduce2, reduce3, lvl); });
+							  { partial[t] = derived().reducepartial(begin, end, lvl, texs...); });
 		}
 		{
 			const int begin = 0;
 			const int end = std::min(N, chunk);
-			partial[0] = reducepartial(begin, end, reduce1, reduce2, reduce3, lvl);
+			partial[0] = derived().reducepartial(begin, end, lvl, texs...);
 		}
 		for (auto &th : pool)
 			th.join();
@@ -63,11 +63,10 @@ public:
 	}
 
 protected:
-	virtual OutType reducepartial(int begin, int end,
-								  const TextureCPU<In1Type> &reduce1,
-								  const TextureCPU<In2Type> &reduce2,
-								  const TextureCPU<In3Type> &reduce3,
-								  int lvl) = 0;
+	// template <typename... Ts>
+	// virtual OutType reducepartial(int begin, int end,
+	//							  const TextureCPU<Ts> &...texs,
+	//							  int lvl) = 0;
 
 	static inline float huber_weight(float r, float thresh) noexcept
 	{
@@ -77,19 +76,33 @@ protected:
 		return thresh / a;
 	}
 
+	Derived &derived() { return *static_cast<Derived *>(this); }
+	const Derived &derived() const { return *static_cast<const Derived *>(this); }
+
 private:
+	template <class V>
+	static inline int size_of(int lvl, const V &v) { return v.size(lvl); }
+	template <class V0, class... Vn>
+	static inline int min_size(int lvl, const V0 &v0, const Vn &...vn)
+	{
+		int m = size_of(lvl, v0);
+		((m = std::min(m, size_of(lvl, vn))), ...);
+		return m;
+	}
+
 	unsigned threads_;
 };
 
 // Photometric L2 with Huber loss. Third input unused.
-class ErrorReducerCPU : public BaseReducerCPU<float, float, float, Error>
+class ErrorReducerCPU : public BaseReducerCPU<ErrorReducerCPU, Error>
 {
-protected:
-	Error reducepartial(int begin, int end,
+public:
+	using Base = BaseReducerCPU<ErrorReducerCPU, Error>;
+	explicit ErrorReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
+
+	Error reducepartial(int begin, int end, int lvl,
 						const TextureCPU<float> &image,
-						const TextureCPU<float> &kimage_projected,
-						const TextureCPU<float> & /*unused*/,
-						int lvl) override
+						const TextureCPU<float> &kimage_projected)
 	{
 		auto img = image.MapRead(lvl);
 		auto kin = kimage_projected.MapRead(lvl);
@@ -110,18 +123,16 @@ protected:
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
-class HGPoseReducerCPU : public BaseReducerCPU<float, float, Vec6, DenseLinearProblem>
+class HGPoseReducerCPU : public BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem>
 {
 public:
-	using Base = BaseReducerCPU<float, float, Vec6, DenseLinearProblem>;
+	using Base = BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem>;
 	explicit HGPoseReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-protected:
-	DenseLinearProblem reducepartial(int begin, int end,
+	DenseLinearProblem reducepartial(int begin, int end, int lvl,
 									 const TextureCPU<float> &image,
 									 const TextureCPU<float> &kimage_projected,
-									 const TextureCPU<Vec6> &jpose,
-									 int lvl) override
+									 const TextureCPU<Vec6> &jpose)
 	{
 		DenseLinearProblem hg(6);
 		auto ibuf = image.MapRead(lvl);
@@ -168,36 +179,37 @@ public:
 protected:
 	DenseLinearProblem reducepartial(int begin, int end,
 									 const TextureCPU<float> &residuals,
-									 const TextureCPU<float> & *//*unused*//*,
-									 const TextureCPU<Block> &jmap,
-									 int lvl) override
-	{
-		DenseLinearProblem hg(num_map_params_);
-		auto rbuf = residuals.MapRead(lvl);
-		auto mbuf = jmap.MapRead(lvl);
+									 const TextureCPU<float> & */
+/*unused*/ /*,
+const TextureCPU<Block> &jmap,
+int lvl) override
+{
+DenseLinearProblem hg(num_map_params_);
+auto rbuf = residuals.MapRead(lvl);
+auto mbuf = jmap.MapRead(lvl);
 
-		Eigen::Matrix<float, K, 1> Jtmp;
-		Eigen::Matrix<int, K, 1> Itmp;
+Eigen::Matrix<float, K, 1> Jtmp;
+Eigen::Matrix<int, K, 1> Itmp;
 
-		for (int i = begin; i < end; ++i)
-		{
-			const float res = rbuf[i];
-			if (res == residuals.nodata())
-				continue;
-			const float w = BaseReducerCPU<float, float, Block, DenseLinearProblem>::huber_weight(res, mesh_vo::huber_thresh_pix);
-			const Block &b = mbuf[i];
-			const int m = static_cast<int>(b.nnz);
-			if (m <= 0)
-				continue;
-			Jtmp.head(m) = b.J.head(m);
-			Itmp.head(m) = b.ids.head(m);
-			hg.add(Jtmp.head(m), res, w, Itmp.head(m));
-		}
-		return hg;
-	}
+for (int i = begin; i < end; ++i)
+{
+const float res = rbuf[i];
+if (res == residuals.nodata())
+continue;
+const float w = BaseReducerCPU<float, float, Block, DenseLinearProblem>::huber_weight(res, mesh_vo::huber_thresh_pix);
+const Block &b = mbuf[i];
+const int m = static_cast<int>(b.nnz);
+if (m <= 0)
+continue;
+Jtmp.head(m) = b.J.head(m);
+Itmp.head(m) = b.ids.head(m);
+hg.add(Jtmp.head(m), res, w, Itmp.head(m));
+}
+return hg;
+}
 
 private:
-	int num_map_params_;
+int num_map_params_;
 };
 */
 

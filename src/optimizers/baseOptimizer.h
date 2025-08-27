@@ -30,7 +30,7 @@ protected:
     Error computeError(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
     {
         imagerenderer_.Render(kframe.mesh(), frame.local_pose() * kframe.frame().local_pose().inverse(), cam, kframe.frame().image(), image_buffer_, lvl, lvl);
-        return errorreducer_.reduce(frame.image(), image_buffer_, image_buffer_, lvl);
+        return errorreducer_.reduce(lvl, frame.image(), image_buffer_);
     }
 
     // void plotDebug(keyFrame &kframe, std::vector<Frame> &frames, cameraType &cam, std::string window_name);

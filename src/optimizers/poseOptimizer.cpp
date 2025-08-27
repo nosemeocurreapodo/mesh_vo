@@ -135,5 +135,5 @@ DenseLinearProblem PoseOptimizer::computeProblem(Frame &frame, KeyFrame &kframe,
 {
 	imagerenderer_.Render(kframe.mesh(), frame.local_pose() * kframe.frame().local_pose().inverse(), cam, kframe.frame().image(), image_buffer_, lvl, lvl);
 	jposerenderer_.Render(kframe.mesh(), frame.local_pose() * kframe.frame().local_pose().inverse(), cam, frame.didxy(), jac_buffer_, lvl, lvl);
-	return hgposereducer_.reduce(frame.image(), image_buffer_, jac_buffer_, lvl);
+	return hgposereducer_.reduce(lvl, frame.image(), image_buffer_, jac_buffer_);
 }

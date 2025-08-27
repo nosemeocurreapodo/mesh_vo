@@ -84,7 +84,7 @@ TEST_F(RendererTestBase, ComputePose)
 
     KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3(), pose_src_), mesh);
 
-    PoseOptimizer optimizer(w_, h_, false);
+    PoseOptimizer optimizer(w_, h_, true);
 
     SE3 tracked_global_pose = kframe.frame().global_pose();
 
