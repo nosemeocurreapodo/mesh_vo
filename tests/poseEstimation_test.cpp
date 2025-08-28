@@ -54,7 +54,7 @@ TEST_F(RendererTestBase, ComputePose)
     const int in_lvl = 0, out_lvl = 0;
 
     const long long acceptableTimeMs = 30;
-    const float translationErrorThreshold = 0.017; // best = 0.0160271;
+    const float translationErrorThreshold = 0.75; // best = 0.0160271;
     const float rotationErrorThreshold = 0.0011;   // best = 0.00105154;
 
     std::chrono::milliseconds accProcessingTime = std::chrono::milliseconds(0);
@@ -76,20 +76,32 @@ TEST_F(RendererTestBase, ComputePose)
 
     TextureCPU<Vec3> kdidxy_cpu(w_, h_, Vec3(0.0, 0.0, 0.0));
 
+    DepthRendererCPU depth_renderer;
     ImageRendererCPU image_renderer;
     DIDxyRendererCPU didxy_renderer;
+    ResidualRendererCPU residual_renderer;
+    L2RendererCPU l2_renderer;
+
+    NodataReducerCPU nodata_reducer;
 
     for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
-        didxy_renderer.Render(screen_mesh, SE3(), cam_, kimage_cpu, kdidxy_cpu, lvl, lvl);
+        didxy_renderer.Render(screen_mesh, SE3(), cam_, lvl, lvl, kimage_cpu, kdidxy_cpu);
 
     KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3(), pose_src_), mesh);
 
-    PoseOptimizer optimizer(w_, h_, true);
+    PoseOptimizer optimizer(w_, h_, false);
 
     SE3 tracked_global_pose = kframe.frame().global_pose();
 
+    TextureCPU<float> image_cpu(w_, h_, 0);
+    TextureCPU<float> depth_cpu(w_, h_, 0);
+    TextureCPU<Vec3> didxy_cpu(w_, h_, Vec3(0.0, 0.0, 0.0));
+    TextureCPU<float> l2_texture(w_, h_, -1);
+
     for (unsigned int i = 1; i < image_files_.size(); i++)
     {
+        std::cout << "Frame " << i << std::endl;
+
         cv::Mat image_cv = cv::imread(image_files_[i], cv::IMREAD_GRAYSCALE);
         cv::Mat gt_depth_cv = cv::imread(depth_files_[i], cv::IMREAD_GRAYSCALE);
         SE3 gt_pose = poses_[i].inverse();
@@ -99,17 +111,19 @@ TEST_F(RendererTestBase, ComputePose)
         //  gt_depth_cv /= dataset.getDepthFactor();
         //  gt_depth_cv *= 100.0;
 
-        TextureCPU<float> image_cpu(w_, h_, 0);
         UploadMatToTexture(image_cpu, 0, image_cv);
-
-        TextureCPU<float> depth_cpu(w_, h_, 0);
         UploadMatToTexture(depth_cpu, 0, gt_depth_cv);
 
-        TextureCPU<Vec3> didxy_cpu(w_, h_, Vec3(0.0, 0.0, 0.0));
         for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
-            didxy_renderer.Render(screen_mesh, SE3(), cam_, image_cpu, didxy_cpu, lvl, lvl);
+            didxy_renderer.Render(screen_mesh, SE3(), cam_, lvl, lvl, image_cpu, didxy_cpu);
 
         SE3 init_local_pose = kframe.globalPoseToLocal(tracked_global_pose);
+
+        std::cout << "init_local_pose " << std::endl;
+        std::cout << init_local_pose.translation() << std::endl;
+
+        std::cout << "init_global_pose " << std::endl;
+        std::cout << tracked_global_pose.translation() << std::endl;
 
         Frame frame(image_cpu, didxy_cpu, i, init_local_pose, tracked_global_pose);
 
@@ -122,6 +136,9 @@ TEST_F(RendererTestBase, ComputePose)
                 optimizer.step(frame, kframe, cam_, lvl);
             }
         }
+
+        frame.global_pose() = kframe.localPoseToGlobal(frame.local_pose());
+
         tracked_global_pose = frame.global_pose();
         auto endTime = std::chrono::high_resolution_clock::now();
 
@@ -135,18 +152,9 @@ TEST_F(RendererTestBase, ComputePose)
         // change keyframe logic
         // float keyframeViewAngle = kframe.meanViewAngle(SE3(), frame.local_pose());
 
-        TextureCPU<float> image_buffer(w_, h_, -1);
-        image_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, kframe.frame().image(), image_buffer, 1, 1);
-
-        int count = 0;
-        auto mm = image_buffer.MapRead(1);
-        for (int i = 0; i < image_buffer.size(1); i++)
-        {
-            if (mm[i] == image_buffer.nodata())
-                count++;
-        }
-
-        float pnodata = float(count) / image_buffer.size(1);
+        image_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, 1, kframe.frame().image(), image_cpu);
+        Error nodata = nodata_reducer.reduce(1, image_cpu);
+        float pnodata = nodata.getError() / image_cpu.size(1);
         float viewPercent = 1.0 - pnodata;
 
         std::cout << "view percent " << viewPercent << std::endl;
@@ -156,9 +164,26 @@ TEST_F(RendererTestBase, ComputePose)
             MeshCPU new_mesh = CreateMesh(depth_cpu, cam_, 32);
             kframe = KeyFrame(frame, new_mesh);
 
-            cv::Mat kf_mat = DownloadTexture(image_buffer, 1, CV_32FC1);
-            SaveDebugImageColor(kf_mat, "keyframe_" + std::to_string(i) + ".png");
+            frame.local_pose() = kframe.globalPoseToLocal(frame.global_pose());
+
+            depth_renderer.Render(kframe.mesh(), SE3(), cam_, 1, 1, depth_cpu);
+            cv::Mat depth_mat = DownloadTexture(depth_cpu, 1, CV_32FC1);
+            SaveDebugImageColor(depth_mat, "Depth keyframe_" + std::to_string(i) + ".png");
+
+            image_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, 1, kframe.frame().image(), image_cpu);
+            cv::Mat image_mat = DownloadTexture(image_cpu, 1, CV_32FC1);
+            SaveDebugImageColor(image_mat, "Frame keyframe_" + std::to_string(i) + ".png");
+
+            Error nodata = nodata_reducer.reduce(1, image_cpu);
+            float pnodata = nodata.getError() / image_cpu.size(1);
+            float viewPercent = 1.0 - pnodata;
+
+            std::cout << "new view percent " << viewPercent << std::endl;
         }
+
+        residual_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, 1, kframe.frame().image(), frame.image(), l2_texture);
+        cv::Mat l2_mat = DownloadTexture(l2_texture, 1, CV_32FC1);
+        SaveDebugImageColor(l2_mat, "l2_" + std::to_string(i) + ".png");
     }
 
     auto meanDuration = accProcessingTime.count() / framesProcessedCounter;

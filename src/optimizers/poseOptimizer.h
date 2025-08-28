@@ -19,10 +19,11 @@ public:
 private:
     DenseLinearProblem computeProblem(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
-    JposeRendererCPU jposerenderer_;
-    HGPoseReducerCPU hgposereducer_;
+    JposeRendererCPU2 jposerenderer_;
+    HGPoseReducerCPU2 hgposereducer_;
 
-    TextureCPU<Vec6> jac_buffer_;
+    TextureCPU<Vec3> jtra_texture_;
+    TextureCPU<Vec3> jrot_texture_;
 
     Mat6 inv_covariance_;
 

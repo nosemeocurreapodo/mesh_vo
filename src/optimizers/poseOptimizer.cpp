@@ -2,7 +2,8 @@
 
 PoseOptimizer::PoseOptimizer(int w, int h, bool print_log)
 	: BaseOptimizer(w, h),
-	  jac_buffer_(w, h, Vec6(0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+	  jtra_texture_(w, h, Vec3(0.0, 0.0, 0.0)),
+	  jrot_texture_(w, h, Vec3(0.0, 0.0, 0.0))
 {
 	inv_covariance_ = Mat6::Identity() / mesh_vo::tracking_pose_initial_var;
 	print_log_ = print_log;
@@ -67,7 +68,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 		Vecx inc = problem.solve(lambda);
 
 		SE3 best_pose = frame.local_pose();
-		SE3 new_pose = frame.local_pose() * SE3::exp(inc); //SE3::exp(inc).inverse();
+		SE3 new_pose = frame.local_pose() * SE3::exp(inc); // SE3::exp(inc).inverse();
 		frame.local_pose() = new_pose;
 
 		float new_error = 0;
@@ -112,7 +113,6 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 		else
 		{
 			frame.local_pose() = best_pose;
-			frame.global_pose() = kframe.localPoseToGlobal(best_pose);
 
 			float poseIncMag = inc.dot(inc) / 6.0;
 
@@ -133,7 +133,6 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 
 DenseLinearProblem PoseOptimizer::computeProblem(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
-	imagerenderer_.Render(kframe.mesh(), frame.local_pose() * kframe.frame().local_pose().inverse(), cam, kframe.frame().image(), image_buffer_, lvl, lvl);
-	jposerenderer_.Render(kframe.mesh(), frame.local_pose() * kframe.frame().local_pose().inverse(), cam, frame.didxy(), jac_buffer_, lvl, lvl);
-	return hgposereducer_.reduce(lvl, frame.image(), image_buffer_, jac_buffer_);
+	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), cam, lvl, lvl, kframe.frame().image(), frame.image(), frame.didxy(), jtra_texture_, jrot_texture_, r_texture_);
+	return hgposereducer_.reduce(lvl, jtra_texture_, jrot_texture_, r_texture_);
 }

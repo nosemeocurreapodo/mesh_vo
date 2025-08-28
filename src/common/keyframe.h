@@ -16,7 +16,7 @@ public:
             globalScale = 1.0;
         };
     */
-    KeyFrame(const Frame frame, MeshCPU mesh) : frame_(frame), mesh_(mesh)
+    KeyFrame(const Frame &frame, MeshCPU &mesh) : frame_(frame), mesh_(mesh)
     {
     }
 

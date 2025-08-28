@@ -94,11 +94,36 @@ private:
 };
 
 // Photometric L2 with Huber loss. Third input unused.
-class ErrorReducerCPU : public BaseReducerCPU<ErrorReducerCPU, Error>
+class NodataReducerCPU : public BaseReducerCPU<NodataReducerCPU, Error>
 {
 public:
-	using Base = BaseReducerCPU<ErrorReducerCPU, Error>;
-	explicit ErrorReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
+	using Base = BaseReducerCPU<NodataReducerCPU, Error>;
+	explicit NodataReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
+
+	Error reducepartial(int begin, int end, int lvl,
+						const TextureCPU<float> &r_texture)
+	{
+		auto rmap = r_texture.MapRead(lvl);
+
+		Error err;
+		for (int i = begin; i < end; ++i)
+		{
+			const float r = rmap[i];
+			if (r == r_texture.nodata())
+				err += 1.0f;
+			else
+				err += 0.0f;
+		}
+		return err;
+	}
+};
+
+// Photometric L2 with Huber loss. Third input unused.
+class L2ReducerCPU : public BaseReducerCPU<L2ReducerCPU, Error>
+{
+public:
+	using Base = BaseReducerCPU<L2ReducerCPU, Error>;
+	explicit L2ReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
 	Error reducepartial(int begin, int end, int lvl,
 						const TextureCPU<float> &image,
@@ -122,6 +147,31 @@ public:
 	}
 };
 
+// Photometric L2 with Huber loss. Third input unused.
+class ResidualReducerCPU : public BaseReducerCPU<ResidualReducerCPU, Error>
+{
+public:
+	using Base = BaseReducerCPU<ResidualReducerCPU, Error>;
+	explicit ResidualReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
+
+	Error reducepartial(int begin, int end, int lvl,
+						const TextureCPU<float> &r_texture)
+	{
+		auto rmap = r_texture.MapRead(lvl);
+
+		Error err;
+		for (int i = begin; i < end; ++i)
+		{
+			const float r = rmap[i];
+			if (r == r_texture.nodata())
+				continue;
+			const float w = huber_weight(r, mesh_vo::huber_thresh_pix);
+			err += w * r * r;
+		}
+		return err;
+	}
+};
+
 // Pose-only Jacobian -> DenseLinearProblem reducer
 class HGPoseReducerCPU : public BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem>
 {
@@ -132,22 +182,61 @@ public:
 	DenseLinearProblem reducepartial(int begin, int end, int lvl,
 									 const TextureCPU<float> &image,
 									 const TextureCPU<float> &kimage_projected,
-									 const TextureCPU<Vec6> &jpose)
+									 const TextureCPU<Vec3> &jtra,
+									 const TextureCPU<Vec3> &jrot)
 	{
 		DenseLinearProblem hg(6);
 		auto ibuf = image.MapRead(lvl);
 		auto kbuf = kimage_projected.MapRead(lvl);
-		auto jbuf = jpose.MapRead(lvl);
+		auto jtrabuf = jtra.MapRead(lvl);
+		auto jrotbuf = jrot.MapRead(lvl);
 		Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
 		{
 			const float img = ibuf[i];
 			const float kimg = kbuf[i];
-			const Vec6 J = jbuf[i];
-			if (img == image.nodata() || kimg == kimage_projected.nodata() || J == jpose.nodata())
+			const Vec3 Jtra = jtrabuf[i];
+			const Vec3 Jrot = jrotbuf[i];
+
+			if (img == image.nodata() || kimg == kimage_projected.nodata() || Jtra == jtra.nodata() || Jrot == jrot.nodata())
 				continue;
+			Vec6 J(Jtra(0), Jtra(1), Jtra(2), Jrot(0), Jrot(1), Jrot(2));
 			float res = img - kimg;
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
+
+			hg.add(J, res, w, ids);
+		}
+		return hg;
+	}
+};
+
+// Pose-only Jacobian -> DenseLinearProblem reducer
+class HGPoseReducerCPU2 : public BaseReducerCPU<HGPoseReducerCPU2, DenseLinearProblem>
+{
+public:
+	using Base = BaseReducerCPU<HGPoseReducerCPU2, DenseLinearProblem>;
+	explicit HGPoseReducerCPU2(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
+
+	DenseLinearProblem reducepartial(int begin, int end, int lvl,
+									 const TextureCPU<Vec3> &jtra_texture,
+									 const TextureCPU<Vec3> &jrot_texture,
+									 const TextureCPU<float> &r_texture)
+	{
+		DenseLinearProblem hg(6);
+		auto r_map = r_texture.MapRead(lvl);
+		auto jtra_map = jtra_texture.MapRead(lvl);
+		auto jrot_map = jrot_texture.MapRead(lvl);
+		Vec6i ids(0, 1, 2, 3, 4, 5);
+
+		for (int i = begin; i < end; ++i)
+		{
+			const float res = r_map[i];
+			const Vec3 jtra = jtra_map[i];
+			const Vec3 jrot = jrot_map[i];
+			if (res == r_texture.nodata() || jtra == jtra_texture.nodata() || jrot == jrot_texture.nodata())
+				continue;
+			Vec6 J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2));
 			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
 
 			hg.add(J, res, w, ids);
