@@ -1,14 +1,14 @@
-#include "optimizers/mapOptimizerCPU.h"
+#include "optimizers/mapOptimizer.h"
 
-mapOptimizerCPU::mapOptimizerCPU(int width, int height, bool _printLog)
-    : baseOptimizerCPU(width, height),
+MapOptimizer::MapOptimizer(int width, int height, bool _printLog)
+    : BaseOptimizer(width, height),
       jmap_buffer(width, height, jmapType::Zero()),
       pId_buffer(width, height, idsType::Zero())
 {
     printLog = _printLog;
 }
 
-void mapOptimizerCPU::init(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl)
+void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int lvl)
 {
     std::vector<int> mapParamsIds = kframe.getGeometry().getParamIds();
     int numParams = mapParamsIds.size();
@@ -71,7 +71,7 @@ void mapOptimizerCPU::init(std::vector<frameCPU> &frames, keyFrameCPU &kframe, c
         reachedConvergence = false;
 }
 
-void mapOptimizerCPU::step(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl)
+void MapOptimizer::step(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl)
 {
     std::vector<int> mapParamsIds = kframe.getGeometry().getParamIds();
     int numParams = mapParamsIds.size();
@@ -225,7 +225,7 @@ void mapOptimizerCPU::step(std::vector<frameCPU> &frames, keyFrameCPU &kframe, c
     }
 }
 
-DenseLinearProblem mapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl)
+DenseLinearProblem MapOptimizer::computeProblem(FrameCPU &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
     error_buffer.setToNoData(lvl);
     jmap_buffer.setToNoData(lvl);

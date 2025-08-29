@@ -13,17 +13,17 @@
 #include "optimizers/baseOptimizerCPU.h"
 #include "cpu/OpenCVDebug.h"
 
-class mapOptimizerCPU : public baseOptimizerCPU
+class MapOptimizer : public BaseOptimizer
 {
 public:
-    mapOptimizerCPU(int width, int height, bool _printLog = false);
+    MapOptimizer(int width, int height, bool _printLog = false);
     
-    void init(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl);
-    void step(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl);
-    std::vector<dataCPU<float>> getDebugData(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl);
+    void init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int lvl);
+    void step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int lvl);
+    //std::vector<dataCPU<float>> getDebugData(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl);
 
 private:
-    DenseLinearProblem computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int lvl);
+    DenseLinearProblem computeProblem(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
     dataMipMapCPU<jmapType> jmap_buffer;
     dataMipMapCPU<idsType> pId_buffer;
