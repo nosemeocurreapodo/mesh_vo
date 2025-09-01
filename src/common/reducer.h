@@ -21,18 +21,10 @@ public:
 	explicit BaseReducerCPU(unsigned threads) noexcept : threads_(threads == 0 ? 1u : threads) {}
 	virtual ~BaseReducerCPU() = default;
 
-	template <typename... Texture>
-	OutType reduce(int lvl, const Texture &...texs)
+protected:
+	OutType reduce_()
 	{
-		// const int n1 = reduce1.size(lvl);
-		// const int n2 = reduce2.size(lvl);
-		// const int n3 = reduce3.size(lvl);
-		// const int N = std::min({n1, n2, n3});
-		// assert(N >= 0);
-		// if (N <= 0)
-		//	return OutType{};
-
-		const int N = min_size(lvl, texs...);
+		const int N = derived_().size();
 
 		const unsigned T = std::min<unsigned>(threads_, static_cast<unsigned>(N));
 		const int chunk = (N + static_cast<int>(T) - 1) / static_cast<int>(T);
@@ -46,12 +38,12 @@ public:
 			const int begin = static_cast<int>(t) * chunk;
 			const int end = std::min(N, begin + chunk);
 			pool.emplace_back([&, begin, end]()
-							  { partial[t] = derived().reducepartial(begin, end, lvl, texs...); });
+							  { partial[t] = derived_().reducepartial(begin, end); });
 		}
 		{
 			const int begin = 0;
 			const int end = std::min(N, chunk);
-			partial[0] = derived().reducepartial(begin, end, lvl, texs...);
+			partial[0] = derived_().reducepartial(begin, end);
 		}
 		for (auto &th : pool)
 			th.join();
@@ -62,13 +54,7 @@ public:
 		return total;
 	}
 
-protected:
-	// template <typename... Ts>
-	// virtual OutType reducepartial(int begin, int end,
-	//							  const TextureCPU<Ts> &...texs,
-	//							  int lvl) = 0;
-
-	static inline float huber_weight(float r, float thresh) noexcept
+	static inline float huber_weight_(float r, float thresh) noexcept
 	{
 		const float a = std::fabs(r);
 		if (a <= thresh || a == 0.0f)
@@ -76,75 +62,51 @@ protected:
 		return thresh / a;
 	}
 
-	Derived &derived() { return *static_cast<Derived *>(this); }
-	const Derived &derived() const { return *static_cast<const Derived *>(this); }
-
 private:
-	template <class V>
-	static inline int size_of(int lvl, const V &v) { return v.size(lvl); }
-	template <class V0, class... Vn>
-	static inline int min_size(int lvl, const V0 &v0, const Vn &...vn)
-	{
-		int m = size_of(lvl, v0);
-		((m = std::min(m, size_of(lvl, vn))), ...);
-		return m;
-	}
+	Derived &derived_() { return *static_cast<Derived *>(this); }
+	const Derived &derived_() const { return *static_cast<const Derived *>(this); }
 
 	unsigned threads_;
 };
 
-// Photometric L2 with Huber loss. Third input unused.
 class NodataReducerCPU : public BaseReducerCPU<NodataReducerCPU, Error>
 {
 public:
 	using Base = BaseReducerCPU<NodataReducerCPU, Error>;
 	explicit NodataReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	Error reducepartial(int begin, int end, int lvl,
-						const TextureCPU<float> &r_texture)
+	void reduce(int lvl, const TextureCPU<float> &r_texture)
 	{
-		auto rmap = r_texture.MapRead(lvl);
+		r_texture_ = &r_texture;
+		lvl_ = lvl;
+
+		this->reduce_();
+	}
+
+	int size()
+	{
+		r_texture_->size(lvl_);
+	}
+
+	Error reducepartial(int begin, int end)
+	{
+		auto rmap = r_texture_->MapRead(lvl_);
 
 		Error err;
 		for (int i = begin; i < end; ++i)
 		{
 			const float r = rmap[i];
-			if (r == r_texture.nodata())
+			if (r == r_texture_->nodata())
 				err += 1.0f;
 			else
 				err += 0.0f;
 		}
 		return err;
 	}
-};
 
-// Photometric L2 with Huber loss. Third input unused.
-class L2ReducerCPU : public BaseReducerCPU<L2ReducerCPU, Error>
-{
-public:
-	using Base = BaseReducerCPU<L2ReducerCPU, Error>;
-	explicit L2ReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
-
-	Error reducepartial(int begin, int end, int lvl,
-						const TextureCPU<float> &image,
-						const TextureCPU<float> &kimage_projected)
-	{
-		auto img = image.MapRead(lvl);
-		auto kin = kimage_projected.MapRead(lvl);
-
-		Error err;
-		for (int i = begin; i < end; ++i)
-		{
-			const float v = img[i];
-			const float k = kin[i];
-			if (v == image.nodata() || k == kimage_projected.nodata())
-				continue;
-			const float r = v - k;
-			const float w = huber_weight(r, mesh_vo::huber_thresh_pix);
-			err += w * r * r;
-		}
-		return err;
-	}
+private:
+	const TextureCPU<float> *r_texture_;
+	int lvl_;
 };
 
 // Photometric L2 with Huber loss. Third input unused.
@@ -154,22 +116,38 @@ public:
 	using Base = BaseReducerCPU<ResidualReducerCPU, Error>;
 	explicit ResidualReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	Error reducepartial(int begin, int end, int lvl,
-						const TextureCPU<float> &r_texture)
+	void reduce(int lvl, const TextureCPU<float> &r_texture)
 	{
-		auto rmap = r_texture.MapRead(lvl);
+		r_texture_ = &r_texture;
+		lvl_ = lvl;
+
+		reduce_();
+	}
+
+	int size()
+	{
+		r_texture_->size(lvl_);
+	}
+
+	Error reducepartial(int begin, int end)
+	{
+		auto rmap = r_texture_->MapRead(lvl_);
 
 		Error err;
 		for (int i = begin; i < end; ++i)
 		{
 			const float r = rmap[i];
-			if (r == r_texture.nodata())
+			if (r == r_texture_->nodata())
 				continue;
-			const float w = huber_weight(r, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight_(r, mesh_vo::huber_thresh_pix);
 			err += w * r * r;
 		}
 		return err;
 	}
+
+private:
+	const TextureCPU<float> *r_texture_;
+	int lvl_;
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
@@ -179,15 +157,27 @@ public:
 	using Base = BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem>;
 	explicit HGPoseReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	DenseLinearProblem reducepartial(int begin, int end, int lvl,
-									 const TextureCPU<Vec3> &jtra_texture,
-									 const TextureCPU<Vec3> &jrot_texture,
-									 const TextureCPU<float> &r_texture)
+	void reduce(int lvl, const TextureCPU<float> &jtra_texture, const TextureCPU<Vec3> &jrot_texture, const TextureCPU<float> &r_texture)
+	{
+		jtra_texture_ = &jtra_texture;
+		jrot_texture_ = &jrot_texture;
+		r_texture_ = &r_texture;
+		lvl_ = lvl;
+
+		reduce_();
+	}
+
+	int size()
+	{
+		r_texture_->size(lvl_);
+	}
+
+	DenseLinearProblem reducepartial(int begin, int end)
 	{
 		DenseLinearProblem hg(6);
-		auto r_map = r_texture.MapRead(lvl);
-		auto jtra_map = jtra_texture.MapRead(lvl);
-		auto jrot_map = jrot_texture.MapRead(lvl);
+		auto r_map = r_texture_->MapRead(lvl_);
+		auto jtra_map = jtra_texture_->MapRead(lvl_);
+		auto jrot_map = jrot_texture_->MapRead(lvl_);
 		Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
@@ -195,17 +185,24 @@ public:
 			const float res = r_map[i];
 			const Vec3 jtra = jtra_map[i];
 			const Vec3 jrot = jrot_map[i];
-			if (res == r_texture.nodata() || jtra == jtra_texture.nodata() || jrot == jrot_texture.nodata())
+			if (res == r_texture_->nodata() || jtra == jtra_texture_->nodata() || jrot == jrot_texture_->nodata())
 				continue;
 			Vec6 J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2));
-			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
 
 			hg.add(J, res, w, ids);
 		}
 		return hg;
 	}
+
+private:
+	const TextureCPU<Vec3> *jtra_texture_;
+	const TextureCPU<Vec3> *jrot_texture_;
+	const TextureCPU<float> *r_texture_;
+	int lvl_;
+	DenseLinearProblem hg_;
 };
-/*
+
 // Pose-only Jacobian -> DenseLinearProblem reducer
 class HGMapReducerCPU : public BaseReducerCPU<HGMapReducerCPU, DenseLinearProblem>
 {
@@ -228,9 +225,9 @@ public:
 	DenseLinearProblem reducepartial(int begin, int end)
 	{
 		DenseLinearProblem hg(total);
-		auto r_map = r_texture.MapRead(lvl);
-		auto jmap_map = jmap_texture.MapRead(lvl);
-		auto pids_map = pids_texture.MapRead(lvl);
+		auto r_map = r_texture_->MapRead(lvl_);
+		auto jmap_map = jmap_texture_->MapRead(lvl_);
+		auto pids_map = pids_texture_->MapRead(lvl_);
 		// Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
@@ -238,9 +235,9 @@ public:
 			const float res = r_map[i];
 			const Vec3 jmap = jmap_map[i];
 			const Vec3 pids = pids_map[i];
-			if (res == r_texture.nodata() || jmap == jmap_texture.nodata() || pids == pids_texture.nodata())
+			if (res == r_texture_->nodata() || jmap == jmap_texture_->nodata() || pids == pids_texture_->nodata())
 				continue;
-			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
 
 			hg.add(jmap, res, w, pids);
 		}
@@ -255,7 +252,7 @@ private:
 	int total_;
 	DenseLinearProblem hg_;
 };
-*/
+
 /*
 // ===== Map Jacobian container with fixed arity K per observation =====
 template <int K>
