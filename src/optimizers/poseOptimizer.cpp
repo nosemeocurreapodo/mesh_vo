@@ -131,7 +131,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 	}
 }
 
-DenseLinearProblem PoseOptimizer::computeProblem(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+DenseLinearProblem PoseOptimizer::computeProblem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
 	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), cam, lvl, lvl, kframe.frame().image(), frame.image(), frame.didxy(), jtra_texture_, jrot_texture_, r_texture_);
 	return hgposereducer_.reduce(lvl, jtra_texture_, jrot_texture_, r_texture_);

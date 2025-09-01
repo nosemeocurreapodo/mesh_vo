@@ -227,7 +227,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
 DenseLinearProblem MapOptimizer::computeProblem(FrameCPU &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
-    int numMapParams = kframe.getGeometry().getParamIds().size();
+    int numMapParams = kframe.mesh(). getGeometry().getParamIds().size();
 
 	jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), cam, lvl, lvl, kframe.frame().image(), frame.image(), frame.didxy(), jmap_texture_, pids_texture_, r_texture_);
 	return hgmapreducer_.reduce(lvl, jmap_texture_, pids_texture_, r_texture_);

@@ -75,17 +75,17 @@ public:
 	using Base = BaseReducerCPU<NodataReducerCPU, Error>;
 	explicit NodataReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	void reduce(int lvl, const TextureCPU<float> &r_texture)
+	Error reduce(int lvl, const TextureCPU<float> &r_texture)
 	{
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
 
-		this->reduce_();
+		return reduce_();
 	}
 
 	int size()
 	{
-		r_texture_->size(lvl_);
+		return r_texture_->size(lvl_);
 	}
 
 	Error reducepartial(int begin, int end)
@@ -116,17 +116,17 @@ public:
 	using Base = BaseReducerCPU<ResidualReducerCPU, Error>;
 	explicit ResidualReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	void reduce(int lvl, const TextureCPU<float> &r_texture)
+	Error reduce(int lvl, const TextureCPU<float> &r_texture)
 	{
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
 
-		reduce_();
+		return reduce_();
 	}
 
 	int size()
 	{
-		r_texture_->size(lvl_);
+		return r_texture_->size(lvl_);
 	}
 
 	Error reducepartial(int begin, int end)
@@ -157,19 +157,19 @@ public:
 	using Base = BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem>;
 	explicit HGPoseReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	void reduce(int lvl, const TextureCPU<float> &jtra_texture, const TextureCPU<Vec3> &jrot_texture, const TextureCPU<float> &r_texture)
+	DenseLinearProblem reduce(int lvl, const TextureCPU<Vec3> &jtra_texture, const TextureCPU<Vec3> &jrot_texture, const TextureCPU<float> &r_texture)
 	{
 		jtra_texture_ = &jtra_texture;
 		jrot_texture_ = &jrot_texture;
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
 
-		reduce_();
+		return reduce_();
 	}
 
 	int size()
 	{
-		r_texture_->size(lvl_);
+		return r_texture_->size(lvl_);
 	}
 
 	DenseLinearProblem reducepartial(int begin, int end)
@@ -210,7 +210,7 @@ public:
 	using Base = BaseReducerCPU<HGMapReducerCPU, DenseLinearProblem>;
 	explicit HGMapReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	void reduce(int lvl, int total, const TextureCPU<Vec3> &jmap_texture, const TextureCPU<Vec3> &pids_texture, const TextureCPU<float> &r_texture)
+	DenseLinearProblem reduce(int lvl, int total, const TextureCPU<Vec3> &jmap_texture, const TextureCPU<Vec3> &pids_texture, const TextureCPU<float> &r_texture)
 	{
 		jmap_texture_ = &jmap_texture;
 		pids_texture_ = &pids_texture;
@@ -219,12 +219,19 @@ public:
 		lvl_ = lvl;
 		total_ = total;
 
-		DenseLinearProblem hg(total);
+		//DenseLinearProblem hg(total);
+
+		return reduce_();
+	}
+
+	int size()
+	{
+		return r_texture_->size(lvl_);
 	}
 
 	DenseLinearProblem reducepartial(int begin, int end)
 	{
-		DenseLinearProblem hg(total);
+		DenseLinearProblem hg(total_);
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
@@ -238,8 +245,9 @@ public:
 			if (res == r_texture_->nodata() || jmap == jmap_texture_->nodata() || pids == pids_texture_->nodata())
 				continue;
 			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+			const Vec3i pids_(pids(0), pids(1), pids(2));
 
-			hg.add(jmap, res, w, pids);
+			hg.add(jmap, res, w, pids_);
 		}
 		return hg;
 	}
