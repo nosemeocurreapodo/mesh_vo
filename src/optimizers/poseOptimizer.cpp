@@ -36,7 +36,7 @@ void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 
 void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
-	DenseLinearProblem problem = computeProblem(frame, kframe, cam, lvl);
+	DenseLinearProblem problem = computeProblem_(frame, kframe, cam, lvl);
 	// problem *= 1.0 / problem.count();
 
 	/*

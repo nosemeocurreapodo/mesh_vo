@@ -1,9 +1,9 @@
 #include "optimizers/mapOptimizer.h"
 
-MapOptimizer::MapOptimizer(int width, int height, bool _printLog)
-    : BaseOptimizer(width, height),
-      jmap_buffer(width, height, jmapType::Zero()),
-      pId_buffer(width, height, idsType::Zero())
+MapOptimizer::MapOptimizer(int w, int h, bool _printLog)
+    : BaseOptimizer(w, h),
+      jmap_buffer(w, h, Vec3(0.0, 0.0, 0.0)),
+      pId_buffer(w, h, Vec3(0.0, 0.0, 0.0))
 {
     printLog = _printLog;
 }
@@ -20,7 +20,7 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     for (size_t i = 0; i < mapParamsIds.size(); i++)
     {
         // init_params(i + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
-        invCovariance(i , i) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
+        invCovariance(i, i) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
         // invCovariance(i + numPoseParams, i + numPoseParams) = 1.0 / mesh_vo::mapping_param_initial_var;
     }
 
@@ -65,13 +65,13 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         init_error += priorError;
     }
 
-    if(printLog)
+    if (printLog)
         std::cout << "mapOptimizer initial error " << init_error << " " << lvl << std::endl;
-    
-        reachedConvergence = false;
+
+    reachedConvergence = false;
 }
 
-void MapOptimizer::step(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl)
+void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int lvl)
 {
     std::vector<int> mapParamsIds = kframe.getGeometry().getParamIds();
     int numParams = mapParamsIds.size();
@@ -79,7 +79,7 @@ void MapOptimizer::step(std::vector<frameCPU> &frames, keyFrameCPU &kframe, came
     DenseLinearProblem problem(numParams);
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        DenseLinearProblem fhg = computeProblem(frames[i], kframe, cam, lvl);
+        DenseLinearProblem fhg = computeProblem_(frames[i], kframe, cam, lvl);
         // assert(fhg.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
         fhg *= 1.0 / fhg.getCount();
         problem += fhg;
@@ -181,7 +181,7 @@ void MapOptimizer::step(std::vector<frameCPU> &frames, keyFrameCPU &kframe, came
             error += priorError;
         }
 
-        if(printLog)
+        if (printLog)
             std::cout << "mapOptimizer new error " << error << " " << lambda << " " << n_try << " lvl: " << lvl << " mesh_regu: " << mesh_vo::mapping_regu_weight << std::endl;
 
         if (error <= init_error)
@@ -196,7 +196,7 @@ void MapOptimizer::step(std::vector<frameCPU> &frames, keyFrameCPU &kframe, came
                 // std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
                 //  if converged, do next level
                 reachedConvergence = true;
-                if(printLog)
+                if (printLog)
                     std::cout << "poseMapOptimizer converged p:" << p << std::endl;
             }
 
@@ -211,13 +211,13 @@ void MapOptimizer::step(std::vector<frameCPU> &frames, keyFrameCPU &kframe, came
             }
 
             // reject update, increase lambda, use un-updated data
-            float incMag = inc.dot(inc)/numParams;
+            float incMag = inc.dot(inc) / numParams;
 
             if (incMag <= mesh_vo::mapping_convergence_m_v)
             {
                 // if too small, do next level!
                 reachedConvergence = true;
-                if(printLog)
+                if (printLog)
                     std::cout << "mapOptimizer too small " << incMag << std::endl;
                 break;
             }
@@ -227,45 +227,8 @@ void MapOptimizer::step(std::vector<frameCPU> &frames, keyFrameCPU &kframe, came
 
 DenseLinearProblem MapOptimizer::computeProblem(FrameCPU &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
-    error_buffer.setToNoData(lvl);
-    jmap_buffer.setToNoData(lvl);
-    pId_buffer.setToNoData(lvl);
-
     int numMapParams = kframe.getGeometry().getParamIds().size();
 
-    renderer.renderJMapParallel(kframe, frame, jmap_buffer, error_buffer, pId_buffer, cam, lvl);
-    DenseLinearProblem problem = reducer.reduceHGMapParallel(numMapParams, jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
-
-    return problem;
-}
-
-std::vector<dataCPU<float>> mapOptimizerCPU::getDebugData(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl)
-{
-    std::vector<dataCPU<float>> toShow;
-
-    toShow.push_back(kframe.getRawImage(lvl).convert<float>());
-
-    depth_buffer.setToNoData(lvl);
-    //weight_buffer.setToNoData(lvl);
-
-    renderer.renderDepthParallel(kframe, SE3f(), depth_buffer, cam, lvl);
-    //renderer.renderWeightParallel(kframe, SE3f(), weight_buffer, cam, lvl);
-
-    depth_buffer.get(lvl).invert();
-
-    toShow.push_back(depth_buffer.get(lvl));
-    //toShow.push_back(weight_buffer.get(lvl));
-
-    for (frameCPU frame : frames)
-    {
-        error_buffer.setToNoData(lvl);
-        // depth_buffer.setToNoData(lvl);
-        renderer.renderResidualParallel(kframe, frame, error_buffer, cam, lvl);
-        // renderer.renderDepthParallel(kframe, frames[i].getLocalPose(), depth_buffer, cam, lvl);
-        toShow.push_back(frame.getRawImage(lvl).convert<float>());
-        toShow.push_back(error_buffer.get(lvl).convert<float>());
-        // toShow.push_back(depth_buffer.get(lvl));
-    }
-
-    return toShow;
+	jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), cam, lvl, lvl, kframe.frame().image(), frame.image(), frame.didxy(), jmap_texture_, pids_texture_, r_texture_);
+	return hgmapreducer_.reduce(lvl, jmap_texture_, pids_texture_, r_texture_);
 }

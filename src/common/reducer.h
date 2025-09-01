@@ -180,45 +180,6 @@ public:
 	explicit HGPoseReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
 	DenseLinearProblem reducepartial(int begin, int end, int lvl,
-									 const TextureCPU<float> &image,
-									 const TextureCPU<float> &kimage_projected,
-									 const TextureCPU<Vec3> &jtra,
-									 const TextureCPU<Vec3> &jrot)
-	{
-		DenseLinearProblem hg(6);
-		auto ibuf = image.MapRead(lvl);
-		auto kbuf = kimage_projected.MapRead(lvl);
-		auto jtrabuf = jtra.MapRead(lvl);
-		auto jrotbuf = jrot.MapRead(lvl);
-		Vec6i ids(0, 1, 2, 3, 4, 5);
-
-		for (int i = begin; i < end; ++i)
-		{
-			const float img = ibuf[i];
-			const float kimg = kbuf[i];
-			const Vec3 Jtra = jtrabuf[i];
-			const Vec3 Jrot = jrotbuf[i];
-
-			if (img == image.nodata() || kimg == kimage_projected.nodata() || Jtra == jtra.nodata() || Jrot == jrot.nodata())
-				continue;
-			Vec6 J(Jtra(0), Jtra(1), Jtra(2), Jrot(0), Jrot(1), Jrot(2));
-			float res = img - kimg;
-			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
-
-			hg.add(J, res, w, ids);
-		}
-		return hg;
-	}
-};
-
-// Pose-only Jacobian -> DenseLinearProblem reducer
-class HGPoseReducerCPU2 : public BaseReducerCPU<HGPoseReducerCPU2, DenseLinearProblem>
-{
-public:
-	using Base = BaseReducerCPU<HGPoseReducerCPU2, DenseLinearProblem>;
-	explicit HGPoseReducerCPU2(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
-
-	DenseLinearProblem reducepartial(int begin, int end, int lvl,
 									 const TextureCPU<Vec3> &jtra_texture,
 									 const TextureCPU<Vec3> &jrot_texture,
 									 const TextureCPU<float> &r_texture)
@@ -244,7 +205,57 @@ public:
 		return hg;
 	}
 };
+/*
+// Pose-only Jacobian -> DenseLinearProblem reducer
+class HGMapReducerCPU : public BaseReducerCPU<HGMapReducerCPU, DenseLinearProblem>
+{
+public:
+	using Base = BaseReducerCPU<HGMapReducerCPU, DenseLinearProblem>;
+	explicit HGMapReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
+	void reduce(int lvl, int total, const TextureCPU<Vec3> &jmap_texture, const TextureCPU<Vec3> &pids_texture, const TextureCPU<float> &r_texture)
+	{
+		jmap_texture_ = &jmap_texture;
+		pids_texture_ = &pids_texture;
+		r_texture_ = &r_texture;
+
+		lvl_ = lvl;
+		total_ = total;
+
+		DenseLinearProblem hg(total);
+	}
+
+	DenseLinearProblem reducepartial(int begin, int end)
+	{
+		DenseLinearProblem hg(total);
+		auto r_map = r_texture.MapRead(lvl);
+		auto jmap_map = jmap_texture.MapRead(lvl);
+		auto pids_map = pids_texture.MapRead(lvl);
+		// Vec6i ids(0, 1, 2, 3, 4, 5);
+
+		for (int i = begin; i < end; ++i)
+		{
+			const float res = r_map[i];
+			const Vec3 jmap = jmap_map[i];
+			const Vec3 pids = pids_map[i];
+			if (res == r_texture.nodata() || jmap == jmap_texture.nodata() || pids == pids_texture.nodata())
+				continue;
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
+
+			hg.add(jmap, res, w, pids);
+		}
+		return hg;
+	}
+
+private:
+	const TextureCPU<Vec3> *jmap_texture_;
+	const TextureCPU<Vec3> *pids_texture_;
+	const TextureCPU<float> *r_texture_;
+	int lvl_;
+	int total_;
+	DenseLinearProblem hg_;
+};
+*/
 /*
 // ===== Map Jacobian container with fixed arity K per observation =====
 template <int K>

@@ -1,21 +1,13 @@
 #include <gtest/gtest.h>
-
-#include <sstream>
-#include <fstream>
-#include <dirent.h>
-#include <algorithm>
-#include <iostream>
-#include <chrono>
-
-#include "opencv2/opencv.hpp"
-
-#include "common.h"
-#include "optimizers/mapOptimizerCPU.h"
-#include "cpu/renderCPU.h"
-#include "cpu/OpenCVDebug.h"
+#include "common/test_framework.h"
+#include "common/frame.h"
+#include "common/keyframe.h"
+#include "common/common.h"
+#include "backends/cpu/renderercpu.h"
+#include "optimizers/poseOptimizer.h"
 
 // Test to ensure PoseEstimator correctly computes the pose
-TEST(MapEstimatorTest, ComputeMapFromInitial)
+TEST(RendererTestBase, ComputeMapFromInitial)
 {
     const long long acceptableTimeMs = 30;
     const float errorThreshold = 0.023; // best = 0.022444;

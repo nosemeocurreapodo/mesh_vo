@@ -17,10 +17,10 @@ public:
     void step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
 private:
-    DenseLinearProblem computeProblem(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
+    DenseLinearProblem computeProblem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
-    JposeRendererCPU2 jposerenderer_;
-    HGPoseReducerCPU2 hgposereducer_;
+    JPoseRendererCPU jposerenderer_;
+    HGPoseReducerCPU hgposereducer_;
 
     TextureCPU<Vec3> jtra_texture_;
     TextureCPU<Vec3> jrot_texture_;
