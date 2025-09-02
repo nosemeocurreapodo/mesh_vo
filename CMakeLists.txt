@@ -36,8 +36,8 @@ include_directories( ${CSPARSE_INCLUDE_DIR} ${CHOLMOD_INCLUDE_DIR})
 
 set(VISUALODOMETRY_SRCS
       "src/params.cpp"
-      "src/optimizers/poseOptimizer.cpp")
-#      "src/optimizers/mapOptimizer.cpp"
+      "src/optimizers/poseOptimizer.cpp"
+      "src/optimizers/mapOptimizer.cpp")
 #      "src/optimizers/poseMapOptimizer.cpp")
 
 #file(GLOB TESTAPP_SRCS "src/test/*.cpp"
@@ -117,8 +117,6 @@ FetchContent_MakeAvailable(googletest)
 
 # Create test executable(s)
 
-# Create test executable(s)
-
 add_executable(poseEstimation_tests tests/poseEstimation_test.cpp)
 target_link_libraries(poseEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
 target_compile_definitions(poseEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
@@ -129,7 +127,7 @@ add_test(NAME poseEstimation_tests COMMAND poseEstimation_tests)
 #target_compile_definitions(poseVelEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
 #add_test(NAME poseVelEstimation_tests COMMAND poseVelEstimation_tests)
 
-#add_executable(mapEstimation_tests tests/mapEstimation_test.cpp)
-#target_link_libraries(mapEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-#target_compile_definitions(mapEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-#add_test(NAME mapEstimation_tests COMMAND mapEstimation_tests)
+add_executable(mapEstimation_tests tests/mapEstimation_test.cpp)
+target_link_libraries(mapEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
+target_compile_definitions(mapEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+add_test(NAME mapEstimation_tests COMMAND mapEstimation_tests)

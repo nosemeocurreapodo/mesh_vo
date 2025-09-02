@@ -48,8 +48,9 @@ protected:
 		for (auto &th : pool)
 			th.join();
 
-		OutType total{};
-		for (unsigned t = 0; t < T; ++t)
+		if (T == 0) return OutType{};
+		OutType total = partial[0];
+		for (unsigned t = 1; t < T; ++t)
 			total += partial[t];
 		return total;
 	}

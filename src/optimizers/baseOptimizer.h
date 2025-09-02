@@ -27,7 +27,7 @@ public:
     }
 
 protected:
-    Error computeError(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+    Error compute_error_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
     {
         //imagerenderer_.Render(kframe.mesh(), frame.local_pose() * kframe.frame().local_pose().inverse(), cam, lvl, lvl, kframe.frame().image(), e_texture_);
         //return errorreducer_.reduce(lvl, frame.image(), e_texture_);

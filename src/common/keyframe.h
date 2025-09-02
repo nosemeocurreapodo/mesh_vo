@@ -39,7 +39,12 @@ public:
         return frame_;
     }
 
-    const MeshCPU &mesh()
+    const MeshCPU &mesh() const
+    {
+        return mesh_;
+    }
+
+    MeshCPU &mesh()
     {
         return mesh_;
     }

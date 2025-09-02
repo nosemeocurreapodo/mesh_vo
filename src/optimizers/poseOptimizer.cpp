@@ -17,7 +17,7 @@ void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 	if (mesh_vo::tracking_prior_weight > 0.0)
 		init_invcovariancesqrt_ = inv_covariance_.sqrt();
 
-	Error er = computeError(frame, kframe, cam, lvl);
+	Error er = compute_error_(frame, kframe, cam, lvl);
 	init_error_ = er.getError() / er.getCount();
 
 	if (mesh_vo::tracking_prior_weight > 0.0)
@@ -36,7 +36,7 @@ void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 
 void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
-	DenseLinearProblem problem = computeProblem_(frame, kframe, cam, lvl);
+	DenseLinearProblem problem = compute_problem_(frame, kframe, cam, lvl);
 	// problem *= 1.0 / problem.count();
 
 	/*
@@ -72,7 +72,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 		frame.local_pose() = new_pose;
 
 		float new_error = 0;
-		Error ne = computeError(frame, kframe, cam, lvl);
+		Error ne = compute_error_(frame, kframe, cam, lvl);
 		if (ne.getCount() < 0.5 * frame.image().size(lvl))
 		{
 			// too few pixels, unreliable, set to large error
@@ -131,7 +131,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 	}
 }
 
-DenseLinearProblem PoseOptimizer::computeProblem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+DenseLinearProblem PoseOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
 	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), cam, lvl, lvl, kframe.frame().image(), frame.image(), frame.didxy(), jtra_texture_, jrot_texture_, r_texture_);
 	return hgposereducer_.reduce(lvl, jtra_texture_, jrot_texture_, r_texture_);

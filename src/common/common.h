@@ -62,11 +62,9 @@ inline MeshCPU CreateMesh(Camera &cam, int grid_size)
 
     for (const Vec2 &uv : grid_uv)
     {
-        const float ix = uv(0) * (w - 1);
-        const float iy = uv(1) * (h - 1);
-        const int x = static_cast<int>(ix);
-        const int y = static_cast<int>(iy);
-        const float depth = ;
+        // const float iy = uv(1) * (h - 1);
+
+        const float depth = 1.0*(1.0 - uv(1)) + 1.0;
 
         if (depth <= 0.0f)
             continue;
@@ -84,4 +82,3 @@ inline MeshCPU CreateMesh(Camera &cam, int grid_size)
 
     return MeshCPU(vertices, texcoords, weights);
 }
-

@@ -17,7 +17,7 @@ public:
     void step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
 private:
-    DenseLinearProblem computeProblem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
+    DenseLinearProblem compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
     JPoseRendererCPU jposerenderer_;
     HGPoseReducerCPU hgposereducer_;
