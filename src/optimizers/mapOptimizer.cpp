@@ -10,18 +10,17 @@ MapOptimizer::MapOptimizer(int w, int h, bool _printLog)
 
 void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int lvl)
 {
-    std::vector<int> mapParamsIds = kframe.getGeometry().getParamIds();
-    int numParams = mapParamsIds.size();
+    int numParams  = kframe.mesh.vertex_count();
 
-    invCovariance = matxf::Identity(numParams, numParams);
+    invCovariance = Matx::Identity(numParams, numParams);
 
-    init_params = vecxf::Zero(numParams);
+    init_params = Vecx::Zero(numParams);
 
-    for (size_t i = 0; i < mapParamsIds.size(); i++)
+    for (size_t i = 0; i < numParams; i++)
     {
         // init_params(i + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
-        invCovariance(i, i) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
-        // invCovariance(i + numPoseParams, i + numPoseParams) = 1.0 / mesh_vo::mapping_param_initial_var;
+        //invCovariance(i, i) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
+        invCovariance(i, i) = 1.0 / mesh_vo::mapping_param_initial_var;
     }
 
     // invCovariance.block(0, 0, numPoseParams, numPoseParams) *= 1.0 / mesh_vo::mapping_pose_var;
@@ -35,30 +34,34 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     init_error = 0;
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        Error ef = computeError(frames[i], kframe, cam, lvl);
+        Error ef = computeError_(frames[i], kframe, cam, lvl);
         // assert(ef.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
         init_error += ef.getError() / ef.getCount();
     }
     init_error *= 1.0 / frames.size();
 
+    /*
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
         Error e_regu = kframe.getGeometry().errorRegu();
         assert(e_regu.getCount() > 0);
         init_error += mesh_vo::mapping_regu_weight * e_regu.getError() / e_regu.getCount();
     }
+    */
 
     if (mesh_vo::mapping_prior_weight > 0.0)
     {
-        vecxf params(numParams);
+        Vecx params(numParams);
 
-        for (size_t index = 0; index < mapParamsIds.size(); index++)
+        auto pos_map = kframe.mesh().MapReadPositions();
+
+        for (size_t index = 2; index < mapParamsIds.size(); index+=3)
         {
-            params(index) = kframe.getGeometry().getDepthParam(mapParamsIds[index]);
+            params(index) = pos_map[index];
         }
 
-        vecxf res = params - init_params;
-        vecxf conv_dot_res = init_invcovariance * res;
+        Vecx res = params - init_params;
+        Vecx conv_dot_res = init_invcovariance * res;
         float weight = mesh_vo::mapping_prior_weight / numParams;
         float priorError = weight * (res.dot(conv_dot_res));
 
@@ -73,8 +76,7 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
 void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int lvl)
 {
-    std::vector<int> mapParamsIds = kframe.getGeometry().getParamIds();
-    int numParams = mapParamsIds.size();
+    int numParams = kframe.mesh().vertex_count();
 
     DenseLinearProblem problem(numParams);
     for (std::size_t i = 0; i < frames.size(); i++)
@@ -86,6 +88,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     }
     problem *= 1.0 / frames.size();
 
+    /*
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
         float weight = mesh_vo::mapping_regu_weight / numParams;
@@ -93,27 +96,30 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         assert(hg_regu.getCount() > 0);
         problem += hg_regu;
     }
+    */
 
     if (mesh_vo::mapping_prior_weight > 0.0)
     {
-        vecxf params = vecxf::Zero(numParams);
+        Vecx params = Vecx::Zero(numParams);
 
-        for (size_t i = 0; i < mapParamsIds.size(); i++)
+        auto pos_map = kframe.mesh().MapReadPositions();
+
+        for (size_t i = 2; i < numParams; i+=3)
         {
-            params(i) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
+            params(i) = pos_map[i];
         }
         // error = (sqrt(H)*diff)**2
         // jacobian = sqrt(H)*ones
 
-        vecxf res = init_invcovariancesqrt * (params - init_params);
-        matxf jacobian = init_invcovariancesqrt;
+        Vecx res = init_invcovariancesqrt * (params - init_params);
+        Matx jacobian = init_invcovariancesqrt;
         // vecx<float> res(_res);
         // matx<float> jacobian(_jacobian);
         float weight = mesh_vo::mapping_prior_weight / numParams;
         problem.add(jacobian, res, weight);
     }
 
-    std::vector<int> linearProbleParamIds = problem.getParamIds();
+    //std::vector<int> linearProbleParamIds = problem.getParamIds();
 
     int n_try = 0;
     float lambda = 0.0;
@@ -127,24 +133,24 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         }
         n_try++;
 
-        if (!problem.prepareH(lambda))
-            continue;
+        //if (!problem.prepareH(lambda))
+        //    continue;
 
-        vecxf inc = problem.solve();
+        Vecx inc = problem.solve(lambda);
 
         std::vector<float> best_mapParams;
-        for (size_t i = 0; i < mapParamsIds.size(); i++)
+        for (size_t i = 0; i < params; i++)
         {
             best_mapParams.push_back(kframe.getGeometry().getDepthParam(mapParamsIds[i]));
             kframe.getGeometry().setDepthParam(kframe.getGeometry().getDepthParam(mapParamsIds[i]) - inc(i), mapParamsIds[i]);
             // kframe.getGeometry().setWeightParam(problem.getH()(mapParamsIds[i], mapParamsIds[i]), mapParamsIds[i]);
-            kframe.getGeometry().setWeightParam(1.0 / mesh_vo::mapping_param_good_var, mapParamsIds[i]);
+            // kframe.getGeometry().setWeightParam(1.0 / mesh_vo::mapping_param_good_var, mapParamsIds[i]);
         }
 
         float error = 0;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            Error fe = computeError(frames[i], kframe, cam, lvl);
+            Error fe = computeError_(frames[i], kframe, cam, lvl);
             if (fe.getCount() < 0.5 * frames[i].getRawImage(lvl).width * frames[i].getRawImage(lvl).height)
             {
                 // too few pixels, unreliable, set to large error
@@ -157,24 +163,26 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         }
         error *= 1.0 / frames.size();
 
+        /*
         if (mesh_vo::mapping_regu_weight > 0.0)
         {
             Error e_regu = kframe.getGeometry().errorRegu();
             assert(e_regu.getCount() > 0);
             error += mesh_vo::mapping_regu_weight * e_regu.getError() / e_regu.getCount();
         }
+        */
 
         if (mesh_vo::mapping_prior_weight > 0.0)
         {
-            vecxf params(numParams);
+            Vecx params(numParams);
 
             for (size_t index = 0; index < mapParamsIds.size(); index++)
             {
                 params(index) = kframe.getGeometry().getDepthParam(mapParamsIds[index]);
             }
 
-            vecxf res = params - init_params;
-            vecxf conv_dot_res = init_invcovariance * res;
+            Vecx res = params - init_params;
+            Vecx conv_dot_res = init_invcovariance * res;
             float weight = mesh_vo::mapping_prior_weight / numParams;
             float priorError = weight * (res.dot(conv_dot_res));
 
@@ -227,8 +235,8 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
 DenseLinearProblem MapOptimizer::computeProblem(FrameCPU &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
-    int numMapParams = kframe.mesh(). getGeometry().getParamIds().size();
+    int numMapParams = kframe.mesh().vertex_count();
 
 	jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), cam, lvl, lvl, kframe.frame().image(), frame.image(), frame.didxy(), jmap_texture_, pids_texture_, r_texture_);
-	return hgmapreducer_.reduce(lvl, jmap_texture_, pids_texture_, r_texture_);
+	return hgmapreducer_.reduce(lvl, numMapParams, jmap_texture_, pids_texture_, r_texture_);
 }
