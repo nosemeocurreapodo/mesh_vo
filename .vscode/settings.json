@@ -118,7 +118,8 @@
         "vertexarraystate": "cpp",
         "buffered_value": "cpp",
         "fast_back_stack": "cpp",
-        "containers": "cpp"
+        "containers": "cpp",
+        "orderingmethods": "cpp"
     },
     "cmake.configureOnOpen": true
 }

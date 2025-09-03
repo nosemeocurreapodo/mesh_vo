@@ -54,7 +54,7 @@ TEST_F(RendererTestBase, ComputePose)
     const int in_lvl = 0, out_lvl = 0;
 
     const long long acceptableTimeMs = 30;
-    const float translationErrorThreshold = 1.5; // best = 0.0160271;
+    const float translationErrorThreshold = 0.07; // best = 0.0160271;
     const float rotationErrorThreshold = 0.0011; // best = 0.00105154;
 
     std::chrono::milliseconds accProcessingTime = std::chrono::milliseconds(0);
@@ -68,7 +68,7 @@ TEST_F(RendererTestBase, ComputePose)
     MeshCPU screen_mesh(s_pos_buff_, s_tex_buff_, s_wei_buff_, s_idx_buff_);
 
     cv::Mat kimage_cv = ReadMat(image_files_[0]);
-    cv::Mat kdepth_cv = ReadMat(depth_files_[0]);
+    cv::Mat kdepth_cv = ReadMat(depth_files_[0]) / depth_factor_;
     SE3 kpose = poses_[0];
 
     TextureCPU<float> kimage_cpu(w_, h_, 0.0f);
@@ -111,8 +111,8 @@ TEST_F(RendererTestBase, ComputePose)
         std::cout << "Frame " << i << std::endl;
 
         cv::Mat image_cv = ReadMat(image_files_[i]);
-        cv::Mat gt_depth_cv = ReadMat(depth_files_[i]);
-        SE3 gt_pose = poses_[i].inverse();
+        cv::Mat gt_depth_cv = ReadMat(depth_files_[i]) / depth_factor_;
+        SE3 gt_pose = poses_[i];
 
         UploadMatToTexture(image_cpu, 0, image_cv);
         UploadMatToTexture(depth_cpu, 0, gt_depth_cv);

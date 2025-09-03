@@ -19,7 +19,7 @@ TEST_F(RendererTestBase, ComputeMap)
     int framesProcessedCounter = 0;
 
     cv::Mat kimage_cv = ReadMat(image_files_[0]);
-    cv::Mat kdepth_cv = ReadMat(depth_files_[0]);
+    cv::Mat kdepth_cv = ReadMat(depth_files_[0]) / depth_factor_;
     SE3 kpose = poses_[0];
 
     std::vector<float> s_pos_buff_, s_tex_buff_, s_wei_buff_;
@@ -67,8 +67,8 @@ TEST_F(RendererTestBase, ComputeMap)
         std::cout << "Frame " << i << std::endl;
 
         cv::Mat image_cv = ReadMat(image_files_[i]);
-        cv::Mat gt_depth_cv = ReadMat(depth_files_[i]);
-        SE3 gt_pose = poses_[i].inverse();
+        cv::Mat gt_depth_cv = ReadMat(depth_files_[i]) / depth_factor_;
+        SE3 gt_pose = poses_[i];
 
         UploadMatToTexture(image_cpu, 0, image_cv);
         UploadMatToTexture(depth_cpu, 0, gt_depth_cv);
@@ -84,7 +84,6 @@ TEST_F(RendererTestBase, ComputeMap)
 
         auto startTime = std::chrono::high_resolution_clock::now();
 
-        /*
         for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
         {
             optimizer.init(frames, kframe, cam_, lvl);
@@ -93,7 +92,6 @@ TEST_F(RendererTestBase, ComputeMap)
                 optimizer.step(frames, kframe, cam_, lvl);
             }
         }
-        */
 
         auto endTime = std::chrono::high_resolution_clock::now();
 
