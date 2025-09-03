@@ -16,11 +16,12 @@ public:
             globalScale = 1.0;
         };
     */
-    KeyFrame(const Frame &frame, MeshCPU &mesh) : frame_(frame), mesh_(mesh)
+    KeyFrame(const Frame &frame, MeshCPU &mesh, float global_scale) : frame_(frame), mesh_(mesh)
     {
+        global_scale_ = global_scale;
     }
 
-    KeyFrame(const KeyFrame &other) : frame_(other.frame_), mesh_(other.mesh_)
+    KeyFrame(const KeyFrame &other) : frame_(other.frame_), mesh_(other.mesh_), global_scale_(other.global_scale_)
     {
     }
 
@@ -30,6 +31,7 @@ public:
         {
             frame_ = other.frame_;
             mesh_ = other.mesh_;
+            global_scale_ = other.global_scale_;
         }
         return *this;
     }
@@ -52,7 +54,7 @@ public:
     SE3 localPoseToGlobal(SE3 localPose)
     {
         SE3 localPoseScaled = localPose;
-        //localPoseScaled.translation() /= globalScale_;
+        localPoseScaled.translation() *= global_scale_;
         SE3 globalPose = localPoseScaled * frame_.global_pose();
         return globalPose;
     }
@@ -60,7 +62,7 @@ public:
     SE3 globalPoseToLocal(SE3 globalPose)
     {
         SE3 localPose = globalPose * frame_.global_pose().inverse();
-        //localPose.translation() *= globalScale_;
+        localPose.translation() /= global_scale_;
         return localPose;
     }
 /*
@@ -148,4 +150,5 @@ public:
 private:
     Frame frame_;
     MeshCPU mesh_;
+    float global_scale_;
 };

@@ -33,9 +33,9 @@ private:
             Vec3 depth(pos_map[id(0) * 3 + 2],
                        pos_map[id(1) * 3 + 2],
                        pos_map[id(2) * 3 + 2]);
-            float r1 = 1.0/depth(0) - 1.0/depth(1);
-            float r2 = 1.0/depth(0) - 1.0/depth(2);
-            float r3 = 1.0/depth(1) - 1./depth(2);
+            float r1 = depth(0) - depth(1);
+            float r2 = depth(0) - depth(2);
+            float r3 = depth(1) - depth(2);
             regu_error += r1 * r1 + r2 * r2 + r3 * r3;
         }
         return regu_error / mesh.vertex_count();

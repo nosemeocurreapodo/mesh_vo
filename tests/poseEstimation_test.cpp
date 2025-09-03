@@ -55,7 +55,7 @@ TEST_F(RendererTestBase, ComputePose)
 
     const long long acceptableTimeMs = 30;
     const float translationErrorThreshold = 0.07; // best = 0.0160271;
-    const float rotationErrorThreshold = 0.0011; // best = 0.00105154;
+    const float rotationErrorThreshold = 0.0011;  // best = 0.00105154;
 
     std::chrono::milliseconds accProcessingTime = std::chrono::milliseconds(0);
     float accTranslationError = 0;
@@ -70,6 +70,9 @@ TEST_F(RendererTestBase, ComputePose)
     cv::Mat kimage_cv = ReadMat(image_files_[0]);
     cv::Mat kdepth_cv = ReadMat(depth_files_[0]) / depth_factor_;
     SE3 kpose = poses_[0];
+    cv::Mat kdepth_mask = (kdepth_cv > 0.0);
+    cv::Scalar kdepth_mean = cv::mean(kdepth_cv, kdepth_mask);
+    kdepth_cv = kdepth_cv / kdepth_mean[0];
 
     TextureCPU<float> kimage_cpu(w_, h_, 0.0f);
     TextureCPU<float> kdepth_cpu(w_, h_, 0.0f);
@@ -95,7 +98,7 @@ TEST_F(RendererTestBase, ComputePose)
     for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
         didxy_renderer.Render(screen_mesh, lvl, lvl, kimage_cpu, kdidxy_cpu);
 
-    KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3(), kpose), mesh);
+    KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3(), kpose), mesh, kdepth_mean[0]);
 
     PoseOptimizer optimizer(w_, h_, false);
 
@@ -111,11 +114,14 @@ TEST_F(RendererTestBase, ComputePose)
         std::cout << "Frame " << i << std::endl;
 
         cv::Mat image_cv = ReadMat(image_files_[i]);
-        cv::Mat gt_depth_cv = ReadMat(depth_files_[i]) / depth_factor_;
+        cv::Mat depth_cv = ReadMat(depth_files_[i]) / depth_factor_;
         SE3 gt_pose = poses_[i];
+        cv::Mat depth_mask = (depth_cv > 0.0);
+        cv::Scalar depth_mean = cv::mean(depth_cv, depth_mask);
+        depth_cv = depth_cv / depth_mean[0];
 
         UploadMatToTexture(image_cpu, 0, image_cv);
-        UploadMatToTexture(depth_cpu, 0, gt_depth_cv);
+        UploadMatToTexture(depth_cpu, 0, depth_cv);
 
         for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
             didxy_renderer.Render(screen_mesh, lvl, lvl, image_cpu, didxy_cpu);
@@ -167,7 +173,7 @@ TEST_F(RendererTestBase, ComputePose)
             CreateMesh(depth_cpu, cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
             MeshCPU new_mesh(pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
-            kframe = KeyFrame(frame, new_mesh);
+            kframe = KeyFrame(frame, new_mesh, depth_mean[0]);
 
             frame.local_pose() = kframe.globalPoseToLocal(frame.global_pose());
 

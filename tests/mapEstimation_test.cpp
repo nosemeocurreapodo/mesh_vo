@@ -21,6 +21,9 @@ TEST_F(RendererTestBase, ComputeMap)
     cv::Mat kimage_cv = ReadMat(image_files_[0]);
     cv::Mat kdepth_cv = ReadMat(depth_files_[0]) / depth_factor_;
     SE3 kpose = poses_[0];
+    cv::Mat kdepth_mask = (kdepth_cv > 0.0);
+    cv::Scalar kdepth_mean = cv::mean(kdepth_cv, kdepth_mask);
+    kdepth_cv = kdepth_cv / kdepth_mean[0];
 
     std::vector<float> s_pos_buff_, s_tex_buff_, s_wei_buff_;
     std::vector<unsigned int> s_idx_buff_;
@@ -35,7 +38,10 @@ TEST_F(RendererTestBase, ComputeMap)
 
     std::vector<float> pos_buff_, tex_buff_, wei_buff_;
     std::vector<unsigned int> idx_buff_;
-    CreateMesh(cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+    CreateMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5,
+               cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+    // CreateMesh(kdepth_cpu,
+    //            cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
     MeshCPU mesh(pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
     TextureCPU<Vec3> kdidxy_cpu(w_, h_, Vec3(0.0, 0.0, 0.0));
@@ -51,7 +57,7 @@ TEST_F(RendererTestBase, ComputeMap)
     for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
         didxy_renderer.Render(screen_mesh, lvl, lvl, kimage_cpu, kdidxy_cpu);
 
-    KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3(), kpose), mesh);
+    KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3(), kpose), mesh, kdepth_mean[0]);
 
     MapOptimizer optimizer(w_, h_, false);
 
@@ -67,11 +73,14 @@ TEST_F(RendererTestBase, ComputeMap)
         std::cout << "Frame " << i << std::endl;
 
         cv::Mat image_cv = ReadMat(image_files_[i]);
-        cv::Mat gt_depth_cv = ReadMat(depth_files_[i]) / depth_factor_;
+        cv::Mat depth_cv = ReadMat(depth_files_[i]) / depth_factor_;
         SE3 gt_pose = poses_[i];
+        cv::Mat depth_mask = (depth_cv > 0.0);
+        cv::Scalar depth_mean = cv::mean(depth_cv, depth_mask);
+        depth_cv = depth_cv / depth_mean[0];
 
         UploadMatToTexture(image_cpu, 0, image_cv);
-        UploadMatToTexture(depth_cpu, 0, gt_depth_cv);
+        UploadMatToTexture(depth_cpu, 0, depth_cv);
 
         for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
             didxy_renderer.Render(screen_mesh, lvl, lvl, image_cpu, didxy_cpu);
@@ -118,10 +127,13 @@ TEST_F(RendererTestBase, ComputeMap)
 
         if (viewPercent < mesh_vo::min_view_perc) // || keyframeViewAngle > mesh_vo::key_max_angle)
         {
-            CreateMesh(cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+            CreateMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5,
+                       cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+            // CreateMesh(depth_cpu,
+            //            cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
             MeshCPU new_mesh(pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
-            kframe = KeyFrame(frame, new_mesh);
+            kframe = KeyFrame(frame, new_mesh, depth_mean[0]);
 
             frame.local_pose() = kframe.globalPoseToLocal(frame.global_pose());
 

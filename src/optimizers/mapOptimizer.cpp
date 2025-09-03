@@ -92,15 +92,15 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
                         pos_map[ids(2) * 3 + 2]);
             // regu_error += (depth(0) - depth(1)) * (depth(0) - depth(1)) + (depth(1) - depth(2)) * (depth(1) - depth(2));
 
-            float r1 = 1.0 / depths(0) - 1.0 / depths(1);
+            float r1 = depths(0) - depths(1);
             Vec3 jac1(1.0, -1.0, 0.0);
             problem.add(jac1, r1, mesh_vo::mapping_regu_weight / numParams, ids);
 
-            float r2 = 1.0 / depths(0) - 1.0 / depths(2);
+            float r2 = depths(0) - depths(2);
             Vec3 jac2(1.0, 0.0, -1.0);
             problem.add(jac2, r2, mesh_vo::mapping_regu_weight / numParams, ids);
 
-            float r3 = 1.0 / depths(1) - 1.0 / depths(2);
+            float r3 = depths(1) - depths(2);
             Vec3 jac3(0.0, 1.0, -1.0);
             problem.add(jac3, r3, mesh_vo::mapping_regu_weight / numParams, ids);
         }
@@ -140,8 +140,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         for (size_t i = 0; i < numParams; i++)
         {
             Vec3 pos(pos_map[i * 3 + 0], pos_map[i * 3 + 1], pos_map[i * 3 + 2]);
-            float up_inv_depth = 1.0 / pos(2) - inc(i);
-            Vec3 pos_up = (pos / pos(2)) / up_inv_depth;
+            Vec3 pos_up = (pos / pos(2)) * (pos(2) + inc(i));
             best_map_pos.push_back(pos);
             pos_map[i * 3 + 0] = pos_up(0);
             pos_map[i * 3 + 1] = pos_up(1);
