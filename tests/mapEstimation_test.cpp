@@ -2,7 +2,6 @@
 #include "common/test_framework.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
-#include "common/common.h"
 #include "backends/cpu/renderercpu.h"
 #include "optimizers/mapOptimizer.h"
 
@@ -19,17 +18,25 @@ TEST_F(RendererTestBase, ComputeMap)
     float accRotationError = 0;
     int framesProcessedCounter = 0;
 
-    std::vector<float> pos_buff_, tex_buff_, wei_buff_;
-    CreateScreenQuad(pos_buff_, tex_buff_, wei_buff_);
-    MeshCPU screen_mesh(pos_buff_, tex_buff_, wei_buff_);
+    cv::Mat kimage_cv = ReadMat(image_files_[0]);
+    cv::Mat kdepth_cv = ReadMat(depth_files_[0]);
+    SE3 kpose = poses_[0];
+
+    std::vector<float> s_pos_buff_, s_tex_buff_, s_wei_buff_;
+    std::vector<unsigned int> s_idx_buff_;
+    CreateScreenQuad(s_pos_buff_, s_tex_buff_, s_wei_buff_, s_idx_buff_);
+    MeshCPU screen_mesh(s_pos_buff_, s_tex_buff_, s_wei_buff_, s_idx_buff_);
 
     TextureCPU<float> kimage_cpu(w_, h_, 0.0f);
-    UploadMatToTexture(kimage_cpu, 0, image_src_cv_);
-
     TextureCPU<float> kdepth_cpu(w_, h_, 0.0f);
-    UploadMatToTexture(kdepth_cpu, 0, depth_src_cv_);
 
-    MeshCPU mesh = CreateMesh(cam_, 32);
+    UploadMatToTexture(kimage_cpu, 0, kimage_cv);
+    UploadMatToTexture(kdepth_cpu, 0, kdepth_cv);
+
+    std::vector<float> pos_buff_, tex_buff_, wei_buff_;
+    std::vector<unsigned int> idx_buff_;
+    CreateMesh(cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+    MeshCPU mesh(pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
     TextureCPU<Vec3> kdidxy_cpu(w_, h_, Vec3(0.0, 0.0, 0.0));
 
@@ -44,7 +51,7 @@ TEST_F(RendererTestBase, ComputeMap)
     for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
         didxy_renderer.Render(screen_mesh, lvl, lvl, kimage_cpu, kdidxy_cpu);
 
-    KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3(), pose_src_), mesh);
+    KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3(), kpose), mesh);
 
     MapOptimizer optimizer(w_, h_, false);
 
@@ -59,14 +66,9 @@ TEST_F(RendererTestBase, ComputeMap)
 
         std::cout << "Frame " << i << std::endl;
 
-        cv::Mat image_cv = cv::imread(image_files_[i], cv::IMREAD_GRAYSCALE);
-        cv::Mat gt_depth_cv = cv::imread(depth_files_[i], cv::IMREAD_GRAYSCALE);
+        cv::Mat image_cv = ReadMat(image_files_[i]);
+        cv::Mat gt_depth_cv = ReadMat(depth_files_[i]);
         SE3 gt_pose = poses_[i].inverse();
-
-        image_cv.convertTo(image_cv, CV_32FC1);
-        gt_depth_cv.convertTo(gt_depth_cv, CV_32FC1);
-        //  gt_depth_cv /= dataset.getDepthFactor();
-        //  gt_depth_cv *= 100.0;
 
         UploadMatToTexture(image_cpu, 0, image_cv);
         UploadMatToTexture(depth_cpu, 0, gt_depth_cv);
@@ -81,7 +83,8 @@ TEST_F(RendererTestBase, ComputeMap)
         frames.push_back(frame);
 
         auto startTime = std::chrono::high_resolution_clock::now();
- 
+
+        /*
         for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
         {
             optimizer.init(frames, kframe, cam_, lvl);
@@ -90,7 +93,8 @@ TEST_F(RendererTestBase, ComputeMap)
                 optimizer.step(frames, kframe, cam_, lvl);
             }
         }
-  
+        */
+
         auto endTime = std::chrono::high_resolution_clock::now();
 
         // float error = computeImageError(estMipMapDepthData.get(0), gtDepthData);
@@ -116,8 +120,8 @@ TEST_F(RendererTestBase, ComputeMap)
 
         if (viewPercent < mesh_vo::min_view_perc) // || keyframeViewAngle > mesh_vo::key_max_angle)
         {
-            //MeshCPU new_mesh = CreateMesh(depth_cpu, cam_, 32);
-            MeshCPU new_mesh = CreateMesh(cam_, 32);
+            CreateMesh(cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+            MeshCPU new_mesh(pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
             kframe = KeyFrame(frame, new_mesh);
 
