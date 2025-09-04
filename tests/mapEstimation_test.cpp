@@ -57,8 +57,8 @@ TEST_F(RendererTestBase, ComputeMap)
         {
             std::vector<float> pos_buff_, tex_buff_, wei_buff_;
             std::vector<unsigned int> idx_buff_;
-            CreateMesh(depth_cpu, cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
-            // CreateMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+            // CreateMesh(depth_cpu, cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+            CreateMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
             MeshCPU mesh(pos_buff_, tex_buff_, wei_buff_, idx_buff_);
             kframe = new KeyFrame(Frame(image_cpu, didxy_cpu, 0, SE3(), gt_pose), mesh, depth_mean[0]);
             continue;
@@ -95,8 +95,8 @@ TEST_F(RendererTestBase, ComputeMap)
 
         std::vector<float> pos_buff_, tex_buff_, wei_buff_;
         std::vector<unsigned int> idx_buff_;
-        CreateMesh(depth_cpu, cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
-        // CreateMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+        // CreateMesh(depth_cpu, cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+        CreateMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
         MeshCPU mesh(pos_buff_, tex_buff_, wei_buff_, idx_buff_);
         kframe = new KeyFrame(frames[kframeIndex], mesh, depth_mean[0]);
 
@@ -113,6 +113,7 @@ TEST_F(RendererTestBase, ComputeMap)
         }
 
         auto startTime = std::chrono::high_resolution_clock::now();
+        
         for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
         {
             optimizer.init(oframes, *kframe, cam_, lvl);
@@ -121,6 +122,7 @@ TEST_F(RendererTestBase, ComputeMap)
                 optimizer.step(oframes, *kframe, cam_, lvl);
             }
         }
+        
         auto endTime = std::chrono::high_resolution_clock::now();
 
         residual_renderer.Render(kframe->mesh(), frame.local_pose(), cam_, 1, 1, kframe->frame().image(), frame.image(), l2_cpu);

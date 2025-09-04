@@ -5,8 +5,9 @@
 #include "core/camera.h"
 #include "core/types.h"
 #include "common/types.h"
-#include "optimizers/baseOptimizer.h"
+#include "common/depthParam.h"
 #include "common/reducer.h"
+#include "optimizers/baseOptimizer.h"
 #include "backends/cpu/meshcpu.h"
 
 class MapOptimizer : public BaseOptimizer
@@ -33,9 +34,9 @@ private:
             Vec3 depth(pos_map[id(0) * 3 + 2],
                        pos_map[id(1) * 3 + 2],
                        pos_map[id(2) * 3 + 2]);
-            float r1 = depth(0) - depth(1);
-            float r2 = depth(0) - depth(2);
-            float r3 = depth(1) - depth(2);
+            float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
+            float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
+            float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
             regu_error += r1 * r1 + r2 * r2 + r3 * r3;
         }
         return regu_error / mesh.vertex_count();
