@@ -65,27 +65,27 @@ public:
         localPose.translation() /= global_scale_;
         return localPose;
     }
-/*
-    Vec2 localExpToGlobal(Vec2 localExp)
-    {
-        Vec2 globalExp;
-        float alpha1 = std::exp(localExp(0));
-        float alpha2 = std::exp(globalExp_(0));
-        globalExp(0) = std::log(alpha1 / alpha2);
-        globalExp(1) = localExp(1) - globalExp_(1) / alpha1;
-        return globalExp;
-    }
+    /*
+        Vec2 localExpToGlobal(Vec2 localExp)
+        {
+            Vec2 globalExp;
+            float alpha1 = std::exp(localExp(0));
+            float alpha2 = std::exp(globalExp_(0));
+            globalExp(0) = std::log(alpha1 / alpha2);
+            globalExp(1) = localExp(1) - globalExp_(1) / alpha1;
+            return globalExp;
+        }
 
-    Vec2 globalExpToLocal(Vec2 globalExp)
-    {
-        Vec2 localExp;
-        float alpha1 = std::exp(-globalExp(0));
-        float alpha2 = std::exp(-globalExp_(0));
-        localExp(0) = std::log(alpha1 / alpha2);
-        localExp(1) = -globalExp(1) + (alpha2 / alpha1) * globalExp_(1);
-        return _localExp;
-    }
-    */
+        Vec2 globalExpToLocal(Vec2 globalExp)
+        {
+            Vec2 localExp;
+            float alpha1 = std::exp(-globalExp(0));
+            float alpha2 = std::exp(-globalExp_(0));
+            localExp(0) = std::log(alpha1 / alpha2);
+            localExp(1) = -globalExp(1) + (alpha2 / alpha1) * globalExp_(1);
+            return _localExp;
+        }
+        */
 
     /*
     void scaleVerticesAndWeights(float scale)
@@ -97,56 +97,58 @@ public:
     }
     */
 
-    /*
-        float meanViewAngle(SE3f pose1, SE3f pose2)
+    float meanViewAngle(const SE3 &pose1, const SE3 &pose2)
+    {
+        int lvl = 1;
+
+        //geometryType scene1 = geometry;
+        //scene1.transform(pose1);
+        // scene1.project(cam);
+
+        //geometryType scene2 = geometry;
+        //scene2.transform(pose2);
+        // scene2.project(cam);
+
+        auto pos_mm = mesh_.MapReadPositions();
+
+        SE3 relativePose = pose1 * pose2.inverse();
+
+        SE3 frame1PoseInv = relativePose.inverse();
+        SE3 frame2PoseInv = SE3();
+
+        Vec3 frame1Translation = frame1PoseInv.translation();
+        Vec3 frame2Translation = frame2PoseInv.translation();
+
+        //std::vector<int> vIds = scene2.getVerticesIds();
+
+        float accAngle = 0;
+        int count = 0;
+        for (int i = 0; i < mesh_.vertex_count(); i++)
         {
-            int lvl = 1;
+            Vec3 vert_ini(pos_mm[3 * i], pos_mm[3 * i + 1], pos_mm[3 * i + 2]);
+            Vec3 vert = pose2 * vert_ini;
 
-            geometryType scene1 = geometry;
-            scene1.transform(pose1);
-            // scene1.project(cam);
+            Vec3 diff1 = vert - frame1Translation;
+            Vec3 diff2 = vert - frame2Translation;
 
-            geometryType scene2 = geometry;
-            scene2.transform(pose2);
-            // scene2.project(cam);
+            assert(diff1.norm() > 0 && diff2.norm() > 0);
 
-            SE3f relativePose = pose1 * pose2.inverse();
+            Vec3 diff1Normalized = diff1 / diff1.norm();
+            Vec3 diff2Normalized = diff2 / diff2.norm();
 
-            SE3f frame1PoseInv = relativePose.inverse();
-            SE3f frame2PoseInv = SE3f();
+            float cos_angle = diff1Normalized.dot(diff2Normalized);
+            cos_angle = std::clamp(cos_angle, -1.0f, 1.0f);
+            float angle = std::acos(cos_angle);
 
-            vec3f frame1Translation = frame1PoseInv.translation();
-            vec3f frame2Translation = frame2PoseInv.translation();
+            assert(!std::isnan(angle));
 
-            std::vector<int> vIds = scene2.getVerticesIds();
-
-            float accAngle = 0;
-            int count = 0;
-            for (int vId : vIds)
-            {
-                vertex vert = scene2.getVertex(vId);
-
-                vec3f diff1 = vert.ver - frame1Translation;
-                vec3f diff2 = vert.ver - frame2Translation;
-
-                assert(diff1.norm() > 0 && diff2.norm() > 0);
-
-                vec3f diff1Normalized = diff1 / diff1.norm();
-                vec3f diff2Normalized = diff2 / diff2.norm();
-
-                float cos_angle = diff1Normalized.dot(diff2Normalized);
-                cos_angle = std::clamp(cos_angle, -1.0f, 1.0f);
-                float angle = std::acos(cos_angle);
-
-                assert(!std::isnan(angle));
-
-                accAngle += angle;
-                count += 1;
-            }
-
-            return accAngle / count;
+            accAngle += angle;
+            count += 1;
         }
-    */
+
+        return accAngle / count;
+    }
+
 private:
     Frame frame_;
     MeshCPU mesh_;

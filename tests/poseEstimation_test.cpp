@@ -72,7 +72,7 @@ TEST_F(RendererTestBase, ComputePose)
     SE3 kpose = poses_[0];
     cv::Mat kdepth_mask = (kdepth_cv > 0.0);
     cv::Scalar kdepth_mean = cv::mean(kdepth_cv, kdepth_mask);
-    kdepth_cv = kdepth_cv / kdepth_mean[0];
+    kdepth_cv = kdepth_cv * mesh_vo::mapping_mean_depth / kdepth_mean[0];
 
     TextureCPU<float> kimage_cpu(w_, h_, 0.0f);
     TextureCPU<float> kdepth_cpu(w_, h_, 0.0f);
@@ -82,7 +82,7 @@ TEST_F(RendererTestBase, ComputePose)
 
     std::vector<float> pos_buff_, tex_buff_, wei_buff_;
     std::vector<unsigned int> idx_buff_;
-    CreateMesh(kdepth_cpu, cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+    CreateMesh(kdepth_cpu, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
     MeshCPU mesh(pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
     TextureCPU<Vec3> kdidxy_cpu(w_, h_, Vec3(0.0, 0.0, 0.0));
@@ -104,8 +104,8 @@ TEST_F(RendererTestBase, ComputePose)
 
     SE3 tracked_global_pose = kframe.frame().global_pose();
 
-    TextureCPU<float> image_cpu(w_, h_, 0);
-    TextureCPU<float> depth_cpu(w_, h_, 0);
+    TextureCPU<float> image_cpu(w_, h_, -1);
+    TextureCPU<float> depth_cpu(w_, h_, -1);
     TextureCPU<Vec3> didxy_cpu(w_, h_, Vec3(0.0, 0.0, 0.0));
     TextureCPU<float> l2_texture(w_, h_, -1);
 
@@ -118,7 +118,7 @@ TEST_F(RendererTestBase, ComputePose)
         SE3 gt_pose = poses_[i];
         cv::Mat depth_mask = (depth_cv > 0.0);
         cv::Scalar depth_mean = cv::mean(depth_cv, depth_mask);
-        depth_cv = depth_cv / depth_mean[0];
+        depth_cv = depth_cv * mesh_vo::mapping_mean_depth / depth_mean[0];
 
         UploadMatToTexture(image_cpu, 0, image_cv);
         UploadMatToTexture(depth_cpu, 0, depth_cv);
@@ -170,7 +170,7 @@ TEST_F(RendererTestBase, ComputePose)
 
         if (viewPercent < mesh_vo::min_view_perc) // || keyframeViewAngle > mesh_vo::key_max_angle)
         {
-            CreateMesh(depth_cpu, cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+            CreateMesh(depth_cpu, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
             MeshCPU new_mesh(pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
             kframe = KeyFrame(frame, new_mesh, depth_mean[0]);

@@ -3,7 +3,7 @@
 MapOptimizer::MapOptimizer(int w, int h, bool _printLog)
     : BaseOptimizer(w, h),
       jmap_texture_(w, h, Vec3(0.0, 0.0, 0.0)),
-      pids_texture_(w, h, Vec3(0.0, 0.0, 0.0))
+      pids_texture_(w, h, Vec3(-1, -1, -1))
 {
     printLog = _printLog;
 }
