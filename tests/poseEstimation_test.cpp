@@ -54,7 +54,7 @@ TEST_F(RendererTestBase, ComputePose)
     const int in_lvl = 0, out_lvl = 0;
 
     const long long acceptableTimeMs = 30;
-    const float translationErrorThreshold = 0.07; // best = 0.0160271;
+    const float translationErrorThreshold = 0.02; // best = 0.0160271;
     const float rotationErrorThreshold = 0.0011;  // best = 0.00105154;
 
     std::chrono::milliseconds accProcessingTime = std::chrono::milliseconds(0);
