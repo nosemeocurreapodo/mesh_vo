@@ -109,13 +109,13 @@ TEST_F(RendererTestBase, ComputePose)
     TextureCPU<Vec3> didxy_cpu(w_, h_, Vec3(0.0, 0.0, 0.0));
     TextureCPU<float> l2_texture(w_, h_, -1);
 
-    for (unsigned int i = 1; i < image_files_.size(); i++)
+    for (unsigned int img_id = 1; img_id < image_files_.size(); img_id++)
     {
-        std::cout << "Frame " << i << std::endl;
+        std::cout << "Frame " << img_id << std::endl;
 
-        cv::Mat image_cv = ReadMat(image_files_[i]);
-        cv::Mat depth_cv = ReadMat(depth_files_[i]) / depth_factor_;
-        SE3 gt_pose = poses_[i];
+        cv::Mat image_cv = ReadMat(image_files_[img_id]);
+        cv::Mat depth_cv = ReadMat(depth_files_[img_id]) / depth_factor_;
+        SE3 gt_pose = poses_[img_id];
         cv::Mat depth_mask = (depth_cv > 0.0);
         cv::Scalar depth_mean = cv::mean(depth_cv, depth_mask);
         depth_cv = depth_cv * mesh_vo::mapping_mean_depth / depth_mean[0];
@@ -134,7 +134,7 @@ TEST_F(RendererTestBase, ComputePose)
         std::cout << "init_global_pose " << std::endl;
         std::cout << tracked_global_pose.translation() << std::endl;
 
-        Frame frame(image_cpu, didxy_cpu, i, init_local_pose, tracked_global_pose);
+        Frame frame(image_cpu, didxy_cpu, img_id, init_local_pose, tracked_global_pose);
 
         auto startTime = std::chrono::high_resolution_clock::now();
         for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
@@ -179,11 +179,11 @@ TEST_F(RendererTestBase, ComputePose)
 
             depth_renderer.Render(kframe.mesh(), SE3(), cam_, 1, depth_cpu);
             cv::Mat depth_mat = DownloadTexture(depth_cpu, 1, CV_32FC1);
-            SaveDebugImageColor(depth_mat, "Depth keyframe_" + std::to_string(i) + ".png");
+            SaveDebugImageColor(depth_mat, "Depth keyframe_" + std::to_string(img_id) + ".png");
 
             image_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, 1, kframe.frame().image(), image_cpu);
             cv::Mat image_mat = DownloadTexture(image_cpu, 1, CV_32FC1);
-            SaveDebugImageColor(image_mat, "Frame keyframe_" + std::to_string(i) + ".png");
+            SaveDebugImageColor(image_mat, "Frame keyframe_" + std::to_string(img_id) + ".png");
 
             Error nodata = nodata_reducer.reduce(1, image_cpu);
             float pnodata = nodata.getError() / image_cpu.size(1);
@@ -194,7 +194,7 @@ TEST_F(RendererTestBase, ComputePose)
 
         residual_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, 1, kframe.frame().image(), frame.image(), l2_texture);
         cv::Mat l2_mat = DownloadTexture(l2_texture, 1, CV_32FC1);
-        SaveDebugImageColor(l2_mat, "l2_" + std::to_string(i) + ".png");
+        SaveDebugImageColor(l2_mat, "l2_" + std::to_string(img_id) + ".png");
     }
 
     auto meanDuration = accProcessingTime.count() / framesProcessedCounter;

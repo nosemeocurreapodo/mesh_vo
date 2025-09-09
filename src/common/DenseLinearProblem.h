@@ -34,9 +34,10 @@ public:
 
     int size() const { return m_numParams; }
 
-    void add(const Matx& J, const Vecx& r, float w = 1.0f)
+    void add(const Matx &J, const Vecx &r, float w = 1.0f)
     {
-        if (w <= 0.0f) return;
+        if (w <= 0.0f)
+            return;
         m_Hp += w * J.transpose() * J;
         m_G += w * J.transpose() * r;
         m_count++;
@@ -93,6 +94,7 @@ public:
     {
         Matx H = m_Hp;
 
+        /*
         if (lambda > 0.0f)
         {
             if (lambda_mode == 0)
@@ -105,8 +107,15 @@ public:
                 H.diagonal().noalias() += lambda * d;
             }
         }
+        */
+        for (int j = 0; j < m_G.size(); j++)
+        {
+            H(j, j) *= (1.0 + lambda);
+        }
         solver.compute(H);
+        assert(solver.info() == Eigen::Success);
         Vecx dx = solver.solve(-m_G);
+        assert(solver.info() == Eigen::Success);
         return dx;
     }
 

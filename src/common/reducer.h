@@ -25,7 +25,9 @@ protected:
 	OutType reduce_()
 	{
 		const int N = derived_().size();
+		return derived_().reducepartial(0, N);
 
+		/*
 		const unsigned T = std::min<unsigned>(threads_, static_cast<unsigned>(N));
 		const int chunk = (N + static_cast<int>(T) - 1) / static_cast<int>(T);
 
@@ -53,6 +55,7 @@ protected:
 		for (unsigned t = 1; t < T; ++t)
 			total += partial[t];
 		return total;
+		*/
 	}
 
 	static inline float huber_weight_(float r, float thresh) noexcept
@@ -220,7 +223,7 @@ public:
 		lvl_ = lvl;
 		total_ = total;
 
-		//DenseLinearProblem hg(total);
+		// DenseLinearProblem hg(total);
 
 		return reduce_();
 	}

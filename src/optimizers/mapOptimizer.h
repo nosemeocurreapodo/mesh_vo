@@ -39,7 +39,7 @@ private:
             float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
             regu_error += r1 * r1 + r2 * r2 + r3 * r3;
         }
-        return regu_error / mesh.vertex_count();
+        return regu_error;
     }
 
     JMapRendererCPU jmaprenderer_;

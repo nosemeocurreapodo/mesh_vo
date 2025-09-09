@@ -37,7 +37,7 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
-        init_error += mesh_vo::mapping_regu_weight * error_regu_(kframe.mesh());
+        init_error += (mesh_vo::mapping_regu_weight / numParams) * error_regu_(kframe.mesh());
     }
 
     if (mesh_vo::mapping_prior_weight > 0.0)
@@ -77,6 +77,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
             problem += fhg;
         }
     }
+    problem.scale(1.0 / frames.size());
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
@@ -141,7 +142,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         {
             Vec3 pos(pos_map[i * 3 + 0], pos_map[i * 3 + 1], pos_map[i * 3 + 2]);
             float param = fromDepthToParam(pos(2));
-            param +=  inc(i);
+            param += inc(i);
             Vec3 pos_up = (pos / pos(2)) * fromParamToDepth(param);
             best_map_pos.push_back(pos);
             pos_map[i * 3 + 0] = pos_up(0);
@@ -166,7 +167,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
         if (mesh_vo::mapping_regu_weight > 0.0)
         {
-            error += mesh_vo::mapping_regu_weight * error_regu_(kframe.mesh());
+            error += (mesh_vo::mapping_regu_weight / numParams) * error_regu_(kframe.mesh());
         }
 
         if (mesh_vo::mapping_prior_weight > 0.0)
