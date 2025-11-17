@@ -1,17 +1,49 @@
 #pragma once
 
-#include <Eigen/Core>
-#include <Eigen/Dense>
-// #include <Eigen/Cholesky>
-// #include <Eigen/Sparse>
-#include <unsupported/Eigen/MatrixFunctions>
-#include "sophus/se3.hpp"
-#include "sophus/sim3.hpp"
+// #include <Eigen/Core>
+// include <Eigen/Dense>
+//  #include <Eigen/Cholesky>
+//  #include <Eigen/Sparse>
+// #include <unsupported/Eigen/MatrixFunctions>
+// #include "sophus/se3.hpp"
+// #include "sophus/sim3.hpp"
 
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
 #include "backends/cpu/renderercpu.h"
+
+#include "core/camera.h"
+#include "linalg/linalg.h"
+#include "linalg/linalgx.h"
+
+using JPoseRenderer = JPoseRendererCPU;
+using JMapRenderer = JMapRendererCPU;
+
+template <typename T>
+using Texture = TextureCPU<T>;
+
+using Camera = PinholeCamera<float>;
+
+// using Vecxf = linalg::Vecx<float>;
+template <int rows>
+using Vecf = linalg::Mat<float, rows, 1>;
+using Vec2f = linalg::Vec2<float>;
+using Vec3f = linalg::Vec3<float>;
+using Vec3i = linalg::Vec3<int>;
+using Vec6f = linalg::Vec6<float>;
+using Vec6i = linalg::Vec6<float>;
+
+template <int rows, int cols>
+using Matf = linalg::Mat<float, rows, cols>;
+using Matxf = linalg::Matx<float>;
+using Mat6f = linalg::Mat6<float>;
+
+using SE3f = linalg::SE3<float>;
+
+template <typename T, int size>
+using Solver = linalg::LDLT<T, size>;
+// using Solver = Eigen::LDLT<Eigen::MatrixXf>;
 
 // template <typename type, int rows>
 // using vec = Eigen::Matrix<type, rows, 1>;
@@ -37,7 +69,7 @@
 // using SE3f = Sophus::SE3f;
 // using SIM3f = Sophus::Sim3f;
 
-using Solver = Eigen::LDLT<Eigen::MatrixXf>;
+// using Solver = Eigen::LDLT<Eigen::MatrixXf>;
 // using Solver = Eigen::LLT<Eigen::MatrixXf>;
 
 // Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> ssolver;

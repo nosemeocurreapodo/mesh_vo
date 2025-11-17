@@ -1,8 +1,6 @@
 #pragma once
 
 #include "params.h"
-#include "core/camera.h"
-#include "core/types.h"
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"

@@ -7,7 +7,6 @@
 #include <cmath>
 
 #include "params.h"
-#include "core/types.h"
 #include "common/types.h"
 #include "common/DenseLinearProblem.h"
 #include "common/error.h"
@@ -79,7 +78,7 @@ public:
 	using Base = BaseReducerCPU<NodataReducerCPU, Error>;
 	explicit NodataReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	Error reduce(int lvl, const TextureCPU<float> &r_texture)
+	Error reduce(int lvl, const Texture<float> &r_texture)
 	{
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
@@ -89,7 +88,7 @@ public:
 
 	int size()
 	{
-		return r_texture_->size(lvl_);
+		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
 	Error reducepartial(int begin, int end)
@@ -109,7 +108,7 @@ public:
 	}
 
 private:
-	const TextureCPU<float> *r_texture_;
+	const Texture<float> *r_texture_;
 	int lvl_;
 };
 
@@ -120,7 +119,7 @@ public:
 	using Base = BaseReducerCPU<ResidualReducerCPU, Error>;
 	explicit ResidualReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	Error reduce(int lvl, const TextureCPU<float> &r_texture)
+	Error reduce(int lvl, const Texture<float> &r_texture)
 	{
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
@@ -130,7 +129,7 @@ public:
 
 	int size()
 	{
-		return r_texture_->size(lvl_);
+		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
 	Error reducepartial(int begin, int end)
@@ -150,7 +149,7 @@ public:
 	}
 
 private:
-	const TextureCPU<float> *r_texture_;
+	const Texture<float> *r_texture_;
 	int lvl_;
 };
 
@@ -161,7 +160,7 @@ public:
 	using Base = BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem>;
 	explicit HGPoseReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	DenseLinearProblem reduce(int lvl, const TextureCPU<Vec3> &jtra_texture, const TextureCPU<Vec3> &jrot_texture, const TextureCPU<float> &r_texture)
+	DenseLinearProblem reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<float> &r_texture)
 	{
 		jtra_texture_ = &jtra_texture;
 		jrot_texture_ = &jrot_texture;
@@ -173,7 +172,7 @@ public:
 
 	int size()
 	{
-		return r_texture_->size(lvl_);
+		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
 	DenseLinearProblem reducepartial(int begin, int end)
@@ -187,11 +186,11 @@ public:
 		for (int i = begin; i < end; ++i)
 		{
 			const float res = r_map[i];
-			const Vec3 jtra = jtra_map[i];
-			const Vec3 jrot = jrot_map[i];
+			const Vec3f jtra = jtra_map[i];
+			const Vec3f jrot = jrot_map[i];
 			if (res == r_texture_->nodata() || jtra == jtra_texture_->nodata() || jrot == jrot_texture_->nodata())
 				continue;
-			Vec6 J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2));
+			Vec6f J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2));
 			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
 
 			hg.add(J, res, w, ids);
@@ -200,9 +199,9 @@ public:
 	}
 
 private:
-	const TextureCPU<Vec3> *jtra_texture_;
-	const TextureCPU<Vec3> *jrot_texture_;
-	const TextureCPU<float> *r_texture_;
+	const Texture<Vec3f> *jtra_texture_;
+	const Texture<Vec3f> *jrot_texture_;
+	const Texture<float> *r_texture_;
 	int lvl_;
 	DenseLinearProblem hg_;
 };
@@ -214,7 +213,7 @@ public:
 	using Base = BaseReducerCPU<HGMapReducerCPU, DenseLinearProblem>;
 	explicit HGMapReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	DenseLinearProblem reduce(int lvl, int total, const TextureCPU<Vec3> &jmap_texture, const TextureCPU<Vec3> &pids_texture, const TextureCPU<float> &r_texture)
+	DenseLinearProblem reduce(int lvl, int total, const Texture<Vec3f> &jmap_texture, const Texture<Vec3f> &pids_texture, const Texture<float> &r_texture)
 	{
 		jmap_texture_ = &jmap_texture;
 		pids_texture_ = &pids_texture;
@@ -230,7 +229,7 @@ public:
 
 	int size()
 	{
-		return r_texture_->size(lvl_);
+		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
 	DenseLinearProblem reducepartial(int begin, int end)
@@ -244,8 +243,8 @@ public:
 		for (int i = begin; i < end; ++i)
 		{
 			const float res = r_map[i];
-			const Vec3 jmap = jmap_map[i];
-			const Vec3 pids = pids_map[i];
+			const Vec3f jmap = jmap_map[i];
+			const Vec3f pids = pids_map[i];
 			if (res == r_texture_->nodata() || jmap == jmap_texture_->nodata() || pids == pids_texture_->nodata())
 				continue;
 			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
@@ -257,9 +256,9 @@ public:
 	}
 
 private:
-	const TextureCPU<Vec3> *jmap_texture_;
-	const TextureCPU<Vec3> *pids_texture_;
-	const TextureCPU<float> *r_texture_;
+	const Texture<Vec3f> *jmap_texture_;
+	const Texture<Vec3f> *pids_texture_;
+	const Texture<float> *r_texture_;
 	int lvl_;
 	int total_;
 	DenseLinearProblem hg_;

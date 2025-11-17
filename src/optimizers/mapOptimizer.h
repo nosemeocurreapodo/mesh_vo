@@ -2,8 +2,6 @@
 
 #include <iostream>
 #include "params.h"
-#include "core/camera.h"
-#include "core/types.h"
 #include "common/types.h"
 #include "common/depthParam.h"
 #include "common/reducer.h"
@@ -31,7 +29,7 @@ private:
             Vec3i id(ids_map[i + 0],
                      ids_map[i + 1],
                      ids_map[i + 2]);
-            Vec3 depth(pos_map[id(0) * 3 + 2],
+            Vec3f depth(pos_map[id(0) * 3 + 2],
                        pos_map[id(1) * 3 + 2],
                        pos_map[id(2) * 3 + 2]);
             float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
@@ -42,17 +40,17 @@ private:
         return regu_error;
     }
 
-    JMapRendererCPU jmaprenderer_;
+    JMapRenderer jmaprenderer_;
     HGMapReducerCPU hgmapreducer_;
 
-    TextureCPU<Vec3> jmap_texture_;
-    TextureCPU<Vec3> pids_texture_;
+    Texture<Vec3f> jmap_texture_;
+    Texture<Vec3f> pids_texture_;
 
-    Matx invCovariance;
+    Matxf invCovariance;
 
-    Vecx init_params;
-    Matx init_invcovariance;
-    Matx init_invcovariancesqrt;
+    Matxf init_params;
+    Matxf init_invcovariance;
+    Matxf init_invcovariancesqrt;
     float init_error;
 
     bool printLog;

@@ -2,10 +2,10 @@
 
 PoseOptimizer::PoseOptimizer(int w, int h, bool print_log)
 	: BaseOptimizer(w, h),
-	  jtra_texture_(w, h, Vec3(0.0, 0.0, 0.0)),
-	  jrot_texture_(w, h, Vec3(0.0, 0.0, 0.0))
+	  jtra_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
+	  jrot_texture_(w, h, Vec3f(0.0, 0.0, 0.0))
 {
-	inv_covariance_ = Mat6::Identity() / mesh_vo::tracking_pose_initial_var;
+	inv_covariance_ = Mat6f::Identity() / mesh_vo::tracking_pose_initial_var;
 	print_log_ = print_log;
 }
 
@@ -22,8 +22,8 @@ void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 
 	if (mesh_vo::tracking_prior_weight > 0.0)
 	{
-		Vec6 res = frame.local_pose().log() - init_pose_;
-		Vec6 conv_dot_res = init_invcovariance_ * res;
+		Vec6f res = frame.local_pose().log() - init_pose_;
+		Vec6f conv_dot_res = init_invcovariance_ * res;
 		float weight = mesh_vo::tracking_prior_weight / 6;
 		init_error_ += weight * (res.dot(conv_dot_res));
 	}
@@ -65,15 +65,15 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 		}
 		n_try++;
 
-		Vecx inc = problem.solve(lambda);
+		Vec6f inc = problem.solve(lambda);
 
-		SE3 best_pose = frame.local_pose();
-		SE3 new_pose = frame.local_pose() * SE3::exp(inc); // SE3::exp(inc).inverse();
+		SE3f best_pose = frame.local_pose();
+		SE3f new_pose = frame.local_pose() * SE3f::exp(inc); // SE3::exp(inc).inverse();
 		frame.local_pose() = new_pose;
 
 		float new_error = 0;
 		Error ne = compute_error_(frame, kframe, cam, lvl);
-		if (ne.getCount() < 0.5 * frame.image().size(lvl))
+		if (ne.getCount() < 0.5 * frame.image().width(lvl) * frame.image().height(lvl))
 		{
 			// too few pixels, unreliable, set to large error
 			new_error += init_error_ * 2.0;
@@ -85,8 +85,8 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 
 		if (mesh_vo::tracking_prior_weight > 0.0)
 		{
-			Vec6 res = frame.local_pose().log() - init_pose_;
-			Vec6 conv_dot_res = init_invcovariance_ * res;
+			Vec6f res = frame.local_pose().log() - init_pose_;
+			Vec6f conv_dot_res = init_invcovariance_ * res;
 			float weight = mesh_vo::tracking_prior_weight / 6;
 			new_error += weight * (res.dot(conv_dot_res));
 		}

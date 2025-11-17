@@ -2,8 +2,8 @@
 
 MapOptimizer::MapOptimizer(int w, int h, bool _printLog)
     : BaseOptimizer(w, h),
-      jmap_texture_(w, h, Vec3(0.0, 0.0, 0.0)),
-      pids_texture_(w, h, Vec3(-1, -1, -1))
+      jmap_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
+      pids_texture_(w, h, Vec3f(-1, -1, -1))
 {
     printLog = _printLog;
 }
@@ -12,8 +12,8 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 {
     int numParams = kframe.mesh().vertex_count();
 
-    invCovariance = Matx::Identity(numParams, numParams);
-    init_params = Vecx::Zero(numParams);
+    invCovariance = Matxf::Identity(numParams, numParams);
+    init_params = Matxf::Zero(numParams, 1);
 
     auto pos_map = kframe.mesh().MapReadPositions();
     for (size_t i = 0; i < numParams; i++)
@@ -42,15 +42,15 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
     if (mesh_vo::mapping_prior_weight > 0.0)
     {
-        Vecx params(numParams);
+        Matxf params(numParams, 1);
         auto pos_map = kframe.mesh().MapReadPositions();
         for (size_t i = 0; i < numParams; i++)
         {
             params(i) = pos_map[i * 3 + 2];
         }
 
-        Vecx res = params - init_params;
-        Vecx conv_dot_res = init_invcovariance * res;
+        Matxf res = params - init_params;
+        Matxf conv_dot_res = init_invcovariance * res;
         float weight = mesh_vo::mapping_prior_weight / numParams;
         float priorError = weight * (res.dot(conv_dot_res));
 
@@ -88,36 +88,36 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
             Vec3i ids(ids_map[i + 0],
                       ids_map[i + 1],
                       ids_map[i + 2]);
-            Vec3 depths(pos_map[ids(0) * 3 + 2],
+            Vec3f depths(pos_map[ids(0) * 3 + 2],
                         pos_map[ids(1) * 3 + 2],
                         pos_map[ids(2) * 3 + 2]);
             // regu_error += (depth(0) - depth(1)) * (depth(0) - depth(1)) + (depth(1) - depth(2)) * (depth(1) - depth(2));
 
             float r1 = fromDepthToParam(depths(0)) - fromDepthToParam(depths(1));
-            Vec3 jac1(1.0, -1.0, 0.0);
+            Vec3f jac1(1.0, -1.0, 0.0);
             problem.add(jac1, r1, mesh_vo::mapping_regu_weight / numParams, ids);
 
             float r2 = fromDepthToParam(depths(0)) - fromDepthToParam(depths(2));
-            Vec3 jac2(1.0, 0.0, -1.0);
+            Vec3f jac2(1.0, 0.0, -1.0);
             problem.add(jac2, r2, mesh_vo::mapping_regu_weight / numParams, ids);
 
             float r3 = fromDepthToParam(depths(1)) - fromDepthToParam(depths(2));
-            Vec3 jac3(0.0, 1.0, -1.0);
+            Vec3f jac3(0.0, 1.0, -1.0);
             problem.add(jac3, r3, mesh_vo::mapping_regu_weight / numParams, ids);
         }
     }
 
     if (mesh_vo::mapping_prior_weight > 0.0)
     {
-        Vecx params = Vecx::Zero(numParams);
+        Matxf params = Matxf::Zero(numParams, 1);
         auto pos_map = kframe.mesh().MapReadPositions();
         for (size_t i = 0; i < numParams; i++)
         {
             params(i) = pos_map[i * 3 + 2];
         }
 
-        Vecx res = init_invcovariancesqrt * (params - init_params);
-        Matx jacobian = init_invcovariancesqrt;
+        Matxf res = init_invcovariancesqrt * (params - init_params);
+        Matxf jacobian = init_invcovariancesqrt;
         float weight = mesh_vo::mapping_prior_weight / numParams;
         problem.add(jacobian, res, weight);
     }
@@ -134,16 +134,16 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         }
         n_try++;
 
-        Vecx inc = problem.solve(lambda);
+        Matxf inc = problem.solve(lambda);
 
-        std::vector<Vec3> best_map_pos;
+        std::vector<Vec3f> best_map_pos;
         auto pos_map = kframe.mesh().MapWritePositions();
         for (size_t i = 0; i < numParams; i++)
         {
-            Vec3 pos(pos_map[i * 3 + 0], pos_map[i * 3 + 1], pos_map[i * 3 + 2]);
+            Vec3f pos(pos_map[i * 3 + 0], pos_map[i * 3 + 1], pos_map[i * 3 + 2]);
             float param = fromDepthToParam(pos(2));
             param += inc(i);
-            Vec3 pos_up = (pos / pos(2)) * fromParamToDepth(param);
+            Vec3f pos_up = (pos / pos(2)) * fromParamToDepth(param);
             best_map_pos.push_back(pos);
             pos_map[i * 3 + 0] = pos_up(0);
             pos_map[i * 3 + 1] = pos_up(1);
@@ -172,15 +172,15 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
         if (mesh_vo::mapping_prior_weight > 0.0)
         {
-            Vecx params(numParams);
+            Matxf params(numParams, 1);
             auto pos_map_read = kframe.mesh().MapReadPositions();
             for (size_t i = 0; i < numParams; i++)
             {
                 params(i) = pos_map_read[i * 3 + 2];
             }
 
-            Vecx res = params - init_params;
-            Vecx conv_dot_res = init_invcovariance * res;
+            Matxf res = params - init_params;
+            Matxf conv_dot_res = init_invcovariance * res;
             float weight = mesh_vo::mapping_prior_weight / numParams;
             float priorError = weight * (res.dot(conv_dot_res));
 
