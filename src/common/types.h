@@ -16,6 +16,7 @@
 #include "core/camera.h"
 #include "linalg/linalg.h"
 #include "linalg/linalgx.h"
+#include "linalg/ldlt_solver.h"
 
 using JPoseRenderer = JPoseRendererCPU;
 using JMapRenderer = JMapRendererCPU;

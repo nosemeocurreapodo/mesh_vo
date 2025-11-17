@@ -36,7 +36,7 @@ void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 
 void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
-	DenseLinearProblem problem = compute_problem_(frame, kframe, cam, lvl);
+	DenseLinearProblem2<6> problem = compute_problem_(frame, kframe, cam, lvl);
 	// problem *= 1.0 / problem.count();
 
 	/*
@@ -131,7 +131,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 	}
 }
 
-DenseLinearProblem PoseOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+DenseLinearProblem2 PoseOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
 	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), cam, lvl, lvl, kframe.frame().image(), frame.image(), frame.didxy(), jtra_texture_, jrot_texture_, r_texture_);
 	return hgposereducer_.reduce(lvl, jtra_texture_, jrot_texture_, r_texture_);

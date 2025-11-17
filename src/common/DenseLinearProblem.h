@@ -6,7 +6,7 @@
 
 #include "common/types.h"
 
-template <int size>
+template <int N>
 class DenseLinearProblem2
 {
 public:
@@ -19,9 +19,9 @@ public:
         m_count = 0;
     }
 
-    static constexpr int size() const { return size; }
+    static constexpr int size() { return N; }
 
-    void add(const Matf<size> &J, const Matf<size> &r, float w = 1.0f)
+    void add(const Matf<N, N> &J, const Matf<N, N> &r, float w = 1.0f)
     {
         if (w <= 0.0f)
             return;
@@ -39,12 +39,12 @@ public:
         if (w <= 0.0f)
             return;
 
-        for (int i = 0; i < J.rows(); i++)
+        for (int i = 0; i < N; i++)
         {
             m_G(ids(i), 0) += J(i) * r * w;
             m_Hp(ids(i), ids(i)) += J(i) * J(i) * w;
 
-            for (int j = i + 1; j < J.rows(); j++)
+            for (int j = i + 1; j < N; j++)
             {
                 float jj = J(i) * J(j) * w;
                 m_Hp(ids(i), ids(j)) += jj;
@@ -57,9 +57,9 @@ public:
 
     DenseLinearProblem2 &operator+=(const DenseLinearProblem2 &other)
     {
-        if (other.m_numParams == 0)
+        if (other.size() == 0)
             return *this;
-        if (m_numParams == 0)
+        if (size() == 0)
         {
             *this = other;
             return *this;
@@ -78,9 +78,9 @@ public:
         m_G *= s;
     }
 
-    Matf solve(float lambda = 0.0f, int lambda_mode = 1)
+    Vecf<N> solve(float lambda = 0.0f, int lambda_mode = 1)
     {
-        Matf<size> H = m_Hp;
+        Matf<N, N> H = m_Hp;
 
         /*
         if (lambda > 0.0f)
@@ -96,24 +96,24 @@ public:
             }
         }
         */
-        for (int j = 0; j < m_G.size(); j++)
+        for (int j = 0; j < N; j++)
         {
             H(j, j) *= (1.0 + lambda);
         }
         solver.compute(H);
         // assert(solver.info() == Eigen::Success);
-        Vecf<size> dx = solver.solve(-m_G);
+        Vecf<N> dx = solver.solve(-m_G);
         // assert(solver.info() == Eigen::Success);
         return dx;
     }
 
     int count() const { return m_count; }
-    const Vecf<size> &G() const { return m_G; }
+    const Vecf<N> &G() const { return m_G; }
 
 private:
-    Matf<size, size> m_Hp;
-    Vecf<size> m_G;
-    Solver<float, size> solver;
+    Matf<N, N> m_Hp;
+    Vecf<N> m_G;
+    Solver<float, N> solver;
     int m_count{0};
 };
 

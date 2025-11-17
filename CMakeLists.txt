@@ -16,9 +16,9 @@ if(NOT TARGET Eigen3::Eigen)
 endif()
 
 include_directories("src")
-include_directories("MultiPlatformRenderer/src")
-include_directories("MultiPlatformRenderer/HLSLinearAlgebra/include")
-include_directories("MultiPlatformRenderer/tests")
+include_directories("MultiPlatformDiffRenderer/src")
+include_directories("MultiPlatformDiffRenderer/HLSLinearAlgebra/include")
+include_directories("MultiPlatformDiffRenderer/tests")
 #include_directories("include")
 include_directories(
         ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
