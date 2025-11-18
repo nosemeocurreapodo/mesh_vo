@@ -2,8 +2,6 @@
 
 #include "params.h"
 #include "common/types.h"
-#include "backends/cpu/texturecpu.h"
-#include "backends/cpu/renderercpu.h"
 
 class Frame
 {
@@ -26,7 +24,7 @@ public:
           SE3f local_pose = SE3f(),
           SE3f global_pose = SE3f(),
           Vec2f local_exp = Vec2f(0.0, 0.0)) : image_(im),
-                                            didxy_(di)
+                                               didxy_(di)
     {
         id_ = id;
         local_pose_ = local_pose;

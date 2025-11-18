@@ -7,10 +7,13 @@
 #include "common/types.h"
 
 template <int N>
-class DenseLinearProblem2
+class DenseLinearProblem
 {
 public:
-    DenseLinearProblem2() : m_count(0) {}
+    DenseLinearProblem()
+        : m_count(0)
+    {
+    }
 
     void clear()
     {
@@ -19,9 +22,12 @@ public:
         m_count = 0;
     }
 
-    static constexpr int size() { return N; }
+    static constexpr int size()
+    {
+        return N;
+    }
 
-    void add(const Matf<N, N> &J, const Matf<N, N> &r, float w = 1.0f)
+    void add(const Vecf<N> &J, float r, float w = 1.0f)
     {
         if (w <= 0.0f)
             return;
@@ -30,41 +36,8 @@ public:
         m_count++;
     }
 
-    template <typename Jac, typename Idx>
-    void add(const Jac &J,
-             float r,
-             float w,
-             const Idx &ids)
+    DenseLinearProblem &operator+=(const DenseLinearProblem &other)
     {
-        if (w <= 0.0f)
-            return;
-
-        for (int i = 0; i < N; i++)
-        {
-            m_G(ids(i), 0) += J(i) * r * w;
-            m_Hp(ids(i), ids(i)) += J(i) * J(i) * w;
-
-            for (int j = i + 1; j < N; j++)
-            {
-                float jj = J(i) * J(j) * w;
-                m_Hp(ids(i), ids(j)) += jj;
-                m_Hp(ids(j), ids(i)) += jj;
-            }
-        }
-
-        ++m_count;
-    }
-
-    DenseLinearProblem2 &operator+=(const DenseLinearProblem2 &other)
-    {
-        if (other.size() == 0)
-            return *this;
-        if (size() == 0)
-        {
-            *this = other;
-            return *this;
-        }
-        assert(m_numParams == other.m_numParams);
         m_Hp += other.m_Hp;
         // m_G.noalias() += other.m_G;
         m_G += other.m_G;
@@ -97,9 +70,8 @@ public:
         }
         */
         for (int j = 0; j < N; j++)
-        {
             H(j, j) *= (1.0 + lambda);
-        }
+
         solver.compute(H);
         // assert(solver.info() == Eigen::Success);
         Vecf<N> dx = solver.solve(-m_G);
@@ -117,15 +89,13 @@ private:
     int m_count{0};
 };
 
-class DenseLinearProblem
+class DenseLinearProblemx
 {
 public:
-    DenseLinearProblem() : m_numParams(0), m_count(0) {}
-    explicit DenseLinearProblem(int numParams) { reset(numParams); }
-
-    void reset(int n)
+    // DenseLinearProblem() : m_numParams(0), m_count(0) {}
+    DenseLinearProblemx(int n)
+        : solver(n)
     {
-        assert(n >= 0);
         m_numParams = n;
         m_Hp = Matxf::Zero(n, n);
         m_G = Matxf::Zero(n, 1);
@@ -177,7 +147,7 @@ public:
         ++m_count;
     }
 
-    DenseLinearProblem &operator+=(const DenseLinearProblem &other)
+    DenseLinearProblemx &operator+=(const DenseLinearProblemx &other)
     {
         if (other.m_numParams == 0)
             return *this;
@@ -235,7 +205,7 @@ public:
 private:
     Matxf m_Hp;
     Matxf m_G;
-    Solver solver;
+    Solverx<float> solver;
     int m_numParams{0};
     int m_count{0};
 };

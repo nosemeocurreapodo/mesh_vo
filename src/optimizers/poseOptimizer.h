@@ -5,6 +5,7 @@
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
+#include "common/DenseLinearProblem.h"
 #include "optimizers/baseOptimizer.h"
 #include "common/reducer.h"
 
@@ -17,13 +18,13 @@ public:
     void step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
 private:
-    DenseLinearProblem compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
+    DenseLinearProblem<6> compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
     JPoseRenderer jposerenderer_;
     HGPoseReducerCPU hgposereducer_;
 
-    TextureCPU<Vec3f> jtra_texture_;
-    TextureCPU<Vec3f> jrot_texture_;
+    Texture<Vec3f> jtra_texture_;
+    Texture<Vec3f> jrot_texture_;
 
     Mat6f inv_covariance_;
 

@@ -8,8 +8,8 @@
 
 #include "params.h"
 #include "common/types.h"
-#include "common/DenseLinearProblem.h"
 #include "common/error.h"
+#include "common/DenseLinearProblem.h"
 
 // Generic, thread-safe reducer base. Splits [0, N) into contiguous chunks and aggregates results.
 template <class Derived, typename OutType>
@@ -117,7 +117,10 @@ class ResidualReducerCPU : public BaseReducerCPU<ResidualReducerCPU, Error>
 {
 public:
 	using Base = BaseReducerCPU<ResidualReducerCPU, Error>;
-	explicit ResidualReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
+	explicit ResidualReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
+		: Base(threads)
+	{
+	}
 
 	Error reduce(int lvl, const Texture<float> &r_texture)
 	{
@@ -154,13 +157,16 @@ private:
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
-class HGPoseReducerCPU : public BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem>
+class HGPoseReducerCPU : public BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem<6>>
 {
 public:
-	using Base = BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem>;
-	explicit HGPoseReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
+	using Base = BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem<6>>;
+	explicit HGPoseReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
+		: Base(threads)
+	{
+	}
 
-	DenseLinearProblem reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<float> &r_texture)
+	DenseLinearProblem<6> reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<float> &r_texture)
 	{
 		jtra_texture_ = &jtra_texture;
 		jrot_texture_ = &jrot_texture;
@@ -175,9 +181,9 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblem reducepartial(int begin, int end)
+	DenseLinearProblem<6> reducepartial(int begin, int end)
 	{
-		DenseLinearProblem hg(6);
+		DenseLinearProblem<6> hg;
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -193,7 +199,8 @@ public:
 			Vec6f J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2));
 			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
 
-			hg.add(J, res, w, ids);
+			// hg.add(J, res, w, ids);
+			hg.add(J, res, w);
 		}
 		return hg;
 	}
@@ -203,17 +210,20 @@ private:
 	const Texture<Vec3f> *jrot_texture_;
 	const Texture<float> *r_texture_;
 	int lvl_;
-	DenseLinearProblem hg_;
+	DenseLinearProblem<6> hg_;
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
-class HGMapReducerCPU : public BaseReducerCPU<HGMapReducerCPU, DenseLinearProblem>
+class HGMapReducerCPU : public BaseReducerCPU<HGMapReducerCPU, DenseLinearProblemx>
 {
 public:
-	using Base = BaseReducerCPU<HGMapReducerCPU, DenseLinearProblem>;
-	explicit HGMapReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
+	using Base = BaseReducerCPU<HGMapReducerCPU, DenseLinearProblemx>;
+	explicit HGMapReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
+		: Base(threads)
+	{
+	}
 
-	DenseLinearProblem reduce(int lvl, int total, const Texture<Vec3f> &jmap_texture, const Texture<Vec3f> &pids_texture, const Texture<float> &r_texture)
+	DenseLinearProblemx reduce(int lvl, int total, const Texture<Vec3f> &jmap_texture, const Texture<Vec3f> &pids_texture, const Texture<float> &r_texture)
 	{
 		jmap_texture_ = &jmap_texture;
 		pids_texture_ = &pids_texture;
@@ -232,9 +242,9 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblem reducepartial(int begin, int end)
+	DenseLinearProblemx reducepartial(int begin, int end)
 	{
-		DenseLinearProblem hg(total_);
+		DenseLinearProblemx hg(total_);
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
@@ -261,7 +271,7 @@ private:
 	const Texture<float> *r_texture_;
 	int lvl_;
 	int total_;
-	DenseLinearProblem hg_;
+	DenseLinearProblemx hg_;
 };
 
 /*

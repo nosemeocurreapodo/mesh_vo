@@ -3,10 +3,12 @@
 #include <iostream>
 #include "params.h"
 #include "common/types.h"
+#include "common/frame.h"
+#include "common/keyframe.h"
+#include "common/DenseLinearProblem.h"
 #include "common/depthParam.h"
 #include "common/reducer.h"
 #include "optimizers/baseOptimizer.h"
-#include "backends/cpu/meshcpu.h"
 
 class MapOptimizer : public BaseOptimizer
 {
@@ -17,9 +19,9 @@ public:
     void step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int lvl);
 
 private:
-    DenseLinearProblem compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
+    DenseLinearProblemx compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
-    float error_regu_(const MeshCPU &mesh)
+    float error_regu_(const Mesh &mesh)
     {
         float regu_error = 0.0;
         auto pos_map = mesh.MapReadPositions();
@@ -30,8 +32,8 @@ private:
                      ids_map[i + 1],
                      ids_map[i + 2]);
             Vec3f depth(pos_map[id(0) * 3 + 2],
-                       pos_map[id(1) * 3 + 2],
-                       pos_map[id(2) * 3 + 2]);
+                        pos_map[id(1) * 3 + 2],
+                        pos_map[id(2) * 3 + 2]);
             float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
             float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
             float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));

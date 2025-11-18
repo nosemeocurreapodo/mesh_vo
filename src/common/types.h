@@ -23,12 +23,13 @@ using JMapRenderer = JMapRendererCPU;
 
 template <typename T>
 using Texture = TextureCPU<T>;
+using Mesh = MeshCPU;
 
 using Camera = PinholeCamera<float>;
 
 // using Vecxf = linalg::Vecx<float>;
-template <int rows>
-using Vecf = linalg::Mat<float, rows, 1>;
+template <int cols>
+using Vecf = linalg::Mat<float, 1, cols>;
 using Vec2f = linalg::Vec2<float>;
 using Vec3f = linalg::Vec3<float>;
 using Vec3i = linalg::Vec3<int>;
@@ -44,6 +45,10 @@ using SE3f = linalg::SE3<float>;
 
 template <typename T, int size>
 using Solver = linalg::LDLT<T, size>;
+
+template <typename T>
+using Solverx = linalg::LDLTx<T>;
+
 // using Solver = Eigen::LDLT<Eigen::MatrixXf>;
 
 // template <typename type, int rows>

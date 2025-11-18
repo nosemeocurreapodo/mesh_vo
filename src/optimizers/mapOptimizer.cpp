@@ -67,10 +67,10 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 {
     int numParams = kframe.mesh().vertex_count();
 
-    DenseLinearProblem problem(numParams);
+    DenseLinearProblemx problem(numParams);
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        DenseLinearProblem fhg = compute_problem_(frames[i], kframe, cam, lvl);
+        DenseLinearProblemx fhg = compute_problem_(frames[i], kframe, cam, lvl);
         if (fhg.count() > 0)
         {
             fhg.scale(1.0 / fhg.count());
@@ -226,7 +226,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     }
 }
 
-DenseLinearProblem MapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+DenseLinearProblemx MapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 {
     int numMapParams = kframe.mesh().vertex_count();
 
