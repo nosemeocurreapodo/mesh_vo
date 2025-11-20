@@ -12,6 +12,7 @@
 #include "linalg/linalg.h"
 #include "linalg/linalgx.h"
 #include "linalg/ldlt_solver.h"
+#include "linalg/ldlt_solverx.h"
 
 /*
 #include "backends/cpu/buffercpu.h"

@@ -11,8 +11,8 @@ class DenseLinearProblem
 {
 public:
     DenseLinearProblem()
-        : m_count(0)
     {
+        clear();
     }
 
     void clear()
