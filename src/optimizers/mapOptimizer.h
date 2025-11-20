@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <vector>
 #include "params.h"
 #include "common/types.h"
 #include "common/frame.h"
@@ -24,6 +25,7 @@ private:
     float error_regu_(const Mesh &mesh)
     {
         float regu_error = 0.0;
+        /*
         auto pos_map = mesh.MapReadPositions();
         auto ids_map = mesh.MapReadIndices();
         for (size_t i = 0; i < ids_map.size(); i += 3)
@@ -39,6 +41,7 @@ private:
             float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
             regu_error += r1 * r1 + r2 * r2 + r3 * r3;
         }
+        */
         return regu_error;
     }
 
@@ -46,7 +49,7 @@ private:
     HGMapReducerCPU hgmapreducer_;
 
     Texture<Vec3f> jmap_texture_;
-    Texture<Vec3f> pids_texture_;
+    Texture<Vec3i> pids_texture_;
 
     Matxf invCovariance;
 

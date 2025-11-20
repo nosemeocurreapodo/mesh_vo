@@ -107,6 +107,7 @@ public:
         // scene2.transform(pose2);
         //  scene2.project(cam);
 
+        /*
         auto pos_mm = mesh_.MapReadPositions();
 
         SE3f relativePose = pose1 * pose2.inverse();
@@ -145,6 +146,8 @@ public:
         }
 
         return accAngle / count;
+        */
+        return 1.0;
     }
 
 private:

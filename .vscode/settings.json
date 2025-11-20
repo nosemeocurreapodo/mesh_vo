@@ -119,7 +119,8 @@
         "buffered_value": "cpp",
         "fast_back_stack": "cpp",
         "containers": "cpp",
-        "orderingmethods": "cpp"
+        "orderingmethods": "cpp",
+        "matrixfunctions": "cpp"
     },
     "cmake.configureOnOpen": true
 }

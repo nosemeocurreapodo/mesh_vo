@@ -78,7 +78,7 @@ public:
 	using Base = BaseReducerCPU<NodataReducerCPU, Error>;
 	explicit NodataReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	Error reduce(int lvl, const Texture<float> &r_texture)
+	Error reduce(int lvl, const Texture<unsigned char> &r_texture)
 	{
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
@@ -108,7 +108,7 @@ public:
 	}
 
 private:
-	const Texture<float> *r_texture_;
+	const Texture<unsigned char> *r_texture_;
 	int lvl_;
 };
 
@@ -210,7 +210,7 @@ private:
 	const Texture<Vec3f> *jrot_texture_;
 	const Texture<float> *r_texture_;
 	int lvl_;
-	DenseLinearProblem<6> hg_;
+	//DenseLinearProblem<6> hg_;
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
@@ -223,7 +223,7 @@ public:
 	{
 	}
 
-	DenseLinearProblemx reduce(int lvl, int total, const Texture<Vec3f> &jmap_texture, const Texture<Vec3f> &pids_texture, const Texture<float> &r_texture)
+	DenseLinearProblemx reduce(int lvl, int total, const Texture<Vec3f> &jmap_texture, const Texture<Vec3i> &pids_texture, const Texture<float> &r_texture)
 	{
 		jmap_texture_ = &jmap_texture;
 		pids_texture_ = &pids_texture;
@@ -254,7 +254,7 @@ public:
 		{
 			const float res = r_map[i];
 			const Vec3f jmap = jmap_map[i];
-			const Vec3f pids = pids_map[i];
+			const Vec3i pids = pids_map[i];
 			if (res == r_texture_->nodata() || jmap == jmap_texture_->nodata() || pids == pids_texture_->nodata())
 				continue;
 			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
@@ -267,11 +267,11 @@ public:
 
 private:
 	const Texture<Vec3f> *jmap_texture_;
-	const Texture<Vec3f> *pids_texture_;
+	const Texture<Vec3i> *pids_texture_;
 	const Texture<float> *r_texture_;
 	int lvl_;
 	int total_;
-	DenseLinearProblemx hg_;
+	//DenseLinearProblemx hg_;
 };
 
 /*

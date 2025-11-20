@@ -15,12 +15,12 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     invCovariance = Matxf::Identity(numParams, numParams);
     init_params = Matxf::Zero(numParams, 1);
 
-    auto pos_map = kframe.mesh().MapReadPositions();
-    for (size_t i = 0; i < numParams; i++)
-    {
-        init_params(i) = pos_map[i * 3 + 2];
-        invCovariance(i, i) = 1.0 / mesh_vo::mapping_param_initial_var;
-    }
+    // auto pos_map = kframe.mesh().MapReadPositions();
+    // for (size_t i = 0; i < numParams; i++)
+    //{
+    //     init_params(i) = pos_map[i * 3 + 2];
+    //     invCovariance(i, i) = 1.0 / mesh_vo::mapping_param_initial_var;
+    // }
 
     init_invcovariance = invCovariance;
 
@@ -43,11 +43,11 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     if (mesh_vo::mapping_prior_weight > 0.0)
     {
         Matxf params(numParams, 1);
-        auto pos_map = kframe.mesh().MapReadPositions();
-        for (size_t i = 0; i < numParams; i++)
-        {
-            params(i) = pos_map[i * 3 + 2];
-        }
+        // auto pos_map = kframe.mesh().MapReadPositions();
+        // for (size_t i = 0; i < numParams; i++)
+        //{
+        //     params(i) = pos_map[i * 3 + 2];
+        // }
 
         Matxf res = params - init_params;
         Matxf conv_dot_res = init_invcovariance * res;
@@ -81,6 +81,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
+        /*
         auto pos_map = kframe.mesh().MapReadPositions();
         auto ids_map = kframe.mesh().MapReadIndices();
         for (size_t i = 0; i < ids_map.size(); i += 3)
@@ -105,10 +106,12 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
             Vec3f jac3(0.0, 1.0, -1.0);
             problem.add(jac3, r3, mesh_vo::mapping_regu_weight / numParams, ids);
         }
+        */
     }
 
     if (mesh_vo::mapping_prior_weight > 0.0)
     {
+        /*
         Matxf params = Matxf::Zero(numParams, 1);
         auto pos_map = kframe.mesh().MapReadPositions();
         for (size_t i = 0; i < numParams; i++)
@@ -120,6 +123,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         Matxf jacobian = init_invcovariancesqrt;
         float weight = mesh_vo::mapping_prior_weight / numParams;
         problem.add(jacobian, res, weight);
+        */
     }
 
     int n_try = 0;
@@ -137,6 +141,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         Matxf inc = problem.solve(lambda);
 
         std::vector<Vec3f> best_map_pos;
+        /*
         auto pos_map = kframe.mesh().MapWritePositions();
         for (size_t i = 0; i < numParams; i++)
         {
@@ -149,6 +154,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
             pos_map[i * 3 + 1] = pos_up(1);
             pos_map[i * 3 + 2] = pos_up(2);
         }
+            */
 
         float error = 0;
         for (std::size_t i = 0; i < frames.size(); i++)
@@ -172,6 +178,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
         if (mesh_vo::mapping_prior_weight > 0.0)
         {
+            /*
             Matxf params(numParams, 1);
             auto pos_map_read = kframe.mesh().MapReadPositions();
             for (size_t i = 0; i < numParams; i++)
@@ -185,6 +192,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
             float priorError = weight * (res.dot(conv_dot_res));
 
             error += priorError;
+            */
         }
 
         if (printLog)
@@ -205,6 +213,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         }
         else
         {
+            /*
             auto pos_map_write = kframe.mesh().MapWritePositions();
             for (size_t i = 0; i < numParams; i++)
             {
@@ -222,6 +231,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
                     std::cout << "mapOptimizer too small " << incMag << std::endl;
                 break;
             }
+                */
         }
     }
 }

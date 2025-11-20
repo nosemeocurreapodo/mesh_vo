@@ -31,8 +31,10 @@ public:
     {
         if (w <= 0.0f)
             return;
-        m_Hp += w * J.transpose() * J;
-        m_G += w * J.transpose() * r;
+        // m_Hp += w * J.transpose() * J;
+        // m_G += w * J.transpose() * r;
+        m_Hp += w * J * J.transpose();
+        m_G += w * J * r;
         m_count++;
     }
 
@@ -98,7 +100,7 @@ public:
     {
         m_numParams = n;
         m_Hp = Matxf::Zero(n, n);
-        m_G = Matxf::Zero(n, 1);
+        m_G = Vecxf::Zero(n);
         m_count = 0;
     }
 
@@ -133,7 +135,7 @@ public:
 
         for (int i = 0; i < J.rows(); i++)
         {
-            m_G(ids(i), 0) += J(i) * r * w;
+            m_G(ids(i)) += J(i) * r * w;
             m_Hp(ids(i), ids(i)) += J(i) * J(i) * w;
 
             for (int j = i + 1; j < J.rows(); j++)
@@ -170,7 +172,7 @@ public:
         m_G *= s;
     }
 
-    Matxf solve(float lambda = 0.0f, int lambda_mode = 1)
+    Vecxf solve(float lambda = 0.0f, int lambda_mode = 1)
     {
         Matxf H = m_Hp;
 
@@ -194,17 +196,17 @@ public:
         }
         solver.compute(H);
         // assert(solver.info() == Eigen::Success);
-        Matxf dx = solver.solve(-m_G);
+        Vecxf dx = solver.solve(-m_G);
         // assert(solver.info() == Eigen::Success);
         return dx;
     }
 
     int count() const { return m_count; }
-    const Matxf &G() const { return m_G; }
+    const Vecxf &G() const { return m_G; }
 
 private:
     Matxf m_Hp;
-    Matxf m_G;
+    Vecxf m_G;
     Solverx<float> solver;
     int m_numParams{0};
     int m_count{0};

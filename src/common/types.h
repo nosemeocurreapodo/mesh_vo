@@ -8,18 +8,36 @@
 // #include "sophus/se3.hpp"
 // #include "sophus/sim3.hpp"
 
-#include "backends/cpu/buffercpu.h"
-#include "backends/cpu/texturecpu.h"
-#include "backends/cpu/meshcpu.h"
-#include "backends/cpu/renderercpu.h"
-
 #include "core/camera.h"
 #include "linalg/linalg.h"
 #include "linalg/linalgx.h"
 #include "linalg/ldlt_solver.h"
 
+/*
+#include "backends/cpu/buffercpu.h"
+#include "backends/cpu/texturecpu.h"
+#include "backends/cpu/meshcpu.h"
+#include "backends/cpu/renderercpu.h"
+
+using DepthRenderer = DepthRendererCPU;
+using ImageRenderer = ImageRendererCPU;
+using ResidualRenderer = ResidualRendererCPU;
+using DIDxyRenderer = DIDxyRendererCPU;
 using JPoseRenderer = JPoseRendererCPU;
 using JMapRenderer = JMapRendererCPU;
+*/
+
+#include "backends/gl/buffergl.h"
+#include "backends/gl/texturegl.h"
+#include "backends/gl/meshgl.h"
+#include "backends/gl/renderergl.h"
+
+using DepthRenderer = DepthRendererGL;
+using ImageRenderer = ImageRendererGL;
+using ResidualRenderer = ResidualRendererGL;
+using DIDxyRenderer = DIDxyRendererGL;
+using JPoseRenderer = JPoseRendererGL;
+using JMapRenderer = JMapRendererGL;
 
 template <typename T>
 using Texture = TextureCPU<T>;
@@ -27,18 +45,18 @@ using Mesh = MeshCPU;
 
 using Camera = PinholeCamera<float>;
 
-// using Vecxf = linalg::Vecx<float>;
-template <int cols>
-using Vecf = linalg::Mat<float, 1, cols>;
+using Vecxf = linalg::Vecx<float>;
+template <int size>
+using Vecf = linalg::Vec<float, size>;
 using Vec2f = linalg::Vec2<float>;
 using Vec3f = linalg::Vec3<float>;
 using Vec3i = linalg::Vec3<int>;
 using Vec6f = linalg::Vec6<float>;
 using Vec6i = linalg::Vec6<float>;
 
+using Matxf = linalg::Matx<float>;
 template <int rows, int cols>
 using Matf = linalg::Mat<float, rows, cols>;
-using Matxf = linalg::Matx<float>;
 using Mat6f = linalg::Mat6<float>;
 
 using SE3f = linalg::SE3<float>;
