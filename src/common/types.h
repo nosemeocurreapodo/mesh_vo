@@ -40,8 +40,8 @@ using JPoseRenderer = JPoseRendererGL;
 using JMapRenderer = JMapRendererGL;
 
 template <typename T>
-using Texture = TextureCPU<T>;
-using Mesh = MeshCPU;
+using Texture = TextureGL<T>;
+using Mesh = MeshGL;
 
 using Camera = PinholeCamera<float>;
 

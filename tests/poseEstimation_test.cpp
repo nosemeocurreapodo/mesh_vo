@@ -51,6 +51,11 @@ std::array<double, 2> ComputeSE3Error(const SE3f &pose_est, const SE3f &pose_gt)
 
 TEST_F(RendererTestBase, ComputePose)
 {
+    
+#ifdef COMPILE_GL
+    InitEGL();
+#endif
+
     const int in_lvl = 0, out_lvl = 0;
 
     const long long acceptableTimeMs = 30;
@@ -65,7 +70,7 @@ TEST_F(RendererTestBase, ComputePose)
     std::vector<float> s_ver_buff_;
     std::vector<unsigned int> s_idx_buff_;
     CreateScreenQuad(s_ver_buff_, s_idx_buff_);
-    MeshCPU screen_mesh(s_ver_buff_, s_idx_buff_, true, true, false);
+    Mesh screen_mesh(s_ver_buff_, s_idx_buff_, true, true, false);
 
     cv::Mat kimage_cv = ReadMat(image_files_[0], false);
     cv::Mat kdepth_cv = ReadMat(depth_files_[0], true) / depth_factor_;
@@ -74,8 +79,8 @@ TEST_F(RendererTestBase, ComputePose)
     cv::Scalar kdepth_mean = cv::mean(kdepth_cv, kdepth_mask);
     kdepth_cv = kdepth_cv * mesh_vo::mapping_mean_depth / kdepth_mean[0];
 
-    TextureCPU<unsigned char> kimage_cpu(w_, h_, 0.0f);
-    // TextureCPU<float> kdepth_cpu(w_, h_, 0.0f);
+    Texture<unsigned char> kimage_cpu(w_, h_, 0.0f);
+    // Texture<float> kdepth_cpu(w_, h_, 0.0f);
 
     UploadMatToTexture(kimage_cpu, 0, kimage_cv);
     // UploadMatToTexture(kdepth_cpu, 0, kdepth_cv);
@@ -83,9 +88,9 @@ TEST_F(RendererTestBase, ComputePose)
     std::vector<float> ver_buff_;
     std::vector<unsigned int> idx_buff_;
     CreateMesh(kdepth_cv, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-    MeshCPU mesh(ver_buff_, idx_buff_, true, true, true);
+    Mesh mesh(ver_buff_, idx_buff_, true, true, true);
 
-    TextureCPU<Vec3f> kdidxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
+    Texture<Vec3f> kdidxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
 
     DepthRenderer depth_renderer;
     ImageRenderer image_renderer;
@@ -103,10 +108,10 @@ TEST_F(RendererTestBase, ComputePose)
 
     SE3f tracked_global_pose = kframe.frame().global_pose();
 
-    TextureCPU<unsigned char> image_cpu(w_, h_, -1);
-    TextureCPU<float> depth_cpu(w_, h_, -1);
-    TextureCPU<Vec3f> didxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
-    TextureCPU<float> l2_texture(w_, h_, -1);
+    Texture<unsigned char> image_cpu(w_, h_, -1);
+    Texture<float> depth_cpu(w_, h_, -1);
+    Texture<Vec3f> didxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
+    Texture<float> l2_texture(w_, h_, -1);
 
     for (unsigned int img_id = 1; img_id < image_files_.size(); img_id++)
     {
@@ -127,11 +132,11 @@ TEST_F(RendererTestBase, ComputePose)
 
         SE3f init_local_pose = kframe.globalPoseToLocal(tracked_global_pose);
 
-        //std::cout << "init_local_pose " << std::endl;
-        //std::cout << init_local_pose.translation() << std::endl;
+        // std::cout << "init_local_pose " << std::endl;
+        // std::cout << init_local_pose.translation() << std::endl;
 
-        //std::cout << "init_global_pose " << std::endl;
-        //std::cout << tracked_global_pose.translation() << std::endl;
+        // std::cout << "init_global_pose " << std::endl;
+        // std::cout << tracked_global_pose.translation() << std::endl;
 
         Frame frame(image_cpu, didxy_cpu, img_id, init_local_pose, tracked_global_pose);
 
@@ -170,7 +175,7 @@ TEST_F(RendererTestBase, ComputePose)
         if (viewPercent < mesh_vo::min_view_perc) // || keyframeViewAngle > mesh_vo::key_max_angle)
         {
             CreateMesh(depth_cv, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-            MeshCPU new_mesh(ver_buff_, idx_buff_, true, true, true);
+            Mesh new_mesh(ver_buff_, idx_buff_, true, true, true);
 
             kframe = KeyFrame(frame, new_mesh, depth_mean[0]);
 

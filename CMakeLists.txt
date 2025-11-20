@@ -1,125 +1,168 @@
 cmake_minimum_required(VERSION 3.16.3)
-project(mesh_vo)
 
-option(COMPILE_CPU "Enable CPU compilation" ON)
-option(COMPILE_GL "Enable OpenGL compilation" ON)
-option(COMPILE_GLES2 "Enable GLES2 compilation" OFF)
-option(COMPILE_HLS "Enable HLS synthesis" OFF)
-option(COMPILE_XRT "Enable XRT compilation" OFF)
-option(COMPILE_DEMO "Enable Demo compilation" OFF)
-option(COMPILE_TESTS "Enable Tests compilation" ON)
+project(mesh_vo LANGUAGES C CXX)
 
-find_package(Eigen3 REQUIRED)
-find_package(OpenCV REQUIRED)
-find_package(Pangolin REQUIRED)
+# --- Options ------------------------------------------------------
+option(COMPILE_CPU     "Enable CPU compilation"           ON)
+option(COMPILE_GL      "Enable OpenGL compilation"        ON)
+option(COMPILE_GLES2   "Enable GLES2 compilation"         OFF)
+option(COMPILE_HLS     "Enable HLS synthesis"             OFF)
+option(COMPILE_XRT     "Enable XRT compilation"           OFF)
+option(COMPILE_DEMO    "Enable Demo compilation"          OFF)
+option(COMPILE_TESTS   "Enable Tests compilation"         ON)
 
+# --- C++ Standard -------------------------------------------------
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# --- Dependencies -------------------------------------------------
+find_package(Eigen3      REQUIRED)
+find_package(OpenCV      REQUIRED)
+find_package(Pangolin    REQUIRED)
+find_package(OpenGL      REQUIRED)
+find_package(Threads     REQUIRED)
+
+# Some projects set these (e.g. from parent CMake). Keep them as-is if defined.
+#   CSPARSE_INCLUDE_DIR
+#   CHOLMOD_INCLUDE_DIR
+
+# Provide Eigen3::Eigen if the FindEigen3 module did not
 if(NOT TARGET Eigen3::Eigen)
   add_library(Eigen3::Eigen INTERFACE IMPORTED)
-  set_target_properties(Eigen3::Eigen PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${EIGEN3_INCLUDE_DIR}")
+  set_target_properties(Eigen3::Eigen PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${EIGEN3_INCLUDE_DIR}"
+  )
 endif()
 
-include_directories(
-      "src"
-      "MultiPlatformDiffRenderer/src"
-      "MultiPlatformDiffRenderer/HLSLinearAlgebra/include"
-      ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
-      ${EIGEN3_INCLUDE_DIR}
-      ${Pangolin_INCLUDE_DIRS}
-      ${CSPARSE_INCLUDE_DIR} 
-      ${CHOLMOD_INCLUDE_DIR}
-)
-
+# --- GL / GLES2 sanity check --------------------------------------
 if(COMPILE_GL AND COMPILE_GLES2)
-    message(WARNING "Both GL and GLES2 are selected, plase just pick one, disabling both for nor")
-    set(COMPILE_GL OFF)
-    set(COMPILE_GLES2 OFF)
+  message(WARNING
+    "Both COMPILE_GL and COMPILE_GLES2 are ON. "
+    "Please pick one; disabling both for now."
+  )
+  set(COMPILE_GL OFF)
+  set(COMPILE_GLES2 OFF)
 endif()
 
-if(COMPILE_GL)
-      #include_directories(
-      #      "MultiPlatformDiffRenderer/thirdparty/glad2"
-      #)
-      add_library(glad STATIC
-            MultiPlatformDiffRenderer/thirdparty/glad2/src/gl.c
-            MultiPlatformDiffRenderer/thirdparty/glad2/src/egl.c
-      )
-      target_include_directories(glad PUBLIC 
-            thirdparty
-            MultiPlatformDiffRenderer/thirdparty/glad2/include
-      )
-      target_include_directories(glad PRIVATE thirdparty)
-endif()
-
-# Build glad library
-if(COMPILE_GLES2)
-      #include_directories(
-      #      "MultiPlatformDiffRenderer/thirdparty/glad2/include"
-      #)
-      add_library(glad STATIC
-            MultiPlatformDiffRenderer/thirdparty/glad2/src/gles2.c
-            MultiPlatformDiffRenderer/thirdparty/glad2/src/egl.c
-      )
-      target_include_directories(glad PUBLIC 
-            thirdparty
-            MultiPlatformDiffRenderer/thirdparty/glad2/include
-      )
-      target_include_directories(glad PRIVATE thirdparty)
-endif()
-
+# --- Core Library -------------------------------------------------
 set(VISUALODOMETRY_SRCS
-      "src/params.cpp"
-      "src/optimizers/poseOptimizer.cpp"
-      # "src/optimizers/mapOptimizer.cpp"
+  src/params.cpp
+  src/optimizers/poseOptimizer.cpp
+  # src/optimizers/mapOptimizer.cpp
 )
 
 add_library(mesh_vo STATIC ${VISUALODOMETRY_SRCS})
-#target_precompile_headers(mesh_vo PRIVATE "include/pch.h")
-target_include_directories(mesh_vo PRIVATE ${OpenCV_INCLUDE_DIRS})
 
-# --- Testing Setup ---
+target_include_directories(mesh_vo
+  PUBLIC
+    ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/src
+    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/HLSLinearAlgebra/include
+    ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
+    ${Pangolin_INCLUDE_DIRS}
+    ${CSPARSE_INCLUDE_DIR}
+    ${CHOLMOD_INCLUDE_DIR}
+  PRIVATE
+    ${OpenCV_INCLUDE_DIRS}
+)
 
-include(FetchContent)
+target_link_libraries(mesh_vo
+  PUBLIC
+    Eigen3::Eigen
+    ${Pangolin_LIBRARIES}
+  PRIVATE
+    ${OpenCV_LIBS}
+)
 
-FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG release-1.11.0)
+# --- GLAD (GL / GLES2) --------------------------------------------
+if(COMPILE_GL OR COMPILE_GLES2)
+  add_library(glad STATIC)
 
-FetchContent_MakeAvailable(googletest)
+  target_sources(glad PRIVATE
+    $<$<BOOL:${COMPILE_GL}>:
+      ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/glad2/src/gl.c>
+    $<$<BOOL:${COMPILE_GLES2}>:
+      ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/glad2/src/gles2.c>
+    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/glad2/src/egl.c
+  )
 
+  target_include_directories(glad
+    PUBLIC
+      ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/glad2/include
+  )
+endif()
+
+# Make mesh_vo depend on glad so glad's PUBLIC includes propagate
+if(COMPILE_GL OR COMPILE_GLES2)
+  target_link_libraries(mesh_vo
+    PUBLIC
+      glad
+  )
+endif()
+
+# --- Tests --------------------------------------------------------
 if(COMPILE_TESTS)
-      include(CTest)
-      include(GoogleTest)
-      enable_testing()
+  include(CTest)
+  include(FetchContent)
 
-      # Unified typed backend tests
-      add_executable(poseEstimation_tests tests/poseEstimation_test.cpp)
-      target_link_libraries(poseEstimation_tests 
-            mesh_vo
-            gtest_main 
-            ${OpenCV_LIBS}
-            Eigen3::Eigen
-            ${Pangolin_LIBRARIES} 
-            pthread
-      )
-      target_include_directories(poseEstimation_tests PRIVATE 
-            ${CMAKE_SOURCE_DIR}/src
-            ${CMAKE_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty
-            ${OpenCV_INCLUDE_DIRS}
-      )
-      target_compile_definitions(poseEstimation_tests PRIVATE
-            TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
-      )
+  FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG release-1.11.0
+  )
 
-      # Add GL-specific libs/defs when enabled
-      if(COMPILE_GL)
-            target_link_libraries(poseEstimation_tests 
-                  ${OPENGL_LIBRARIES}
-                  EGL
-                  glad
-            )
-            target_compile_definitions(poseEstimation_tests PRIVATE COMPILE_GL)
-      endif()
+  # Avoid changing parent's cache unless you really want to
+  # set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)  # for MSVC if needed
 
-      gtest_discover_tests(poseEstimation_tests)
+  FetchContent_MakeAvailable(googletest)
+
+  enable_testing()
+  include(GoogleTest)
+
+  add_executable(poseEstimation_tests
+    tests/poseEstimation_test.cpp
+  )
+
+  target_link_libraries(poseEstimation_tests
+    PRIVATE
+      mesh_vo
+      gtest_main
+      Eigen3::Eigen
+      ${OpenCV_LIBS}
+      ${Pangolin_LIBRARIES}
+      Threads::Threads
+  )
+
+  target_include_directories(poseEstimation_tests
+    PRIVATE
+      ${PROJECT_SOURCE_DIR}/src
+      ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty
+      ${OpenCV_INCLUDE_DIRS}
+  )
+
+  target_compile_definitions(poseEstimation_tests
+    PRIVATE
+      TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+  )
+
+  if(COMPILE_GL)
+    target_link_libraries(poseEstimation_tests
+      PRIVATE
+        glad
+        ${OPENGL_LIBRARIES}
+        EGL
+    )
+    target_compile_definitions(poseEstimation_tests PRIVATE COMPILE_GL)
+  elseif(COMPILE_GLES2)
+    target_link_libraries(poseEstimation_tests
+      PRIVATE
+        glad
+        ${OPENGL_LIBRARIES}
+        EGL
+    )
+    target_compile_definitions(poseEstimation_tests PRIVATE COMPILE_GLES2)
+  endif()
+
+  gtest_discover_tests(poseEstimation_tests)
 endif()

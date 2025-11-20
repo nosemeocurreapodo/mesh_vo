@@ -14,7 +14,7 @@ public:
             globalScale = 1.0;
         };
     */
-    KeyFrame(const Frame &frame, MeshCPU &mesh, float global_scale) : frame_(frame), mesh_(mesh)
+    KeyFrame(const Frame &frame, Mesh &mesh, float global_scale) : frame_(frame), mesh_(mesh)
     {
         global_scale_ = global_scale;
     }
@@ -39,12 +39,12 @@ public:
         return frame_;
     }
 
-    const MeshCPU &mesh() const
+    const Mesh &mesh() const
     {
         return mesh_;
     }
 
-    MeshCPU &mesh()
+    Mesh &mesh()
     {
         return mesh_;
     }
@@ -152,6 +152,6 @@ public:
 
 private:
     Frame frame_;
-    MeshCPU mesh_;
+    Mesh mesh_;
     float global_scale_;
 };
