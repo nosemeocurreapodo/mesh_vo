@@ -22,29 +22,6 @@ public:
 private:
     DenseLinearProblemx compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
 
-    float error_regu_(const Mesh &mesh)
-    {
-        float regu_error = 0.0;
-        /*
-        auto pos_map = mesh.MapReadPositions();
-        auto ids_map = mesh.MapReadIndices();
-        for (size_t i = 0; i < ids_map.size(); i += 3)
-        {
-            Vec3i id(ids_map[i + 0],
-                     ids_map[i + 1],
-                     ids_map[i + 2]);
-            Vec3f depth(pos_map[id(0) * 3 + 2],
-                        pos_map[id(1) * 3 + 2],
-                        pos_map[id(2) * 3 + 2]);
-            float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
-            float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
-            float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
-            regu_error += r1 * r1 + r2 * r2 + r3 * r3;
-        }
-        */
-        return regu_error;
-    }
-
     JMapRenderer jmaprenderer_;
     HGMapReducerCPU hgmapreducer_;
 
@@ -53,10 +30,18 @@ private:
 
     Matxf invCovariance;
 
-    Matxf init_params;
+    std::vector<float> init_positions;
+    std::vector<int> init_indices;
+    Vecxf init_params;
+    float init_error;
+
+    std::vector<float> positions;
+    std::vector<int> indices;
+    Vecxf params;
+    float error;
+
     Matxf init_invcovariance;
     Matxf init_invcovariancesqrt;
-    float init_error;
 
     bool printLog;
 };

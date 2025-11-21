@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include "tests/common/test_framework.h"
+#include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
-#include "backends/cpu/renderercpu.h"
 #include "optimizers/poseOptimizer.h"
 
 template <typename Type>
@@ -79,7 +79,7 @@ TEST_F(RendererTestBase, ComputePose)
     cv::Scalar kdepth_mean = cv::mean(kdepth_cv, kdepth_mask);
     kdepth_cv = kdepth_cv * mesh_vo::mapping_mean_depth / kdepth_mean[0];
 
-    Texture<unsigned char> kimage_cpu(w_, h_, 0.0f);
+    Texture<unsigned char> kimage_cpu(w_, h_, 0);
     // Texture<float> kdepth_cpu(w_, h_, 0.0f);
 
     UploadMatToTexture(kimage_cpu, 0, kimage_cv);
@@ -108,10 +108,10 @@ TEST_F(RendererTestBase, ComputePose)
 
     SE3f tracked_global_pose = kframe.frame().global_pose();
 
-    Texture<unsigned char> image_cpu(w_, h_, -1);
+    Texture<unsigned char> image_cpu(w_, h_, 0);
     Texture<float> depth_cpu(w_, h_, -1);
     Texture<Vec3f> didxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
-    Texture<float> l2_texture(w_, h_, -1);
+    Texture<float> l2_texture(w_, h_, 0);
 
     for (unsigned int img_id = 1; img_id < image_files_.size(); img_id++)
     {
@@ -186,7 +186,7 @@ TEST_F(RendererTestBase, ComputePose)
             SaveDebugImageColor(depth_mat, "Depth keyframe_" + std::to_string(img_id) + ".png");
 
             image_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, 1, kframe.frame().image(), image_cpu);
-            cv::Mat image_mat = DownloadTextureToMat(image_cpu, 1, CV_32FC1);
+            cv::Mat image_mat = DownloadTextureToMat(image_cpu, 1, CV_8UC1);
             SaveDebugImageColor(image_mat, "Frame keyframe_" + std::to_string(img_id) + ".png");
 
             // Error nodata = nodata_reducer.reduce(1, image_cpu);

@@ -14,7 +14,6 @@
 #include "linalg/ldlt_solver.h"
 #include "linalg/ldlt_solverx.h"
 
-/*
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
@@ -26,8 +25,12 @@ using ResidualRenderer = ResidualRendererCPU;
 using DIDxyRenderer = DIDxyRendererCPU;
 using JPoseRenderer = JPoseRendererCPU;
 using JMapRenderer = JMapRendererCPU;
-*/
 
+template <typename T>
+using Texture = TextureCPU<T>;
+using Mesh = MeshCPU;
+
+/*
 #include "backends/gl/buffergl.h"
 #include "backends/gl/texturegl.h"
 #include "backends/gl/meshgl.h"
@@ -43,7 +46,7 @@ using JMapRenderer = JMapRendererGL;
 template <typename T>
 using Texture = TextureGL<T>;
 using Mesh = MeshGL;
-
+*/
 using Camera = PinholeCamera<float>;
 
 using Vecxf = linalg::Vecx<float>;

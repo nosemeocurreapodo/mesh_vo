@@ -107,8 +107,7 @@ public:
         // scene2.transform(pose2);
         //  scene2.project(cam);
 
-        /*
-        auto pos_mm = mesh_.MapReadPositions();
+        std::vector<float> positions = mesh_.get_positions();
 
         SE3f relativePose = pose1 * pose2.inverse();
 
@@ -122,9 +121,9 @@ public:
 
         float accAngle = 0;
         int count = 0;
-        for (int i = 0; i < mesh_.vertex_count(); i++)
+        for (int i = 0; i < positions.size(); i += 3)
         {
-            Vec3f vert_ini(pos_mm[3 * i], pos_mm[3 * i + 1], pos_mm[3 * i + 2]);
+            Vec3f vert_ini(positions[i], positions[i + 1], positions[i + 2]);
             Vec3f vert = pose2 * vert_ini;
 
             Vec3f diff1 = vert - frame1Translation;
@@ -146,8 +145,6 @@ public:
         }
 
         return accAngle / count;
-        */
-        return 1.0;
     }
 
 private:
