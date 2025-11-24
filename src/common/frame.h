@@ -18,7 +18,7 @@ public:
         };
         */
 
-    Frame(const Texture<unsigned char> &im,
+    Frame(const Texture<ImageType> &im,
           const Texture<Vec3f> &di,
           int id,
           SE3f local_pose = SE3f(),
@@ -64,7 +64,7 @@ public:
         return *this;
     }
 
-    const Texture<unsigned char> &image() const
+    const Texture<ImageType> &image() const
     {
         return image_;
     }
@@ -95,7 +95,7 @@ public:
     }
 
 protected:
-    Texture<unsigned char> image_;
+    Texture<ImageType> image_;
     Texture<Vec3f> didxy_;
 
     SE3f local_pose_;

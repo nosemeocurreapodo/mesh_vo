@@ -51,7 +51,7 @@ std::array<double, 2> ComputeSE3Error(const SE3f &pose_est, const SE3f &pose_gt)
 
 TEST_F(RendererTestBase, ComputePose)
 {
-    
+
 #ifdef COMPILE_GL
     InitEGL();
 #endif
@@ -68,25 +68,28 @@ TEST_F(RendererTestBase, ComputePose)
     int framesProcessedCounter = 0;
 
     std::vector<float> s_ver_buff_;
-    std::vector<unsigned int> s_idx_buff_;
+    std::vector<int> s_idx_buff_;
     CreateScreenQuad(s_ver_buff_, s_idx_buff_);
     Mesh screen_mesh(s_ver_buff_, s_idx_buff_, true, true, false);
 
-    cv::Mat kimage_cv = ReadMat(image_files_[0], false);
-    cv::Mat kdepth_cv = ReadMat(depth_files_[0], true) / depth_factor_;
+    cv::Mat kimage_cv = cv::imread(image_files_[0], cv::IMREAD_GRAYSCALE);
+    cv::Mat kdepth_cv = cv::imread(depth_files_[0], cv::IMREAD_GRAYSCALE);
+    kdepth_cv.convertTo(kdepth_cv, CV_32FC1);
+    kdepth_cv = kdepth_cv / depth_factor_;
+
     SE3f kpose = poses_[0];
     cv::Mat kdepth_mask = (kdepth_cv > 0.0);
     cv::Scalar kdepth_mean = cv::mean(kdepth_cv, kdepth_mask);
     kdepth_cv = kdepth_cv * mesh_vo::mapping_mean_depth / kdepth_mean[0];
 
-    Texture<unsigned char> kimage_cpu(w_, h_, 0);
+    Texture<ImageType> kimage_cpu(w_, h_, 0);
     // Texture<float> kdepth_cpu(w_, h_, 0.0f);
 
     UploadMatToTexture(kimage_cpu, 0, kimage_cv);
     // UploadMatToTexture(kdepth_cpu, 0, kdepth_cv);
 
     std::vector<float> ver_buff_;
-    std::vector<unsigned int> idx_buff_;
+    std::vector<int> idx_buff_;
     CreateMesh(kdepth_cv, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
     Mesh mesh(ver_buff_, idx_buff_, true, true, true);
 
@@ -108,7 +111,7 @@ TEST_F(RendererTestBase, ComputePose)
 
     SE3f tracked_global_pose = kframe.frame().global_pose();
 
-    Texture<unsigned char> image_cpu(w_, h_, 0);
+    Texture<ImageType> image_cpu(w_, h_, 0);
     Texture<float> depth_cpu(w_, h_, -1);
     Texture<Vec3f> didxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
     Texture<float> l2_texture(w_, h_, 0);
@@ -117,8 +120,11 @@ TEST_F(RendererTestBase, ComputePose)
     {
         std::cout << "Frame " << img_id << std::endl;
 
-        cv::Mat image_cv = ReadMat(image_files_[img_id], false);
-        cv::Mat depth_cv = ReadMat(depth_files_[img_id], true) / depth_factor_;
+        cv::Mat image_cv = cv::imread(image_files_[img_id], cv::IMREAD_GRAYSCALE);
+        cv::Mat depth_cv = cv::imread(depth_files_[img_id], cv::IMREAD_GRAYSCALE);
+        depth_cv.convertTo(depth_cv, CV_32FC1);
+        depth_cv = depth_cv / depth_factor_;
+
         SE3f gt_pose = poses_[img_id];
         cv::Mat depth_mask = (depth_cv > 0.0);
         cv::Scalar depth_mean = cv::mean(depth_cv, depth_mask);
@@ -182,11 +188,11 @@ TEST_F(RendererTestBase, ComputePose)
             frame.local_pose() = kframe.globalPoseToLocal(frame.global_pose());
 
             depth_renderer.Render(kframe.mesh(), SE3f(), cam_, 1, depth_cpu);
-            cv::Mat depth_mat = DownloadTextureToMat(depth_cpu, 1, CV_32FC1);
+            cv::Mat depth_mat = DownloadTextureToMat(depth_cpu, 1);
             SaveDebugImageColor(depth_mat, "Depth keyframe_" + std::to_string(img_id) + ".png");
 
             image_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, 1, kframe.frame().image(), image_cpu);
-            cv::Mat image_mat = DownloadTextureToMat(image_cpu, 1, CV_8UC1);
+            cv::Mat image_mat = DownloadTextureToMat(image_cpu, 1);
             SaveDebugImageColor(image_mat, "Frame keyframe_" + std::to_string(img_id) + ".png");
 
             // Error nodata = nodata_reducer.reduce(1, image_cpu);
@@ -197,7 +203,7 @@ TEST_F(RendererTestBase, ComputePose)
         }
 
         residual_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, 1, kframe.frame().image(), frame.image(), l2_texture);
-        cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1, CV_32FC1);
+        cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
         SaveDebugImageColor(l2_mat, "l2_" + std::to_string(img_id) + ".png");
     }
 

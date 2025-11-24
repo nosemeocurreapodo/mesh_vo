@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include "params.h"
+#include "core/types.h"
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
@@ -25,8 +26,8 @@ private:
     JMapRenderer jmaprenderer_;
     HGMapReducerCPU hgmapreducer_;
 
-    Texture<Vec3f> jmap_texture_;
-    Texture<Vec3i> pids_texture_;
+    Texture<Vec3<float>> jmap_texture_;
+    Texture<Vec3<PidType>> pids_texture_;
 
     Matxf invCovariance;
 

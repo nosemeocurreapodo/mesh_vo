@@ -19,7 +19,7 @@ TEST_F(RendererTestBase, ComputeMap)
     int framesProcessedCounter = 0;
 
     std::vector<float> s_ver_buff_;
-    std::vector<unsigned int> s_idx_buff_;
+    std::vector<int> s_idx_buff_;
     CreateScreenQuad(s_ver_buff_, s_idx_buff_);
     Mesh screen_mesh(s_ver_buff_, s_idx_buff_, true, true, false);
 
@@ -35,12 +35,12 @@ TEST_F(RendererTestBase, ComputeMap)
     std::vector<Frame> frames;
     KeyFrame *kframe;
 
-    Texture<unsigned char> image_cpu(w_, h_, 0);
+    Texture<ImageType> image_cpu(w_, h_, 0);
     Texture<float> depth_cpu(w_, h_, -1);
     Texture<Vec3f> didxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
     Texture<float> l2_cpu(w_, h_, 0.0);
 
-    cv::Mat image_cv = ReadMat(image_files_[0], false);
+    cv::Mat image_cv = cv::imread(image_files_[0], cv::IMREAD_GRAYSCALE);
     cv::Mat depth_cv;
     cv::Mat depth_mask;
     cv::Scalar depth_mean;
@@ -51,7 +51,9 @@ TEST_F(RendererTestBase, ComputeMap)
     float scale = 1.0;
     if (depth_files_.size() == image_files_.size())
     {
-        depth_cv = ReadMat(depth_files_[0], true) / depth_factor_;
+        cv::Mat depth_cv = cv::imread(depth_files_[0], cv::IMREAD_GRAYSCALE);
+        depth_cv.convertTo(depth_cv, CV_32FC1);
+        depth_cv = depth_cv / depth_factor_;
         depth_mask = (depth_cv > 0.0);
         scale = cv::mean(depth_cv, depth_mask)[0];
         depth_cv = depth_cv * mesh_vo::mapping_mean_depth / scale;
@@ -63,7 +65,7 @@ TEST_F(RendererTestBase, ComputeMap)
     }
 
     std::vector<float> ver_buff_;
-    std::vector<unsigned int> idx_buff_;
+    std::vector<int> idx_buff_;
     // CreateMesh(depth_cpu, cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
     CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
     // CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
@@ -72,7 +74,7 @@ TEST_F(RendererTestBase, ComputeMap)
     kframe = new KeyFrame(Frame(image_cpu, didxy_cpu, 0, SE3f(), gt_pose), mesh, scale);
 
     depth_renderer.Render(kframe->mesh(), SE3f(), cam_, 1, depth_cpu);
-    depth_cv = DownloadTextureToMat(depth_cpu, 1, CV_32FC1);
+    depth_cv = DownloadTextureToMat(depth_cpu, 1);
     depth_mask = (depth_cv > 0.0);
     depth_mean = cv::mean(depth_cv, depth_mask);
     std::cout << "Init Depth mean " << depth_mean[0] << std::endl;
@@ -81,7 +83,7 @@ TEST_F(RendererTestBase, ComputeMap)
     {
         std::cout << "Frame " << img_id << std::endl;
 
-        image_cv = ReadMat(image_files_[img_id], false);
+        cv::Mat image_cv = cv::imread(image_files_[img_id], cv::IMREAD_GRAYSCALE);
         UploadMatToTexture(image_cpu, 0, image_cv);
         gt_pose = poses_[img_id];
 
@@ -152,12 +154,12 @@ TEST_F(RendererTestBase, ComputeMap)
         for (std::size_t k = 0; k < oframes.size(); k++)
         {
             residual_renderer.Render(kframe->mesh(), oframes[k].local_pose(), cam_, 1, 1, kframe->frame().image(), oframes[k].image(), l2_cpu);
-            cv::Mat l2_mat = DownloadTextureToMat(l2_cpu, 1, CV_32FC1);
+            cv::Mat l2_mat = DownloadTextureToMat(l2_cpu, 1);
             SaveDebugImageColor(l2_mat, "l2_" + std::to_string(img_id) + "_" + std::to_string(k) + ".png");
         }
 
         depth_renderer.Render(kframe->mesh(), frame.local_pose(), cam_, 1, depth_cpu);
-        depth_cv = DownloadTextureToMat(depth_cpu, 1, CV_32FC1);
+        depth_cv = DownloadTextureToMat(depth_cpu, 1);
         SaveDebugImageColor(depth_cv, "depth_" + std::to_string(img_id) + ".png");
         depth_mask = (depth_cv > 0.0);
         depth_mean = cv::mean(depth_cv, depth_mask);

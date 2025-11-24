@@ -8,6 +8,7 @@
 // #include "sophus/se3.hpp"
 // #include "sophus/sim3.hpp"
 
+#include "core/types.h"
 #include "core/camera.h"
 #include "linalg/linalg.h"
 #include "linalg/linalgx.h"
@@ -47,29 +48,32 @@ template <typename T>
 using Texture = TextureGL<T>;
 using Mesh = MeshGL;
 */
+
 using Camera = PinholeCamera<float>;
 
-using Vecxf = linalg::Vecx<float>;
-template <int size>
-using Vecf = linalg::Vec<float, size>;
-using Vec2f = linalg::Vec2<float>;
-using Vec3f = linalg::Vec3<float>;
-using Vec3i = linalg::Vec3<int>;
-using Vec6f = linalg::Vec6<float>;
-using Vec6i = linalg::Vec6<float>;
+using Vecxf = Vecx<float>;
+using Matxf = Matx<float>;
 
-using Matxf = linalg::Matx<float>;
-template <int rows, int cols>
-using Matf = linalg::Mat<float, rows, cols>;
-using Mat6f = linalg::Mat6<float>;
+template <int N>
+using Vecf = Vec<float, N>;
+using Vec2f = Vec2<float>;
+using Vec3f = Vec3<float>;
+using Vec6f = Vec6<float>;
 
-using SE3f = linalg::SE3<float>;
+using Vec3i = Vec3<int>;
+using Vec6i = Vec6<int>;
+
+template <int C, int R>
+using Matf = Mat<float, C, R>;
+using Mat6f = Mat6<float>;
+
+using SE3f = SE3<float>;
 
 template <typename T, int size>
-using Solver = linalg::LDLT<T, size>;
+using Solver = LDLT<T, size>;
 
 template <typename T>
-using Solverx = linalg::LDLTx<T>;
+using Solverx = LDLTx<T>;
 
 // using Solver = Eigen::LDLT<Eigen::MatrixXf>;
 

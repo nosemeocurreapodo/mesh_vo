@@ -2,8 +2,8 @@
 
 MapOptimizer::MapOptimizer(int w, int h, bool _printLog)
     : BaseOptimizer(w, h),
-      jmap_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
-      pids_texture_(w, h, Vec3f(-1, -1, -1))
+      jmap_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+      pids_texture_(w, h, Vec3<float>(-1, -1, -1))
 {
     printLog = _printLog;
 }
@@ -101,24 +101,24 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     {
         for (size_t i = 0; i < indices.size(); i += 3)
         {
-            Vec3i ids(indices[i + 0],
-                      indices[i + 1],
-                      indices[i + 2]);
-            Vec3f depths(positions[ids(0) * 3 + 2],
-                         positions[ids(1) * 3 + 2],
-                         positions[ids(2) * 3 + 2]);
+            Vec3<int> ids(indices[i + 0],
+                          indices[i + 1],
+                          indices[i + 2]);
+            Vec3<float> depths(positions[ids(0) * 3 + 2],
+                               positions[ids(1) * 3 + 2],
+                               positions[ids(2) * 3 + 2]);
             // regu_error += (depth(0) - depth(1)) * (depth(0) - depth(1)) + (depth(1) - depth(2)) * (depth(1) - depth(2));
 
             float r1 = fromDepthToParam(depths(0)) - fromDepthToParam(depths(1));
-            Vec3f jac1(1.0, -1.0, 0.0);
+            Vec3<float> jac1(1.0, -1.0, 0.0);
             problem.add(jac1, r1, mesh_vo::mapping_regu_weight / numParams, ids);
 
             float r2 = fromDepthToParam(depths(0)) - fromDepthToParam(depths(2));
-            Vec3f jac2(1.0, 0.0, -1.0);
+            Vec3<float> jac2(1.0, 0.0, -1.0);
             problem.add(jac2, r2, mesh_vo::mapping_regu_weight / numParams, ids);
 
             float r3 = fromDepthToParam(depths(1)) - fromDepthToParam(depths(2));
-            Vec3f jac3(0.0, 1.0, -1.0);
+            Vec3<float> jac3(0.0, 1.0, -1.0);
             problem.add(jac3, r3, mesh_vo::mapping_regu_weight / numParams, ids);
         }
     }
@@ -151,9 +151,9 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         // auto pos_map = kframe.mesh().MapWritePositions();
         for (size_t i = 0; i < numParams; i++)
         {
-            Vec3f pos(positions[i * 3 + 0], positions[i * 3 + 1], positions[i * 3 + 2]);
+            Vec3<float> pos(positions[i * 3 + 0], positions[i * 3 + 1], positions[i * 3 + 2]);
 
-            Vec3f pos_up = (pos / pos(2)) * fromParamToDepth(new_params(i));
+            Vec3<float> pos_up = (pos / pos(2)) * fromParamToDepth(new_params(i));
             // best_map_pos.push_back(pos);
             // pos_map[i * 3 + 0] = pos_up(0);
             // pos_map[i * 3 + 1] = pos_up(1);
@@ -187,12 +187,12 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
             float regu_error = 0.0f;
             for (size_t i = 0; i < indices.size(); i += 3)
             {
-                Vec3i id(indices[i + 0],
-                         indices[i + 1],
-                         indices[i + 2]);
-                Vec3f depth(new_positions[id(0) * 3 + 2],
-                            new_positions[id(1) * 3 + 2],
-                            new_positions[id(2) * 3 + 2]);
+                Vec3<int> id(indices[i + 0],
+                             indices[i + 1],
+                             indices[i + 2]);
+                Vec3<float> depth(new_positions[id(0) * 3 + 2],
+                                  new_positions[id(1) * 3 + 2],
+                                  new_positions[id(2) * 3 + 2]);
                 float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
                 float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
                 float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));

@@ -18,10 +18,10 @@ namespace mesh_vo
     float tracking_pose_initial_var = 100.0 * 100.0;
 
     float mapping_mean_depth = 1.0;
-    int mapping_ini_lvl = 3;
+    int mapping_ini_lvl = 1;
     int mapping_fin_lvl = 1;
-    float mapping_regu_weight = 5.0;
-    float mapping_prior_weight = 0.0;
+    float mapping_regu_weight = 0.0;
+    float mapping_prior_weight = 2.0;
     float mapping_convergence_p = 0.999;
     float mapping_convergence_p_v = 0.0;
     float mapping_convergence_m_v = 1e-16;

@@ -78,7 +78,7 @@ public:
 	using Base = BaseReducerCPU<NodataReducerCPU, Error>;
 	explicit NodataReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	Error reduce(int lvl, const Texture<unsigned char> &r_texture)
+	Error reduce(int lvl, const Texture<ImageType> &r_texture)
 	{
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
@@ -108,7 +108,7 @@ public:
 	}
 
 private:
-	const Texture<unsigned char> *r_texture_;
+	const Texture<ImageType> *r_texture_;
 	int lvl_;
 };
 
@@ -223,7 +223,7 @@ public:
 	{
 	}
 
-	DenseLinearProblemx reduce(int lvl, int total, const Texture<Vec3f> &jmap_texture, const Texture<Vec3i> &pids_texture, const Texture<float> &r_texture)
+	DenseLinearProblemx reduce(int lvl, int total, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture)
 	{
 		jmap_texture_ = &jmap_texture;
 		pids_texture_ = &pids_texture;
@@ -267,7 +267,7 @@ public:
 
 private:
 	const Texture<Vec3f> *jmap_texture_;
-	const Texture<Vec3i> *pids_texture_;
+	const Texture<Vec3<PidType>> *pids_texture_;
 	const Texture<float> *r_texture_;
 	int lvl_;
 	int total_;
