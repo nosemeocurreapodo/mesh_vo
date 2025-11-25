@@ -55,7 +55,7 @@ public:
 
     Vecf<N> solve(float lambda = 0.0f, int lambda_mode = 1)
     {
-        Matf<N, N> H = m_Hp;
+        Mat<double, N, N> H = m_Hp;
 
         /*
         if (lambda > 0.0f)
@@ -76,18 +76,21 @@ public:
 
         solver.compute(H);
         // assert(solver.info() == Eigen::Success);
-        Vecf<N> dx = solver.solve(-m_G);
+        Vec<double, N> dx = solver.solve(-m_G);
+        Vecf<N> dxf;
+        for(int i = 0; i < N; i++)
+            dxf(i) = dx(i);
         // assert(solver.info() == Eigen::Success);
-        return dx;
+        return dxf;
     }
 
     int count() const { return m_count; }
     const Vecf<N> &G() const { return m_G; }
 
 private:
-    Matf<N, N> m_Hp;
-    Vecf<N> m_G;
-    Solver<float, N> solver;
+    Mat<double, N, N> m_Hp;
+    Vec<double, N> m_G;
+    Solver<double, N> solver;
     int m_count{0};
 };
 

@@ -41,19 +41,19 @@ TEST_F(RendererTestBase, ComputeMap)
     Texture<float> l2_cpu(w_, h_, 0.0);
 
     cv::Mat image_cv = cv::imread(image_files_[0], cv::IMREAD_GRAYSCALE);
-    cv::Mat depth_cv;
+    cv::Mat depth_cv = cv::imread(depth_files_[0], cv::IMREAD_GRAYSCALE);
+    depth_cv.convertTo(depth_cv, CV_32FC1);
+    depth_cv = depth_cv / depth_factor_;
     cv::Mat depth_mask;
     cv::Scalar depth_mean;
     UploadMatToTexture(image_cpu, 0, image_cv);
+    UploadMatToTexture(depth_cpu, 0, depth_cv);
     SE3f gt_pose = poses_[0];
 
     // This is the scale of the map and the movements, such that when normalied the map (and the movements) the mean depth is around 1.0
     float scale = 1.0;
     if (depth_files_.size() == image_files_.size())
     {
-        cv::Mat depth_cv = cv::imread(depth_files_[0], cv::IMREAD_GRAYSCALE);
-        depth_cv.convertTo(depth_cv, CV_32FC1);
-        depth_cv = depth_cv / depth_factor_;
         depth_mask = (depth_cv > 0.0);
         scale = cv::mean(depth_cv, depth_mask)[0];
         depth_cv = depth_cv * mesh_vo::mapping_mean_depth / scale;
@@ -66,9 +66,10 @@ TEST_F(RendererTestBase, ComputeMap)
 
     std::vector<float> ver_buff_;
     std::vector<int> idx_buff_;
-    // CreateMesh(depth_cpu, cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+
+    // CreateMesh(depth_cv, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
     CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-    // CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+    //   CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
     Mesh mesh(ver_buff_, idx_buff_, true, true, true);
     kframe = new KeyFrame(Frame(image_cpu, didxy_cpu, 0, SE3f(), gt_pose), mesh, scale);
@@ -84,7 +85,11 @@ TEST_F(RendererTestBase, ComputeMap)
         std::cout << "Frame " << img_id << std::endl;
 
         cv::Mat image_cv = cv::imread(image_files_[img_id], cv::IMREAD_GRAYSCALE);
+        cv::Mat depth_cv = cv::imread(depth_files_[img_id], cv::IMREAD_GRAYSCALE);
+        depth_cv.convertTo(depth_cv, CV_32FC1);
+        depth_cv = depth_cv / depth_factor_;
         UploadMatToTexture(image_cpu, 0, image_cv);
+        UploadMatToTexture(depth_cpu, 0, depth_cv);
         gt_pose = poses_[img_id];
 
         for (int lvl = 0; lvl < didxy_cpu.levels(); lvl++)
@@ -119,9 +124,9 @@ TEST_F(RendererTestBase, ComputeMap)
         std::vector<Frame> oframes = frames;
         oframes.erase(oframes.begin() + kframeIndex);
 
-        // CreateMesh(depth_cpu, cam_, 32, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+        // CreateMesh(depth_cv, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
         CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-        // CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+        //   CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
         Mesh mesh(ver_buff_, idx_buff_, true, true, true);
         kframe = new KeyFrame(frames[kframeIndex], mesh, scale);
