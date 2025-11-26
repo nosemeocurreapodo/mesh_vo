@@ -17,11 +17,11 @@ class MapOptimizer : public BaseOptimizer
 public:
     MapOptimizer(int w, int h, bool _printLog = false);
 
-    void init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int lvl);
-    void step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int lvl);
+    void init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
+    void step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
 private:
-    DenseLinearProblemx compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
+    DenseLinearProblemx compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
     DepthRenderer depthrenderer_;
     JMapRenderer jmaprenderer_;

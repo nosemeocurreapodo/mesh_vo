@@ -147,24 +147,30 @@ TEST_F(RendererTestBase, ComputeMap)
 
         for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
         {
-            optimizer.init(oframes, *kframe, cam_, lvl);
+            int in_lvl = lvl;
+            int out_lvl = 1;
+
+            optimizer.init(oframes, *kframe, cam_, in_lvl, out_lvl);
             while (!optimizer.converged())
             {
-                optimizer.step(oframes, *kframe, cam_, lvl);
+                optimizer.step(oframes, *kframe, cam_, in_lvl, out_lvl);
             }
         }
 
         auto endTime = std::chrono::high_resolution_clock::now();
 
+        int plot_lvl = 1;
         for (std::size_t k = 0; k < oframes.size(); k++)
         {
-            residual_renderer.Render(kframe->mesh(), oframes[k].local_pose(), cam_, 1, 1, kframe->frame().image(), oframes[k].image(), l2_cpu);
-            cv::Mat l2_mat = DownloadTextureToMat(l2_cpu, 1);
+            residual_renderer.Render(kframe->mesh(), oframes[k].local_pose(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
+            // residual_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
+            cv::Mat l2_mat = DownloadTextureToMat(l2_cpu, plot_lvl);
             SaveDebugImageColor(l2_mat, "l2_" + std::to_string(img_id) + "_" + std::to_string(k) + ".png");
         }
 
-        depth_renderer.Render(kframe->mesh(), frame.local_pose(), cam_, 1, depth_cpu);
-        depth_cv = DownloadTextureToMat(depth_cpu, 1);
+        // depth_renderer.Render(kframe->mesh(), frame.local_pose(), cam_, plot_lvl, depth_cpu);
+        depth_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, depth_cpu);
+        depth_cv = DownloadTextureToMat(depth_cpu, plot_lvl);
         SaveDebugImageColor(depth_cv, "depth_" + std::to_string(img_id) + ".png");
         depth_mask = (depth_cv > 0.0);
         depth_mean = cv::mean(depth_cv, depth_mask);

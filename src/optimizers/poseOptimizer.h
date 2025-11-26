@@ -14,11 +14,11 @@ class PoseOptimizer : public BaseOptimizer
 public:
     PoseOptimizer(int w, int h, bool print_log = false);
 
-    void init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
-    void step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
+    void init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
+    void step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
 private:
-    DenseLinearProblem<6> compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
+    DenseLinearProblem<6> compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
     JPoseRenderer jposerenderer_;
     HGPoseReducerCPU hgposereducer_;

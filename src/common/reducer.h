@@ -266,13 +266,14 @@ public:
 			const float depth0 = positions[pids_(0) * 3 + 2];
 			const float depth1 = positions[pids_(1) * 3 + 2];
 			const float depth2 = positions[pids_(2) * 3 + 2];
-			jmap(0) *= d_depth_d_param(depth0);
-			jmap(1) *= d_depth_d_param(depth1);
-			jmap(2) *= d_depth_d_param(depth2);
+			const float d_depth0_d_param = d_depth_d_param(depth0);
+			const float d_depth1_d_param = d_depth_d_param(depth1);
+			const float d_depth2_d_param = d_depth_d_param(depth2);
+			Vec3f jmap_(jmap(0) * d_depth0_d_param, jmap(1) * d_depth1_d_param, jmap(2) * d_depth2_d_param);
 
 			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
 
-			hg.add(jmap, res, w, pids_);
+			hg.add(jmap_, res, w, pids_);
 		}
 		return hg;
 	}

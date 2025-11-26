@@ -9,7 +9,7 @@ PoseOptimizer::PoseOptimizer(int w, int h, bool print_log)
 	print_log_ = print_log;
 }
 
-void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
 	init_pose_ = frame.local_pose().log();
 	init_invcovariance_ = inv_covariance_;
@@ -17,7 +17,7 @@ void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 	if (mesh_vo::tracking_prior_weight > 0.0)
 		init_invcovariancesqrt_ = inv_covariance_.sqrt();
 
-	Error er = compute_error_(frame, kframe, cam, lvl);
+	Error er = compute_error_(frame, kframe, cam, in_lvl, out_lvl);
 	init_error_ = er.getError() / er.getCount();
 
 	if (mesh_vo::tracking_prior_weight > 0.0)
@@ -29,14 +29,14 @@ void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 	}
 
 	if (print_log_)
-		std::cout << "poseOptimizer initial error " << init_error_ << " " << lvl << std::endl;
+		std::cout << "poseOptimizer initial error " << init_error_ << " " << in_lvl << " " << out_lvl << std::endl;
 
 	reached_convergence_ = false;
 }
 
-void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	DenseLinearProblem<6> problem = compute_problem_(frame, kframe, cam, lvl);
+	DenseLinearProblem<6> problem = compute_problem_(frame, kframe, cam, in_lvl, out_lvl);
 	// problem *= 1.0 / problem.count();
 
 	/*
@@ -72,8 +72,8 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 		frame.local_pose() = new_pose;
 
 		float new_error = 0;
-		Error ne = compute_error_(frame, kframe, cam, lvl);
-		if (ne.getCount() < 0.5 * frame.image().width(lvl) * frame.image().height(lvl))
+		Error ne = compute_error_(frame, kframe, cam, in_lvl, out_lvl);
+		if (ne.getCount() < 0.5 * frame.image().width(out_lvl) * frame.image().height(out_lvl))
 		{
 			// too few pixels, unreliable, set to large error
 			new_error += init_error_ * 2.0;
@@ -92,7 +92,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 		}
 
 		if (print_log_)
-			std::cout << "poseOptimizer new error " << new_error << " " << lambda << " " << " " << lvl << std::endl;
+			std::cout << "poseOptimizer new error " << new_error << " " << lambda << " " << in_lvl << " " << out_lvl << std::endl;
 
 		if (new_error <= init_error_)
 		{
@@ -105,7 +105,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 				reached_convergence_ = true;
 
 				if (print_log_)
-					std::cout << "poseOptimizer converged p:" << p << " lvl: " << lvl << std::endl;
+					std::cout << "poseOptimizer converged p:" << p << " lvl: " << in_lvl << " " << out_lvl << std::endl;
 			}
 			// if update accepted, do next iteration
 			break;
@@ -123,7 +123,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 				reached_convergence_ = true;
 
 				if (print_log_)
-					std::cout << "poseOptimizer too small " << poseIncMag << " lvl: " << lvl << std::endl;
+					std::cout << "poseOptimizer too small " << poseIncMag << " lvl: " << in_lvl << " " << out_lvl << std::endl;
 
 				break;
 			}
@@ -131,8 +131,8 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 	}
 }
 
-DenseLinearProblem<6> PoseOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+DenseLinearProblem<6> PoseOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), cam, lvl, lvl, kframe.frame().image(), frame.image(), frame.didxy(), jtra_texture_, jrot_texture_, r_texture_);
-	return hgposereducer_.reduce(lvl, jtra_texture_, jrot_texture_, r_texture_);
+	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), frame.didxy(), jtra_texture_, jrot_texture_, r_texture_);
+	return hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, r_texture_);
 }

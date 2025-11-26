@@ -149,10 +149,12 @@ TEST_F(RendererTestBase, ComputePose)
         auto startTime = std::chrono::high_resolution_clock::now();
         for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
         {
-            optimizer.init(frame, kframe, cam_, lvl);
+            int in_lvl = lvl;
+            int out_lvl = lvl;
+            optimizer.init(frame, kframe, cam_, in_lvl, out_lvl);
             while (!optimizer.converged())
             {
-                optimizer.step(frame, kframe, cam_, lvl);
+                optimizer.step(frame, kframe, cam_, in_lvl, out_lvl);
             }
         }
 

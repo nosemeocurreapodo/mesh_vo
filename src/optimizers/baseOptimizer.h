@@ -25,13 +25,13 @@ public:
     }
 
 protected:
-    Error compute_error_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+    Error compute_error_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
     {
         // imagerenderer_.Render(kframe.mesh(), frame.local_pose() * kframe.frame().local_pose().inverse(), cam, lvl, lvl, kframe.frame().image(), e_texture_);
         // return errorreducer_.reduce(lvl, frame.image(), e_texture_);
 
-        residualrenderer_.Render(kframe.mesh(), frame.local_pose(), cam, lvl, lvl, kframe.frame().image(), frame.image(), r_texture_);
-        return residualreducer_.reduce(lvl, r_texture_);
+        residualrenderer_.Render(kframe.mesh(), frame.local_pose(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), r_texture_);
+        return residualreducer_.reduce(out_lvl, r_texture_);
     }
 
     // ImageRendererCPU imagerenderer_;

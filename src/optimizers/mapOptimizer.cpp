@@ -3,12 +3,12 @@
 MapOptimizer::MapOptimizer(int w, int h, bool _printLog)
     : BaseOptimizer(w, h),
       jmap_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
-      pids_texture_(w, h, Vec3<float>(-1, -1, -1))
+      pids_texture_(w, h, Vec3<PidType>(-1, -1, -1))
 {
     printLog = _printLog;
 }
 
-void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int lvl)
+void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
     int numParams = kframe.mesh().vertex_count();
 
@@ -32,7 +32,7 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     init_error = 0;
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        Error ef = compute_error_(frames[i], kframe, cam, lvl);
+        Error ef = compute_error_(frames[i], kframe, cam, in_lvl, out_lvl);
         init_error += ef.getError() / ef.getCount();
     }
     init_error *= 1.0 / frames.size();
@@ -74,19 +74,19 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     error = init_error;
 
     if (printLog)
-        std::cout << "mapOptimizer initial error " << init_error << " " << lvl << std::endl;
+        std::cout << "mapOptimizer initial error " << init_error << " " << in_lvl << " " << out_lvl << std::endl;
 
     reached_convergence_ = false;
 }
 
-void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int lvl)
+void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
     int numParams = kframe.mesh().vertex_count();
 
     DenseLinearProblemx problem(numParams);
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        DenseLinearProblemx fhg = compute_problem_(frames[i], kframe, cam, lvl);
+        DenseLinearProblemx fhg = compute_problem_(frames[i], kframe, cam, in_lvl, out_lvl);
         if (fhg.count() > 0)
         {
             fhg.scale(1.0 / fhg.count());
@@ -162,8 +162,8 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         float new_error = 0;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            Error fe = compute_error_(frames[i], kframe, cam, lvl);
-            if (fe.getCount() < 0.5 * frames[i].image().width(lvl) * frames[i].image().height(lvl))
+            Error fe = compute_error_(frames[i], kframe, cam, in_lvl, out_lvl);
+            if (fe.getCount() < 0.5 * frames[i].image().width(out_lvl) * frames[i].image().height(out_lvl))
             {
                 new_error += init_error * 2.0;
             }
@@ -204,7 +204,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         }
 
         if (printLog)
-            std::cout << "mapOptimizer new error " << new_error << " " << lambda << " " << n_try << " lvl: " << lvl << " mesh_regu: " << mesh_vo::mapping_regu_weight << std::endl;
+            std::cout << "mapOptimizer new error " << new_error << " " << lambda << " " << n_try << " lvl: " << in_lvl << " " << out_lvl << " mesh_regu: " << mesh_vo::mapping_regu_weight << std::endl;
 
         if (new_error <= error)
         {
@@ -238,10 +238,10 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     }
 }
 
-DenseLinearProblemx MapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+DenseLinearProblemx MapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
     int numMapParams = kframe.mesh().vertex_count();
 
-    jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), cam, lvl, lvl, kframe.frame().image(), frame.image(), frame.didxy(), jmap_texture_, pids_texture_, r_texture_);
-    return hgmapreducer_.reduce(lvl, numMapParams, jmap_texture_, pids_texture_, r_texture_, kframe.mesh());
+    jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), frame.didxy(), jmap_texture_, pids_texture_, r_texture_);
+    return hgmapreducer_.reduce(out_lvl, numMapParams, jmap_texture_, pids_texture_, r_texture_, kframe.mesh());
 }
