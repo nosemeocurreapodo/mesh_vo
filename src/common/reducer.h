@@ -9,6 +9,7 @@
 #include "params.h"
 #include "common/types.h"
 #include "common/error.h"
+#include "common/depthParam.h"
 #include "common/DenseLinearProblem.h"
 
 // Generic, thread-safe reducer base. Splits [0, N) into contiguous chunks and aggregates results.
@@ -210,7 +211,7 @@ private:
 	const Texture<Vec3f> *jrot_texture_;
 	const Texture<float> *r_texture_;
 	int lvl_;
-	//DenseLinearProblem<6> hg_;
+	// DenseLinearProblem<6> hg_;
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
@@ -223,11 +224,12 @@ public:
 	{
 	}
 
-	DenseLinearProblemx reduce(int lvl, int total, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture)
+	DenseLinearProblemx reduce(int lvl, int total, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh)
 	{
 		jmap_texture_ = &jmap_texture;
 		pids_texture_ = &pids_texture;
 		r_texture_ = &r_texture;
+		mesh_ = &mesh;
 
 		lvl_ = lvl;
 		total_ = total;
@@ -248,17 +250,27 @@ public:
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
+		auto positions = mesh_->get_positions();
 		// Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
 		{
+			Vec3f jmap = jmap_map[i];
+			const Vec3<PidType> pids = pids_map[i];
 			const float res = r_map[i];
-			const Vec3f jmap = jmap_map[i];
-			const Vec3i pids = pids_map[i];
+
 			if (res == r_texture_->nodata() || jmap == jmap_texture_->nodata() || pids == pids_texture_->nodata())
 				continue;
-			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+
 			const Vec3i pids_(pids(0), pids(1), pids(2));
+			const float depth0 = positions[pids_(0) * 3 + 2];
+			const float depth1 = positions[pids_(1) * 3 + 2];
+			const float depth2 = positions[pids_(2) * 3 + 2];
+			jmap(0) *= d_depth_d_param(depth0);
+			jmap(1) *= d_depth_d_param(depth1);
+			jmap(2) *= d_depth_d_param(depth2);
+
+			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
 
 			hg.add(jmap, res, w, pids_);
 		}
@@ -269,9 +281,10 @@ private:
 	const Texture<Vec3f> *jmap_texture_;
 	const Texture<Vec3<PidType>> *pids_texture_;
 	const Texture<float> *r_texture_;
+	const Mesh *mesh_;
 	int lvl_;
 	int total_;
-	//DenseLinearProblemx hg_;
+	// DenseLinearProblemx hg_;
 };
 
 /*

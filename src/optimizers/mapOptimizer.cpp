@@ -39,8 +39,6 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
-        // init_error += (mesh_vo::mapping_regu_weight / numParams) * error_regu_(kframe.mesh());
-
         float regu_error = 0.0f;
         for (size_t i = 0; i < init_indices.size(); i += 3)
         {
@@ -148,16 +146,12 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         Vecxf new_params = params + inc;
         std::vector<float> new_positions;
 
-        // auto pos_map = kframe.mesh().MapWritePositions();
         for (size_t i = 0; i < numParams; i++)
         {
             Vec3<float> pos(positions[i * 3 + 0], positions[i * 3 + 1], positions[i * 3 + 2]);
 
             Vec3<float> pos_up = (pos / pos(2)) * fromParamToDepth(new_params(i));
-            // best_map_pos.push_back(pos);
-            // pos_map[i * 3 + 0] = pos_up(0);
-            // pos_map[i * 3 + 1] = pos_up(1);
-            // pos_map[i * 3 + 2] = pos_up(2);
+
             new_positions.push_back(pos_up(0));
             new_positions.push_back(pos_up(1));
             new_positions.push_back(pos_up(2));
@@ -182,8 +176,6 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
         if (mesh_vo::mapping_regu_weight > 0.0)
         {
-            // new_error += (mesh_vo::mapping_regu_weight / numParams) * error_regu_(kframe.mesh());
-
             float regu_error = 0.0f;
             for (size_t i = 0; i < indices.size(); i += 3)
             {
@@ -251,5 +243,5 @@ DenseLinearProblemx MapOptimizer::compute_problem_(Frame &frame, KeyFrame &kfram
     int numMapParams = kframe.mesh().vertex_count();
 
     jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), cam, lvl, lvl, kframe.frame().image(), frame.image(), frame.didxy(), jmap_texture_, pids_texture_, r_texture_);
-    return hgmapreducer_.reduce(lvl, numMapParams, jmap_texture_, pids_texture_, r_texture_);
+    return hgmapreducer_.reduce(lvl, numMapParams, jmap_texture_, pids_texture_, r_texture_, kframe.mesh());
 }
