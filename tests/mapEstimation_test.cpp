@@ -162,7 +162,7 @@ TEST_F(RendererTestBase, ComputeMap)
         int plot_lvl = 1;
         for (std::size_t k = 0; k < oframes.size(); k++)
         {
-            residual_renderer.Render(kframe->mesh(), oframes[k].local_pose(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
+            residual_renderer.Render(kframe->mesh(), oframes[k].local_pose(), oframes[k].local_exposure(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
             // residual_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
             cv::Mat l2_mat = DownloadTextureToMat(l2_cpu, plot_lvl);
             SaveDebugImageColor(l2_mat, "l2_" + std::to_string(img_id) + "_" + std::to_string(k) + ".png");

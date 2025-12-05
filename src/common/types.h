@@ -24,6 +24,7 @@ using DepthRenderer = DepthRendererCPU;
 using ImageRenderer = ImageRendererCPU;
 using ResidualRenderer = ResidualRendererCPU;
 using DIDxyRenderer = DIDxyRendererCPU;
+using DIDexpRenderer = DIDexpRendererCPU;
 using JPoseRenderer = JPoseRendererCPU;
 using JMapRenderer = JMapRendererCPU;
 
@@ -58,10 +59,14 @@ template <int N>
 using Vecf = Vec<float, N>;
 using Vec2f = Vec2<float>;
 using Vec3f = Vec3<float>;
+using Vec5f = Vec5<float>;
 using Vec6f = Vec6<float>;
+using Vec8f = Vec<float, 8>;
 
 using Vec3i = Vec3<int>;
+using Vec5i = Vec5<int>;
 using Vec6i = Vec6<int>;
+using Vec8i = Vec<int, 8>;
 
 template <int C, int R>
 using Matf = Mat<float, C, R>;

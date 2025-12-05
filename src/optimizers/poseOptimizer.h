@@ -18,20 +18,28 @@ public:
     void step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
 private:
-    DenseLinearProblem<6> compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
+    DenseLinearProblem<8> compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
     JPoseRenderer jposerenderer_;
     HGPoseReducerCPU hgposereducer_;
 
     Texture<Vec3f> jtra_texture_;
     Texture<Vec3f> jrot_texture_;
+    Texture<Vec3f> jexp_texture_;
 
     Mat6f inv_covariance_;
 
-    Vec6f init_pose_;
+    SE3f init_pose_;
+    Vec2f init_exp_;
+    //Vec6f init_pose_;
+    float init_error_;
+
+    SE3f pose_;
+    Vec2f exp_;
+    float error_;
+
     Mat6f init_invcovariance_;
     Mat6f init_invcovariancesqrt_;
-    float init_error_;
 
     bool print_log_;
 };

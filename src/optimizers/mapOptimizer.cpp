@@ -3,6 +3,7 @@
 MapOptimizer::MapOptimizer(int w, int h, bool _printLog)
     : BaseOptimizer(w, h),
       jmap_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+      jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       pids_texture_(w, h, Vec3<PidType>(-1, -1, -1))
 {
     printLog = _printLog;
@@ -10,18 +11,33 @@ MapOptimizer::MapOptimizer(int w, int h, bool _printLog)
 
 void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-    int numParams = kframe.mesh().vertex_count();
+    int num_depths = kframe.mesh().vertex_count();
+    int numParams = num_depths + 2 * frames.size();
 
     init_positions = kframe.mesh().get_positions();
     init_indices = kframe.mesh().get_indices();
 
+    init_exposures.clear();
+    for (int i = 0; i < frames.size(); i++)
+    {
+        init_exposures.push_back(frames[i].local_exposure());
+    }
+
     invCovariance = Matxf::Identity(numParams, numParams);
     init_params = Vecxf::Zero(numParams);
 
-    for (size_t i = 0; i < numParams; i++)
+    for (size_t i = 0; i < num_depths; i++)
     {
         init_params(i) = fromDepthToParam(init_positions[i * 3 + 2]);
         invCovariance(i, i) = 1.0 / mesh_vo::mapping_param_initial_var;
+    }
+
+    for (size_t i = 0; i < frames.size(); i++)
+    {
+        init_params(num_depths + i * 2) = 0.0;
+        init_params(num_depths + i * 2 + 1) = 0.0;
+        invCovariance(num_depths + i * 2, num_depths + i * 2) = 1.0 / mesh_vo::mapping_param_initial_var;
+        invCovariance(num_depths + i * 2 + 1, num_depths + i * 2 + 1) = 1.0 / mesh_vo::mapping_param_initial_var;
     }
 
     init_invcovariance = invCovariance;
@@ -53,7 +69,7 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
             float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
             regu_error += r1 * r1 + r2 * r2 + r3 * r3;
         }
-        init_error += (mesh_vo::mapping_regu_weight / numParams) * regu_error;
+        init_error += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
     }
 
     /*
@@ -69,6 +85,7 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     */
 
     positions = init_positions;
+    exposures = init_exposures;
     indices = init_indices;
     params = init_params;
     error = init_error;
@@ -81,12 +98,13 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
 void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-    int numParams = kframe.mesh().vertex_count();
+    int num_depths = kframe.mesh().vertex_count();
+    int numParams = kframe.mesh().vertex_count() + 2 * frames.size();
 
     DenseLinearProblemx problem(numParams);
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        DenseLinearProblemx fhg = compute_problem_(frames[i], kframe, cam, in_lvl, out_lvl);
+        DenseLinearProblemx fhg = compute_problem_(frames[i], kframe, cam, i, frames.size(), num_depths, in_lvl, out_lvl);
         if (fhg.count() > 0)
         {
             fhg.scale(1.0 / fhg.count());
@@ -109,15 +127,15 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
             float r1 = fromDepthToParam(depths(0)) - fromDepthToParam(depths(1));
             Vec3<float> jac1(1.0, -1.0, 0.0);
-            problem.add(jac1, r1, mesh_vo::mapping_regu_weight / numParams, ids);
+            problem.add(jac1, r1, mesh_vo::mapping_regu_weight / num_depths, ids);
 
             float r2 = fromDepthToParam(depths(0)) - fromDepthToParam(depths(2));
             Vec3<float> jac2(1.0, 0.0, -1.0);
-            problem.add(jac2, r2, mesh_vo::mapping_regu_weight / numParams, ids);
+            problem.add(jac2, r2, mesh_vo::mapping_regu_weight / num_depths, ids);
 
             float r3 = fromDepthToParam(depths(1)) - fromDepthToParam(depths(2));
             Vec3<float> jac3(0.0, 1.0, -1.0);
-            problem.add(jac3, r3, mesh_vo::mapping_regu_weight / numParams, ids);
+            problem.add(jac3, r3, mesh_vo::mapping_regu_weight / num_depths, ids);
         }
     }
 
@@ -145,8 +163,9 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
         Vecxf new_params = params + inc;
         std::vector<float> new_positions;
+        std::vector<Vec2f> new_exposures;
 
-        for (size_t i = 0; i < numParams; i++)
+        for (size_t i = 0; i < num_depths; i++)
         {
             Vec3<float> pos(positions[i * 3 + 0], positions[i * 3 + 1], positions[i * 3 + 2]);
 
@@ -157,7 +176,18 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
             new_positions.push_back(pos_up(2));
         }
 
+        for (size_t i = 0; i < frames.size(); i++)
+        {
+            // new_exposures.push_back(frames[i].local_exposure());
+            new_exposures.push_back(Vec2f(new_params(num_depths + i * 2 + 0), new_params(num_depths + i * 2 + 1)));
+        }
+
         kframe.mesh().set_positions(new_positions);
+
+        for (size_t i = 0; i < frames.size(); i++)
+        {
+            frames[i].local_exposure() = new_exposures[i];
+        }
 
         float new_error = 0;
         for (std::size_t i = 0; i < frames.size(); i++)
@@ -190,7 +220,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
                 float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
                 regu_error += r1 * r1 + r2 * r2 + r3 * r3;
             }
-            new_error += (mesh_vo::mapping_regu_weight / numParams) * regu_error;
+            new_error += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
         }
 
         if (mesh_vo::mapping_prior_weight > 0.0)
@@ -211,6 +241,7 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
             float p = new_error / error;
             error = new_error;
             positions = new_positions;
+            exposures = new_exposures;
             params = new_params;
 
             if (p >= mesh_vo::mapping_convergence_p)
@@ -225,6 +256,11 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         {
             kframe.mesh().set_positions(positions);
 
+            for (size_t i = 0; i < frames.size(); i++)
+            {
+                frames[i].local_exposure() = exposures[i];
+            }
+
             float incMag = inc.dot(inc) / numParams;
 
             if (incMag <= mesh_vo::mapping_convergence_m_v)
@@ -238,10 +274,8 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     }
 }
 
-DenseLinearProblemx MapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+DenseLinearProblemx MapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl)
 {
-    int numMapParams = kframe.mesh().vertex_count();
-
-    jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), frame.didxy(), jmap_texture_, pids_texture_, r_texture_);
-    return hgmapreducer_.reduce(out_lvl, numMapParams, jmap_texture_, pids_texture_, r_texture_, kframe.mesh());
+    jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), frame.didxy(), jmap_texture_, jexp_texture_, pids_texture_, r_texture_);
+    return hgmapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jmap_texture_, jexp_texture_, pids_texture_, r_texture_, kframe.mesh());
 }

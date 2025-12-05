@@ -79,19 +79,29 @@ public:
         return local_pose_;
     }
 
-    const SE3f &global_pose() const
-    {
-        return global_pose_;
-    }
-
     SE3f &local_pose()
     {
         return local_pose_;
     }
 
+    const SE3f &global_pose() const
+    {
+        return global_pose_;
+    }
+
     SE3f &global_pose()
     {
         return global_pose_;
+    }
+
+    const Vec2f &local_exposure() const
+    {
+        return local_exp_;
+    }
+
+    Vec2f &local_exposure()
+    {
+        return local_exp_;
     }
 
 protected:

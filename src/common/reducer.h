@@ -158,19 +158,20 @@ private:
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
-class HGPoseReducerCPU : public BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem<6>>
+class HGPoseReducerCPU : public BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem<8>>
 {
 public:
-	using Base = BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem<6>>;
+	using Base = BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem<8>>;
 	explicit HGPoseReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
 		: Base(threads)
 	{
 	}
 
-	DenseLinearProblem<6> reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<float> &r_texture)
+	DenseLinearProblem<8> reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jexp_texture, const Texture<float> &r_texture)
 	{
 		jtra_texture_ = &jtra_texture;
 		jrot_texture_ = &jrot_texture;
+		jexp_texture_ = &jexp_texture;
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
 
@@ -182,22 +183,37 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblem<6> reducepartial(int begin, int end)
+	DenseLinearProblem<8> reducepartial(int begin, int end)
 	{
-		DenseLinearProblem<6> hg;
+		DenseLinearProblem<8> hg;
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
-		Vec6i ids(0, 1, 2, 3, 4, 5);
+		auto jexp_map = jexp_texture_->MapRead(lvl_);
+		// Vec8i ids(0, 1, 2, 3, 4, 5, 6, 7);
+		Vec8i ids;
+		for (int i = 0; i < 8; i++)
+			ids(i) = i;
 
 		for (int i = begin; i < end; ++i)
 		{
 			const float res = r_map[i];
 			const Vec3f jtra = jtra_map[i];
 			const Vec3f jrot = jrot_map[i];
-			if (res == r_texture_->nodata() || jtra == jtra_texture_->nodata() || jrot == jrot_texture_->nodata())
+			const Vec3f jexp = jexp_map[i];
+			if (res == r_texture_->nodata() || jtra == jtra_texture_->nodata() || jrot == jrot_texture_->nodata() || jexp == jexp_texture_->nodata())
 				continue;
-			Vec6f J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2));
+			// Vec8f J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2), jexp(0), jexp(1));
+			Vec8f J;
+			J(0) = jtra(0);
+			J(1) = jtra(1);
+			J(2) = jtra(2);
+			J(3) = jrot(0);
+			J(4) = jrot(1);
+			J(5) = jrot(2);
+			J(6) = jexp(0);
+			J(7) = jexp(1);
+
 			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
 
 			// hg.add(J, res, w, ids);
@@ -209,6 +225,7 @@ public:
 private:
 	const Texture<Vec3f> *jtra_texture_;
 	const Texture<Vec3f> *jrot_texture_;
+	const Texture<Vec3f> *jexp_texture_;
 	const Texture<float> *r_texture_;
 	int lvl_;
 	// DenseLinearProblem<6> hg_;
@@ -224,15 +241,18 @@ public:
 	{
 	}
 
-	DenseLinearProblemx reduce(int lvl, int total, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh)
+	DenseLinearProblemx reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jmap_texture, const Texture<Vec3f> &jexp_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh)
 	{
 		jmap_texture_ = &jmap_texture;
+		jexp_texture_ = &jexp_texture;
 		pids_texture_ = &pids_texture;
 		r_texture_ = &r_texture;
 		mesh_ = &mesh;
 
 		lvl_ = lvl;
-		total_ = total;
+		num_frames_ = num_frames;
+		num_vertices_ = num_vertices;
+		frame_id_ = frame_id;
 
 		// DenseLinearProblem hg(total);
 
@@ -246,9 +266,10 @@ public:
 
 	DenseLinearProblemx reducepartial(int begin, int end)
 	{
-		DenseLinearProblemx hg(total_);
+		DenseLinearProblemx hg(num_vertices_ + 2 * num_frames_);
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
+		auto jexp_map = jexp_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
 		auto positions = mesh_->get_positions();
 		// Vec6i ids(0, 1, 2, 3, 4, 5);
@@ -256,35 +277,44 @@ public:
 		for (int i = begin; i < end; ++i)
 		{
 			Vec3f jmap = jmap_map[i];
+			Vec3f jexp = jexp_map[i];
 			const Vec3<PidType> pids = pids_map[i];
 			const float res = r_map[i];
 
-			if (res == r_texture_->nodata() || jmap == jmap_texture_->nodata() || pids == pids_texture_->nodata())
+			if (res == r_texture_->nodata() || jmap == jmap_texture_->nodata() || jexp == jexp_texture_->nodata() || pids == pids_texture_->nodata())
 				continue;
 
-			const Vec3i pids_(pids(0), pids(1), pids(2));
+			const Vec5i pids_(pids(0), pids(1), pids(2), num_vertices_ + frame_id_ * 2, num_vertices_ + frame_id_ * 2 + 1);
 			const float depth0 = positions[pids_(0) * 3 + 2];
 			const float depth1 = positions[pids_(1) * 3 + 2];
 			const float depth2 = positions[pids_(2) * 3 + 2];
 			const float d_depth0_d_param = d_depth_d_param(depth0);
 			const float d_depth1_d_param = d_depth_d_param(depth1);
 			const float d_depth2_d_param = d_depth_d_param(depth2);
-			Vec3f jmap_(jmap(0) * d_depth0_d_param, jmap(1) * d_depth1_d_param, jmap(2) * d_depth2_d_param);
+			Vec5f J;
+			J(0) = jmap(0) * d_depth0_d_param;
+			J(1) = jmap(1) * d_depth1_d_param;
+			J(2) = jmap(2) * d_depth2_d_param;
+			J(3) = jexp(0);
+			J(4) = jexp(1);
 
 			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
 
-			hg.add(jmap_, res, w, pids_);
+			hg.add(J, res, w, pids_);
 		}
 		return hg;
 	}
 
 private:
 	const Texture<Vec3f> *jmap_texture_;
+	const Texture<Vec3f> *jexp_texture_;
 	const Texture<Vec3<PidType>> *pids_texture_;
 	const Texture<float> *r_texture_;
 	const Mesh *mesh_;
 	int lvl_;
-	int total_;
+	int num_frames_;
+	int num_vertices_;
+	int frame_id_;
 	// DenseLinearProblemx hg_;
 };
 
