@@ -12,10 +12,10 @@
 #include "common/reducer.h"
 #include "optimizers/baseOptimizer.h"
 
-class MapOptimizer : public BaseOptimizer
+class MapExpOptimizer : public BaseOptimizer
 {
 public:
-    MapOptimizer(int w, int h, bool _printLog = false);
+    MapExpOptimizer(int w, int h, bool _printLog = false);
 
     void init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
     void step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
@@ -23,21 +23,23 @@ public:
 private:
     DenseLinearProblemx compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl);
 
-    DepthRenderer depthrenderer_;
-    JMapRenderer jmaprenderer_;
-    HGMapReducerCPU hgmapreducer_;
+    JMapExpRenderer jmaprenderer_;
+    HGMapExpReducerCPU hgmapreducer_;
 
     Texture<Vec3<float>> jmap_texture_;
+    Texture<Vec3<float>> jexp_texture_;
     Texture<Vec3<PidType>> pids_texture_;
 
     Matxf invCovariance;
 
     std::vector<float> init_positions;
+    std::vector<Vec2f> init_exposures;
     std::vector<int> init_indices;
     Vecxf init_params;
     float init_error;
 
     std::vector<float> positions;
+    std::vector<Vec2f> exposures;
     std::vector<int> indices;
     Vecxf params;
     float error;

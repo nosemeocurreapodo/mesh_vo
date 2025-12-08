@@ -49,7 +49,9 @@ endif()
 set(VISUALODOMETRY_SRCS
   src/params.cpp
   src/optimizers/poseOptimizer.cpp
+  src/optimizers/poseExpOptimizer.cpp
   src/optimizers/mapOptimizer.cpp
+  src/optimizers/mapExpOptimizer.cpp
 )
 
 add_library(mesh_vo STATIC ${VISUALODOMETRY_SRCS})

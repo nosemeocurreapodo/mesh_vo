@@ -4,6 +4,7 @@
 #include "common/frame.h"
 #include "common/keyframe.h"
 #include "optimizers/mapOptimizer.h"
+#include "optimizers/mapExpOptimizer.h"
 
 TEST_F(RendererTestBase, ComputeMap)
 {
@@ -55,7 +56,7 @@ TEST_F(RendererTestBase, ComputeMap)
     if (depth_files_.size() == image_files_.size())
     {
         depth_mask = (depth_cv > 0.0);
-        scale = cv::mean(depth_cv, depth_mask)[0];
+        scale = 1.0; // cv::mean(depth_cv, depth_mask)[0];
         depth_cv = depth_cv * mesh_vo::mapping_mean_depth / scale;
         // UploadMatToTexture(depth_cpu, 0, depth_cv);
     }
@@ -92,8 +93,11 @@ TEST_F(RendererTestBase, ComputeMap)
         UploadMatToTexture(depth_cpu, 0, depth_cv);
         gt_pose = poses_[img_id];
 
-        for (int lvl = 0; lvl < didxy_cpu.levels(); lvl++)
-            didxy_renderer.Render(screen_mesh, lvl, lvl, image_cpu, didxy_cpu);
+        // for (int lvl = 0; lvl < didxy_cpu.levels(); lvl++)
+        //     didxy_renderer.Render(screen_mesh, lvl, lvl, image_cpu, didxy_cpu);
+
+        didxy_renderer.Render(screen_mesh, 0, 0, image_cpu, didxy_cpu);
+        didxy_cpu.generate_mipmaps(0);
 
         SE3f init_local_pose = kframe->globalPoseToLocal(gt_pose);
 
@@ -148,7 +152,7 @@ TEST_F(RendererTestBase, ComputeMap)
         for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
         {
             int in_lvl = lvl;
-            int out_lvl = 1;
+            int out_lvl = lvl;
 
             optimizer.init(oframes, *kframe, cam_, in_lvl, out_lvl);
             while (!optimizer.converged())

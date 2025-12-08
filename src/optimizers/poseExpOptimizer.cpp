@@ -1,17 +1,19 @@
-#include "optimizers/poseOptimizer.h"
+#include "optimizers/poseExpOptimizer.h"
 
-PoseOptimizer::PoseOptimizer(int w, int h, bool print_log)
+PoseExpOptimizer::PoseExpOptimizer(int w, int h, bool print_log)
 	: BaseOptimizer(w, h),
 	  jtra_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
-	  jrot_texture_(w, h, Vec3f(0.0, 0.0, 0.0))
+	  jrot_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
+	  jexp_texture_(w, h, Vec3f(0.0, 0.0, 0.0))
 {
 	inv_covariance_ = Mat6f::Identity() / mesh_vo::tracking_pose_initial_var;
 	print_log_ = print_log;
 }
 
-void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+void PoseExpOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
 	init_pose_ = frame.local_pose();
+	init_exp_ = frame.local_exposure();
 	init_invcovariance_ = inv_covariance_;
 
 	if (mesh_vo::tracking_prior_weight > 0.0)
@@ -29,6 +31,7 @@ void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 	}
 
 	pose_ = init_pose_;
+	exp_ = init_exp_;
 	error_ = init_error_;
 
 	if (print_log_)
@@ -37,17 +40,18 @@ void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 	reached_convergence_ = false;
 }
 
-void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+void PoseExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	DenseLinearProblem<6> problem = compute_problem_(frame, kframe, cam, in_lvl, out_lvl);
+	DenseLinearProblem<8> problem = compute_problem_(frame, kframe, cam, in_lvl, out_lvl);
 	// problem *= 1.0 / problem.count();
+
 	/*
 	if (mesh_vo::tracking_prior_weight > 0.0)
 	{
 		// error = diff * (H * diff)
 		// jacobian = ones * (H * diff) + diff ( H * ones)
-		Vec6f res = init_invcovariancesqrt_ * (pose_.log() - init_pose_.log());
-		Mat6f jacobian = init_invcovariancesqrt_;
+		Vec6 res = init_invcovariancesqrt_ * (frame.local_pose().log() - init_pose_);
+		Mat6 jacobian = init_invcovariancesqrt_;
 		float weight = mesh_vo::tracking_prior_weight / 6;
 		// vec6<float> res(_res);
 		// mat6<float> jacobian(_jacobian);
@@ -67,7 +71,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 		}
 		n_try++;
 
-		Vec6f inc = problem.solve(lambda);
+		Vec8f inc = problem.solve(lambda);
 		Vec6f pose_inc;
 		pose_inc(0) = inc(0);
 		pose_inc(1) = inc(1);
@@ -76,9 +80,15 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 		pose_inc(4) = inc(4);
 		pose_inc(5) = inc(5);
 
+		Vec2f exp_inc;
+		exp_inc(0) = inc(6);
+		exp_inc(1) = inc(7);
+
 		SE3f new_pose = pose_ * SE3f::exp(pose_inc); // SE3::exp(inc).inverse();
+		Vec2f new_exp = exp_ + exp_inc;
 
 		frame.local_pose() = new_pose;
+		frame.local_exposure() = new_exp;
 
 		float new_error = 0;
 		Error ne = compute_error_(frame, kframe, cam, in_lvl, out_lvl);
@@ -108,6 +118,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 			float p = new_error / error_;
 
 			pose_ = new_pose;
+			exp_ = new_exp;
 			error_ = new_error;
 
 			if (p >= mesh_vo::tracking_convergence_p)
@@ -123,6 +134,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 		else
 		{
 			frame.local_pose() = pose_;
+			frame.local_exposure() = exp_;
 
 			float poseIncMag = inc.dot(inc) / 6.0;
 
@@ -141,8 +153,8 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 	}
 }
 
-DenseLinearProblem<6> PoseOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+DenseLinearProblem<8> PoseExpOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), frame.didxy(), jtra_texture_, jrot_texture_, r_texture_);
-	return hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, r_texture_);
+	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), frame.didxy(), jtra_texture_, jrot_texture_, jexp_texture_, r_texture_);
+	return hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, jexp_texture_, r_texture_);
 }

@@ -14,12 +14,18 @@ public:
             globalScale = 1.0;
         };
     */
-    KeyFrame(const Frame &frame, Mesh &mesh, float global_scale) : frame_(frame), mesh_(mesh)
+    KeyFrame(const Frame &frame, Mesh &mesh, float global_scale)
+        : frame_(frame), mesh_(mesh)
     {
+        // global_exposure_ = global_exposure;
         global_scale_ = global_scale;
     }
 
-    KeyFrame(const KeyFrame &other) : frame_(other.frame_), mesh_(other.mesh_), global_scale_(other.global_scale_)
+    KeyFrame(const KeyFrame &other)
+        : frame_(other.frame_),
+          mesh_(other.mesh_),
+          // global_exposure_(other.global_exposure_),
+          global_scale_(other.global_scale_)
     {
     }
 
@@ -29,6 +35,7 @@ public:
         {
             frame_ = other.frame_;
             mesh_ = other.mesh_;
+            global_exposure_ = other.global_exposure_;
             global_scale_ = other.global_scale_;
         }
         return *this;
@@ -64,26 +71,26 @@ public:
         return localPose;
     }
     /*
-        Vec2 localExpToGlobal(Vec2 localExp)
-        {
-            Vec2 globalExp;
-            float alpha1 = std::exp(localExp(0));
-            float alpha2 = std::exp(globalExp_(0));
-            globalExp(0) = std::log(alpha1 / alpha2);
-            globalExp(1) = localExp(1) - globalExp_(1) / alpha1;
-            return globalExp;
-        }
+    Vec2f localExpToGlobal(const Vec2f &local_exposure)
+    {
+        Vec2f globalExp;
+        float alpha1 = std::exp(local_exposure(0));
+        float alpha2 = std::exp(global_exposure_(0));
+        globalExp(0) = std::log(alpha1 / alpha2);
+        globalExp(1) = local_exposure(1) - global_exposure_(1) / alpha1;
+        return globalExp;
+    }
 
-        Vec2 globalExpToLocal(Vec2 globalExp)
-        {
-            Vec2 localExp;
-            float alpha1 = std::exp(-globalExp(0));
-            float alpha2 = std::exp(-globalExp_(0));
-            localExp(0) = std::log(alpha1 / alpha2);
-            localExp(1) = -globalExp(1) + (alpha2 / alpha1) * globalExp_(1);
-            return _localExp;
-        }
-        */
+    Vec2f globalExpToLocal(const Vec2f &global_exposure)
+    {
+        Vec2f localExp;
+        float alpha1 = std::exp(-global_exposure(0));
+        float alpha2 = std::exp(-global_exposure_(0));
+        localExp(0) = std::log(alpha1 / alpha2);
+        localExp(1) = -global_exposure(1) + (alpha2 / alpha1) * global_exposure_(1);
+        return localExp;
+    }
+    */
 
     /*
     void scaleVerticesAndWeights(float scale)
@@ -150,5 +157,6 @@ public:
 private:
     Frame frame_;
     Mesh mesh_;
+    Vec2f global_exposure_;
     float global_scale_;
 };

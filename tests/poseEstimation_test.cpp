@@ -4,6 +4,7 @@
 #include "common/frame.h"
 #include "common/keyframe.h"
 #include "optimizers/poseOptimizer.h"
+#include "optimizers/poseExpOptimizer.h"
 
 template <typename Type>
 double ComputeImageError(const cv::Mat &image_est, const cv::Mat &image_gt, Type nodata_value)
@@ -113,6 +114,7 @@ TEST_F(RendererTestBase, ComputePose)
 
     SE3f tracked_global_pose = kframe.frame().global_pose();
     SE3f tracked_global_movement;
+    Vec2f tracked_local_exposure(0, 0);
 
     Texture<ImageType> image_cpu(w_, h_, 0);
     Texture<float> depth_cpu(w_, h_, -1);
@@ -136,13 +138,15 @@ TEST_F(RendererTestBase, ComputePose)
         UploadMatToTexture(image_cpu, 0, image_cv);
         // UploadMatToTexture(depth_cpu, 0, depth_cv);
 
-        for (int lvl = 0; lvl < didxy_cpu.levels(); lvl++)
-        {
-            didxy_renderer.Render(screen_mesh, lvl, lvl, image_cpu, didxy_cpu);
-        }
+        // for (int lvl = 0; lvl < didxy_cpu.levels(); lvl++)
+        //     didxy_renderer.Render(screen_mesh, lvl, lvl, image_cpu, didxy_cpu);
 
-        SE3f global_pose = tracked_global_movement * tracked_global_pose;
-        SE3f local_pose = kframe.globalPoseToLocal(global_pose);
+        didxy_renderer.Render(screen_mesh, 0, 0, image_cpu, didxy_cpu);
+        didxy_cpu.generate_mipmaps(0);
+
+        SE3f ini_global_pose = tracked_global_movement * tracked_global_pose;
+        SE3f ini_local_pose = kframe.globalPoseToLocal(ini_global_pose);
+        Vec2f ini_local_exposure = tracked_local_exposure;
 
         // std::cout << "init_local_pose " << std::endl;
         // std::cout << init_local_pose.translation() << std::endl;
@@ -150,7 +154,7 @@ TEST_F(RendererTestBase, ComputePose)
         // std::cout << "init_global_pose " << std::endl;
         // std::cout << tracked_global_pose.translation() << std::endl;
 
-        Frame frame(image_cpu, didxy_cpu, img_id, local_pose, global_pose);
+        Frame frame(image_cpu, didxy_cpu, img_id, ini_local_pose, ini_global_pose, ini_local_exposure);
 
         auto startTime = std::chrono::high_resolution_clock::now();
         for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
@@ -166,13 +170,16 @@ TEST_F(RendererTestBase, ComputePose)
 
         SE3f new_global_pose = kframe.localPoseToGlobal(frame.local_pose());
         SE3f new_local_pose = frame.local_pose();
+        Vec2f new_local_exposure = frame.local_exposure();
 
         frame.global_pose() = new_global_pose;
         frame.local_pose() = new_local_pose;
+        frame.local_exposure() = new_local_exposure;
 
         // tracked_global_movement = new_global_pose * tracked_global_pose.inverse();
         tracked_global_pose = new_global_pose;
         // tracked_global_pose = gt_pose;
+        // tracked_local_exposure = new_local_exposure;
 
         auto endTime = std::chrono::high_resolution_clock::now();
 

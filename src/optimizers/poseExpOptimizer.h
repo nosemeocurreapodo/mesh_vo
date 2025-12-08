@@ -9,29 +9,33 @@
 #include "optimizers/baseOptimizer.h"
 #include "common/reducer.h"
 
-class PoseOptimizer : public BaseOptimizer
+class PoseExpOptimizer : public BaseOptimizer
 {
 public:
-    PoseOptimizer(int w, int h, bool print_log = false);
+    PoseExpOptimizer(int w, int h, bool print_log = false);
 
     void init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
     void step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
 private:
-    DenseLinearProblem<6> compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
+    DenseLinearProblem<8> compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
-    JPoseRenderer jposerenderer_;
-    HGPoseReducerCPU hgposereducer_;
+    JPoseExpRenderer jposerenderer_;
+    HGPoseExpReducerCPU hgposereducer_;
 
     Texture<Vec3f> jtra_texture_;
     Texture<Vec3f> jrot_texture_;
+    Texture<Vec3f> jexp_texture_;
 
     Mat6f inv_covariance_;
 
     SE3f init_pose_;
+    Vec2f init_exp_;
+    //Vec6f init_pose_;
     float init_error_;
 
     SE3f pose_;
+    Vec2f exp_;
     float error_;
 
     Mat6f init_invcovariance_;

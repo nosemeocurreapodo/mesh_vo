@@ -26,7 +26,9 @@ using ResidualRenderer = ResidualRendererCPU;
 using DIDxyRenderer = DIDxyRendererCPU;
 using DIDexpRenderer = DIDexpRendererCPU;
 using JPoseRenderer = JPoseRendererCPU;
+using JPoseExpRenderer = JPoseExpRendererCPU;
 using JMapRenderer = JMapRendererCPU;
+using JMapExpRenderer = JMapExpRendererCPU;
 
 template <typename T>
 using Texture = TextureCPU<T>;
