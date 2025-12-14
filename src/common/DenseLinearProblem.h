@@ -55,7 +55,10 @@ public:
 
     Vecf<N> solve(float lambda = 0.0f, int lambda_mode = 1)
     {
-        Mat<double, N, N> H = m_Hp;
+        Mat<float, N, N> H = m_Hp;
+        // Mat<double, N, N> H = Mat<double, N, N>::Zero();
+        // for (int j = 0; j < m_G.size(); j++)
+        //     H(j, j) = m_Hp(j, j);
 
         /*
         if (lambda > 0.0f)
@@ -76,9 +79,9 @@ public:
 
         solver.compute(H);
         // assert(solver.info() == Eigen::Success);
-        Vec<double, N> dx = solver.solve(-m_G);
+        Vec<float, N> dx = solver.solve(-m_G);
         Vecf<N> dxf;
-        for(int i = 0; i < N; i++)
+        for (int i = 0; i < N; i++)
             dxf(i) = dx(i);
         // assert(solver.info() == Eigen::Success);
         return dxf;
@@ -88,9 +91,9 @@ public:
     const Vecf<N> &G() const { return m_G; }
 
 private:
-    Mat<double, N, N> m_Hp;
-    Vec<double, N> m_G;
-    Solver<double, N> solver;
+    Mat<float, N, N> m_Hp;
+    Vec<float, N> m_G;
+    Solver<float, N> solver;
     int m_count{0};
 };
 
@@ -179,6 +182,10 @@ public:
     {
         Matxf H = m_Hp;
 
+        // Matxf H = Matxf::Zero(m_numParams, m_numParams);
+        // for (int j = 0; j < m_G.size(); j++)
+        //     H(j, j) = m_Hp(j, j);
+
         /*
         if (lambda > 0.0f)
         {
@@ -198,7 +205,7 @@ public:
             H(j, j) *= (1.0 + lambda);
         }
         solver.compute(H);
-        // assert(solver.info() == Eigen::Success);
+        //  assert(solver.info() == Eigen::Success);
         Vecxf dx = solver.solve(-m_G);
         // assert(solver.info() == Eigen::Success);
         return dx;

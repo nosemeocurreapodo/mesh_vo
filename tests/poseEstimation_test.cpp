@@ -99,14 +99,14 @@ TEST_F(RendererTestBase, ComputePose)
     DepthRenderer depth_renderer;
     ImageRenderer image_renderer;
     DIDxyRenderer didxy_renderer;
-    DIDexpRenderer didexp_renderer;
-
     ResidualRenderer residual_renderer;
-
     NodataReducerCPU nodata_reducer;
 
-    for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
-        didxy_renderer.Render(screen_mesh, lvl, lvl, kimage_cpu, kdidxy_cpu);
+    //for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
+    //    didxy_renderer.Render(screen_mesh, lvl, lvl, kimage_cpu, kdidxy_cpu);
+        
+    didxy_renderer.Render(screen_mesh, 0, 0, kimage_cpu, kdidxy_cpu);
+    kdidxy_cpu.generate_mipmaps(0);
 
     KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3f(), kpose), mesh, kdepth_mean[0]);
 

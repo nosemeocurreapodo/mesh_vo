@@ -10,10 +10,6 @@
 
 #include "core/types.h"
 #include "core/camera.h"
-#include "linalg/linalg.h"
-#include "linalg/linalgx.h"
-#include "linalg/ldlt_solver.h"
-#include "linalg/ldlt_solverx.h"
 
 #include "backends/cpu/buffercpu.h"
 #include "backends/cpu/texturecpu.h"
@@ -45,13 +41,14 @@ using ImageRenderer = ImageRendererGL;
 using ResidualRenderer = ResidualRendererGL;
 using DIDxyRenderer = DIDxyRendererGL;
 using JPoseRenderer = JPoseRendererGL;
+using JPoseExpRenderer = JPoseExpRendererGL;
 using JMapRenderer = JMapRendererGL;
+using JMapExpRenderer = JMapExpRendererGL;
 
 template <typename T>
 using Texture = TextureGL<T>;
 using Mesh = MeshGL;
 */
-
 using Camera = PinholeCamera<float>;
 
 using Vecxf = Vecx<float>;
