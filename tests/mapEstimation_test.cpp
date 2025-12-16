@@ -37,7 +37,7 @@ TEST_F(RendererTestBase, ComputeMap)
     KeyFrame *kframe;
 
     Texture<ImageType> image_cpu(w_, h_, 0);
-    Texture<float> depth_cpu(w_, h_, -1);
+    Texture<float> depth_cpu(w_, h_, 0);
     Texture<Vec3f> didxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
     Texture<float> l2_cpu(w_, h_, 0.0);
 
@@ -169,13 +169,13 @@ TEST_F(RendererTestBase, ComputeMap)
             residual_renderer.Render(kframe->mesh(), oframes[k].local_pose(), oframes[k].local_exposure(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
             // residual_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
             cv::Mat l2_mat = DownloadTextureToMat(l2_cpu, plot_lvl);
-            SaveDebugImageColor(l2_mat, "l2_" + std::to_string(img_id) + "_" + std::to_string(k) + ".png");
+            SaveDebugImage(l2_mat, "l2_" + std::to_string(img_id) + "_" + std::to_string(k) + ".png");
         }
 
         // depth_renderer.Render(kframe->mesh(), frame.local_pose(), cam_, plot_lvl, depth_cpu);
         depth_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, depth_cpu);
         depth_cv = DownloadTextureToMat(depth_cpu, plot_lvl);
-        SaveDebugImageColor(depth_cv, "depth_" + std::to_string(img_id) + ".png");
+        SaveDebugImage(depth_cv, "depth_" + std::to_string(img_id) + ".png");
         depth_mask = (depth_cv > 0.0);
         depth_mean = cv::mean(depth_cv, depth_mask);
         std::cout << "Depth mean " << depth_mean[0] << std::endl;

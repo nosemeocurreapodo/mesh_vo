@@ -110,14 +110,14 @@ TEST_F(RendererTestBase, ComputePose)
 
     KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3f(), kpose), mesh, kdepth_mean[0]);
 
-    PoseOptimizer optimizer(w_, h_, true);
+    PoseExpOptimizer optimizer(w_, h_, true);
 
     SE3f tracked_global_pose = kframe.frame().global_pose();
     SE3f tracked_global_movement;
     Vec2f tracked_local_exposure(0, 0);
 
     Texture<ImageType> image_cpu(w_, h_, 0);
-    Texture<float> depth_cpu(w_, h_, -1);
+    Texture<float> depth_cpu(w_, h_, 0);
     Texture<Vec3f> didxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
     Texture<float> l2_texture(w_, h_, 0);
 
@@ -211,11 +211,11 @@ TEST_F(RendererTestBase, ComputePose)
 
             depth_renderer.Render(kframe.mesh(), SE3f(), cam_, 1, depth_cpu);
             cv::Mat depth_mat = DownloadTextureToMat(depth_cpu, 1);
-            SaveDebugImageColor(depth_mat, "Depth keyframe_" + std::to_string(img_id) + ".png");
+            SaveDebugImage(depth_mat, "Depth keyframe_" + std::to_string(img_id) + ".png");
 
             image_renderer.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam_, 1, 1, kframe.frame().image(), image_cpu);
             cv::Mat image_mat = DownloadTextureToMat(image_cpu, 1);
-            SaveDebugImageColor(image_mat, "Frame keyframe_" + std::to_string(img_id) + ".png");
+            SaveDebugImage(image_mat, "Frame keyframe_" + std::to_string(img_id) + ".png");
 
             // Error nodata = nodata_reducer.reduce(1, image_cpu);
             // float pnodata = nodata.getError() / (image_cpu.width(1) * image_cpu.height(1));
@@ -226,7 +226,7 @@ TEST_F(RendererTestBase, ComputePose)
 
         residual_renderer.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam_, 1, 1, kframe.frame().image(), frame.image(), l2_texture);
         cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
-        SaveDebugImageColor(l2_mat, "l2_" + std::to_string(img_id) + ".png");
+        SaveDebugImage(l2_mat, "l2_" + std::to_string(img_id) + ".png");
     }
 
     auto meanDuration = accProcessingTime.count() / framesProcessedCounter;

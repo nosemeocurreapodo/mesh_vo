@@ -155,6 +155,6 @@ void PoseExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 
 DenseLinearProblem<8> PoseExpOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), frame.didxy(), jtra_texture_, jrot_texture_, jexp_texture_, r_texture_);
+	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jexp_texture_, r_texture_);
 	return hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, jexp_texture_, r_texture_);
 }
