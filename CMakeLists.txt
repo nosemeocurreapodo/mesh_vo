@@ -52,6 +52,7 @@ set(VISUALODOMETRY_SRCS
   src/optimizers/poseExpOptimizer.cpp
   src/optimizers/mapOptimizer.cpp
   src/optimizers/mapExpOptimizer.cpp
+  src/optimizers/poseMapOptimizer.cpp
 )
 
 add_library(mesh_vo STATIC ${VISUALODOMETRY_SRCS})
@@ -214,4 +215,50 @@ if(COMPILE_TESTS)
   endif()
 
   gtest_discover_tests(mapEstimation_tests)
+
+  add_executable(poseMapEstimation_tests
+    tests/poseMapEstimation_test.cpp
+  )
+
+  target_link_libraries(poseMapEstimation_tests
+    PRIVATE
+      mesh_vo
+      gtest_main
+      Eigen3::Eigen
+      ${OpenCV_LIBS}
+      ${Pangolin_LIBRARIES}
+      Threads::Threads
+  )
+
+  target_include_directories(poseMapEstimation_tests
+    PRIVATE
+      ${PROJECT_SOURCE_DIR}/src
+      ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty
+      ${OpenCV_INCLUDE_DIRS}
+  )
+
+  target_compile_definitions(poseMapEstimation_tests
+    PRIVATE
+      TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+  )
+
+  if(COMPILE_GL)
+    target_link_libraries(poseMapEstimation_tests
+      PRIVATE
+        glad
+        ${OPENGL_LIBRARIES}
+        EGL
+    )
+    target_compile_definitions(poseMapEstimation_tests PRIVATE COMPILE_GL)
+  elseif(COMPILE_GLES2)
+    target_link_libraries(poseMapEstimation_tests
+      PRIVATE
+        glad
+        ${OPENGL_LIBRARIES}
+        EGL
+    )
+    target_compile_definitions(poseMapEstimation_tests PRIVATE COMPILE_GLES2)
+  endif()
+
+  gtest_discover_tests(poseMapEstimation_tests)
 endif()

@@ -23,9 +23,11 @@ public:
 private:
     DenseLinearProblemx compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl);
 
-    JMapRenderer jmaprenderer_;
-    HGMapReducerCPU hgmapreducer_;
+    JPoseMapRenderer jposemaprenderer_;
+    HGPoseMapReducerCPU hgposemapreducer_;
 
+    Texture<Vec3<float>> jtra_texture_;
+    Texture<Vec3<float>> jrot_texture_;
     Texture<Vec3<float>> jmap_texture_;
     Texture<Vec3<PidType>> pids_texture_;
 
@@ -33,12 +35,12 @@ private:
 
     std::vector<float> init_positions;
     std::vector<int> init_indices;
-    Vecxf init_params;
+    std::vector<SE3f> init_poses;
     float init_error;
 
     std::vector<float> positions;
     std::vector<int> indices;
-    Vecxf params;
+    std::vector<SE3f> poses;
     float error;
 
     Matxf init_invcovariance;
