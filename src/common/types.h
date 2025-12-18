@@ -21,8 +21,10 @@ using ImageRenderer = ImageRendererCPU;
 using ResidualRenderer = ResidualRendererCPU;
 using DIDxyRenderer = DIDxyRendererCPU;
 using DIDexpRenderer = DIDexpRendererCPU;
+using JPoseFDRenderer = JPoseFDRendererCPU;
 using JPoseRenderer = JPoseRendererCPU;
 using JPoseExpRenderer = JPoseExpRendererCPU;
+using JMapFDRenderer = JMapFDRendererCPU;
 using JMapRenderer = JMapRendererCPU;
 using JMapExpRenderer = JMapExpRendererCPU;
 

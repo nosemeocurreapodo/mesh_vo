@@ -23,7 +23,6 @@ public:
 private:
     DenseLinearProblemx compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl);
 
-    DepthRenderer depthrenderer_;
     JMapRenderer jmaprenderer_;
     HGMapReducerCPU hgmapreducer_;
 

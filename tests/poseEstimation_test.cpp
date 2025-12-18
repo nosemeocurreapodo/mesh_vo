@@ -102,15 +102,15 @@ TEST_F(RendererTestBase, ComputePose)
     ResidualRenderer residual_renderer;
     NodataReducerCPU nodata_reducer;
 
-    //for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
-    //    didxy_renderer.Render(screen_mesh, lvl, lvl, kimage_cpu, kdidxy_cpu);
+    for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
+        didxy_renderer.Render(screen_mesh, lvl, lvl, kimage_cpu, kdidxy_cpu);
         
-    didxy_renderer.Render(screen_mesh, 0, 0, kimage_cpu, kdidxy_cpu);
-    kdidxy_cpu.generate_mipmaps(0);
+    //didxy_renderer.Render(screen_mesh, 0, 0, kimage_cpu, kdidxy_cpu);
+    //kdidxy_cpu.generate_mipmaps(0);
 
     KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3f(), kpose), mesh, kdepth_mean[0]);
 
-    PoseExpOptimizer optimizer(w_, h_, true);
+    PoseOptimizer optimizer(w_, h_, true);
 
     SE3f tracked_global_pose = kframe.frame().global_pose();
     SE3f tracked_global_movement;
@@ -138,11 +138,11 @@ TEST_F(RendererTestBase, ComputePose)
         UploadMatToTexture(image_cpu, 0, image_cv);
         // UploadMatToTexture(depth_cpu, 0, depth_cv);
 
-        // for (int lvl = 0; lvl < didxy_cpu.levels(); lvl++)
-        //     didxy_renderer.Render(screen_mesh, lvl, lvl, image_cpu, didxy_cpu);
+         for (int lvl = 0; lvl < didxy_cpu.levels(); lvl++)
+             didxy_renderer.Render(screen_mesh, lvl, lvl, image_cpu, didxy_cpu);
 
-        didxy_renderer.Render(screen_mesh, 0, 0, image_cpu, didxy_cpu);
-        didxy_cpu.generate_mipmaps(0);
+        //didxy_renderer.Render(screen_mesh, 0, 0, image_cpu, didxy_cpu);
+        //didxy_cpu.generate_mipmaps(0);
 
         SE3f ini_global_pose = tracked_global_movement * tracked_global_pose;
         SE3f ini_local_pose = kframe.globalPoseToLocal(ini_global_pose);
