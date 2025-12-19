@@ -28,6 +28,7 @@ using JMapFDRenderer = JMapFDRendererCPU;
 using JMapRenderer = JMapRendererCPU;
 using JMapExpRenderer = JMapExpRendererCPU;
 using JPoseMapRenderer = JPoseMapRendererCPU;
+using JPoseExpMapRenderer = JPoseExpMapRendererCPU;
 
 template <typename T>
 using Texture = TextureCPU<T>;
