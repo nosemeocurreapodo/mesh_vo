@@ -1,20 +1,22 @@
-#include "optimizers/poseVelOptimizer.h"
+#include "optimizers/poseVelExpOptimizer.h"
 
-PoseVelOptimizer::PoseVelOptimizer(int w, int h, bool print_log)
+PoseVelExpOptimizer::PoseVelExpOptimizer(int w, int h, bool print_log)
 	: BaseOptimizer(w, h),
 	  jtra_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
 	  jrot_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
 	  jtravel_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
-	  jrotvel_texture_(w, h, Vec3f(0.0, 0.0, 0.0))
+	  jrotvel_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
+	  jexp_texture_(w, h, Vec3f(0.0, 0.0, 0.0))
 {
 	inv_covariance_ = Mat6f::Identity() / mesh_vo::tracking_pose_initial_var;
 	print_log_ = print_log;
 }
 
-void PoseVelOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+void PoseVelExpOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
 	init_pose_ = frame.local_pose();
 	init_vel_ = frame.local_vel();
+	init_exp_ = frame.local_exposure();
 	init_invcovariance_ = inv_covariance_;
 
 	if (mesh_vo::tracking_prior_weight > 0.0)
@@ -33,6 +35,7 @@ void PoseVelOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 
 	pose_ = init_pose_;
 	vel_ = init_vel_;
+	exp_ = init_exp_;
 	error_ = init_error_;
 
 	if (print_log_)
@@ -41,9 +44,9 @@ void PoseVelOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 	reached_convergence_ = false;
 }
 
-void PoseVelOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+void PoseVelExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	DenseLinearProblem<12> problem = compute_problem_(frame, kframe, cam, in_lvl, out_lvl);
+	DenseLinearProblem<14> problem = compute_problem_(frame, kframe, cam, in_lvl, out_lvl);
 	// problem *= 1.0 / problem.count();
 
 	/*
@@ -72,7 +75,7 @@ void PoseVelOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 		}
 		n_try++;
 
-		Vec<float, 12> inc = problem.solve(lambda);
+		Vec<float, 14> inc = problem.solve(lambda);
 		Vec6f pose_inc;
 		pose_inc(0) = inc(0);
 		pose_inc(1) = inc(1);
@@ -89,11 +92,17 @@ void PoseVelOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 		vel_inc(4) = inc(10);
 		vel_inc(5) = inc(11);
 
+		Vec2f exp_inc;
+		exp_inc(0) = inc(12);
+		exp_inc(1) = inc(13);
+
 		SE3f new_pose = pose_ * SE3f::exp(pose_inc); // SE3::exp(inc).inverse();
 		Vec6f new_vel = vel_ + vel_inc;
+		Vec2f new_exp = exp_ + exp_inc;
 
 		frame.local_pose() = new_pose;
 		frame.local_vel() = new_vel;
+		frame.local_exposure() = new_exp;
 
 		float new_error = 0;
 		Error ne = compute_error_(frame, kframe, cam, in_lvl, out_lvl);
@@ -140,8 +149,9 @@ void PoseVelOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 		{
 			frame.local_pose() = pose_;
 			frame.local_vel() = vel_;
+			frame.local_exposure() = exp_;
 
-			float poseIncMag = inc.dot(inc) / 12.0;
+			float poseIncMag = inc.dot(inc) / 14.0;
 
 			if (poseIncMag <= mesh_vo::tracking_convergence_v)
 			{
@@ -158,8 +168,8 @@ void PoseVelOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 	}
 }
 
-DenseLinearProblem<12> PoseVelOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+DenseLinearProblem<14> PoseVelExpOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), cam, 30.0, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, r_texture_);
-	return hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, r_texture_);
+	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), frame.local_exposure(), cam, 30.0, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, r_texture_);
+	return hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, r_texture_);
 }

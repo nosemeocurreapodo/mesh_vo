@@ -50,6 +50,8 @@ set(VISUALODOMETRY_SRCS
   src/params.cpp
   src/optimizers/poseOptimizer.cpp
   src/optimizers/poseExpOptimizer.cpp
+  src/optimizers/poseVelOptimizer.cpp
+  src/optimizers/poseVelExpOptimizer.cpp
   src/optimizers/mapOptimizer.cpp
   src/optimizers/mapExpOptimizer.cpp
   src/optimizers/poseMapOptimizer.cpp

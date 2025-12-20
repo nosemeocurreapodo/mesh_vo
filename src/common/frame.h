@@ -23,13 +23,14 @@ public:
           int id,
           SE3f local_pose = SE3f(),
           SE3f global_pose = SE3f(),
-          Vec2f local_exp = Vec2f(0.0, 0.0)) : image_(im),
-                                               didxy_(di)
+          Vec2f local_exp = Vec2f(0.0, 0.0),
+          Vec6f local_vel = Vec6f(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)) : image_(im),
+                                                                   didxy_(di)
     {
         id_ = id;
         local_pose_ = local_pose;
         global_pose_ = global_pose;
-        // localVel = JvelType::Zero();
+        local_vel_ = local_vel;
         // globalVel = JvelType::Zero();
         local_exp_ = local_exp;
     }
@@ -42,7 +43,7 @@ public:
         id_ = other.id_;
         local_pose_ = other.local_pose_;
         global_pose_ = other.global_pose_;
-        // localVel = other.localVel;
+        local_vel_ = other.local_vel_;
         // globalVel = other.globalVel;
         local_exp_ = other.local_exp_;
     }
@@ -54,7 +55,7 @@ public:
             id_ = other.id_;
             local_pose_ = other.local_pose_;
             global_pose_ = other.global_pose_;
-            // localVel = other.localVel;
+            local_vel_ = other.local_vel_;
             // globalVel = other.globalVel;
             local_exp_ = other.local_exp_;
 
@@ -104,13 +105,23 @@ public:
         return local_exp_;
     }
 
+    const Vec6f &local_vel() const
+    {
+        return local_vel_;
+    }
+
+    Vec6f &local_vel()
+    {
+        return local_vel_;
+    }
+
 protected:
     Texture<ImageType> image_;
     Texture<Vec3f> didxy_;
 
     SE3f local_pose_;
     SE3f global_pose_;
-    // JvelType localVel;
+    Vec6f local_vel_;
     // JvelType globalVel;
     Vec2f local_exp_;
     int id_;

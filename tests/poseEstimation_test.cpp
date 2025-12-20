@@ -5,6 +5,8 @@
 #include "common/keyframe.h"
 #include "optimizers/poseOptimizer.h"
 #include "optimizers/poseExpOptimizer.h"
+#include "optimizers/poseVelOptimizer.h"
+#include "optimizers/poseVelExpOptimizer.h"
 
 template <typename Type>
 double ComputeImageError(const cv::Mat &image_est, const cv::Mat &image_gt, Type nodata_value)
@@ -104,13 +106,13 @@ TEST_F(RendererTestBase, ComputePose)
 
     for (int lvl = 0; lvl < kdidxy_cpu.levels(); lvl++)
         didxy_renderer.Render(screen_mesh, lvl, lvl, kimage_cpu, kdidxy_cpu);
-        
-    //didxy_renderer.Render(screen_mesh, 0, 0, kimage_cpu, kdidxy_cpu);
-    //kdidxy_cpu.generate_mipmaps(0);
+
+    // didxy_renderer.Render(screen_mesh, 0, 0, kimage_cpu, kdidxy_cpu);
+    // kdidxy_cpu.generate_mipmaps(0);
 
     KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3f(), kpose), mesh, kdepth_mean[0]);
 
-    PoseOptimizer optimizer(w_, h_, true);
+    PoseVelExpOptimizer optimizer(w_, h_, true);
 
     SE3f tracked_global_pose = kframe.frame().global_pose();
     SE3f tracked_global_movement;
@@ -138,11 +140,11 @@ TEST_F(RendererTestBase, ComputePose)
         UploadMatToTexture(image_cpu, 0, image_cv);
         // UploadMatToTexture(depth_cpu, 0, depth_cv);
 
-         for (int lvl = 0; lvl < didxy_cpu.levels(); lvl++)
-             didxy_renderer.Render(screen_mesh, lvl, lvl, image_cpu, didxy_cpu);
+        for (int lvl = 0; lvl < didxy_cpu.levels(); lvl++)
+            didxy_renderer.Render(screen_mesh, lvl, lvl, image_cpu, didxy_cpu);
 
-        //didxy_renderer.Render(screen_mesh, 0, 0, image_cpu, didxy_cpu);
-        //didxy_cpu.generate_mipmaps(0);
+        // didxy_renderer.Render(screen_mesh, 0, 0, image_cpu, didxy_cpu);
+        // didxy_cpu.generate_mipmaps(0);
 
         SE3f ini_global_pose = tracked_global_movement * tracked_global_pose;
         SE3f ini_local_pose = kframe.globalPoseToLocal(ini_global_pose);
@@ -170,10 +172,12 @@ TEST_F(RendererTestBase, ComputePose)
 
         SE3f new_global_pose = kframe.localPoseToGlobal(frame.local_pose());
         SE3f new_local_pose = frame.local_pose();
+        Vec6f new_local_vel = frame.local_vel();
         Vec2f new_local_exposure = frame.local_exposure();
 
         frame.global_pose() = new_global_pose;
         frame.local_pose() = new_local_pose;
+        frame.local_vel() = new_local_vel;
         frame.local_exposure() = new_local_exposure;
 
         // tracked_global_movement = new_global_pose * tracked_global_pose.inverse();
@@ -193,7 +197,14 @@ TEST_F(RendererTestBase, ComputePose)
         // change keyframe logic
         // float keyframeViewAngle = kframe.meanViewAngle(SE3(), frame.local_pose());
 
-        image_renderer.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam_, 1, 1, kframe.frame().image(), image_cpu);
+        image_renderer.Render(kframe.mesh(),
+                              frame.local_pose(),
+                              frame.local_vel(),
+                              frame.local_exposure(),
+                              cam_,
+                              30.0,
+                              1, 1,
+                              kframe.frame().image(), image_cpu);
         Error nodata = nodata_reducer.reduce(1, image_cpu);
         float pnodata = nodata.getError() / (image_cpu.width(1) * image_cpu.height(1));
         float viewPercent = 1.0 - pnodata;
@@ -209,11 +220,25 @@ TEST_F(RendererTestBase, ComputePose)
 
             frame.local_pose() = kframe.globalPoseToLocal(frame.global_pose());
 
-            depth_renderer.Render(kframe.mesh(), SE3f(), cam_, 1, depth_cpu);
+            depth_renderer.Render(kframe.mesh(),
+                                  SE3f(),
+                                  Vec6f::Zero(),
+                                  cam_,
+                                  30.0,
+                                  1,
+                                  depth_cpu);
             cv::Mat depth_mat = DownloadTextureToMat(depth_cpu, 1);
             SaveDebugImage(depth_mat, "Depth keyframe_" + std::to_string(img_id) + ".png");
 
-            image_renderer.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam_, 1, 1, kframe.frame().image(), image_cpu);
+            image_renderer.Render(kframe.mesh(),
+                                  frame.local_pose(),
+                                  frame.local_vel(),
+                                  frame.local_exposure(),
+                                  cam_,
+                                  30.0,
+                                  1, 1,
+                                  kframe.frame().image(),
+                                  image_cpu);
             cv::Mat image_mat = DownloadTextureToMat(image_cpu, 1);
             SaveDebugImage(image_mat, "Frame keyframe_" + std::to_string(img_id) + ".png");
 
@@ -224,7 +249,16 @@ TEST_F(RendererTestBase, ComputePose)
             // std::cout << "new view percent " << viewPercent << std::endl;
         }
 
-        residual_renderer.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam_, 1, 1, kframe.frame().image(), frame.image(), l2_texture);
+        residual_renderer.Render(kframe.mesh(),
+                                 frame.local_pose(),
+                                 frame.local_vel(),
+                                 frame.local_exposure(),
+                                 cam_,
+                                 30.0,
+                                 1, 1,
+                                 kframe.frame().image(),
+                                 frame.image(),
+                                 l2_texture);
         cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
         SaveDebugImage(l2_mat, "l2_" + std::to_string(img_id) + ".png");
     }

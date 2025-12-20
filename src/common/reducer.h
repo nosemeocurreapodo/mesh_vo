@@ -300,6 +300,177 @@ private:
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
+class HGPoseVelReducerCPU : public BaseReducerCPU<HGPoseVelReducerCPU, DenseLinearProblem<12>>
+{
+public:
+	using Base = BaseReducerCPU<HGPoseVelReducerCPU, DenseLinearProblem<12>>;
+	explicit HGPoseVelReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
+		: Base(threads)
+	{
+	}
+
+	DenseLinearProblem<12> reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<float> &r_texture)
+	{
+		jtra_texture_ = &jtra_texture;
+		jrot_texture_ = &jrot_texture;
+		jtravel_texture_ = &jtravel_texture;
+		jrotvel_texture_ = &jrotvel_texture;
+		r_texture_ = &r_texture;
+		lvl_ = lvl;
+
+		return reduce_();
+	}
+
+	int size()
+	{
+		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
+	}
+
+	DenseLinearProblem<12> reducepartial(int begin, int end)
+	{
+		DenseLinearProblem<12> hg;
+		auto r_map = r_texture_->MapRead(lvl_);
+		auto jtra_map = jtra_texture_->MapRead(lvl_);
+		auto jrot_map = jrot_texture_->MapRead(lvl_);
+		auto jtravel_map = jtravel_texture_->MapRead(lvl_);
+		auto jrotvel_map = jrotvel_texture_->MapRead(lvl_);
+		// Vec8i ids(0, 1, 2, 3, 4, 5, 6, 7);
+		Vec<int, 12> ids;
+		for (int i = 0; i < 12; i++)
+			ids(i) = i;
+
+		for (int i = begin; i < end; ++i)
+		{
+			const float res = r_map[i];
+			const Vec3f jtra = jtra_map[i];
+			const Vec3f jrot = jrot_map[i];
+			const Vec3f jtravel = jtravel_map[i];
+			const Vec3f jrotvel = jrotvel_map[i];
+			if (res == r_texture_->nodata() || jtra == jtra_texture_->nodata() || jrot == jrot_texture_->nodata() || jtravel == jtravel_texture_->nodata() || jrotvel == jrotvel_texture_->nodata())
+				continue;
+			// Vec8f J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2), jexp(0), jexp(1));
+			Vec<float, 12> J;
+			J(0) = jtra(0);
+			J(1) = jtra(1);
+			J(2) = jtra(2);
+			J(3) = jrot(0);
+			J(4) = jrot(1);
+			J(5) = jrot(2);
+			J(6) = jtravel(0);
+			J(7) = jtravel(1);
+			J(8) = jtravel(2);
+			J(9) = jrotvel(0);
+			J(10) = jrotvel(1);
+			J(11) = jrotvel(2);
+
+			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+
+			// hg.add(J, res, w, ids);
+			hg.add(J, res, w);
+		}
+		return hg;
+	}
+
+private:
+	const Texture<Vec3f> *jtra_texture_;
+	const Texture<Vec3f> *jrot_texture_;
+	const Texture<Vec3f> *jtravel_texture_;
+	const Texture<Vec3f> *jrotvel_texture_;
+	const Texture<float> *r_texture_;
+	int lvl_;
+	// DenseLinearProblem<6> hg_;
+};
+
+// Pose-only Jacobian -> DenseLinearProblem reducer
+class HGPoseVelExpReducerCPU : public BaseReducerCPU<HGPoseVelExpReducerCPU, DenseLinearProblem<14>>
+{
+public:
+	using Base = BaseReducerCPU<HGPoseVelExpReducerCPU, DenseLinearProblem<14>>;
+	explicit HGPoseVelExpReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
+		: Base(threads)
+	{
+	}
+
+	DenseLinearProblem<14> reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<Vec3f> &jexp_texture, const Texture<float> &r_texture)
+	{
+		jtra_texture_ = &jtra_texture;
+		jrot_texture_ = &jrot_texture;
+		jtravel_texture_ = &jtravel_texture;
+		jrotvel_texture_ = &jrotvel_texture;
+		jexp_texture_ = &jexp_texture;
+		r_texture_ = &r_texture;
+		lvl_ = lvl;
+
+		return reduce_();
+	}
+
+	int size()
+	{
+		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
+	}
+
+	DenseLinearProblem<14> reducepartial(int begin, int end)
+	{
+		DenseLinearProblem<14> hg;
+		auto r_map = r_texture_->MapRead(lvl_);
+		auto jtra_map = jtra_texture_->MapRead(lvl_);
+		auto jrot_map = jrot_texture_->MapRead(lvl_);
+		auto jtravel_map = jtravel_texture_->MapRead(lvl_);
+		auto jrotvel_map = jrotvel_texture_->MapRead(lvl_);
+		auto jexp_map = jexp_texture_->MapRead(lvl_);
+		// Vec8i ids(0, 1, 2, 3, 4, 5, 6, 7);
+		Vec<int, 14> ids;
+		for (int i = 0; i < 14; i++)
+			ids(i) = i;
+
+		for (int i = begin; i < end; ++i)
+		{
+			const float res = r_map[i];
+			const Vec3f jtra = jtra_map[i];
+			const Vec3f jrot = jrot_map[i];
+			const Vec3f jtravel = jtravel_map[i];
+			const Vec3f jrotvel = jrotvel_map[i];
+			const Vec3f jexp = jexp_map[i];
+
+			if (res == r_texture_->nodata() || jtra == jtra_texture_->nodata() || jrot == jrot_texture_->nodata() || jtravel == jtravel_texture_->nodata() || jrotvel == jrotvel_texture_->nodata() || jexp == jexp_texture_->nodata())
+				continue;
+			// Vec8f J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2), jexp(0), jexp(1));
+			Vec<float, 14> J;
+			J(0) = jtra(0);
+			J(1) = jtra(1);
+			J(2) = jtra(2);
+			J(3) = jrot(0);
+			J(4) = jrot(1);
+			J(5) = jrot(2);
+			J(6) = jtravel(0);
+			J(7) = jtravel(1);
+			J(8) = jtravel(2);
+			J(9) = jrotvel(0);
+			J(10) = jrotvel(1);
+			J(11) = jrotvel(2);
+			J(12) = jexp(0);
+			J(13) = jexp(1);
+
+			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+
+			// hg.add(J, res, w, ids);
+			hg.add(J, res, w);
+		}
+		return hg;
+	}
+
+private:
+	const Texture<Vec3f> *jtra_texture_;
+	const Texture<Vec3f> *jrot_texture_;
+	const Texture<Vec3f> *jtravel_texture_;
+	const Texture<Vec3f> *jrotvel_texture_;
+	const Texture<Vec3f> *jexp_texture_;
+	const Texture<float> *r_texture_;
+	int lvl_;
+	// DenseLinearProblem<6> hg_;
+};
+
+// Pose-only Jacobian -> DenseLinearProblem reducer
 class HGMapReducerCPU : public BaseReducerCPU<HGMapReducerCPU, DenseLinearProblemx>
 {
 public:

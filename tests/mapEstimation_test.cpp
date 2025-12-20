@@ -75,7 +75,7 @@ TEST_F(RendererTestBase, ComputeMap)
     Mesh mesh(ver_buff_, idx_buff_, true, true, true);
     kframe = new KeyFrame(Frame(image_cpu, didxy_cpu, 0, SE3f(), gt_pose), mesh, scale);
 
-    depth_renderer.Render(kframe->mesh(), SE3f(), cam_, 1, depth_cpu);
+    depth_renderer.Render(kframe->mesh(), SE3f(), Vec6f::Zero(), cam_, 30, 1, depth_cpu);
     depth_cv = DownloadTextureToMat(depth_cpu, 1);
     depth_mask = (depth_cv > 0.0);
     depth_mean = cv::mean(depth_cv, depth_mask);
@@ -166,14 +166,27 @@ TEST_F(RendererTestBase, ComputeMap)
         int plot_lvl = 1;
         for (std::size_t k = 0; k < oframes.size(); k++)
         {
-            residual_renderer.Render(kframe->mesh(), oframes[k].local_pose(), oframes[k].local_exposure(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
+            residual_renderer.Render(kframe->mesh(),
+                                     oframes[k].local_pose(),
+                                     oframes[k].local_vel(),
+                                     oframes[k].local_exposure(),
+                                     cam_,
+                                     30.0,
+                                     plot_lvl, plot_lvl,
+                                     kframe->frame().image(), oframes[k].image(), l2_cpu);
             // residual_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
             cv::Mat l2_mat = DownloadTextureToMat(l2_cpu, plot_lvl);
             SaveDebugImage(l2_mat, "l2_" + std::to_string(img_id) + "_" + std::to_string(k) + ".png");
         }
 
         // depth_renderer.Render(kframe->mesh(), frame.local_pose(), cam_, plot_lvl, depth_cpu);
-        depth_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, depth_cpu);
+        depth_renderer.Render(kframe->mesh(),
+                              SE3f(),
+                              Vec6f::Zero(),
+                              cam_,
+                              30.0,
+                              plot_lvl,
+                              depth_cpu);
         depth_cv = DownloadTextureToMat(depth_cpu, plot_lvl);
         SaveDebugImage(depth_cv, "depth_" + std::to_string(img_id) + ".png");
         depth_mask = (depth_cv > 0.0);
