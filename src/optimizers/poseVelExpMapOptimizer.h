@@ -12,10 +12,10 @@
 #include "common/reducer.h"
 #include "optimizers/baseOptimizer.h"
 
-class PoseMapOptimizer : public BaseOptimizer
+class PoseVelExpMapOptimizer : public BaseOptimizer
 {
 public:
-    PoseMapOptimizer(int w, int h, bool _printLog = false);
+    PoseVelExpMapOptimizer(int w, int h, bool _printLog = false);
 
     void init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
     void step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
@@ -23,8 +23,8 @@ public:
 private:
     DenseLinearProblemx compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl);
 
-    JPoseVelExpMapRenderer jposemaprenderer_;
-    HGPoseMapReducerCPU hgposemapreducer_;
+    JPoseVelExpMapRenderer jposeexpmaprenderer_;
+    HGPoseVelExpMapReducerCPU hgposeexpmapreducer_;
 
     Texture<Vec3<float>> jtra_texture_;
     Texture<Vec3<float>> jrot_texture_;
@@ -39,11 +39,15 @@ private:
     std::vector<float> init_positions;
     std::vector<int> init_indices;
     std::vector<SE3f> init_poses;
+    std::vector<Vec6f> init_vels;
+    std::vector<Vec2f> init_exposures;
     float init_error;
 
     std::vector<float> positions;
     std::vector<int> indices;
     std::vector<SE3f> poses;
+    std::vector<Vec6f> vels;
+    std::vector<Vec2f> exposures;
     float error;
 
     Matxf init_invcovariance;

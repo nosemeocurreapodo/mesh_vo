@@ -20,13 +20,14 @@ public:
 private:
     DenseLinearProblem<12> compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
-    JPoseVelRenderer jposerenderer_;
+    JPoseVelExpRenderer jposerenderer_;
     HGPoseVelReducerCPU hgposereducer_;
 
     Texture<Vec3f> jtra_texture_;
     Texture<Vec3f> jrot_texture_;
     Texture<Vec3f> jtravel_texture_;
     Texture<Vec3f> jrotvel_texture_;
+    Texture<Vec3f> jexp_texture_;
 
     Mat6f inv_covariance_;
 

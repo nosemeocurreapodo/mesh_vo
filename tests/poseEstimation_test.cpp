@@ -112,7 +112,7 @@ TEST_F(RendererTestBase, ComputePose)
 
     KeyFrame kframe(Frame(kimage_cpu, kdidxy_cpu, 0, SE3f(), kpose), mesh, kdepth_mean[0]);
 
-    PoseVelExpOptimizer optimizer(w_, h_, true);
+    PoseExpOptimizer optimizer(w_, h_, true);
 
     SE3f tracked_global_pose = kframe.frame().global_pose();
     SE3f tracked_global_movement;
@@ -205,6 +205,7 @@ TEST_F(RendererTestBase, ComputePose)
                               30.0,
                               1, 1,
                               kframe.frame().image(), image_cpu);
+                              
         Error nodata = nodata_reducer.reduce(1, image_cpu);
         float pnodata = nodata.getError() / (image_cpu.width(1) * image_cpu.height(1));
         float viewPercent = 1.0 - pnodata;

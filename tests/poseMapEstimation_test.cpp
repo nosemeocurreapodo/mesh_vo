@@ -5,8 +5,11 @@
 #include "common/keyframe.h"
 #include "optimizers/poseOptimizer.h"
 #include "optimizers/poseExpOptimizer.h"
+#include "optimizers/poseVelExpOptimizer.h"
 #include "optimizers/poseMapOptimizer.h"
 #include "optimizers/poseExpMapOptimizer.h"
+#include "optimizers/poseVelMapOptimizer.h"
+#include "optimizers/poseVelExpMapOptimizer.h"
 
 TEST_F(RendererTestBase, ComputePoseMap)
 {
@@ -41,6 +44,7 @@ TEST_F(RendererTestBase, ComputePoseMap)
 
     Texture<ImageType> image_cpu(w_, h_, 0);
     Texture<float> depth_cpu(w_, h_, 0);
+    Texture<float> estimated_depth_cpu(w_, h_, 0);
     Texture<Vec3f> didxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
     Texture<float> l2_cpu(w_, h_, 0.0);
 
@@ -71,7 +75,7 @@ TEST_F(RendererTestBase, ComputePoseMap)
     std::vector<float> ver_buff_;
     std::vector<int> idx_buff_;
 
-    // CreateMesh(depth_cv, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
+    //CreateMesh(depth_cv, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
     CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
     //   CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
@@ -131,10 +135,12 @@ TEST_F(RendererTestBase, ComputePoseMap)
 
         SE3f new_global_pose = kframe->localPoseToGlobal(frame.local_pose());
         SE3f new_local_pose = frame.local_pose();
+        Vec6f new_local_vel = frame.local_vel();
         Vec2f new_local_exposure = frame.local_exposure();
 
         frame.global_pose() = new_global_pose;
         frame.local_pose() = new_local_pose;
+        frame.local_vel() = new_local_vel;
         frame.local_exposure() = new_local_exposure;
 
         // tracked_global_movement = new_global_pose * tracked_global_pose.inverse();
@@ -222,23 +228,22 @@ TEST_F(RendererTestBase, ComputePoseMap)
             SaveDebugImage(l2_mat, "l2_" + std::to_string(img_id) + "_" + std::to_string(k) + ".png");
         }
 
-        // depth_renderer.Render(kframe->mesh(), frame.local_pose(), cam_, plot_lvl, depth_cpu);
         depth_renderer.Render(kframe->mesh(),
                               SE3f(),
                               Vec6f::Zero(),
                               cam_,
                               30.0,
                               plot_lvl,
-                              depth_cpu);
-        depth_cv = DownloadTextureToMat(depth_cpu, plot_lvl);
+                              estimated_depth_cpu);
+
+        double error = RMSE(depth_cpu, estimated_depth_cpu, plot_lvl);
+        
+        depth_cv = DownloadTextureToMat(estimated_depth_cpu, plot_lvl);
         SaveDebugImage(depth_cv, "depth_" + std::to_string(img_id) + ".png");
         depth_mask = (depth_cv > 0.0);
         depth_mean = cv::mean(depth_cv, depth_mask);
         std::cout << "Depth mean " << depth_mean[0] << std::endl;
         // scale = scale * depth_mean[0];
-
-        // depth_renderer.Render(kframe->mesh(), oframes[oframes.size() - 1].local_pose(), cam_, 0, depth_cpu);
-        float error = 1.0; // computeImageError(depth_cpu.get(0), gtDepthData);
 
         accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
         accError += error;

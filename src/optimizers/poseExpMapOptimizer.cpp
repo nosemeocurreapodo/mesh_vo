@@ -4,6 +4,8 @@ PoseExpMapOptimizer::PoseExpMapOptimizer(int w, int h, bool _printLog)
     : BaseOptimizer(w, h),
       jtra_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jrot_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+      jtravel_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+      jrotvel_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jmap_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       pids_texture_(w, h, Vec3<PidType>(-1, -1, -1))
@@ -289,6 +291,6 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
 
 DenseLinearProblemx PoseExpMapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl)
 {
-    jposeexpmaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_);
+    jposeexpmaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), frame.local_exposure(), cam, 30.0, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_);
     return hgposeexpmapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jtra_texture_, jrot_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_, kframe.mesh());
 }

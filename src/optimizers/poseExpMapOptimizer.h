@@ -23,11 +23,13 @@ public:
 private:
     DenseLinearProblemx compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl);
 
-    JPoseExpMapRenderer jposeexpmaprenderer_;
+    JPoseVelExpMapRenderer jposeexpmaprenderer_;
     HGPoseExpMapReducerCPU hgposeexpmapreducer_;
 
     Texture<Vec3<float>> jtra_texture_;
     Texture<Vec3<float>> jrot_texture_;
+    Texture<Vec3<float>> jtravel_texture_;
+    Texture<Vec3<float>> jrotvel_texture_;
     Texture<Vec3<float>> jexp_texture_;
     Texture<Vec3<float>> jmap_texture_;
     Texture<Vec3<PidType>> pids_texture_;

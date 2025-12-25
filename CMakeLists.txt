@@ -56,6 +56,8 @@ set(VISUALODOMETRY_SRCS
   src/optimizers/mapExpOptimizer.cpp
   src/optimizers/poseMapOptimizer.cpp
   src/optimizers/poseExpMapOptimizer.cpp
+  src/optimizers/poseVelMapOptimizer.cpp
+  src/optimizers/poseVelExpMapOptimizer.cpp
 )
 
 add_library(mesh_vo STATIC ${VISUALODOMETRY_SRCS})

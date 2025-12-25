@@ -22,15 +22,11 @@ using ResidualRenderer = ResidualRendererCPU;
 using DIDxyRenderer = DIDxyRendererCPU;
 using DIDexpRenderer = DIDexpRendererCPU;
 using JPoseFDRenderer = JPoseFDRendererCPU;
-using JPoseRenderer = JPoseRendererCPU;
-using JPoseExpRenderer = JPoseExpRendererCPU;
-using JPoseVelRenderer = JPoseVelRendererCPU;
 using JPoseVelExpRenderer = JPoseVelExpRendererCPU;
 using JMapFDRenderer = JMapFDRendererCPU;
 using JMapRenderer = JMapRendererCPU;
 using JMapExpRenderer = JMapExpRendererCPU;
-using JPoseMapRenderer = JPoseMapRendererCPU;
-using JPoseExpMapRenderer = JPoseExpMapRendererCPU;
+using JPoseVelExpMapRenderer = JPoseVelExpMapRendererCPU;
 
 template <typename T>
 using Texture = TextureCPU<T>;

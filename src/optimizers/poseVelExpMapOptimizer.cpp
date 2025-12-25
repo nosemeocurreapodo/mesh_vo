@@ -1,6 +1,6 @@
-#include "optimizers/poseMapOptimizer.h"
+#include "optimizers/poseVelExpMapOptimizer.h"
 
-PoseMapOptimizer::PoseMapOptimizer(int w, int h, bool _printLog)
+PoseVelExpMapOptimizer::PoseVelExpMapOptimizer(int w, int h, bool _printLog)
     : BaseOptimizer(w, h),
       jtra_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jrot_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
@@ -13,18 +13,22 @@ PoseMapOptimizer::PoseMapOptimizer(int w, int h, bool _printLog)
     printLog = _printLog;
 }
 
-void PoseMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+void PoseVelExpMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
     int num_depths = kframe.mesh().vertex_count();
-    int numParams = num_depths + 6 * frames.size();
+    int numParams = num_depths + 14 * frames.size();
 
     init_positions = kframe.mesh().get_positions();
     init_indices = kframe.mesh().get_indices();
 
     init_poses.clear();
+    init_vels.clear();
+    init_exposures.clear();
     for (int i = 0; i < frames.size(); i++)
     {
         init_poses.push_back(frames[i].local_pose());
+        init_vels.push_back(frames[i].local_vel());
+        init_exposures.push_back(frames[i].local_exposure());
     }
 
     invCovariance = Matxf::Identity(numParams, numParams);
@@ -81,6 +85,8 @@ void PoseMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera
     positions = init_positions;
     indices = init_indices;
     poses = init_poses;
+    vels = init_vels;
+    exposures = init_exposures;
     error = init_error;
 
     if (printLog)
@@ -89,10 +95,10 @@ void PoseMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera
     reached_convergence_ = false;
 }
 
-void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+void PoseVelExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
     int num_depths = kframe.mesh().vertex_count();
-    int numParams = kframe.mesh().vertex_count() + 6 * frames.size();
+    int numParams = kframe.mesh().vertex_count() + 14 * frames.size();
 
     DenseLinearProblemx problem(numParams);
     for (std::size_t i = 0; i < frames.size(); i++)
@@ -158,6 +164,8 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
 
         std::vector<float> new_positions;
         std::vector<SE3f> new_poses;
+        std::vector<Vec6f> new_vels;
+        std::vector<Vec2f> new_exposures;
 
         for (size_t i = 0; i < num_depths; i++)
         {
@@ -174,14 +182,30 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
 
         for (int i = 0; i < frames.size(); i++)
         {
-            Vec6f pose_inc(inc(num_depths + i * 6 + 0),
-                           inc(num_depths + i * 6 + 1),
-                           inc(num_depths + i * 6 + 2),
-                           inc(num_depths + i * 6 + 3),
-                           inc(num_depths + i * 6 + 4),
-                           inc(num_depths + i * 6 + 5));
+            Vec6f pose_inc(inc(num_depths + i * 14 + 0),
+                           inc(num_depths + i * 14 + 1),
+                           inc(num_depths + i * 14 + 2),
+                           inc(num_depths + i * 14 + 3),
+                           inc(num_depths + i * 14 + 4),
+                           inc(num_depths + i * 14 + 5));
             SE3f new_pose = poses[i] * SE3f::exp(pose_inc); // SE3::exp(inc).inverse();
             new_poses.push_back(new_pose);
+
+            Vec6f vel_inc(inc(num_depths + i * 14 + 6),
+                          inc(num_depths + i * 14 + 7),
+                          inc(num_depths + i * 14 + 8),
+                          inc(num_depths + i * 14 + 9),
+                          inc(num_depths + i * 14 + 10),
+                          inc(num_depths + i * 14 + 11));
+
+            Vec6f new_vel = vels[i] + vel_inc;
+            new_vels.push_back(new_vel);
+
+            Vec2f exp_inc(inc(num_depths + i * 14 + 12),
+                          inc(num_depths + i * 14 + 13));
+
+            Vec2f new_exp = exposures[i] + exp_inc;
+            new_exposures.push_back(new_exp);
         }
 
         kframe.mesh().set_positions(new_positions);
@@ -189,6 +213,8 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
         for (int i = 0; i < frames.size(); i++)
         {
             frames[i].local_pose() = new_poses[i];
+            frames[i].local_exposure() = new_exposures[i];
+            frames[i].local_vel() = new_vels[i];
         }
 
         float new_error = 0;
@@ -246,6 +272,8 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
             error = new_error;
             positions = new_positions;
             poses = new_poses;
+            vels = new_vels;
+            exposures = new_exposures;
 
             if (p >= mesh_vo::mapping_convergence_p)
             {
@@ -262,6 +290,8 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
             for (int i = 0; i < frames.size(); i++)
             {
                 frames[i].local_pose() = poses[i];
+                frames[i].local_exposure() = exposures[i];
+                frames[i].local_vel() = vels[i];
             }
 
             float incMag = inc.dot(inc) / numParams;
@@ -277,8 +307,8 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
     }
 }
 
-DenseLinearProblemx PoseMapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl)
+DenseLinearProblemx PoseVelExpMapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl)
 {
-    jposemaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), frame.local_exposure(), cam, 30.0, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_);
-    return hgposemapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jtra_texture_, jrot_texture_, jmap_texture_, pids_texture_, r_texture_, kframe.mesh());
+    jposeexpmaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), frame.local_exposure(), cam, 30.0, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_);
+    return hgposeexpmapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_, kframe.mesh());
 }

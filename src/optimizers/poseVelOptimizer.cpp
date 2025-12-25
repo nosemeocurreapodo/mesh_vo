@@ -5,7 +5,8 @@ PoseVelOptimizer::PoseVelOptimizer(int w, int h, bool print_log)
 	  jtra_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
 	  jrot_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
 	  jtravel_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
-	  jrotvel_texture_(w, h, Vec3f(0.0, 0.0, 0.0))
+	  jrotvel_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
+	  jexp_texture_(w, h, Vec3f(0.0, 0.0, 0.0))
 {
 	inv_covariance_ = Mat6f::Identity() / mesh_vo::tracking_pose_initial_var;
 	print_log_ = print_log;
@@ -160,6 +161,6 @@ void PoseVelOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 
 DenseLinearProblem<12> PoseVelOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), cam, 30.0, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, r_texture_);
+	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), frame.local_exposure(), cam, 30.0, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, r_texture_);
 	return hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, r_texture_);
 }
