@@ -199,13 +199,11 @@ TEST_F(RendererTestBase, ComputePose)
 
         image_renderer.Render(kframe.mesh(),
                               frame.local_pose(),
-                              frame.local_vel(),
                               frame.local_exposure(),
                               cam_,
-                              30.0,
                               1, 1,
                               kframe.frame().image(), image_cpu);
-                              
+
         Error nodata = nodata_reducer.reduce(1, image_cpu);
         float pnodata = nodata.getError() / (image_cpu.width(1) * image_cpu.height(1));
         float viewPercent = 1.0 - pnodata;
@@ -223,9 +221,7 @@ TEST_F(RendererTestBase, ComputePose)
 
             depth_renderer.Render(kframe.mesh(),
                                   SE3f(),
-                                  Vec6f::Zero(),
                                   cam_,
-                                  30.0,
                                   1,
                                   depth_cpu);
             cv::Mat depth_mat = DownloadTextureToMat(depth_cpu, 1);
@@ -233,10 +229,8 @@ TEST_F(RendererTestBase, ComputePose)
 
             image_renderer.Render(kframe.mesh(),
                                   frame.local_pose(),
-                                  frame.local_vel(),
                                   frame.local_exposure(),
                                   cam_,
-                                  30.0,
                                   1, 1,
                                   kframe.frame().image(),
                                   image_cpu);
@@ -252,10 +246,8 @@ TEST_F(RendererTestBase, ComputePose)
 
         residual_renderer.Render(kframe.mesh(),
                                  frame.local_pose(),
-                                 frame.local_vel(),
                                  frame.local_exposure(),
                                  cam_,
-                                 30.0,
                                  1, 1,
                                  kframe.frame().image(),
                                  frame.image(),

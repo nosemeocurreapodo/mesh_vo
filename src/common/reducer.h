@@ -50,7 +50,7 @@ protected:
 		for (auto &th : pool)
 			th.join();
 
-		if (T == 0) return OutType{};
+		// if (T == 0) return OutType{};
 		OutType total = partial[0];
 		for (unsigned t = 1; t < T; ++t)
 			total += partial[t];

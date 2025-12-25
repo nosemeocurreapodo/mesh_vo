@@ -88,9 +88,7 @@ TEST_F(RendererTestBase, ComputePoseMap)
 
     depth_renderer.Render(kframe->mesh(),
                           SE3f(),
-                          Vec6f::Zero(),
                           cam_,
-                          30.0,
                           1,
                           depth_cpu);
     depth_cv = DownloadTextureToMat(depth_cpu, 1);
@@ -215,10 +213,8 @@ TEST_F(RendererTestBase, ComputePoseMap)
         {
             residual_renderer.Render(kframe->mesh(),
                                      oframes[k].local_pose(),
-                                     oframes[k].local_vel(),
                                      oframes[k].local_exposure(),
                                      cam_,
-                                     30.0,
                                      plot_lvl, plot_lvl,
                                      kframe->frame().image(),
                                      oframes[k].image(),
@@ -230,9 +226,7 @@ TEST_F(RendererTestBase, ComputePoseMap)
 
         depth_renderer.Render(kframe->mesh(),
                               SE3f(),
-                              Vec6f::Zero(),
                               cam_,
-                              30.0,
                               plot_lvl,
                               estimated_depth_cpu);
 

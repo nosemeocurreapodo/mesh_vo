@@ -23,10 +23,11 @@ public:
 private:
     DenseLinearProblemx compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl);
 
-    JMapRenderer jmaprenderer_;
+    JMapExpRenderer jmaprenderer_;
     HGMapReducerCPU hgmapreducer_;
 
     Texture<Vec3<float>> jmap_texture_;
+    Texture<Vec3<float>> jexp_texture_;
     Texture<Vec3<PidType>> pids_texture_;
 
     Matxf invCovariance;

@@ -22,10 +22,11 @@ using ResidualRenderer = ResidualRendererCPU;
 using DIDxyRenderer = DIDxyRendererCPU;
 using DIDexpRenderer = DIDexpRendererCPU;
 using JPoseFDRenderer = JPoseFDRendererCPU;
+using JPoseExpRenderer = JPoseExpRendererCPU;
 using JPoseVelExpRenderer = JPoseVelExpRendererCPU;
 using JMapFDRenderer = JMapFDRendererCPU;
-using JMapRenderer = JMapRendererCPU;
 using JMapExpRenderer = JMapExpRendererCPU;
+using JPoseExpMapRenderer = JPoseExpMapRendererCPU;
 using JPoseVelExpMapRenderer = JPoseVelExpMapRendererCPU;
 
 template <typename T>
@@ -42,10 +43,9 @@ using DepthRenderer = DepthRendererGL;
 using ImageRenderer = ImageRendererGL;
 using ResidualRenderer = ResidualRendererGL;
 using DIDxyRenderer = DIDxyRendererGL;
-using JPoseRenderer = JPoseRendererGL;
 using JPoseExpRenderer = JPoseExpRendererGL;
-using JMapRenderer = JMapRendererGL;
 using JMapExpRenderer = JMapExpRendererGL;
+using JPoseExpMapRenderer = JPoseExpMapRendererGL;
 
 template <typename T>
 using Texture = TextureGL<T>;

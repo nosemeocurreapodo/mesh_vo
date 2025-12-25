@@ -3,6 +3,7 @@
 MapOptimizer::MapOptimizer(int w, int h, bool _printLog)
     : BaseOptimizer(w, h),
       jmap_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+      jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       pids_texture_(w, h, Vec3<PidType>(-1, -1, -1))
 {
     printLog = _printLog;
@@ -242,6 +243,6 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
 DenseLinearProblemx MapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl)
 {
-    jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jmap_texture_, pids_texture_, r_texture_);
+    jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jmap_texture_, jexp_texture_, pids_texture_, r_texture_);
     return hgmapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jmap_texture_, pids_texture_, r_texture_, kframe.mesh());
 }
