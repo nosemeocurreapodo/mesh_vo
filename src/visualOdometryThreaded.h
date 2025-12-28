@@ -8,16 +8,15 @@
 #include "common/frame.h"
 #include "common/keyframe.h"
 
-#include "optimizers/PoseOptimizer.h"
+#include "optimizers/poseOptimizer.h"
 // #include "optimizers/poseVelOptimizerCPU.h"
-#include "optimizers/MapOptimizer.h"
-#include "optimizers/PoseMapOptimizer.h"
+#include "optimizers/mapOptimizer.h"
+#include "optimizers/poseMapOptimizer.h"
 // #include "optimizers/intrinsicPoseMapOptimizerCPU.h"
 
 #include "visualizer/geometryPlotter.h"
 #include "visualizer/trayectoryPlotter.h"
 #include "visualizer/imagePlotter.h"
-#include "cpu/OpenCVDebug.h"
 #include "utils/tictoc.h"
 
 template <typename T>

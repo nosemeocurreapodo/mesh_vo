@@ -92,15 +92,43 @@ public:
     }
     */
 
-    /*
-    void scaleVerticesAndWeights(float scale)
+    float getGlobalScale()
     {
-        globalScale_ *= scale;
-        geometry.scaleVertices(scale);
-        // add a bit more of uncertanty to the weights
-        // geometry.scaleWeights(scale * 1.2);
+        return global_scale_;
     }
-    */
+
+    float meanDepth()
+    {
+        std::vector<float> positions = mesh_.get_positions();
+        int size = positions.size() / 3;
+        float mean = 0.0;
+        for (int i = 0; i < size; i++)
+            mean += positions[i * 3 + 2];
+        return mean / size;
+    }
+
+    void scaleMesh(float scale)
+    {
+        global_scale_ *= scale;
+        std::vector<float> positions = mesh_.get_positions();
+        for (int i = 0; i < positions.size(); i++)
+            positions[i] = positions[i] / scale;
+        mesh_.set_positions(positions);
+    }
+
+    void transformMesh(const SE3f &transformation)
+    {
+        std::vector<float> positions = mesh_.get_positions();
+        for (int i = 0; i < positions.size(); i+=3)
+        {
+            Vec3<float> vert(positions[i], positions[i+1], positions[i+2]);
+            vert = transformation * vert;
+            positions[i] = vert(0);
+            positions[i+1] = vert(1);
+            positions[i+2] = vert(2);
+        }
+        mesh_.set_positions(positions);
+    }
 
     float meanViewAngle(const SE3f &pose1, const SE3f &pose2)
     {

@@ -85,18 +85,22 @@ TEST_F(RendererTestBase, ComputePose)
     cv::Scalar kdepth_mean = 1.0; // cv::mean(kdepth_cv, kdepth_mask);
     kdepth_cv = kdepth_cv * mesh_vo::mapping_mean_depth / kdepth_mean[0];
 
-    Texture<ImageType> kimage_cpu(w_, h_, 0);
-    // Texture<float> kdepth_cpu(w_, h_, 0.0f);
+    Texture<ImageType> kimage_cpu(w_, h_, -1);
+    Texture<float> kdepth_cpu(w_, h_, 0.0f);
+    Texture<Vec3f> kdidxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
+
+    Texture<ImageType> image_cpu(w_, h_, -1);
+    Texture<float> depth_cpu(w_, h_, 0);
+    Texture<Vec3f> didxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
+    Texture<float> l2_texture(w_, h_, -1);
 
     UploadMatToTexture(kimage_cpu, 0, kimage_cv);
-    // UploadMatToTexture(kdepth_cpu, 0, kdepth_cv);
+    UploadMatToTexture(kdepth_cpu, 0, kdepth_cv);
 
     std::vector<float> ver_buff_;
     std::vector<int> idx_buff_;
-    CreateMesh(kdepth_cv, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
+    CreateMesh(kdepth_cpu, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
     Mesh mesh(ver_buff_, idx_buff_, true, true, true);
-
-    Texture<Vec3f> kdidxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
 
     DepthRenderer depth_renderer;
     ImageRenderer image_renderer;
@@ -118,11 +122,6 @@ TEST_F(RendererTestBase, ComputePose)
     SE3f tracked_global_movement;
     Vec2f tracked_local_exposure(0, 0);
 
-    Texture<ImageType> image_cpu(w_, h_, 0);
-    Texture<float> depth_cpu(w_, h_, 0);
-    Texture<Vec3f> didxy_cpu(w_, h_, Vec3f(0.0, 0.0, 0.0));
-    Texture<float> l2_texture(w_, h_, 0);
-
     for (unsigned int img_id = 1; img_id < image_files_.size(); img_id++)
     {
         std::cout << "Frame " << img_id << std::endl;
@@ -138,7 +137,7 @@ TEST_F(RendererTestBase, ComputePose)
         depth_cv = depth_cv * mesh_vo::mapping_mean_depth / depth_mean[0];
 
         UploadMatToTexture(image_cpu, 0, image_cv);
-        // UploadMatToTexture(depth_cpu, 0, depth_cv);
+        UploadMatToTexture(depth_cpu, 0, depth_cv);
 
         for (int lvl = 0; lvl < didxy_cpu.levels(); lvl++)
             didxy_renderer.Render(screen_mesh, lvl, lvl, image_cpu, didxy_cpu);
@@ -212,7 +211,7 @@ TEST_F(RendererTestBase, ComputePose)
 
         if (viewPercent < mesh_vo::min_view_perc) // || keyframeViewAngle > mesh_vo::key_max_angle)
         {
-            CreateMesh(depth_cv, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
+            CreateMesh(depth_cpu, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
             Mesh new_mesh(ver_buff_, idx_buff_, true, true, true);
 
             kframe = KeyFrame(frame, new_mesh, depth_mean[0]);

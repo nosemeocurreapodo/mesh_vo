@@ -75,8 +75,8 @@ TEST_F(RendererTestBase, ComputePoseMap)
     std::vector<float> ver_buff_;
     std::vector<int> idx_buff_;
 
-    //CreateMesh(depth_cv, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-    CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
+    CreateMesh(depth_cpu, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
+    //CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
     //   CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
     for (int lvl = 0; lvl < didxy_cpu.levels(); lvl++)

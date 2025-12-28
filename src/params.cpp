@@ -3,9 +3,9 @@
 
 namespace mesh_vo
 {
-    float last_min_angle = M_PI / 256.0;
+    float last_min_angle = M_PI / 512.0;
     float key_max_angle = M_PI / 20.0;
-    float min_view_perc = 0.6;
+    float min_view_perc = 0.8;
     float min_lambda = 0.00001f;
     float huber_thresh_pix = 9.0; // 9.0 taken from dso
     float line_capture_time = 1.0;
@@ -20,7 +20,7 @@ namespace mesh_vo
     float mapping_mean_depth = 1.0;
     int mapping_ini_lvl = 1;
     int mapping_fin_lvl = 1;
-    float mapping_regu_weight = 100.0;
+    float mapping_regu_weight = 10.0;
     float mapping_prior_weight = 0.0;
     float mapping_convergence_p = 0.999;
     float mapping_convergence_p_v = 0.0;

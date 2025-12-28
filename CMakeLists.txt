@@ -109,6 +109,10 @@ if(COMPILE_GL OR COMPILE_GLES2)
   )
 endif()
 
+#if(COMPILE_DEMO)
+#add_subdirectory(src/apps/tum_dataset)
+#endif()
+
 # --- Tests --------------------------------------------------------
 if(COMPILE_TESTS)
   include(CTest)
