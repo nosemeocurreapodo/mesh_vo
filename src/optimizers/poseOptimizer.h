@@ -2,9 +2,10 @@
 
 #include <iostream>
 #include "params.h"
-#include "core/camera.h"
-#include "core/types.h"
 #include "common/types.h"
+#include "common/frame.h"
+#include "common/keyframe.h"
+#include "common/DenseLinearProblem.h"
 #include "optimizers/baseOptimizer.h"
 #include "common/reducer.h"
 
@@ -13,24 +14,31 @@ class PoseOptimizer : public BaseOptimizer
 public:
     PoseOptimizer(int w, int h, bool print_log = false);
 
-    void init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
-    void step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
+    void init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
+    void step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
 private:
-    DenseLinearProblem computeProblem_(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl);
+    DenseLinearProblem<6> compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
-    JPoseRendererCPU jposerenderer_;
+    JPoseVelExpRenderer jposerenderer_;
     HGPoseReducerCPU hgposereducer_;
 
-    TextureCPU<Vec3> jtra_texture_;
-    TextureCPU<Vec3> jrot_texture_;
+    Texture<Vec3f> jtra_texture_;
+    Texture<Vec3f> jrot_texture_;
+    Texture<Vec3f> jtravel_texture_;
+    Texture<Vec3f> jrotvel_texture_;
+    Texture<Vec3f> jexp_texture_;
 
-    Mat6 inv_covariance_;
+    Mat6f inv_covariance_;
 
-    Vec6 init_pose_;
-    Mat6 init_invcovariance_;
-    Mat6 init_invcovariancesqrt_;
+    SE3f init_pose_;
     float init_error_;
+
+    SE3f pose_;
+    float error_;
+
+    Mat6f init_invcovariance_;
+    Mat6f init_invcovariancesqrt_;
 
     bool print_log_;
 };

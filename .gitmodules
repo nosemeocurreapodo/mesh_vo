@@ -1,3 +1,3 @@
-[submodule "MultiPlatformRenderer"]
-	path = MultiPlatformRenderer
-	url = https://github.com/nosemeocurreapodo/MultiPlatformRenderer.git
+[submodule "MultiPlatformDiffRenderer"]
+	path = MultiPlatformDiffRenderer
+	url = https://github.com/nosemeocurreapodo/MultiPlatformDiffRenderer.git

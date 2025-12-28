@@ -1,25 +1,112 @@
 #pragma once
 
-#include "common/types.h" // expects typedefs: using vecxf = Eigen::VectorXf; using matxf = Eigen::MatrixXf; etc.
 #include <cassert>
-#include <cstdint>
-#include <vector>
+// #include <cstdint>
+// #include <vector>
 
-// ===== Dense normal-equation accumulator with packed H for thread scalability =====
+#include "common/types.h"
+
+template <int N>
 class DenseLinearProblem
 {
 public:
-    DenseLinearProblem() : m_numParams(0), m_count(0) {}
-    explicit DenseLinearProblem(int numParams) { reset(numParams); }
-
-    void reset(int n)
+    DenseLinearProblem()
     {
-        assert(n >= 0);
+        clear();
+    }
+
+    void clear()
+    {
+        m_Hp.setZero();
+        m_G.setZero();
+        m_count = 0;
+    }
+
+    static constexpr int size()
+    {
+        return N;
+    }
+
+    void add(const Vecf<N> &J, float r, float w = 1.0f)
+    {
+        if (w <= 0.0f)
+            return;
+        // m_Hp += w * J.transpose() * J;
+        // m_G += w * J.transpose() * r;
+        m_Hp += w * J * J.transpose();
+        m_G += w * J * r;
+        m_count++;
+    }
+
+    DenseLinearProblem &operator+=(const DenseLinearProblem &other)
+    {
+        m_Hp += other.m_Hp;
+        // m_G.noalias() += other.m_G;
+        m_G += other.m_G;
+        m_count += other.m_count;
+        return *this;
+    }
+
+    void scale(float s)
+    {
+        m_Hp *= s;
+        m_G *= s;
+    }
+
+    Vecf<N> solve(float lambda = 0.0f, int lambda_mode = 1)
+    {
+        Mat<float, N, N> H = m_Hp;
+        // Mat<double, N, N> H = Mat<double, N, N>::Zero();
+        // for (int j = 0; j < m_G.size(); j++)
+        //     H(j, j) = m_Hp(j, j);
+
+        /*
+        if (lambda > 0.0f)
+        {
+            if (lambda_mode == 0)
+            {
+                H.diagonal().array() += lambda;
+            }
+            else
+            {
+                Eigen::VectorXf d = H.diagonal().array().abs().max(1e-8f);
+                H.diagonal().noalias() += lambda * d;
+            }
+        }
+        */
+        for (int j = 0; j < N; j++)
+            H(j, j) *= (1.0 + lambda);
+
+        solver.compute(H);
+        // assert(solver.info() == Eigen::Success);
+        Vec<float, N> dx = solver.solve(-m_G);
+        Vecf<N> dxf;
+        for (int i = 0; i < N; i++)
+            dxf(i) = dx(i);
+        // assert(solver.info() == Eigen::Success);
+        return dxf;
+    }
+
+    int count() const { return m_count; }
+    const Vecf<N> &G() const { return m_G; }
+
+private:
+    Mat<float, N, N> m_Hp;
+    Vec<float, N> m_G;
+    Solver<float, N> solver;
+    int m_count{0};
+};
+
+class DenseLinearProblemx
+{
+public:
+    // DenseLinearProblem() : m_numParams(0), m_count(0) {}
+    DenseLinearProblemx(int n)
+        : solver(n)
+    {
         m_numParams = n;
-        m_Hp = Matx::Zero(n, n);
-        m_G = Vecx::Zero(n);
-        //m_Hp.setZero();
-        //m_G.setZero();
+        m_Hp = Matxf::Zero(n, n);
+        m_G = Vecxf::Zero(n);
         m_count = 0;
     }
 
@@ -27,7 +114,6 @@ public:
     {
         if (m_numParams == 0)
             return;
-        // m_Hp.reset(m_numParams);
         m_Hp.setZero();
         m_G.setZero();
         m_count = 0;
@@ -35,43 +121,26 @@ public:
 
     int size() const { return m_numParams; }
 
-    // Add dense contribution without scatter
-    template <typename Jac>
-    inline void add(const Jac &J, float r, float w = 1.0f)
+    void add(const Matxf &J, const Matxf &r, float w = 1.0f)
     {
-        assert(J.size() == m_numParams);
         if (w <= 0.0f)
             return;
-        // m_Hp.rank1(J, w);
-        m_Hp += w * (J * J.transpose());
-        m_G.noalias() += w * (J * r);
-        ++m_count;
+        m_Hp += w * J.transpose() * J;
+        m_G += w * J.transpose() * r;
+        m_count++;
     }
 
-    // Add with scatter indices
     template <typename Jac, typename Idx>
-    inline void add(const Jac &J,
-                    float r,
-                    float w,
-                    const Idx &ids)
+    void add(const Jac &J,
+             float r,
+             float w,
+             const Idx &ids)
     {
         if (w <= 0.0f)
             return;
-        /*
-        m_Hp.rank1_scatter(J, ids, w);
-        const int m = static_cast<int>(J.rows());
-        for (int i = 0; i < m; ++i)
-        {
-            const int ii = ids(i);
-            assert(ii >= 0 && ii < m_numParams);
-            m_G(ii) += w * J(i) * r;
-        }
-        */
 
         for (int i = 0; i < J.rows(); i++)
         {
-            // assert(ii >= 0 && ii < m_numParams);
-
             m_G(ids(i)) += J(i) * r * w;
             m_Hp(ids(i), ids(i)) += J(i) * J(i) * w;
 
@@ -86,8 +155,7 @@ public:
         ++m_count;
     }
 
-    // Merge thread-local accumulators
-    DenseLinearProblem &operator+=(const DenseLinearProblem &other)
+    DenseLinearProblemx &operator+=(const DenseLinearProblemx &other)
     {
         if (other.m_numParams == 0)
             return *this;
@@ -98,18 +166,27 @@ public:
         }
         assert(m_numParams == other.m_numParams);
         m_Hp += other.m_Hp;
-        m_G.noalias() += other.m_G;
+        // m_G.noalias() += other.m_G;
+        m_G += other.m_G;
         m_count += other.m_count;
         return *this;
     }
 
-    // Solve (H + damping) x = -G using LDLT
-    Vecx solve(float lambda = 0.0f, int lambda_mode = 1)
+    void scale(float s)
     {
-        // if (m_numParams == 0)
-        //     return false;
-        Matx H = m_Hp;
+        m_Hp *= s;
+        m_G *= s;
+    }
 
+    Vecxf solve(float lambda = 0.0f, int lambda_mode = 1)
+    {
+        Matxf H = m_Hp;
+
+        // Matxf H = Matxf::Zero(m_numParams, m_numParams);
+        // for (int j = 0; j < m_G.size(); j++)
+        //     H(j, j) = m_Hp(j, j);
+
+        /*
         if (lambda > 0.0f)
         {
             if (lambda_mode == 0)
@@ -122,23 +199,25 @@ public:
                 H.diagonal().noalias() += lambda * d;
             }
         }
-        // Eigen::LDLT<matxf> ldlt(H);
+        */
+        for (int j = 0; j < m_G.size(); j++)
+        {
+            H(j, j) *= (1.0 + lambda);
+        }
         solver.compute(H);
-        // if (ldlt.info() != Eigen::Success)
-        //     return false;
-        Vecx dx = solver.solve(-m_G);
-        // return ldlt.info() == Eigen::Success;
+        //  assert(solver.info() == Eigen::Success);
+        Vecxf dx = solver.solve(-m_G);
+        // assert(solver.info() == Eigen::Success);
         return dx;
     }
 
-    // Accessors
     int count() const { return m_count; }
-    const Vecx &G() const { return m_G; }
+    const Vecxf &G() const { return m_G; }
 
 private:
-    Matx m_Hp; // packed upper triangle
-    Vecx m_G;
-    Solver solver;
+    Matxf m_Hp;
+    Vecxf m_G;
+    Solverx<float> solver;
     int m_numParams{0};
     int m_count{0};
 };

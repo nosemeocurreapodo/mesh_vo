@@ -1,42 +1,38 @@
-#include "optimizers/poseMapOptimizerCPU.h"
+#include "optimizers/poseMapOptimizer.h"
 
-poseMapOptimizerCPU::poseMapOptimizerCPU(int width, int height)
-    : baseOptimizerCPU(width, height),
-      jpose_buffer(width, height, vec6f::Zero()),
-      jmap_buffer(width, height, jmapType::Zero()),
-      pId_buffer(width, height, idsType::Zero())
+PoseMapOptimizer::PoseMapOptimizer(int w, int h, bool _printLog)
+    : BaseOptimizer(w, h),
+      jtra_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+      jrot_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+      jtravel_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+      jrotvel_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+      jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+      jmap_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+      pids_texture_(w, h, Vec3<PidType>(-1, -1, -1))
 {
+    printLog = _printLog;
 }
 
-void poseMapOptimizerCPU::init(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl)
+void PoseMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-    std::vector<int> mapParamsIds = kframe.getGeometry().getParamIds();
-    int numPoseParams = frames.size() * 6;
-    int numMapParams = mapParamsIds.size();
-    int numParams = numPoseParams + numMapParams;
+    int num_depths = kframe.mesh().vertex_count();
+    int numParams = num_depths + 6 * frames.size();
 
-    invCovariance = matxf::Identity(numParams, numParams);
+    init_positions = kframe.mesh().get_positions();
+    init_indices = kframe.mesh().get_indices();
 
-    init_params = vecxf::Zero(numParams);
-
-    for (size_t i = 0; i < frames.size(); i++)
+    init_poses.clear();
+    for (int i = 0; i < frames.size(); i++)
     {
-        init_params.segment<6>(i * 6) = frames[i].getLocalPose().log();
-        for (int j = 0; j < 6; j++)
-        {
-            invCovariance(i * 6 + j, i * 6 + j) = 1.0 / mesh_vo::mapping_pose_initial_var;
-        }
+        init_poses.push_back(frames[i].local_pose());
     }
 
-    for (size_t i = 0; i < mapParamsIds.size(); i++)
-    {
-        // init_params(i + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
-        invCovariance(i + numPoseParams, i + numPoseParams) = kframe.getGeometry().getWeightParam(mapParamsIds[i]);
-        // invCovariance(i + numPoseParams, i + numPoseParams) = 1.0 / mesh_vo::mapping_param_initial_var;
-    }
+    invCovariance = Matxf::Identity(numParams, numParams);
 
-    // invCovariance.block(0, 0, numPoseParams, numPoseParams) *= 1.0 / mesh_vo::mapping_pose_var;
-    // invCovariance.block(numPoseParams, numPoseParams, numMapParams, numMapParams) *= 1.0 / mesh_vo::initial_param_var;
+    for (size_t i = 0; i < num_depths; i++)
+    {
+        invCovariance(i, i) = 1.0 / mesh_vo::mapping_param_initial_var;
+    }
 
     init_invcovariance = invCovariance;
 
@@ -46,94 +42,105 @@ void poseMapOptimizerCPU::init(std::vector<frameCPU> &frames, keyFrameCPU &kfram
     init_error = 0;
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        Error ef = computeError(frames[i], kframe, cam, lvl);
-        // assert(ef.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
+        Error ef = compute_error_(frames[i], kframe, cam, in_lvl, out_lvl);
         init_error += ef.getError() / ef.getCount();
     }
     init_error *= 1.0 / frames.size();
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
-        Error e_regu = kframe.getGeometry().errorRegu();
-        assert(e_regu.getCount() > 0);
-        init_error += mesh_vo::mapping_regu_weight * e_regu.getError() / e_regu.getCount();
+        float regu_error = 0.0f;
+        for (size_t i = 0; i < init_indices.size(); i += 3)
+        {
+            Vec3i id(init_indices[i + 0],
+                     init_indices[i + 1],
+                     init_indices[i + 2]);
+            Vec3f depth(init_positions[id(0) * 3 + 2],
+                        init_positions[id(1) * 3 + 2],
+                        init_positions[id(2) * 3 + 2]);
+            float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
+            float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
+            float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
+            regu_error += r1 * r1 + r2 * r2 + r3 * r3;
+        }
+        init_error += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
     }
 
+    /*
     if (mesh_vo::mapping_prior_weight > 0.0)
     {
-        vecxf params(numParams);
-        for (size_t index = 0; index < frames.size(); index++)
-        {
-            params.segment(index * 6, 6) = frames[index].getLocalPose().log();
-        }
-
-        for (size_t index = 0; index < mapParamsIds.size(); index++)
-        {
-            params(index + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[index]);
-        }
-
-        vecxf res = params - init_params;
-        vecxf conv_dot_res = init_invcovariance * res;
+        Vecxf res = params - init_params;
+        Vecxf conv_dot_res = init_invcovariance * res;
         float weight = mesh_vo::mapping_prior_weight / numParams;
         float priorError = weight * (res.dot(conv_dot_res));
 
         init_error += priorError;
     }
+    */
 
-    std::cout << "poseMapOptimizer initial error " << init_error << " " << lvl << std::endl;
-    reachedConvergence = false;
+    positions = init_positions;
+    indices = init_indices;
+    poses = init_poses;
+    error = init_error;
+
+    if (printLog)
+        std::cout << "poseMapOptimizer initial error " << init_error << " " << in_lvl << " " << out_lvl << std::endl;
+
+    reached_convergence_ = false;
 }
 
-void poseMapOptimizerCPU::step(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl)
+void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-    std::vector<int> mapParamsIds = kframe.getGeometry().getParamIds();
-    int numPoseParams = frames.size() * 6;
-    int numMapParams = mapParamsIds.size();
-    int numParams = numPoseParams + numMapParams;
+    int num_depths = kframe.mesh().vertex_count();
+    int numParams = kframe.mesh().vertex_count() + 6 * frames.size();
 
-    DenseLinearProblem problem(numParams);
+    DenseLinearProblemx problem(numParams);
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        DenseLinearProblem fhg = computeProblem(frames[i], kframe, cam, i, frames.size(), lvl);
-        // assert(fhg.getCount() > 0.5 * cam[lvl].width * cam[lvl].height);
-        fhg *= 1.0 / fhg.getCount();
-        problem += fhg;
+        DenseLinearProblemx fhg = compute_problem_(frames[i], kframe, cam, i, frames.size(), num_depths, in_lvl, out_lvl);
+        if (fhg.count() > 0)
+        {
+            fhg.scale(1.0 / fhg.count());
+            problem += fhg;
+        }
     }
-    problem *= 1.0 / frames.size();
+    problem.scale(1.0 / frames.size());
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
-        float weight = mesh_vo::mapping_regu_weight / numMapParams;
-        DenseLinearProblem hg_regu = kframe.getGeometry().HGRegu(numPoseParams, weight);
-        assert(hg_regu.getCount() > 0);
-        problem += hg_regu;
+        for (size_t i = 0; i < indices.size(); i += 3)
+        {
+            Vec3<int> ids(indices[i + 0],
+                          indices[i + 1],
+                          indices[i + 2]);
+            Vec3<float> depths(positions[ids(0) * 3 + 2],
+                               positions[ids(1) * 3 + 2],
+                               positions[ids(2) * 3 + 2]);
+            // regu_error += (depth(0) - depth(1)) * (depth(0) - depth(1)) + (depth(1) - depth(2)) * (depth(1) - depth(2));
+
+            float r1 = fromDepthToParam(depths(0)) - fromDepthToParam(depths(1));
+            Vec3<float> jac1(1.0, -1.0, 0.0);
+            problem.add(jac1, r1, mesh_vo::mapping_regu_weight / num_depths, ids);
+
+            float r2 = fromDepthToParam(depths(0)) - fromDepthToParam(depths(2));
+            Vec3<float> jac2(1.0, 0.0, -1.0);
+            problem.add(jac2, r2, mesh_vo::mapping_regu_weight / num_depths, ids);
+
+            float r3 = fromDepthToParam(depths(1)) - fromDepthToParam(depths(2));
+            Vec3<float> jac3(0.0, 1.0, -1.0);
+            problem.add(jac3, r3, mesh_vo::mapping_regu_weight / num_depths, ids);
+        }
     }
 
+    /*
     if (mesh_vo::mapping_prior_weight > 0.0)
     {
-        vecxf params = vecxf::Zero(numParams);
-
-        for (size_t index = 0; index < frames.size(); index++)
-        {
-            params.segment(index * 6, 6) = frames[index].getLocalPose().log();
-        }
-
-        for (size_t i = 0; i < mapParamsIds.size(); i++)
-        {
-            params(i + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[i]);
-        }
-        // error = (sqrt(H)*diff)**2
-        // jacobian = sqrt(H)*ones
-
-        vecxf res = init_invcovariancesqrt * (params - init_params);
-        matxf jacobian = init_invcovariancesqrt;
-        // vecx<float> res(_res);
-        // matx<float> jacobian(_jacobian);
+        Vecxf res = init_invcovariancesqrt * (params - init_params);
+        Matxf jacobian = init_invcovariancesqrt;
         float weight = mesh_vo::mapping_prior_weight / numParams;
         problem.add(jacobian, res, weight);
     }
-
-    std::vector<int> linearProbleParamIds = problem.getParamIds();
+    */
 
     int n_try = 0;
     float lambda = 0.0;
@@ -147,165 +154,131 @@ void poseMapOptimizerCPU::step(std::vector<frameCPU> &frames, keyFrameCPU &kfram
         }
         n_try++;
 
-        if (!problem.prepareH(lambda))
-            continue;
+        Vecxf inc = problem.solve(lambda);
 
-        vecxf inc = problem.solve();
+        std::vector<float> new_positions;
+        std::vector<SE3f> new_poses;
 
-        vecxf poseInc = inc.segment(0, numPoseParams);
-        vecxf mapInc = inc.segment(numPoseParams, numMapParams);
-
-        std::vector<Sophus::SE3f> best_poses;
-        for (size_t i = 0; i < frames.size(); i++)
+        for (size_t i = 0; i < num_depths; i++)
         {
-            best_poses.push_back(frames[i].getLocalPose());
-            SE3f new_pose = frames[i].getLocalPose() * SE3f::exp(poseInc.segment(i * 6, 6)).inverse();
-            frames[i].setLocalPose(new_pose);
+            Vec3<float> pos(positions[i * 3 + 0], positions[i * 3 + 1], positions[i * 3 + 2]);
+
+            float param_inc = inc(i);
+            float new_param = fromDepthToParam(pos(2)) + param_inc;
+            Vec3<float> pos_up = (pos / pos(2)) * fromParamToDepth(new_param);
+
+            new_positions.push_back(pos_up(0));
+            new_positions.push_back(pos_up(1));
+            new_positions.push_back(pos_up(2));
         }
 
-        std::vector<float> best_mapParams;
-        for (size_t i = 0; i < mapParamsIds.size(); i++)
+        for (int i = 0; i < frames.size(); i++)
         {
-            best_mapParams.push_back(kframe.getGeometry().getDepthParam(mapParamsIds[i]));
-            kframe.getGeometry().setDepthParam(kframe.getGeometry().getDepthParam(mapParamsIds[i]) - mapInc(i), mapParamsIds[i]);
-            // kframe.getGeometry().setWeightParam(problem.getH()(mapParamsIds[i], mapParamsIds[i]), mapParamsIds[i]);
-            kframe.getGeometry().setWeightParam(1.0 / mesh_vo::mapping_param_good_var, mapParamsIds[i]);
+            Vec6f pose_inc(inc(num_depths + i * 6 + 0),
+                           inc(num_depths + i * 6 + 1),
+                           inc(num_depths + i * 6 + 2),
+                           inc(num_depths + i * 6 + 3),
+                           inc(num_depths + i * 6 + 4),
+                           inc(num_depths + i * 6 + 5));
+            SE3f new_pose = poses[i] * SE3f::exp(pose_inc); // SE3::exp(inc).inverse();
+            new_poses.push_back(new_pose);
         }
 
-        float error = 0;
+        kframe.mesh().set_positions(new_positions);
+
+        for (int i = 0; i < frames.size(); i++)
+        {
+            frames[i].local_pose() = new_poses[i];
+        }
+
+        float new_error = 0;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            Error fe = computeError(frames[i], kframe, cam, lvl);
-            if (fe.getCount() < 0.5 * frames[i].getRawImage(lvl).width * frames[i].getRawImage(lvl).height)
+            Error fe = compute_error_(frames[i], kframe, cam, in_lvl, out_lvl);
+            if (fe.getCount() < 0.5 * frames[i].image().width(out_lvl) * frames[i].image().height(out_lvl))
             {
-                // too few pixels, unreliable, set to large error
-                error += init_error * 2.0;
+                new_error += init_error * 2.0;
             }
             else
             {
-                error += fe.getError() / fe.getCount();
+                new_error += fe.getError() / fe.getCount();
             }
         }
-        error *= 1.0 / frames.size();
+        new_error *= 1.0 / frames.size();
 
         if (mesh_vo::mapping_regu_weight > 0.0)
         {
-            Error e_regu = kframe.getGeometry().errorRegu();
-            assert(e_regu.getCount() > 0);
-            error += mesh_vo::mapping_regu_weight * e_regu.getError() / e_regu.getCount();
+            float regu_error = 0.0f;
+            for (size_t i = 0; i < indices.size(); i += 3)
+            {
+                Vec3<int> id(indices[i + 0],
+                             indices[i + 1],
+                             indices[i + 2]);
+                Vec3<float> depth(new_positions[id(0) * 3 + 2],
+                                  new_positions[id(1) * 3 + 2],
+                                  new_positions[id(2) * 3 + 2]);
+                float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
+                float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
+                float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
+                regu_error += r1 * r1 + r2 * r2 + r3 * r3;
+            }
+            new_error += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
         }
 
+        /*
         if (mesh_vo::mapping_prior_weight > 0.0)
         {
-            vecxf params(numParams);
-
-            for (size_t index = 0; index < frames.size(); index++)
-            {
-                params.segment(index * 6, 6) = frames[index].getLocalPose().log();
-            }
-
-            for (size_t index = 0; index < mapParamsIds.size(); index++)
-            {
-                params(index + numPoseParams) = kframe.getGeometry().getDepthParam(mapParamsIds[index]);
-            }
-
-            vecxf res = params - init_params;
-            vecxf conv_dot_res = init_invcovariance * res;
+            Vecxf res = new_params - init_params;
+            Vecxf conv_dot_res = init_invcovariance * res;
             float weight = mesh_vo::mapping_prior_weight / numParams;
             float priorError = weight * (res.dot(conv_dot_res));
 
-            error += priorError;
+            new_error += priorError;
         }
+        */
 
-        std::cout << "poseMapOptimizer new error " << error << " " << lambda << " " << n_try << " lvl: " << lvl << " mesh_regu: " << mesh_vo::mapping_regu_weight << std::endl;
+        if (printLog)
+            std::cout << "poseMapOptimizer new error " << new_error << " " << lambda << " " << n_try << " lvl: " << in_lvl << " " << out_lvl << " mesh_regu: " << mesh_vo::mapping_regu_weight << std::endl;
 
-        if (error <= init_error)
+        if (new_error <= error)
         {
-            // accept update, decrease lambda
-            float p = error / init_error;
-
-            init_error = error;
+            float p = new_error / error;
+            error = new_error;
+            positions = new_positions;
+            poses = new_poses;
 
             if (p >= mesh_vo::mapping_convergence_p)
             {
-                // std::cout << "lvl " << lvl << " converged after " << it << " itarations with lambda " << lambda << std::endl;
-                //  if converged, do next level
-                reachedConvergence = true;
-                std::cout << "poseMapOptimizer converged p:" << p << std::endl;
+                reached_convergence_ = true;
+                if (printLog)
+                    std::cout << "poseMapOptimizer converged p:" << p << std::endl;
             }
-
-            // if update accepted, do next iteration
             break;
         }
         else
         {
-            for (size_t i = 0; i < frames.size(); i++)
+            kframe.mesh().set_positions(positions);
+
+            for (int i = 0; i < frames.size(); i++)
             {
-                frames[i].setLocalPose(best_poses[i]);
+                frames[i].local_pose() = poses[i];
             }
 
-            for (size_t i = 0; i < mapParamsIds.size(); i++)
-            {
-                kframe.getGeometry().setDepthParam(best_mapParams[i], mapParamsIds[i]);
-            }
+            float incMag = inc.dot(inc) / numParams;
 
-            // reject update, increase lambda, use un-updated data
-            float poseIncMag = poseInc.dot(poseInc)/numPoseParams;
-            float mapIncMag = mapInc.dot(mapInc)/numMapParams;
-
-            if (poseIncMag <= mesh_vo::mapping_convergence_p_v && mapIncMag <= mesh_vo::mapping_convergence_m_v)
+            if (incMag <= mesh_vo::mapping_convergence_m_v)
             {
-                // if too small, do next level!
-                reachedConvergence = true;
-                std::cout << "poseMapOptimizer too small " << poseIncMag << " " << mapIncMag << std::endl;
+                reached_convergence_ = true;
+                if (printLog)
+                    std::cout << "poseMapOptimizer too small " << incMag << std::endl;
                 break;
             }
         }
     }
 }
 
-DenseLinearProblem poseMapOptimizerCPU::computeProblem(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam, int frameId, int numFrames, int lvl)
+DenseLinearProblemx PoseMapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl)
 {
-    error_buffer.setToNoData(lvl);
-    jpose_buffer.setToNoData(lvl);
-    jmap_buffer.setToNoData(lvl);
-    pId_buffer.setToNoData(lvl);
-
-    int numMapParams = kframe.getGeometry().getParamIds().size();
-
-    renderer.renderJPoseMapParallel(kframe, frame, jpose_buffer, jmap_buffer, error_buffer, pId_buffer, cam, lvl);
-    DenseLinearProblem problem = reducer.reduceHGPoseMapParallel(frameId, numFrames, numMapParams, jpose_buffer.get(lvl), jmap_buffer.get(lvl), error_buffer.get(lvl), pId_buffer.get(lvl));
-
-    return problem;
-}
-
-std::vector<dataCPU<float>> poseMapOptimizerCPU::getDebugData(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam, int lvl)
-{
-    std::vector<dataCPU<float>> toShow;
-
-    toShow.push_back(kframe.getRawImage(lvl).convert<float>());
-
-    depth_buffer.setToNoData(lvl);
-    //weight_buffer.setToNoData(lvl);
-
-    renderer.renderDepthParallel(kframe, SE3f(), depth_buffer, cam, lvl);
-    //renderer.renderWeightParallel(kframe, SE3f(), weight_buffer, cam, lvl);
-
-    depth_buffer.get(lvl).invert();
-
-    toShow.push_back(depth_buffer.get(lvl));
-    //toShow.push_back(weight_buffer.get(lvl));
-
-    for (frameCPU frame : frames)
-    {
-        error_buffer.setToNoData(lvl);
-        // depth_buffer.setToNoData(lvl);
-        renderer.renderResidualParallel(kframe, frame, error_buffer, cam, lvl);
-        // renderer.renderDepthParallel(kframe, frames[i].getLocalPose(), depth_buffer, cam, lvl);
-        toShow.push_back(frame.getRawImage(lvl).convert<float>());
-        toShow.push_back(error_buffer.get(lvl).convert<float>());
-        // toShow.push_back(depth_buffer.get(lvl));
-    }
-
-    return toShow;
+    jposemaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), frame.local_exposure(), cam, 30.0, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_);
+    return hgposemapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jtra_texture_, jrot_texture_, jmap_texture_, pids_texture_, r_texture_, kframe.mesh());
 }

@@ -5,14 +5,14 @@ class Error
 public:
     Error()
     {
-        error = 0.0;
-        count = 0;
+        e_ = 0.0;
+        c_ = 0;
     }
 
     void setZero()
     {
-        error = 0.0;
-        count = 0;
+        e_ = 0.0;
+        c_ = 0;
     }
 
     Error operator+(Error a)
@@ -34,8 +34,8 @@ public:
         sum.count = 1;
         */
 
-        sum.error = error + a.error;
-        sum.count = count + a.count;
+        sum.e_ = e_ + a.e_;
+        sum.c_ = c_ + a.c_;
 
         return sum;
     }
@@ -56,31 +56,31 @@ public:
         count = 1;
         */
 
-        error += a.error;
-        count += a.count;
+        e_ += a.e_;
+        c_ += a.c_;
     }
 
     template <typename type>
     void operator+=(type a)
     {
-        error += a;
-        count++;
+        e_ += a;
+        c_++;
     }
 
     template <typename type>
     void operator*=(type a)
     {
-        error *= a;
+        e_ *= a;
     }
 
     float getError()
     {
-        return error;
+        return e_;
     }
 
     int getCount()
     {
-        return count;
+        return c_;
     }
 
     /*
@@ -92,6 +92,6 @@ public:
     */
 
 private:
-    float error;
-    float count;
+    float e_;
+    float c_;
 };

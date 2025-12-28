@@ -1,135 +1,273 @@
 cmake_minimum_required(VERSION 3.16.3)
-project(mesh_vo)
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+project(mesh_vo LANGUAGES C CXX)
+
+# --- Options ------------------------------------------------------
+option(COMPILE_CPU     "Enable CPU compilation"           ON)
+option(COMPILE_GL      "Enable OpenGL compilation"        ON)
+option(COMPILE_GLES2   "Enable GLES2 compilation"         OFF)
+option(COMPILE_HLS     "Enable HLS synthesis"             OFF)
+option(COMPILE_XRT     "Enable XRT compilation"           OFF)
+option(COMPILE_DEMO    "Enable Demo compilation"          OFF)
+option(COMPILE_TESTS   "Enable Tests compilation"         ON)
+
+# --- C++ Standard -------------------------------------------------
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(SuiteParse REQUIRED)
-find_package(Eigen3 REQUIRED)
-find_package(OpenCV REQUIRED)
-find_package(Pangolin REQUIRED)
+# --- Dependencies -------------------------------------------------
+find_package(Eigen3      REQUIRED)
+find_package(OpenCV      REQUIRED)
+find_package(Pangolin    REQUIRED)
+find_package(OpenGL      REQUIRED)
+find_package(Threads     REQUIRED)
 
+# Some projects set these (e.g. from parent CMake). Keep them as-is if defined.
+#   CSPARSE_INCLUDE_DIR
+#   CHOLMOD_INCLUDE_DIR
+
+# Provide Eigen3::Eigen if the FindEigen3 module did not
 if(NOT TARGET Eigen3::Eigen)
   add_library(Eigen3::Eigen INTERFACE IMPORTED)
-  set_target_properties(Eigen3::Eigen PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${EIGEN3_INCLUDE_DIR}")
+  set_target_properties(Eigen3::Eigen PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${EIGEN3_INCLUDE_DIR}"
+  )
 endif()
 
-include_directories("src")
-include_directories("MultiPlatformRenderer/src")
-include_directories("MultiPlatformRenderer/tests")
-#include_directories("include")
-include_directories(
-        ${PROJECT_SOURCE_DIR}/thirdparty/Sophus
-        ${EIGEN3_INCLUDE_DIR}
-        ${Pangolin_INCLUDE_DIRS}
-        )
+# --- GL / GLES2 sanity check --------------------------------------
+if(COMPILE_GL AND COMPILE_GLES2)
+  message(WARNING
+    "Both COMPILE_GL and COMPILE_GLES2 are ON. "
+    "Please pick one; disabling both for now."
+  )
+  set(COMPILE_GL OFF)
+  set(COMPILE_GLES2 OFF)
+endif()
 
-include_directories( ${CSPARSE_INCLUDE_DIR} ${CHOLMOD_INCLUDE_DIR}) 
-
-#file(GLOB VISUALODOMETRY_SRCS "src/*.cpp"
-#                              "src/common/*.cpp"
-#                              "src/cpu/*.cpp"
-#                              "src/scene/*.cpp"
-#                              "src/utils/*.cpp"
-#)
-
+# --- Core Library -------------------------------------------------
 set(VISUALODOMETRY_SRCS
-      "src/params.cpp"
-      "src/optimizers/poseOptimizer.cpp")
-#      "src/optimizers/mapOptimizer.cpp"
-#      "src/optimizers/poseMapOptimizer.cpp")
-
-#file(GLOB TESTAPP_SRCS "src/test/*.cpp"
-#                       "src/test/utils/*.cpp")
-
-#file(GLOB TUMDATASET_SRCS "src/tum_dataset/*.cpp")
-
-set(TESTAPP_SRCS
-      "src/apps/test/main.cpp"
+  src/params.cpp
+  src/optimizers/poseOptimizer.cpp
+  src/optimizers/poseExpOptimizer.cpp
+  src/optimizers/poseVelOptimizer.cpp
+  src/optimizers/poseVelExpOptimizer.cpp
+  src/optimizers/mapOptimizer.cpp
+  src/optimizers/mapExpOptimizer.cpp
+  src/optimizers/poseMapOptimizer.cpp
+  src/optimizers/poseExpMapOptimizer.cpp
+  src/optimizers/poseVelMapOptimizer.cpp
+  src/optimizers/poseVelExpMapOptimizer.cpp
 )
-
-set(TUMDATASET_SRCS
-      "src/apps/tum_dataset/main_on_images.cpp"
-      "src/apps/tum_dataset/Undistorter.cpp"
-)
-
-set(KITTI_SRCS
-      "src/apps/kitti/main_on_images.cpp"
-)
-
-set(KITTI_BINOCULAR_SRCS
-      "src/apps/kitti_binocular/main_on_images.cpp"
-)
-
-set(SYFRA_SRCS
-      "src/apps/syfra/main_on_images.cpp"
-)
-
-set(RGBD_SRCS
-      "src/apps/rgbd_dataset/main_on_images.cpp"
-)
-
-#file(GLOB SHADERS  "src/shaders/*")
-
-#foreach(SHADER ${SHADERS})
-#  file(COPY ${SHADER} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-#endforeach(SHADER)
 
 add_library(mesh_vo STATIC ${VISUALODOMETRY_SRCS})
-#target_precompile_headers(mesh_vo PRIVATE "include/pch.h")
-target_include_directories(mesh_vo PRIVATE ${OpenCV_INCLUDE_DIRS})
 
-#add_executable(testapp ${TESTAPP_SRCS})
-#add_executable(tum_dataset ${TUMDATASET_SRCS})
-#add_executable(rgbd_dataset ${RGBD_SRCS})
-#add_executable(kitti_dataset ${KITTI_SRCS} ${VISUALODOMETRY_SRCS})
-#add_executable(kitti_binocular ${KITTI_BINOCULAR_SRCS} ${VISUALODOMETRY_SRCS})
-#add_executable(syfra ${SYFRA_SRCS})
-
-#target_link_libraries(testapp ${OpenCV_LIBS} glfw OpenGL::GL ${CMAKE_DL_LIBS})
-#target_link_libraries(testapp mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-#target_link_libraries(tum_dataset mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-#target_link_libraries(rgbd_dataset mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-#target_link_libraries(kitti_dataset ${OpenCV_LIBS} pthread)
-#target_link_libraries(kitti_binocular ${OpenCV_LIBS} pthread)
-#target_link_libraries(syfra mesh_vo ${OpenCV_LIBS} pthread)
-
-
-
-
-
-# --- Testing Setup ---
-
-# Enable testing
-enable_testing()
-
-# Fetch GoogleTest
-include(FetchContent)
-FetchContent_Declare(
-    googletest
-    URL https://github.com/google/googletest/archive/release-1.12.1.zip
+target_include_directories(mesh_vo
+  PUBLIC
+    ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/src
+    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/HLSLinearAlgebra/include
+    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/Sophus
+    ${Pangolin_INCLUDE_DIRS}
+    ${CSPARSE_INCLUDE_DIR}
+    ${CHOLMOD_INCLUDE_DIR}
+  PRIVATE
+    ${OpenCV_INCLUDE_DIRS}
 )
-# For Windows: Prevent overriding the parent project's compiler/linker settings
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
+
+target_link_libraries(mesh_vo
+  PUBLIC
+    Eigen3::Eigen
+    ${Pangolin_LIBRARIES}
+  PRIVATE
+    ${OpenCV_LIBS}
+)
+
+# --- GLAD (GL / GLES2) --------------------------------------------
+if(COMPILE_GL OR COMPILE_GLES2)
+  add_library(glad STATIC)
+
+  target_sources(glad PRIVATE
+    $<$<BOOL:${COMPILE_GL}>:
+      ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/glad2/src/gl.c>
+    $<$<BOOL:${COMPILE_GLES2}>:
+      ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/glad2/src/gles2.c>
+    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/glad2/src/egl.c
+  )
+
+  target_include_directories(glad
+    PUBLIC
+      ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/glad2/include
+  )
+endif()
+
+# Make mesh_vo depend on glad so glad's PUBLIC includes propagate
+if(COMPILE_GL OR COMPILE_GLES2)
+  target_link_libraries(mesh_vo
+    PUBLIC
+      glad
+  )
+endif()
+
+#if(COMPILE_DEMO)
+#add_subdirectory(src/apps/tum_dataset)
+#endif()
+
+# --- Tests --------------------------------------------------------
+if(COMPILE_TESTS)
+  include(CTest)
+  include(FetchContent)
+
+  FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG release-1.11.0
+  )
+
+  # Avoid changing parent's cache unless you really want to
+  # set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)  # for MSVC if needed
+
+  FetchContent_MakeAvailable(googletest)
+
+  enable_testing()
+  include(GoogleTest)
+
+  add_executable(poseEstimation_tests
+    tests/poseEstimation_test.cpp
+  )
+
+  target_link_libraries(poseEstimation_tests
+    PRIVATE
+      mesh_vo
+      gtest_main
+      Eigen3::Eigen
+      ${OpenCV_LIBS}
+      ${Pangolin_LIBRARIES}
+      Threads::Threads
+  )
+
+  target_include_directories(poseEstimation_tests
+    PRIVATE
+      ${PROJECT_SOURCE_DIR}/src
+      ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty
+      ${OpenCV_INCLUDE_DIRS}
+  )
+
+  target_compile_definitions(poseEstimation_tests
+    PRIVATE
+      TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+  )
+
+  if(COMPILE_GL)
+    target_link_libraries(poseEstimation_tests
+      PRIVATE
+        glad
+        ${OPENGL_LIBRARIES}
+        EGL
+    )
+    target_compile_definitions(poseEstimation_tests PRIVATE COMPILE_GL)
+  elseif(COMPILE_GLES2)
+    target_link_libraries(poseEstimation_tests
+      PRIVATE
+        glad
+        ${OPENGL_LIBRARIES}
+        EGL
+    )
+    target_compile_definitions(poseEstimation_tests PRIVATE COMPILE_GLES2)
+  endif()
+
+  gtest_discover_tests(poseEstimation_tests)
 
 
-# Create test executable(s)
+  add_executable(mapEstimation_tests
+    tests/mapEstimation_test.cpp
+  )
 
-# Create test executable(s)
+  target_link_libraries(mapEstimation_tests
+    PRIVATE
+      mesh_vo
+      gtest_main
+      Eigen3::Eigen
+      ${OpenCV_LIBS}
+      ${Pangolin_LIBRARIES}
+      Threads::Threads
+  )
 
-add_executable(poseEstimation_tests tests/poseEstimation_test.cpp)
-target_link_libraries(poseEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-target_compile_definitions(poseEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-add_test(NAME poseEstimation_tests COMMAND poseEstimation_tests)
+  target_include_directories(mapEstimation_tests
+    PRIVATE
+      ${PROJECT_SOURCE_DIR}/src
+      ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty
+      ${OpenCV_INCLUDE_DIRS}
+  )
 
-#add_executable(poseVelEstimation_tests tests/poseVelEstimation_test.cpp)
-#target_link_libraries(poseVelEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-#target_compile_definitions(poseVelEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-#add_test(NAME poseVelEstimation_tests COMMAND poseVelEstimation_tests)
+  target_compile_definitions(mapEstimation_tests
+    PRIVATE
+      TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+  )
 
-#add_executable(mapEstimation_tests tests/mapEstimation_test.cpp)
-#target_link_libraries(mapEstimation_tests PRIVATE gtest_main mesh_vo ${OpenCV_LIBS} ${Pangolin_LIBRARIES} pthread)
-#target_compile_definitions(mapEstimation_tests PRIVATE TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
-#add_test(NAME mapEstimation_tests COMMAND mapEstimation_tests)
+  if(COMPILE_GL)
+    target_link_libraries(mapEstimation_tests
+      PRIVATE
+        glad
+        ${OPENGL_LIBRARIES}
+        EGL
+    )
+    target_compile_definitions(mapEstimation_tests PRIVATE COMPILE_GL)
+  elseif(COMPILE_GLES2)
+    target_link_libraries(mapEstimation_tests
+      PRIVATE
+        glad
+        ${OPENGL_LIBRARIES}
+        EGL
+    )
+    target_compile_definitions(mapEstimation_tests PRIVATE COMPILE_GLES2)
+  endif()
+
+  gtest_discover_tests(mapEstimation_tests)
+
+  add_executable(poseMapEstimation_tests
+    tests/poseMapEstimation_test.cpp
+  )
+
+  target_link_libraries(poseMapEstimation_tests
+    PRIVATE
+      mesh_vo
+      gtest_main
+      Eigen3::Eigen
+      ${OpenCV_LIBS}
+      ${Pangolin_LIBRARIES}
+      Threads::Threads
+  )
+
+  target_include_directories(poseMapEstimation_tests
+    PRIVATE
+      ${PROJECT_SOURCE_DIR}/src
+      ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty
+      ${OpenCV_INCLUDE_DIRS}
+  )
+
+  target_compile_definitions(poseMapEstimation_tests
+    PRIVATE
+      TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+  )
+
+  if(COMPILE_GL)
+    target_link_libraries(poseMapEstimation_tests
+      PRIVATE
+        glad
+        ${OPENGL_LIBRARIES}
+        EGL
+    )
+    target_compile_definitions(poseMapEstimation_tests PRIVATE COMPILE_GL)
+  elseif(COMPILE_GLES2)
+    target_link_libraries(poseMapEstimation_tests
+      PRIVATE
+        glad
+        ${OPENGL_LIBRARIES}
+        EGL
+    )
+    target_compile_definitions(poseMapEstimation_tests PRIVATE COMPILE_GLES2)
+  endif()
+
+  gtest_discover_tests(poseMapEstimation_tests)
+endif()

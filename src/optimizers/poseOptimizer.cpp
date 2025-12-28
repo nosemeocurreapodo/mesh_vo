@@ -2,50 +2,55 @@
 
 PoseOptimizer::PoseOptimizer(int w, int h, bool print_log)
 	: BaseOptimizer(w, h),
-	  jtra_texture_(w, h, Vec3(0.0, 0.0, 0.0)),
-	  jrot_texture_(w, h, Vec3(0.0, 0.0, 0.0))
+	  jtra_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
+	  jrot_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
+	  jtravel_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
+	  jrotvel_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
+	  jexp_texture_(w, h, Vec3f(0.0, 0.0, 0.0))
 {
-	inv_covariance_ = Mat6::Identity() / mesh_vo::tracking_pose_initial_var;
+	inv_covariance_ = Mat6f::Identity() / mesh_vo::tracking_pose_initial_var;
 	print_log_ = print_log;
 }
 
-void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	init_pose_ = frame.local_pose().log();
+	init_pose_ = frame.local_pose();
 	init_invcovariance_ = inv_covariance_;
 
 	if (mesh_vo::tracking_prior_weight > 0.0)
 		init_invcovariancesqrt_ = inv_covariance_.sqrt();
 
-	Error er = computeError(frame, kframe, cam, lvl);
+	Error er = compute_error_(frame, kframe, cam, in_lvl, out_lvl);
 	init_error_ = er.getError() / er.getCount();
 
 	if (mesh_vo::tracking_prior_weight > 0.0)
 	{
-		Vec6 res = frame.local_pose().log() - init_pose_;
-		Vec6 conv_dot_res = init_invcovariance_ * res;
+		Vec6f res = frame.local_pose().log() - init_pose_.log();
+		Vec6f conv_dot_res = init_invcovariance_ * res;
 		float weight = mesh_vo::tracking_prior_weight / 6;
 		init_error_ += weight * (res.dot(conv_dot_res));
 	}
 
+	pose_ = init_pose_;
+	error_ = init_error_;
+
 	if (print_log_)
-		std::cout << "poseOptimizer initial error " << init_error_ << " " << lvl << std::endl;
+		std::cout << "poseOptimizer initial error " << init_error_ << " " << in_lvl << " " << out_lvl << std::endl;
 
 	reached_convergence_ = false;
 }
 
-void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	DenseLinearProblem problem = computeProblem_(frame, kframe, cam, lvl);
+	DenseLinearProblem<6> problem = compute_problem_(frame, kframe, cam, in_lvl, out_lvl);
 	// problem *= 1.0 / problem.count();
-
 	/*
 	if (mesh_vo::tracking_prior_weight > 0.0)
 	{
 		// error = diff * (H * diff)
 		// jacobian = ones * (H * diff) + diff ( H * ones)
-		Vec6 res = init_invcovariancesqrt_ * (frame.local_pose().log() - init_pose_);
-		Mat6 jacobian = init_invcovariancesqrt_;
+		Vec6f res = init_invcovariancesqrt_ * (pose_.log() - init_pose_.log());
+		Mat6f jacobian = init_invcovariancesqrt_;
 		float weight = mesh_vo::tracking_prior_weight / 6;
 		// vec6<float> res(_res);
 		// mat6<float> jacobian(_jacobian);
@@ -65,15 +70,22 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 		}
 		n_try++;
 
-		Vecx inc = problem.solve(lambda);
+		Vec6f inc = problem.solve(lambda);
+		Vec6f pose_inc;
+		pose_inc(0) = inc(0);
+		pose_inc(1) = inc(1);
+		pose_inc(2) = inc(2);
+		pose_inc(3) = inc(3);
+		pose_inc(4) = inc(4);
+		pose_inc(5) = inc(5);
 
-		SE3 best_pose = frame.local_pose();
-		SE3 new_pose = frame.local_pose() * SE3::exp(inc); // SE3::exp(inc).inverse();
+		SE3f new_pose = pose_ * SE3f::exp(pose_inc); // SE3::exp(inc).inverse();
+
 		frame.local_pose() = new_pose;
 
 		float new_error = 0;
-		Error ne = computeError(frame, kframe, cam, lvl);
-		if (ne.getCount() < 0.5 * frame.image().size(lvl))
+		Error ne = compute_error_(frame, kframe, cam, in_lvl, out_lvl);
+		if (ne.getCount() < 0.5 * frame.image().width(out_lvl) * frame.image().height(out_lvl))
 		{
 			// too few pixels, unreliable, set to large error
 			new_error += init_error_ * 2.0;
@@ -85,34 +97,35 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 
 		if (mesh_vo::tracking_prior_weight > 0.0)
 		{
-			Vec6 res = frame.local_pose().log() - init_pose_;
-			Vec6 conv_dot_res = init_invcovariance_ * res;
+			Vec6f res = new_pose.log() - init_pose_.log();
+			Vec6f conv_dot_res = init_invcovariance_ * res;
 			float weight = mesh_vo::tracking_prior_weight / 6;
 			new_error += weight * (res.dot(conv_dot_res));
 		}
 
 		if (print_log_)
-			std::cout << "poseOptimizer new error " << new_error << " " << lambda << " " << " " << lvl << std::endl;
+			std::cout << "poseOptimizer new error " << new_error << " " << lambda << " " << in_lvl << " " << out_lvl << std::endl;
 
-		if (new_error <= init_error_)
+		if (new_error <= error_)
 		{
-			float p = new_error / init_error_;
+			float p = new_error / error_;
 
-			init_error_ = new_error;
+			pose_ = new_pose;
+			error_ = new_error;
 
 			if (p >= mesh_vo::tracking_convergence_p)
 			{
 				reached_convergence_ = true;
 
 				if (print_log_)
-					std::cout << "poseOptimizer converged p:" << p << " lvl: " << lvl << std::endl;
+					std::cout << "poseOptimizer converged p:" << p << " lvl: " << in_lvl << " " << out_lvl << std::endl;
 			}
 			// if update accepted, do next iteration
 			break;
 		}
 		else
 		{
-			frame.local_pose() = best_pose;
+			frame.local_pose() = pose_;
 
 			float poseIncMag = inc.dot(inc) / 6.0;
 
@@ -123,7 +136,7 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 				reached_convergence_ = true;
 
 				if (print_log_)
-					std::cout << "poseOptimizer too small " << poseIncMag << " lvl: " << lvl << std::endl;
+					std::cout << "poseOptimizer too small " << poseIncMag << " lvl: " << in_lvl << " " << out_lvl << std::endl;
 
 				break;
 			}
@@ -131,8 +144,8 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
 	}
 }
 
-DenseLinearProblem PoseOptimizer::computeProblem(Frame &frame, KeyFrame &kframe, Camera &cam, int lvl)
+DenseLinearProblem<6> PoseOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), cam, lvl, lvl, kframe.frame().image(), frame.image(), frame.didxy(), jtra_texture_, jrot_texture_, r_texture_);
-	return hgposereducer_.reduce(lvl, jtra_texture_, jrot_texture_, r_texture_);
+	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), frame.local_exposure(), cam, 30.0, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, r_texture_);
+	return hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, r_texture_);
 }
