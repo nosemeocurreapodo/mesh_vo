@@ -4,8 +4,8 @@ namespace mesh_vo
 {
     //inline constexpr int image_width = 512;
     //inline constexpr int image_height = 512;
-    inline constexpr int mesh_width = 24;
-    inline constexpr int mesh_height = 24;
+    inline constexpr int mesh_width = 16;
+    inline constexpr int mesh_height = 16;
     inline constexpr int max_vertex_size = mesh_width * mesh_height;
     inline constexpr int max_triangle_size = (mesh_width - 1) * (mesh_height - 1) * 2;
     inline constexpr int num_frames = 5;
@@ -17,6 +17,7 @@ namespace mesh_vo
     extern float min_view_perc;
     extern float min_lambda;
     extern float huber_thresh_pix;
+    extern float huber_thresh_param;
     extern float line_capture_time;
 
     extern int tracking_ini_lvl;

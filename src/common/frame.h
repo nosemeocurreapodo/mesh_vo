@@ -65,6 +65,11 @@ public:
         return *this;
     }
 
+    int id() const
+    {
+        return id_;
+    }
+
     const Texture<ImageType> &image() const
     {
         return image_;

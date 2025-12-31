@@ -25,6 +25,7 @@ TEST_F(RendererTestBase, ComputeMap)
     Mesh screen_mesh(s_ver_buff_, s_idx_buff_, true, true, false);
 
     DepthRenderer depth_renderer;
+    PidsRenderer pids_renderer;
     ImageRenderer image_renderer;
     DIDxyRenderer didxy_renderer;
     ResidualRenderer residual_renderer;
@@ -41,11 +42,17 @@ TEST_F(RendererTestBase, ComputeMap)
     Texture<float> gt_depth(w_, h_, 0.0);
     Texture<float> depth(w_, h_, 0.0);
     Texture<float> l2(w_, h_, 0.0);
+    Texture<Vec3f> pids_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
 
     cv::Mat image_cv = cv::imread(image_files_[0], cv::IMREAD_GRAYSCALE);
     cv::Mat gt_depth_cv = cv::imread(depth_files_[0], cv::IMREAD_GRAYSCALE);
     gt_depth_cv.convertTo(gt_depth_cv, CV_32FC1);
     gt_depth_cv = gt_depth_cv / depth_factor_;
+    double gt_depth_min;
+    double gt_depth_max;
+    double gt_depth_mean;
+    cv::minMaxLoc(gt_depth_cv, &gt_depth_min, &gt_depth_max);
+    gt_depth_mean = cv::mean(gt_depth_cv)[0];
     UploadMatToTexture(image, 0, image_cv);
     UploadMatToTexture(gt_depth, 0, gt_depth_cv);
     SE3f gt_pose = poses_[0];
@@ -53,9 +60,9 @@ TEST_F(RendererTestBase, ComputeMap)
     std::vector<float> ver_buff_;
     std::vector<int> idx_buff_;
 
-    CreateMesh(gt_depth, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-    // CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-    //    CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+    // CreateMesh(gt_depth, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
+    CreateFlatMesh(gt_depth_mean * 0.5, gt_depth_mean * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
+    //     CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
     Mesh mesh(ver_buff_, idx_buff_, true, true, true);
     KeyFrame kframe(Frame(image, didxy, 0, SE3f(), gt_pose), mesh, 1.0);
@@ -94,7 +101,9 @@ TEST_F(RendererTestBase, ComputeMap)
                 minViewAngle = viewAngle;
         }
 
-        if (minViewAngle < mesh_vo::last_min_angle)
+        std::cout << "Min view angle " << minViewAngle << std::endl;
+
+        if (minViewAngle < mesh_vo::last_min_angle && kframe.frame().id() != 0)
             continue;
 
         frames.push_back(frame);
@@ -122,13 +131,14 @@ TEST_F(RendererTestBase, ComputeMap)
 
         std::cout << "view percent " << viewPercent << std::endl;
 
-        if (viewPercent > mesh_vo::min_view_perc) // || keyframeViewAngle > mesh_vo::key_max_angle)
+        if (viewPercent > mesh_vo::min_view_perc && kframe.frame().id() != 0) // || keyframeViewAngle > mesh_vo::key_max_angle)
             continue;
 
         int kframeIndex = frames.size() / 2;
         std::vector<Frame> oframes = frames;
         oframes.erase(oframes.begin() + kframeIndex);
 
+        /*
         // CreateMesh(gt_depths[kframeIndex], cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
         // CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
         // CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
@@ -143,6 +153,9 @@ TEST_F(RendererTestBase, ComputeMap)
         float global_scale = kframe.getGlobalScale();
         kframe = KeyFrame(frames[kframeIndex], mesh, global_scale);
         // kframe.scaleMesh(global_scale);
+        */
+
+        kframe.changeFrame(frames[kframeIndex], cam_);
 
         std::cout << "Mean depth " << kframe.meanDepth() << std::endl;
 
@@ -206,6 +219,13 @@ TEST_F(RendererTestBase, ComputeMap)
 
         cv::Mat gt_depth_cv_2 = DownloadTextureToMat(gt_depths[kframeIndex], plot_lvl);
         SaveDebugImage(gt_depth_cv_2, "depth_" + std::to_string(img_id) + "_gt.png");
+
+        pids_renderer.Render(kframe.mesh(),
+                             frames[kframeIndex].local_pose(),
+                             cam_, plot_lvl, pids_texture);
+
+        cv::Mat pids_cv = DownloadTextureToMat(pids_texture, plot_lvl);
+        SaveDebugImage(pids_cv, "pids_" + std::to_string(img_id) + ".png");
 
         accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
         accError += error;

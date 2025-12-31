@@ -153,8 +153,14 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         {
             Vec3<float> pos(positions[i * 3 + 0], positions[i * 3 + 1], positions[i * 3 + 2]);
 
-            Vec3<float> pos_up = (pos / pos(2)) * fromParamToDepth(new_params(i));
+            float new_depth = fromParamToDepth(new_params(i));
+            if(new_depth < RenderConstants::NEAR_PLANE)
+                new_depth = RenderConstants::NEAR_PLANE;
+            if(new_depth > RenderConstants::FAR_PLANE)
+                new_depth = RenderConstants::FAR_PLANE;
 
+            Vec3<float> pos_up = (pos / pos(2)) * new_depth;
+            
             new_positions.push_back(pos_up(0));
             new_positions.push_back(pos_up(1));
             new_positions.push_back(pos_up(2));

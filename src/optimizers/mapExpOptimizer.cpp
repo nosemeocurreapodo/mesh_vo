@@ -67,7 +67,10 @@ void MapExpOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera 
             float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
             float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
             float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
-            regu_error += r1 * r1 + r2 * r2 + r3 * r3;
+            float w1 = huber_weight(r1, mesh_vo::huber_thresh_param);
+            float w2 = huber_weight(r2, mesh_vo::huber_thresh_param);
+            float w3 = huber_weight(r3, mesh_vo::huber_thresh_param);
+            regu_error += w1 * r1 * r1 + w2 * r2 * r2 + w3 * r3 * r3;
         }
         init_error += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
     }
@@ -126,16 +129,19 @@ void MapExpOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera 
             // regu_error += (depth(0) - depth(1)) * (depth(0) - depth(1)) + (depth(1) - depth(2)) * (depth(1) - depth(2));
 
             float r1 = fromDepthToParam(depths(0)) - fromDepthToParam(depths(1));
+            float w1 = huber_weight(r1, mesh_vo::huber_thresh_param);
             Vec3<float> jac1(1.0, -1.0, 0.0);
-            problem.add(jac1, r1, mesh_vo::mapping_regu_weight / num_depths, ids);
+            problem.add(jac1, r1, w1 * mesh_vo::mapping_regu_weight / num_depths, ids);
 
             float r2 = fromDepthToParam(depths(0)) - fromDepthToParam(depths(2));
+            float w2 = huber_weight(r2, mesh_vo::huber_thresh_param);
             Vec3<float> jac2(1.0, 0.0, -1.0);
-            problem.add(jac2, r2, mesh_vo::mapping_regu_weight / num_depths, ids);
+            problem.add(jac2, r2, w2 * mesh_vo::mapping_regu_weight / num_depths, ids);
 
             float r3 = fromDepthToParam(depths(1)) - fromDepthToParam(depths(2));
+            float w3 = huber_weight(r3, mesh_vo::huber_thresh_param);
             Vec3<float> jac3(0.0, 1.0, -1.0);
-            problem.add(jac3, r3, mesh_vo::mapping_regu_weight / num_depths, ids);
+            problem.add(jac3, r3, w3 * mesh_vo::mapping_regu_weight / num_depths, ids);
         }
     }
 
@@ -168,8 +174,14 @@ void MapExpOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera 
         for (size_t i = 0; i < num_depths; i++)
         {
             Vec3<float> pos(positions[i * 3 + 0], positions[i * 3 + 1], positions[i * 3 + 2]);
+            
+            float new_depth = fromParamToDepth(new_params(i));
+            if(new_depth < RenderConstants::NEAR_PLANE)
+                new_depth = RenderConstants::NEAR_PLANE;
+            if(new_depth > RenderConstants::FAR_PLANE)
+                new_depth = RenderConstants::FAR_PLANE;
 
-            Vec3<float> pos_up = (pos / pos(2)) * fromParamToDepth(new_params(i));
+            Vec3<float> pos_up = (pos / pos(2)) * new_depth;
 
             new_positions.push_back(pos_up(0));
             new_positions.push_back(pos_up(1));
@@ -217,7 +229,10 @@ void MapExpOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera 
                 float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
                 float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
                 float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
-                regu_error += r1 * r1 + r2 * r2 + r3 * r3;
+                float w1 = huber_weight(r1, mesh_vo::huber_thresh_param);
+                float w2 = huber_weight(r2, mesh_vo::huber_thresh_param);
+                float w3 = huber_weight(r3, mesh_vo::huber_thresh_param);
+                regu_error += w1 * r1 * r1 + w2 * r2 * r2 + w3 * r3 * r3;
             }
             new_error += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
         }

@@ -116,18 +116,31 @@ public:
         mesh_.set_positions(positions);
     }
 
-    void transformMesh(const SE3f &transformation)
+    void changeFrame(const Frame &frame, const Camera &cam)
     {
         std::vector<float> positions = mesh_.get_positions();
-        for (int i = 0; i < positions.size(); i+=3)
+        std::vector<float> texcoords = mesh_.get_texcoords();
+
+        for (int i = 0; i < mesh_.vertex_count(); i++)
         {
-            Vec3<float> vert(positions[i], positions[i+1], positions[i+2]);
-            vert = transformation * vert;
-            positions[i] = vert(0);
-            positions[i+1] = vert(1);
-            positions[i+2] = vert(2);
+            Vec3<float> vert(positions[i * 3 + 0], positions[i * 3 + 1], positions[i * 3 + 2]);
+            Vec2<float> tex(texcoords[i * 2 + 0], texcoords[i * 2 + 1]);
+
+            vert = frame.local_pose() * vert;
+            Vec3<float> ray = vert / vert(2);
+            Vec2<float> pix = cam.RayToPix(ray);
+
+            positions[i * 3 + 0] = vert(0);
+            positions[i * 3 + 1] = vert(1);
+            positions[i * 3 + 2] = vert(2);
+
+            texcoords[i * 2 + 0] = pix(0);
+            texcoords[i * 2 + 1] = pix(1);
         }
         mesh_.set_positions(positions);
+        mesh_.set_texcoords(texcoords);
+
+        frame_ = frame;
     }
 
     float meanViewAngle(const SE3f &pose1, const SE3f &pose2)

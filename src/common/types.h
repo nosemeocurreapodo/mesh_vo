@@ -17,6 +17,7 @@
 #include "backends/cpu/renderercpu.h"
 
 using DepthRenderer = DepthRendererCPU;
+using PidsRenderer = PidsRendererCPU;
 using ImageRenderer = ImageRendererCPU;
 using ResidualRenderer = ResidualRendererCPU;
 using DIDxyRenderer = DIDxyRendererCPU;

@@ -58,14 +58,6 @@ protected:
 		*/
 	}
 
-	static inline float huber_weight_(float r, float thresh) noexcept
-	{
-		const float a = std::fabs(r);
-		if (a <= thresh || a == 0.0f)
-			return 1.0f;
-		return thresh / a;
-	}
-
 private:
 	Derived &derived_() { return *static_cast<Derived *>(this); }
 	const Derived &derived_() const { return *static_cast<const Derived *>(this); }
@@ -146,7 +138,7 @@ public:
 			const float r = rmap[i];
 			if (r == r_texture_->nodata())
 				continue;
-			const float w = huber_weight_(r, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight(r, mesh_vo::huber_thresh_pix);
 			err += w * r * r;
 		}
 		return err;
@@ -209,7 +201,7 @@ public:
 			J(4) = jrot(1);
 			J(5) = jrot(2);
 
-			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
 
 			// hg.add(J, res, w, ids);
 			hg.add(J, res, w);
@@ -282,7 +274,7 @@ public:
 			J(6) = jexp(0);
 			J(7) = jexp(1);
 
-			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
 
 			// hg.add(J, res, w, ids);
 			hg.add(J, res, w);
@@ -363,7 +355,7 @@ public:
 			J(10) = jrotvel(1);
 			J(11) = jrotvel(2);
 
-			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
 
 			// hg.add(J, res, w, ids);
 			hg.add(J, res, w);
@@ -451,7 +443,7 @@ public:
 			J(12) = jexp(0);
 			J(13) = jexp(1);
 
-			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
 
 			// hg.add(J, res, w, ids);
 			hg.add(J, res, w);
@@ -532,7 +524,7 @@ public:
 			J(1) = jmap(1) * d_depth1_d_param;
 			J(2) = jmap(2) * d_depth2_d_param;
 
-			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
 
 			hg.add(J, res, w, pids_);
 		}
@@ -618,7 +610,7 @@ public:
 			J(3) = jexp(0);
 			J(4) = jexp(1);
 
-			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
 
 			hg.add(J, res, w, pids_);
 		}
@@ -721,7 +713,7 @@ public:
 			J(7) = jrot(1);
 			J(8) = jrot(2);
 
-			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
 
 			hg.add(J, res, w, pids_);
 		}
@@ -832,7 +824,7 @@ public:
 			J(9) = jexp(0);
 			J(10) = jexp(1);
 
-			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
 
 			hg.add(J, res, w, pids_);
 		}
@@ -961,7 +953,7 @@ public:
 			J(13) = jrotvel(1);
 			J(14) = jrotvel(2);
 
-			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
 
 			hg.add(J, res, w, pids_);
 		}
@@ -1099,7 +1091,7 @@ public:
 			J(15) = jexp(0);
 			J(16) = jexp(1);
 
-			const float w = huber_weight_(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
 
 			hg.add(J, res, w, pids_);
 		}
