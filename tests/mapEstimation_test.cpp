@@ -167,7 +167,7 @@ TEST_F(RendererTestBase, ComputeMap)
         }
 
         auto startTime = std::chrono::high_resolution_clock::now();
-
+        
         for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
         {
             int in_lvl = lvl;
@@ -179,7 +179,7 @@ TEST_F(RendererTestBase, ComputeMap)
                 optimizer.step(oframes, kframe, cam_, in_lvl, out_lvl);
             }
         }
-
+        
         auto endTime = std::chrono::high_resolution_clock::now();
 
         int plot_lvl = 1;

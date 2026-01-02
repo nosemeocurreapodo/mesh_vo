@@ -16,8 +16,8 @@ void PoseExpMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Cam
     int num_depths = kframe.mesh().vertex_count();
     int numParams = num_depths + 8 * frames.size();
 
-    init_positions = kframe.mesh().get_positions();
-    init_indices = kframe.mesh().get_indices();
+    init_depths = get_depths(kframe.mesh());
+    init_triangles = get_indices(kframe.mesh());
 
     init_poses.clear();
     init_exposures.clear();
@@ -50,14 +50,12 @@ void PoseExpMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Cam
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
         float regu_error = 0.0f;
-        for (size_t i = 0; i < init_indices.size(); i += 3)
+        for (size_t i = 0; i < init_triangles.size(); i++)
         {
-            Vec3i id(init_indices[i + 0],
-                     init_indices[i + 1],
-                     init_indices[i + 2]);
-            Vec3f depth(init_positions[id(0) * 3 + 2],
-                        init_positions[id(1) * 3 + 2],
-                        init_positions[id(2) * 3 + 2]);
+            Vec3i id = init_triangles[i];
+            Vec3f depth(init_depths[id(0)],
+                        init_depths[id(1)],
+                        init_depths[id(2)]);
             float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
             float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
             float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
@@ -78,8 +76,8 @@ void PoseExpMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Cam
     }
     */
 
-    positions = init_positions;
-    indices = init_indices;
+    depths = init_depths;
+    triangles = init_triangles;
     poses = init_poses;
     exposures = init_exposures;
     error = init_error;
@@ -109,25 +107,23 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
-        for (size_t i = 0; i < indices.size(); i += 3)
+        for (size_t i = 0; i < triangles.size(); i++)
         {
-            Vec3<int> ids(indices[i + 0],
-                          indices[i + 1],
-                          indices[i + 2]);
-            Vec3<float> depths(positions[ids(0) * 3 + 2],
-                               positions[ids(1) * 3 + 2],
-                               positions[ids(2) * 3 + 2]);
+            Vec3<int> ids = triangles[i];
+            Vec3<float> depth(depths[ids(0)],
+                               depths[ids(1)],
+                               depths[ids(2)]);
             // regu_error += (depth(0) - depth(1)) * (depth(0) - depth(1)) + (depth(1) - depth(2)) * (depth(1) - depth(2));
 
-            float r1 = fromDepthToParam(depths(0)) - fromDepthToParam(depths(1));
+            float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
             Vec3<float> jac1(1.0, -1.0, 0.0);
             problem.add(jac1, r1, mesh_vo::mapping_regu_weight / num_depths, ids);
 
-            float r2 = fromDepthToParam(depths(0)) - fromDepthToParam(depths(2));
+            float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
             Vec3<float> jac2(1.0, 0.0, -1.0);
             problem.add(jac2, r2, mesh_vo::mapping_regu_weight / num_depths, ids);
 
-            float r3 = fromDepthToParam(depths(1)) - fromDepthToParam(depths(2));
+            float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
             Vec3<float> jac3(0.0, 1.0, -1.0);
             problem.add(jac3, r3, mesh_vo::mapping_regu_weight / num_depths, ids);
         }
@@ -157,21 +153,15 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
 
         Vecxf inc = problem.solve(lambda);
 
-        std::vector<float> new_positions;
+        std::vector<float> new_depths;
         std::vector<SE3f> new_poses;
         std::vector<Vec2f> new_exposures;
 
         for (size_t i = 0; i < num_depths; i++)
         {
-            Vec3<float> pos(positions[i * 3 + 0], positions[i * 3 + 1], positions[i * 3 + 2]);
-
-            float param_inc = inc(i);
-            float new_param = fromDepthToParam(pos(2)) + param_inc;
-            Vec3<float> pos_up = (pos / pos(2)) * fromParamToDepth(new_param);
-
-            new_positions.push_back(pos_up(0));
-            new_positions.push_back(pos_up(1));
-            new_positions.push_back(pos_up(2));
+            float new_param = fromDepthToParam(depths[i]) + inc(i);
+            float new_depth = fromParamToDepth(new_param);
+            new_depths.push_back(new_depth);
         }
 
         for (int i = 0; i < frames.size(); i++)
@@ -191,7 +181,7 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
             new_exposures.push_back(new_exp);
         }
 
-        kframe.mesh().set_positions(new_positions);
+        set_depths(kframe.mesh(), new_depths);
 
         for (int i = 0; i < frames.size(); i++)
         {
@@ -217,14 +207,12 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
         if (mesh_vo::mapping_regu_weight > 0.0)
         {
             float regu_error = 0.0f;
-            for (size_t i = 0; i < indices.size(); i += 3)
+            for (size_t i = 0; i < triangles.size(); i++)
             {
-                Vec3<int> id(indices[i + 0],
-                             indices[i + 1],
-                             indices[i + 2]);
-                Vec3<float> depth(new_positions[id(0) * 3 + 2],
-                                  new_positions[id(1) * 3 + 2],
-                                  new_positions[id(2) * 3 + 2]);
+                Vec3<int> id = triangles[i];
+                Vec3<float> depth(new_depths[id(0)],
+                                  new_depths[id(1)],
+                                  new_depths[id(2)]);
                 float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
                 float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
                 float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
@@ -252,7 +240,7 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
         {
             float p = new_error / error;
             error = new_error;
-            positions = new_positions;
+            depths = new_depths;
             poses = new_poses;
             exposures = new_exposures;
 
@@ -266,7 +254,7 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
         }
         else
         {
-            kframe.mesh().set_positions(positions);
+            set_depths(kframe.mesh(), depths);
 
             for (int i = 0; i < frames.size(); i++)
             {

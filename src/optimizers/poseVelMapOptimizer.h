@@ -36,14 +36,14 @@ private:
 
     Matxf invCovariance;
 
-    std::vector<float> init_positions;
-    std::vector<int> init_indices;
+    std::vector<float> init_depths;
+    std::vector<Vec3<int>> init_triangles;
     std::vector<SE3f> init_poses;
     std::vector<Vec6f> init_vels;
     float init_error;
 
-    std::vector<float> positions;
-    std::vector<int> indices;
+    std::vector<float> depths;
+    std::vector<Vec3<int>> triangles;
     std::vector<SE3f> poses;
     std::vector<Vec6f> vels;
     float error;

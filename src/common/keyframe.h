@@ -2,6 +2,76 @@
 
 #include "params.h"
 #include "common/types.h"
+#include "core/mesh_helpers.h"
+
+// #include <vector>
+// #include <stdexcept>
+// #include <algorithm>
+// #include <cmath>
+
+// 2D cross product (b-a) x (p-a)
+template <typename T>
+static T cross2(const Vec2<T> &a, const Vec2<T> &b, const Vec2<T> &p)
+{
+    return (b(0) - a(0)) * (p(1) - a(1)) - (b(1) - a(1)) * (p(0) - a(0));
+}
+
+// Point in triangle test in 2D, inclusive of edges.
+// Works fine for pixel-space coordinates too.
+template <typename T>
+static bool pointInTri2D(const Vec2<T> &p, const Vec2<T> &a, const Vec2<T> &b, const Vec2<T> &c, T eps = (T)1e-6)
+{
+    const T c1 = cross2(a, b, p);
+    const T c2 = cross2(b, c, p);
+    const T c3 = cross2(c, a, p);
+
+    const bool hasNeg = (c1 < -eps) || (c2 < -eps) || (c3 < -eps);
+    const bool hasPos = (c1 > eps) || (c2 > eps) || (c3 > eps);
+
+    // inside if not both negative and positive
+    return !(hasNeg && hasPos);
+}
+
+static bool pointInMesh2D(
+    const Vec2<float> &p,
+    const std::vector<Vec2<float>> &texcoords, // [u0,v0,u1,v1,...] (pixels in your case)
+    const std::vector<Vec3<int>> &indices      // [i0,i1,i2, i3,i4,i5, ...]
+)
+{
+    const int triCount = (int)indices.size();
+
+    for (int t = 0; t < triCount; ++t)
+    {
+        const Vec3<int> ind = indices[t];
+
+        const Vec2<float> a = texcoords[ind(0)];
+        const Vec2<float> b = texcoords[ind(1)];
+        const Vec2<float> c = texcoords[ind(2)];
+
+        // quick reject via AABB (cheap speed-up)
+        const float minx = std::min({a(0), b(0), c(0)});
+        const float maxx = std::max({a(0), b(0), c(0)});
+        const float miny = std::min({a(1), b(1), c(1)});
+        const float maxy = std::max({a(1), b(1), c(1)});
+
+        // if (p(0) < minx || p(0) > maxx || p(1) < miny || p(1) > maxy)
+        //     continue;
+
+        Vec2<float> diff_0 = p - a;
+        Vec2<float> diff_1 = p - b;
+        Vec2<float> diff_2 = p - c;
+        float dist_0 = sqrt(diff_0.dot(diff_0));
+        float dist_1 = sqrt(diff_1.dot(diff_1));
+        float dist_2 = sqrt(diff_2.dot(diff_2));
+
+        if (dist_0 < 0.1 || dist_1 < 0.1 || dist_2 < 0.1)
+            return true;
+
+        if (pointInTri2D(p, a, b, c))
+            return true;
+    }
+    return false;
+}
 
 class KeyFrame
 {
@@ -99,48 +169,102 @@ public:
 
     float meanDepth()
     {
-        std::vector<float> positions = mesh_.get_positions();
-        int size = positions.size() / 3;
+        std::vector<Vec3<float>> vertices = get_vertices(mesh_);
+        int size = vertices.size();
         float mean = 0.0;
         for (int i = 0; i < size; i++)
-            mean += positions[i * 3 + 2];
+            mean += vertices[i](2);
         return mean / size;
     }
 
     void scaleMesh(float scale)
     {
         global_scale_ *= scale;
-        std::vector<float> positions = mesh_.get_positions();
-        for (int i = 0; i < positions.size(); i++)
-            positions[i] = positions[i] / scale;
-        mesh_.set_positions(positions);
+        std::vector<Vec3<float>> vertices = get_vertices(mesh_);
+        for (int i = 0; i < vertices.size(); i++)
+            vertices[i] = vertices[i] / scale;
+        set_vertices(mesh_, vertices);
     }
 
-    void changeFrame(const Frame &frame, const Camera &cam)
+    void changeFrame(const Frame &new_frame, const Camera &cam)
     {
-        std::vector<float> positions = mesh_.get_positions();
-        std::vector<float> texcoords = mesh_.get_texcoords();
+        std::vector<Vec3<float>> vertices = get_vertices(mesh_);
+        std::vector<Vec2<float>> texcoords = get_texcoords(mesh_);
+        std::vector<Vec3<int>> indices = get_indices(mesh_);
 
-        for (int i = 0; i < mesh_.vertex_count(); i++)
+        for (int i = 0; i < vertices.size(); i++)
         {
-            Vec3<float> vert(positions[i * 3 + 0], positions[i * 3 + 1], positions[i * 3 + 2]);
-            Vec2<float> tex(texcoords[i * 2 + 0], texcoords[i * 2 + 1]);
+            Vec3<float> vertex = vertices[i];
 
-            vert = frame.local_pose() * vert;
-            Vec3<float> ray = vert / vert(2);
+            vertex = new_frame.local_pose() * vertex;
+            Vec3<float> ray = vertex / vertex(2);
             Vec2<float> pix = cam.RayToPix(ray);
 
-            positions[i * 3 + 0] = vert(0);
-            positions[i * 3 + 1] = vert(1);
-            positions[i * 3 + 2] = vert(2);
-
-            texcoords[i * 2 + 0] = pix(0);
-            texcoords[i * 2 + 1] = pix(1);
+            vertices[i] = vertex;
+            texcoords[i] = pix;
         }
-        mesh_.set_positions(positions);
-        mesh_.set_texcoords(texcoords);
 
-        frame_ = frame;
+        std::vector<Vec2<float>> grid_uv;// = UniformTexCoords(mesh_vo::mesh_width, mesh_vo::mesh_height);
+
+        std::vector<Vec3<float>> new_vertices;
+        std::vector<Vec2<float>> new_texcoords;
+        new_texcoords.reserve(grid_uv.size());
+
+        for (int i = 0; i < (int)grid_uv.size(); ++i)
+        {
+            const Vec2<float> p = grid_uv[i];
+            if (!pointInMesh2D(p, texcoords, indices))
+            {
+                Vec3<float> new_vertice = cam.PixToRay(p);
+                new_texcoords.push_back(p);
+                new_vertices.push_back(new_vertice);
+            }
+        }
+
+        DelaunayTriangulation triangulator;
+        triangulator.LoadMesh(texcoords, indices);
+        triangulator.AddOutsidePoints(new_texcoords);
+        //triangulator.LoadPoints(texcoords);
+        //triangulator.Triangulate();
+        std::vector<Vec3<int>> tris = triangulator.GetTriangles();
+
+        std::vector<float> new_mesh_vertex;
+        std::vector<int> new_indices;
+
+        for (int i = 0; i < vertices.size(); i++)
+        {
+            Vec3<float> vertex = vertices[i];
+            Vec2<float> texcoord = texcoords[i];
+            new_mesh_vertex.push_back(vertex(0));
+            new_mesh_vertex.push_back(vertex(1));
+            new_mesh_vertex.push_back(vertex(2));
+            new_mesh_vertex.push_back(texcoord(0));
+            new_mesh_vertex.push_back(texcoord(1));
+        }
+        
+        for (int i = 0; i < new_vertices.size(); i++)
+        {
+            Vec3<float> vertex = new_vertices[i];
+            Vec2<float> texcoord = new_texcoords[i];
+            new_mesh_vertex.push_back(vertex(0));
+            new_mesh_vertex.push_back(vertex(1));
+            new_mesh_vertex.push_back(vertex(2));
+            new_mesh_vertex.push_back(texcoord(0));
+            new_mesh_vertex.push_back(texcoord(1));
+        }
+
+        for (int i = 0; i < tris.size(); i++)
+        {
+            Vec3<int> tri = tris[i];
+            new_indices.push_back(tri(0));
+            new_indices.push_back(tri(1));
+            new_indices.push_back(tri(2));
+        }
+
+        Mesh new_mesh(new_mesh_vertex, new_indices, true, true, false);
+
+        frame_ = new_frame;
+        mesh_ = new_mesh;
     }
 
     float meanViewAngle(const SE3f &pose1, const SE3f &pose2)
@@ -155,7 +279,7 @@ public:
         // scene2.transform(pose2);
         //  scene2.project(cam);
 
-        std::vector<float> positions = mesh_.get_positions();
+        std::vector<Vec3<float>> positions = get_vertices(mesh_);
 
         SE3f relativePose = pose1 * pose2.inverse();
 
@@ -169,9 +293,9 @@ public:
 
         float accAngle = 0;
         int count = 0;
-        for (int i = 0; i < positions.size(); i += 3)
+        for (int i = 0; i < positions.size(); i++)
         {
-            Vec3f vert_ini(positions[i], positions[i + 1], positions[i + 2]);
+            Vec3f vert_ini = positions[i];
             Vec3f vert = pose2 * vert_ini;
 
             Vec3f diff1 = vert - frame1Translation;

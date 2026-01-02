@@ -500,7 +500,7 @@ public:
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
-		auto positions = mesh_->get_positions();
+		auto depths = get_depths(*mesh_);
 		// Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
@@ -513,9 +513,9 @@ public:
 				continue;
 
 			const Vec3i pids_(pids(0), pids(1), pids(2));
-			const float depth0 = positions[pids_(0) * 3 + 2];
-			const float depth1 = positions[pids_(1) * 3 + 2];
-			const float depth2 = positions[pids_(2) * 3 + 2];
+			const float depth0 = depths[pids_(0)];
+			const float depth1 = depths[pids_(1)];
+			const float depth2 = depths[pids_(2)];
 			const float d_depth0_d_param = d_depth_d_param(depth0);
 			const float d_depth1_d_param = d_depth_d_param(depth1);
 			const float d_depth2_d_param = d_depth_d_param(depth2);
@@ -583,7 +583,7 @@ public:
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto jexp_map = jexp_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
-		auto positions = mesh_->get_positions();
+		auto depths = get_depths(*mesh_);
 		// Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
@@ -597,9 +597,9 @@ public:
 				continue;
 
 			const Vec5i pids_(pids(0), pids(1), pids(2), num_vertices_ + frame_id_ * 2, num_vertices_ + frame_id_ * 2 + 1);
-			const float depth0 = positions[pids_(0) * 3 + 2];
-			const float depth1 = positions[pids_(1) * 3 + 2];
-			const float depth2 = positions[pids_(2) * 3 + 2];
+			const float depth0 = depths[pids_(0)];
+			const float depth1 = depths[pids_(1)];
+			const float depth2 = depths[pids_(2)];
 			const float d_depth0_d_param = d_depth_d_param(depth0);
 			const float d_depth1_d_param = d_depth_d_param(depth1);
 			const float d_depth2_d_param = d_depth_d_param(depth2);
@@ -671,7 +671,7 @@ public:
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
-		auto positions = mesh_->get_positions();
+		auto depths = get_depths(*mesh_);
 		// Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
@@ -696,9 +696,9 @@ public:
 			pids_(7) = num_vertices_ + frame_id_ * 6 + 4;
 			pids_(8) = num_vertices_ + frame_id_ * 6 + 5;
 
-			const float depth0 = positions[pids_(0) * 3 + 2];
-			const float depth1 = positions[pids_(1) * 3 + 2];
-			const float depth2 = positions[pids_(2) * 3 + 2];
+			const float depth0 = depths[pids_(0)];
+			const float depth1 = depths[pids_(1)];
+			const float depth2 = depths[pids_(2)];
 			const float d_depth0_d_param = d_depth_d_param(depth0);
 			const float d_depth1_d_param = d_depth_d_param(depth1);
 			const float d_depth2_d_param = d_depth_d_param(depth2);
@@ -777,7 +777,7 @@ public:
 		auto jexp_map = jexp_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
-		auto positions = mesh_->get_positions();
+		auto depths = get_depths(*mesh_);
 		// Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
@@ -805,9 +805,9 @@ public:
 			pids_(9) = num_vertices_ + frame_id_ * 8 + 6;
 			pids_(10) = num_vertices_ + frame_id_ * 8 + 7;
 
-			const float depth0 = positions[pids_(0) * 3 + 2];
-			const float depth1 = positions[pids_(1) * 3 + 2];
-			const float depth2 = positions[pids_(2) * 3 + 2];
+			const float depth0 = depths[pids_(0)];
+			const float depth1 = depths[pids_(1)];
+			const float depth2 = depths[pids_(2)];
 			const float d_depth0_d_param = d_depth_d_param(depth0);
 			const float d_depth1_d_param = d_depth_d_param(depth1);
 			const float d_depth2_d_param = d_depth_d_param(depth2);
@@ -891,7 +891,7 @@ public:
 		auto jrotvel_map = jrotvel_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
-		auto positions = mesh_->get_positions();
+		auto depths = get_depths(*mesh_);
 		// Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
@@ -930,9 +930,9 @@ public:
 			pids_(13) = num_vertices_ + frame_id_ * 12 + 10;
 			pids_(14) = num_vertices_ + frame_id_ * 12 + 11;
 
-			const float depth0 = positions[pids_(0) * 3 + 2];
-			const float depth1 = positions[pids_(1) * 3 + 2];
-			const float depth2 = positions[pids_(2) * 3 + 2];
+			const float depth0 = depths[pids_(0)];
+			const float depth1 = depths[pids_(1)];
+			const float depth2 = depths[pids_(2)];
 			const float d_depth0_d_param = d_depth_d_param(depth0);
 			const float d_depth1_d_param = d_depth_d_param(depth1);
 			const float d_depth2_d_param = d_depth_d_param(depth2);
@@ -1023,7 +1023,7 @@ public:
 		auto jexp_map = jexp_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
-		auto positions = mesh_->get_positions();
+		auto depths = get_depths(*mesh_);
 		// Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
@@ -1066,9 +1066,9 @@ public:
 			pids_(15) = num_vertices_ + frame_id_ * 14 + 12;
 			pids_(16) = num_vertices_ + frame_id_ * 14 + 13;
 
-			const float depth0 = positions[pids_(0) * 3 + 2];
-			const float depth1 = positions[pids_(1) * 3 + 2];
-			const float depth2 = positions[pids_(2) * 3 + 2];
+			const float depth0 = depths[pids_(0)];
+			const float depth1 = depths[pids_(1)];
+			const float depth2 = depths[pids_(2)];
 			const float d_depth0_d_param = d_depth_d_param(depth0);
 			const float d_depth1_d_param = d_depth_d_param(depth1);
 			const float d_depth2_d_param = d_depth_d_param(depth2);
