@@ -109,9 +109,9 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
         for (size_t i = 0; i < triangles.size(); i++)
         {
             Vec3<int> ids = triangles[i];
-            Vec3<float> depth(depths[ids(0) * 3 + 2],
-                               depths[ids(1) * 3 + 2],
-                               depths[ids(2) * 3 + 2]);
+            Vec3<float> depth(depths[ids(0)],
+                              depths[ids(1)],
+                              depths[ids(2)]);
             // regu_error += (depth(0) - depth(1)) * (depth(0) - depth(1)) + (depth(1) - depth(2)) * (depth(1) - depth(2));
 
             float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
@@ -158,7 +158,7 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
         for (size_t i = 0; i < num_depths; i++)
         {
             float new_param = fromDepthToParam(depths[i]) + inc(i);
-            float new_depth =  fromParamToDepth(new_param);
+            float new_depth = fromParamToDepth(new_param);
 
             new_depths.push_back(new_depth);
         }
