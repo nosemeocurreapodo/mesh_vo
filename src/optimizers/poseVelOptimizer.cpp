@@ -161,6 +161,6 @@ void PoseVelOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 
 DenseLinearProblem<12> PoseVelOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), frame.local_exposure(), cam, 30.0, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, r_texture_);
+	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), frame.local_exposure(), cam, 30.0, in_lvl, out_lvl, kframe.image(), frame.image(), kframe.didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, r_texture_);
 	return hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, r_texture_);
 }
