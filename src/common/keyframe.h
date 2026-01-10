@@ -84,8 +84,8 @@ public:
             globalScale = 1.0;
         };
     */
-    KeyFrame(const Texture<ImageType> &image, Texture<Vec3f> didxy, SE3f global_pose, Mesh &mesh, float global_scale)
-        : image_(image), didxy_(didxy), global_pose_(global_pose), mesh_(mesh), global_scale_(global_scale)
+    KeyFrame(const Texture<ImageType> &image, const Texture<Vec3f> &didxy, SE3f global_pose, const Mesh &mesh, float global_scale, int id)
+        : image_(image), didxy_(didxy), global_pose_(global_pose), mesh_(mesh), global_scale_(global_scale), id_(id)
     {
     }
 
@@ -94,7 +94,8 @@ public:
           didxy_(other.didxy_),
           global_pose_(other.global_pose_),
           mesh_(other.mesh_),
-          global_scale_(other.global_scale_)
+          global_scale_(other.global_scale_),
+          id_(other.id_)
     {
     }
 
@@ -107,8 +108,14 @@ public:
             global_pose_ = other.global_pose_;
             mesh_ = other.mesh_;
             global_scale_ = other.global_scale_;
+            id_ = other.id_;
         }
         return *this;
+    }
+
+    int id()
+    {
+        return id_;
     }
 
     const Texture<ImageType> &image()
@@ -199,6 +206,7 @@ public:
     void changeFrame(const Texture<ImageType> &new_image,
                      const Texture<Vec3f> &new_didxy,
                      const SE3f &new_local_pose,
+                     int new_id,
                      const Camera &cam)
     {
         std::vector<Vec3<float>> vertices = get_vertices(mesh_);
@@ -280,6 +288,7 @@ public:
         didxy_ = new_didxy;
         global_pose_ = localPoseToGlobal(new_local_pose);
         mesh_ = new_mesh;
+        id_ = new_id;
     }
 
     float meanViewAngle(const SE3f &pose1, const SE3f &pose2)
@@ -341,4 +350,5 @@ private:
     Mesh mesh_;
     SE3f global_pose_;
     float global_scale_;
+    int id_;
 };

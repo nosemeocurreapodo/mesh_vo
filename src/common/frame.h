@@ -21,12 +21,14 @@ public:
     Frame(const Texture<ImageType> &im,
           const Texture<Vec3f> &di,
           int id,
+          int kframe_id,
           SE3f local_pose = SE3f(),
           Vec2f local_exp = Vec2f(0.0, 0.0),
           Vec6f local_vel = Vec6f(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)) : image_(im),
                                                                    didxy_(di)
     {
         id_ = id;
+        kframe_id_ = kframe_id;
         local_pose_ = local_pose;
         local_vel_ = local_vel;
         // globalVel = JvelType::Zero();
@@ -39,6 +41,7 @@ public:
         didxy_ = other.didxy_;
 
         id_ = other.id_;
+        kframe_id_ = other.kframe_id_;
         local_pose_ = other.local_pose_;
         local_vel_ = other.local_vel_;
         // globalVel = other.globalVel;
@@ -50,6 +53,7 @@ public:
         if (this != &other)
         {
             id_ = other.id_;
+            kframe_id_ = other.kframe_id_;
             local_pose_ = other.local_pose_;
             local_vel_ = other.local_vel_;
             // globalVel = other.globalVel;
@@ -64,6 +68,11 @@ public:
     int id() const
     {
         return id_;
+    }
+
+    int keyframe_id() const
+    {
+        return kframe_id_;
     }
 
     const Texture<ImageType> &image() const
@@ -122,4 +131,5 @@ protected:
     // JvelType globalVel;
     Vec2f local_exp_;
     int id_;
+    int kframe_id_;
 };

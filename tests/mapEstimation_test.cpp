@@ -78,7 +78,7 @@ TEST_F(RendererTestBase, ComputeMap)
             //    CreateSphereMesh(gt_depth_mean, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_);
 
             Mesh mesh(ver_buff_, idx_buff_, true, true, true);
-            kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0);
+            kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0, 0);
             float meanDepth = kframe->meanDepth();
             kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
 
@@ -87,7 +87,7 @@ TEST_F(RendererTestBase, ComputeMap)
 
         SE3f init_local_pose = kframe->globalPoseToLocal(gt_global_pose);
 
-        Frame frame(image_texture, didxy_texture, img_id, init_local_pose);
+        Frame frame(image_texture, didxy_texture, img_id, kframe->id(), init_local_pose);
 
         float minViewAngle = M_PI;
         for (std::size_t j = 0; j < frames.size(); j++)
@@ -157,6 +157,7 @@ TEST_F(RendererTestBase, ComputeMap)
         kframe->changeFrame(frames[kframeIndex].image(),
                             frames[kframeIndex].didxy(),
                             frames[kframeIndex].local_pose(),
+                            frames[kframeIndex].id(),
                             cam_);
 
         std::cout << "Mean depth " << kframe->meanDepth() << std::endl;

@@ -117,7 +117,7 @@
             "name": "(gdb) Launch tum",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tum_dataset",
+            "program": "${workspaceFolder}/build/src/apps/tum_dataset/tum_app",
             "args": [
                 "/datasets/tum_datasets/sequence_50/camera.txt",
                 "/datasets/tum_datasets/sequence_50/images/",

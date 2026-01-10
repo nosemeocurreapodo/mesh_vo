@@ -36,17 +36,17 @@ TEST_F(RendererTestBase, ComputePoseMap)
 
     NodataReducerCPU nodata_reducer;
 
-    PoseExpOptimizer pose_optimizer(w_, h_, true);
-    PoseExpMapOptimizer posemap_optimizer(w_, h_, true);
+    PoseOptimizer pose_optimizer(w_, h_, true);
+    PoseMapOptimizer posemap_optimizer(w_, h_, true);
 
     std::vector<Frame> frames;
     KeyFrame *kframe;
 
-    Texture<ImageType> image(w_, h_, 0);
-    Texture<float> gt_depth(w_, h_, 0);
-    Texture<float> es_depth(w_, h_, 0);
-    Texture<Vec3f> didxy(w_, h_, Vec3f(0.0, 0.0, 0.0));
-    Texture<float> l2(w_, h_, 0.0);
+    Texture<ImageType> image_texture(w_, h_, 0);
+    Texture<float> gt_depth_texture(w_, h_, 0);
+    Texture<float> es_depth_texture(w_, h_, 0);
+    Texture<Vec3f> didxy_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
+    Texture<float> l2_texture(w_, h_, 0.0);
 
     SE3f tracked_local_pose;
     SE3f tracked_local_movement;
@@ -62,12 +62,12 @@ TEST_F(RendererTestBase, ComputePoseMap)
         cv::Mat gt_depth_cv = cv::imread(depth_files_[img_id], cv::IMREAD_GRAYSCALE);
         gt_depth_cv.convertTo(gt_depth_cv, CV_32FC1);
         gt_depth_cv = gt_depth_cv / depth_factor_;
-        UploadMatToTexture(image, 0, image_cv);
-        UploadMatToTexture(gt_depth, 0, gt_depth_cv);
+        UploadMatToTexture(image_texture, 0, image_cv);
+        UploadMatToTexture(gt_depth_texture, 0, gt_depth_cv);
         SE3f gt_global_pose = poses_[img_id];
 
-        for (int lvl = 0; lvl < didxy.levels(); lvl++)
-            didxy_renderer.Render(screen_mesh, lvl, lvl, image, didxy);
+        for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
+            didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
 
         // didxy_renderer.Render(screen_mesh, 0, 0, image_cpu, didxy_cpu);
         // didxy_cpu.generate_mipmaps(0);
@@ -84,7 +84,7 @@ TEST_F(RendererTestBase, ComputePoseMap)
             //     CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
             Mesh mesh(ver_buff, idx_buff, true, true, true);
-            kframe = new KeyFrame(image, didxy, gt_global_pose, mesh, 1.0);
+            kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0, 0);
 
             float meanDepth = kframe->meanDepth();
             kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
@@ -95,7 +95,7 @@ TEST_F(RendererTestBase, ComputePoseMap)
         SE3f init_local_pose = tracked_local_movement * tracked_local_pose;
         Vec2f init_local_exposure = tracked_local_exposure;
 
-        Frame frame(image, didxy, img_id, init_local_pose, init_local_exposure);
+        Frame frame(image_texture, didxy_texture, img_id, kframe->id(), init_local_pose, init_local_exposure);
 
         // auto startTime = std::chrono::high_resolution_clock::now();
         for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
@@ -143,10 +143,10 @@ TEST_F(RendererTestBase, ComputePoseMap)
                               frame.local_exposure(),
                               cam_,
                               1, 1,
-                              kframe->image(), image);
+                              kframe->image(), image_texture);
 
-        Error nodata = nodata_reducer.reduce(1, image);
-        float pnodata = nodata.getError() / (image.width(1) * image.height(1));
+        Error nodata = nodata_reducer.reduce(1, image_texture);
+        float pnodata = nodata.getError() / (image_texture.width(1) * image_texture.height(1));
         float viewPercent = 1.0 - pnodata;
 
         std::cout << "view percent " << viewPercent << std::endl;
@@ -158,22 +158,41 @@ TEST_F(RendererTestBase, ComputePoseMap)
 
         int kframeIndex = frames.size() / 2;
 
-        // CreateMesh(depth_cv, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-        // CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-        //   CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
+        /*
+        std::vector<float> ver_buff;
+        std::vector<int> idx_buff;
 
-        // Mesh mesh(ver_buff_, idx_buff_, true, true, true);
-        // kframe = new KeyFrame(frames[kframeIndex], mesh, scale);
+        // depth_renderer.Render(kframe->mesh(),
+        //                       frames[kframeIndex].local_pose(),
+        //                       cam_,
+        //                       0,
+        //                       es_depth_texture);
+
+        // CreateMesh(es_depth_texture, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, true);
+        CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, false);
+
+        SE3f new_kf_global_pose = kframe->localPoseToGlobal(frames[kframeIndex].local_pose());
+        float new_kf_global_scale = kframe->getGlobalScale();
+
+        Mesh mesh(ver_buff, idx_buff, true, true, false);
+        kframe = new KeyFrame(frames[kframeIndex].image(),
+                              frames[kframeIndex].didxy(),
+                              new_kf_global_pose,
+                              mesh,
+                              new_kf_global_scale,
+                              frames[kframeIndex].id());
+        */
 
         kframe->changeFrame(frames[kframeIndex].image(),
                             frames[kframeIndex].didxy(),
                             frames[kframeIndex].local_pose(),
+                            frames[kframeIndex].id(),
                             cam_);
 
         SE3f reference_pose = frames[kframeIndex].local_pose().inverse();
 
         tracked_local_pose = tracked_local_pose * reference_pose;
-        tracked_local_movement = tracked_local_movement * reference_pose;
+        tracked_local_movement = SE3f(); // tracked_local_movement * reference_pose;
         tracked_local_exposure = Vec2f(0.0, 0.0);
 
         frame.local_pose() = frame.local_pose() * reference_pose;
@@ -229,7 +248,9 @@ TEST_F(RendererTestBase, ComputePoseMap)
             frames[j].scalePose(meanDepth / mesh_vo::mapping_mean_depth);
         }
 
-        int plot_lvl = 1;
+        frames[kframeIndex].local_pose() = SE3f();
+
+        int plot_lvl = 0;
         for (std::size_t k = 0; k < frames.size(); k++)
         {
             residual_renderer.Render(kframe->mesh(),
@@ -239,22 +260,22 @@ TEST_F(RendererTestBase, ComputePoseMap)
                                      plot_lvl, plot_lvl,
                                      kframe->image(),
                                      frames[k].image(),
-                                     l2);
+                                     l2_texture);
             // residual_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
-            cv::Mat l2_mat = DownloadTextureToMat(l2, plot_lvl);
-            SaveDebugImage(l2_mat, "l2_" + std::to_string(img_id) + "_" + std::to_string(k) + ".png");
+            cv::Mat l2_mat = DownloadTextureToMat(l2_texture, plot_lvl);
+            SaveDebugImage(l2_mat, "l2_" + std::to_string(kframe->id()) + "_" + std::to_string(frames[k].id()) + ".png");
         }
 
         depth_renderer.Render(kframe->mesh(),
                               SE3f(),
                               cam_,
                               plot_lvl,
-                              es_depth);
+                              es_depth_texture);
 
         double error = 1.0; // RMSE(depth_cpu, estimated_depth_cpu, plot_lvl);
 
-        cv::Mat es_depth_cv = DownloadTextureToMat(es_depth, plot_lvl);
-        SaveDebugImage(es_depth_cv, "depth_" + std::to_string(img_id) + ".png");
+        cv::Mat es_depth_cv = DownloadTextureToMat(es_depth_texture, plot_lvl);
+        SaveDebugImage(es_depth_cv, "depth_" + std::to_string(kframe->id()) + ".png");
 
         accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
         accError += error;
