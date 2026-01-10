@@ -84,18 +84,18 @@ public:
             globalScale = 1.0;
         };
     */
-    KeyFrame(const Frame &frame, Mesh &mesh, float global_scale)
-        : frame_(frame), mesh_(mesh)
+    KeyFrame(const Texture<ImageType> &image, const Texture<Vec3f> &didxy, SE3f global_pose, const Mesh &mesh, float global_scale, int id)
+        : image_(image), didxy_(didxy), global_pose_(global_pose), mesh_(mesh), global_scale_(global_scale), id_(id)
     {
-        // global_exposure_ = global_exposure;
-        global_scale_ = global_scale;
     }
 
     KeyFrame(const KeyFrame &other)
-        : frame_(other.frame_),
+        : image_(other.image_),
+          didxy_(other.didxy_),
+          global_pose_(other.global_pose_),
           mesh_(other.mesh_),
-          // global_exposure_(other.global_exposure_),
-          global_scale_(other.global_scale_)
+          global_scale_(other.global_scale_),
+          id_(other.id_)
     {
     }
 
@@ -103,17 +103,34 @@ public:
     {
         if (this != &other)
         {
-            frame_ = other.frame_;
+            image_ = other.image_;
+            didxy_ = other.didxy_;
+            global_pose_ = other.global_pose_;
             mesh_ = other.mesh_;
-            global_exposure_ = other.global_exposure_;
             global_scale_ = other.global_scale_;
+            id_ = other.id_;
         }
         return *this;
     }
 
-    const Frame &frame()
+    int id()
     {
-        return frame_;
+        return id_;
+    }
+
+    const Texture<ImageType> &image()
+    {
+        return image_;
+    }
+
+    const Texture<Vec3f> &didxy()
+    {
+        return didxy_;
+    }
+
+    const SE3f &global_pose()
+    {
+        return global_pose_;
     }
 
     const Mesh &mesh() const
@@ -126,17 +143,22 @@ public:
         return mesh_;
     }
 
+    float getGlobalScale()
+    {
+        return global_scale_;
+    }
+
     SE3f localPoseToGlobal(SE3f localPose)
     {
         SE3f localPoseScaled = localPose;
         localPoseScaled.translation() *= global_scale_;
-        SE3f globalPose = localPoseScaled * frame_.global_pose();
+        SE3f globalPose = localPoseScaled * global_pose_;
         return globalPose;
     }
 
     SE3f globalPoseToLocal(SE3f globalPose)
     {
-        SE3f localPose = globalPose * frame_.global_pose().inverse();
+        SE3f localPose = globalPose * global_pose_.inverse();
         localPose.translation() /= global_scale_;
         return localPose;
     }
@@ -162,11 +184,6 @@ public:
     }
     */
 
-    float getGlobalScale()
-    {
-        return global_scale_;
-    }
-
     float meanDepth()
     {
         std::vector<Vec3<float>> vertices = get_vertices(mesh_);
@@ -186,7 +203,11 @@ public:
         set_vertices(mesh_, vertices);
     }
 
-    void changeFrame(const Frame &new_frame, const Camera &cam)
+    void changeFrame(const Texture<ImageType> &new_image,
+                     const Texture<Vec3f> &new_didxy,
+                     const SE3f &new_local_pose,
+                     int new_id,
+                     const Camera &cam)
     {
         std::vector<Vec3<float>> vertices = get_vertices(mesh_);
         std::vector<Vec2<float>> texcoords = get_texcoords(mesh_);
@@ -196,7 +217,7 @@ public:
         {
             Vec3<float> vertex = vertices[i];
 
-            vertex = new_frame.local_pose() * vertex;
+            vertex = new_local_pose * vertex;
             Vec3<float> ray = vertex / vertex(2);
             Vec2<float> pix = cam.RayToPix(ray);
 
@@ -204,7 +225,7 @@ public:
             texcoords[i] = pix;
         }
 
-        std::vector<Vec2<float>> grid_uv;// = UniformTexCoords(mesh_vo::mesh_width, mesh_vo::mesh_height);
+        std::vector<Vec2<float>> grid_uv; // = UniformTexCoords(mesh_vo::mesh_width, mesh_vo::mesh_height);
 
         std::vector<Vec3<float>> new_vertices;
         std::vector<Vec2<float>> new_texcoords;
@@ -224,8 +245,8 @@ public:
         DelaunayTriangulation triangulator;
         triangulator.LoadMesh(texcoords, indices);
         triangulator.AddOutsidePoints(new_texcoords);
-        //triangulator.LoadPoints(texcoords);
-        //triangulator.Triangulate();
+        // triangulator.LoadPoints(texcoords);
+        // triangulator.Triangulate();
         std::vector<Vec3<int>> tris = triangulator.GetTriangles();
 
         std::vector<float> new_mesh_vertex;
@@ -241,7 +262,7 @@ public:
             new_mesh_vertex.push_back(texcoord(0));
             new_mesh_vertex.push_back(texcoord(1));
         }
-        
+
         for (int i = 0; i < new_vertices.size(); i++)
         {
             Vec3<float> vertex = new_vertices[i];
@@ -263,8 +284,11 @@ public:
 
         Mesh new_mesh(new_mesh_vertex, new_indices, true, true, false);
 
-        frame_ = new_frame;
+        image_ = new_image;
+        didxy_ = new_didxy;
+        global_pose_ = localPoseToGlobal(new_local_pose);
         mesh_ = new_mesh;
+        id_ = new_id;
     }
 
     float meanViewAngle(const SE3f &pose1, const SE3f &pose2)
@@ -320,8 +344,11 @@ public:
     }
 
 private:
-    Frame frame_;
+    // Frame frame_;
+    Texture<ImageType> image_;
+    Texture<Vec3f> didxy_;
     Mesh mesh_;
-    Vec2f global_exposure_;
+    SE3f global_pose_;
     float global_scale_;
+    int id_;
 };

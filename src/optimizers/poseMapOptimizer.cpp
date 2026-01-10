@@ -268,6 +268,6 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
 
 DenseLinearProblemx PoseMapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl)
 {
-    jposemaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), frame.local_exposure(), cam, 30.0, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_);
+    jposemaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), frame.local_exposure(), cam, 30.0, in_lvl, out_lvl, kframe.image(), frame.image(), kframe.didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_);
     return hgposemapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jtra_texture_, jrot_texture_, jmap_texture_, pids_texture_, r_texture_, kframe.mesh());
 }

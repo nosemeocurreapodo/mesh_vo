@@ -21,15 +21,15 @@ public:
     Frame(const Texture<ImageType> &im,
           const Texture<Vec3f> &di,
           int id,
+          int kframe_id,
           SE3f local_pose = SE3f(),
-          SE3f global_pose = SE3f(),
           Vec2f local_exp = Vec2f(0.0, 0.0),
           Vec6f local_vel = Vec6f(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)) : image_(im),
                                                                    didxy_(di)
     {
         id_ = id;
+        kframe_id_ = kframe_id;
         local_pose_ = local_pose;
-        global_pose_ = global_pose;
         local_vel_ = local_vel;
         // globalVel = JvelType::Zero();
         local_exp_ = local_exp;
@@ -41,8 +41,8 @@ public:
         didxy_ = other.didxy_;
 
         id_ = other.id_;
+        kframe_id_ = other.kframe_id_;
         local_pose_ = other.local_pose_;
-        global_pose_ = other.global_pose_;
         local_vel_ = other.local_vel_;
         // globalVel = other.globalVel;
         local_exp_ = other.local_exp_;
@@ -53,8 +53,8 @@ public:
         if (this != &other)
         {
             id_ = other.id_;
+            kframe_id_ = other.kframe_id_;
             local_pose_ = other.local_pose_;
-            global_pose_ = other.global_pose_;
             local_vel_ = other.local_vel_;
             // globalVel = other.globalVel;
             local_exp_ = other.local_exp_;
@@ -68,6 +68,11 @@ public:
     int id() const
     {
         return id_;
+    }
+
+    int keyframe_id() const
+    {
+        return kframe_id_;
     }
 
     const Texture<ImageType> &image() const
@@ -90,16 +95,6 @@ public:
         return local_pose_;
     }
 
-    const SE3f &global_pose() const
-    {
-        return global_pose_;
-    }
-
-    SE3f &global_pose()
-    {
-        return global_pose_;
-    }
-
     const Vec2f &local_exposure() const
     {
         return local_exp_;
@@ -120,14 +115,21 @@ public:
         return local_vel_;
     }
 
+    void scalePose(float scale)
+    {
+        SE3f local_pose_scaled = local_pose_;
+        local_pose_scaled.translation() /= scale;
+        local_pose_ = local_pose_scaled;
+    }
+
 protected:
     Texture<ImageType> image_;
     Texture<Vec3f> didxy_;
 
     SE3f local_pose_;
-    SE3f global_pose_;
     Vec6f local_vel_;
     // JvelType globalVel;
     Vec2f local_exp_;
     int id_;
+    int kframe_id_;
 };

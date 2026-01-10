@@ -9,6 +9,7 @@ option(COMPILE_GLES2   "Enable GLES2 compilation"         OFF)
 option(COMPILE_HLS     "Enable HLS synthesis"             OFF)
 option(COMPILE_XRT     "Enable XRT compilation"           OFF)
 option(COMPILE_DEMO    "Enable Demo compilation"          OFF)
+option(COMPILE_TUM     "Enable Tum app compilation"       ON)
 option(COMPILE_TESTS   "Enable Tests compilation"         ON)
 
 # --- C++ Standard -------------------------------------------------
@@ -107,6 +108,10 @@ if(COMPILE_GL OR COMPILE_GLES2)
     PUBLIC
       glad
   )
+endif()
+
+if(COMPILE_TUM)
+add_subdirectory(src/apps/tum_dataset)
 endif()
 
 #if(COMPILE_DEMO)

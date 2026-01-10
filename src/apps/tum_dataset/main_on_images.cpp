@@ -27,7 +27,6 @@
 #include "opencv2/opencv.hpp"
 #include "Undistorter.h"
 
-#include "visualOdometry.h"
 #include "visualOdometryThreaded.h"
 
 std::string &ltrim(std::string &s)
@@ -191,9 +190,7 @@ int main(int argc, char **argv)
 	int runningIDX = 0;
 	float fakeTimeStamp = 0;
 
-	CameraType cam(fx, fy, cx, cy, w, h);
-
-	visualOdometryThreaded odometry(w, h);
+	VisualOdometryThreaded odometry(fx, fy, cx, cy, w, h);
 
 	for (unsigned int i = start_index + 1; i < end_index; i++) // files.size()
 	{
@@ -218,21 +215,21 @@ int main(int argc, char **argv)
 		// cv::imshow("image", image);
 		// cv::waitKey(30);
 
-		if (std::is_same<imageType, uchar>::value)
+		if (std::is_same<ImageType, uchar>::value)
 			image.convertTo(image, CV_8UC1);
-		else if (std::is_same<imageType, int>::value)
+		else if (std::is_same<ImageType, int>::value)
 			image.convertTo(image, CV_32SC1);
-		else if (std::is_same<imageType, float>::value)
+		else if (std::is_same<ImageType, float>::value)
 			image.convertTo(image, CV_32FC1);
 		// cv::resize(image, image, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
 		if (runningIDX == 0)
 		{
-			odometry.init(image.data, SE3, cam);
+			odometry.flatInit((ImageType *)image.data);
 			// system->randomInit(image.data, fakeTimeStamp, runningIDX);
 		}
 		else
-			odometry.locAndMap(image.data);
+			odometry.locAndMap((ImageType *)image.data);
 		// system->trackFrame(image.data, runningIDX ,hz == 0,fakeTimeStamp);
 
 		runningIDX++;

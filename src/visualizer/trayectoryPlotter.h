@@ -1,7 +1,7 @@
 #include <pangolin/pangolin.h>
 
 #include "common/types.h"
-#include "common/camera.h"
+#include "core/camera.h"
 
 const char *tplotter_vertex_shader = R"Shader(
     #version 330 core
@@ -35,7 +35,7 @@ public:
         glGenTextures(1, &textureID);
     }
 
-    void setBuffers(std::vector<SE3f> globalPoses, cameraType cam)
+    void setBuffers(std::vector<SE3f> globalPoses, Camera cam)
     {
         // 5 points for each pose, to draw the frustrum of the camera
         int vertices_size = globalPoses.size() * 5 * 3;
@@ -51,10 +51,10 @@ public:
             //pose goes from world to local 
             SE3f pose = globalPoses[i].inverse();
 
-            vec3f ray1 = pose * (cam.pixToRay(vec2f(0.0, 0.0)) * distance);
-            vec3f ray2 = pose * (cam.pixToRay(vec2f(1.0, 0.0)) * distance);
-            vec3f ray3 = pose * (cam.pixToRay(vec2f(1.0, 1.0)) * distance);
-            vec3f ray4 = pose * (cam.pixToRay(vec2f(0.0, 1.0)) * distance);
+            Vec3f ray1 = pose * (cam.pixToRay(Vec2f(0.0, 0.0)) * distance);
+            Vec3f ray2 = pose * (cam.pixToRay(Vec2f(1.0, 0.0)) * distance);
+            Vec3f ray3 = pose * (cam.pixToRay(Vec2f(1.0, 1.0)) * distance);
+            Vec3f ray4 = pose * (cam.pixToRay(Vec2f(0.0, 1.0)) * distance);
 
             vertex_buffer[i * 5 * 3 + 0 * 3 + 0] = pose.translation()(0);
             vertex_buffer[i * 5 * 3 + 0 * 3 + 1] = pose.translation()(1);

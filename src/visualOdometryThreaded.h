@@ -2,22 +2,41 @@
 
 #include <iostream>
 #include <fstream>
+#include <condition_variable>
 
 #include <pangolin/pangolin.h>
 
+#include "core/types.h"
+#include "core/mesh_helpers.h"
+
+#include "backends/cpu/texturecpu.h"
+#include "backends/cpu/meshcpu.h"
+#include "backends/cpu/renderercpu.h"
+
+#ifdef COMPILE_GL
+#include "backends/gl/devicegl_glad.h"
+#include "backends/gl/texturegl.h"
+#include "backends/gl/meshgl.h"
+#include "backends/gl/renderergl.h"
+#endif
+
+#include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
 
 #include "optimizers/poseOptimizer.h"
+#include "optimizers/poseExpOptimizer.h"
 // #include "optimizers/poseVelOptimizerCPU.h"
 #include "optimizers/mapOptimizer.h"
 #include "optimizers/poseMapOptimizer.h"
+#include "optimizers/poseExpMapOptimizer.h"
 // #include "optimizers/intrinsicPoseMapOptimizerCPU.h"
 
-#include "visualizer/geometryPlotter.h"
-#include "visualizer/trayectoryPlotter.h"
-#include "visualizer/imagePlotter.h"
+// #include "visualizer/trayectoryPlotter.h"
+// #include "visualizer/imagePlotter.h"
 #include "utils/tictoc.h"
+
+#include "tests/common/test_helpers.h"
 
 template <typename T>
 class ThreadSafeQueue
@@ -30,7 +49,8 @@ public:
             std::lock_guard<std::mutex> lock(mutex_);
             queue_.push(value);
         }
-        cv_.notify_one();
+        // cv_.notify_one();
+        cv_.notify_all();
     }
 
     // Peek at the front element without removing it (blocks if the queue is empty)
@@ -96,20 +116,28 @@ private:
 class VisualOdometryThreaded
 {
 public:
-    VisualOdometryThreaded(int _width, int _height, bool _doMapping = true, bool _doVisualization = true)
+    VisualOdometryThreaded(float fx, float fy, float cx, float cy, int width, int height, bool doMapping = true, bool doVisualization = true)
     {
-        //width = _width;
-        //height = _height;
+#ifdef COMPILE_GL
+        InitEGL();
+#endif
 
-        doMapping = _doMapping;
-        doVisualization = _doVisualization;
+        frameId_ = 0;
 
-        tLocalization = std::thread(&visualOdometryThreaded::voThread, this);
-        //  tLocalization = std::thread(&visualOdometryThreaded::localizationThread, this);
-        //  tMapping = std::thread(&visualOdometryThreaded::mappingThread, this);
+        width_ = width;
+        height_ = height;
 
-        if (doVisualization)
-            tVisualization = std::thread(&visualOdometryThreaded::visualizationThread, this);
+        cam_ = Camera(fy, fy, cx, cy, width, height);
+
+        doMapping_ = doMapping;
+        doVisualization_ = doVisualization;
+
+        tLocalization_ = std::thread(&VisualOdometryThreaded::voThread, this);
+        // tLocalization_ = std::thread(&VisualOdometryThreaded::localizationThread, this);
+        // tMapping_ = std::thread(&VisualOdometryThreaded::mappingThread, this);
+
+        // if (doVisualization)
+        //     tVisualization_ = std::thread(&VisualOdometryThreaded::visualizationThread, this);
     }
 
     /*
@@ -121,34 +149,44 @@ public:
 
     ~VisualOdometryThreaded()
     {
-        tLocalization.join();
-        tMapping.join();
+        tLocalization_.join();
+        tMapping_.join();
     }
 
-    void init(const Texture<Image> &image, Camera cam)
+    void flatInit(const ImageType *image_data)
     {
-        kframe_ = KeyFrame(image, cam);
+        std::vector<float> s_ver_buff;
+        std::vector<int> s_idx_buff;
+        CreateScreenQuad(s_ver_buff, s_idx_buff);
+        Mesh screen_mesh(s_ver_buff, s_idx_buff, true, true, false);
 
-        cam_ = cam;
-        //width = image.width;
-        //height = image.height;
-        frameId = 0;
+        DIDxyRenderer didxy_renderer;
+
+        Texture<ImageType> image_texture(width_, height_, -1, image_data);
+        image_texture.generate_mipmaps(0);
+
+        Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
+        for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
+            didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
+
+        std::vector<float> ver_buff;
+        std::vector<int> idx_buff;
+
+        CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, false);
+        Mesh mesh(ver_buff, idx_buff, true, true, false);
+
+        KeyFrame kframe(image_texture, didxy_texture, SE3f(), mesh, 1.0, frameId_);
+
+        kfQueue_.push(kframe);
+
+        frameId_++;
     }
 
-    void init(const Texture<Image> &image, const Texture<float> &depth, SE3 globalPose, Camera cam)
+    void locAndMap(ImageType *image_data)
     {
-        kframe_ = KeyFrame(image, depth, cam);
-
-        cam_ = cam;
-
-        //width = image.width;
-        //height = image.height;
-        frameId = 0;
-    }
-
-    void locAndMap(Texture<Image> &image)
-    {
-        iQueue.push(image);
+        Texture<ImageType> image_texture(width_, height_, -1, image_data);
+        image_texture.generate_mipmaps(0);
+        iQueue_.push(image_texture);
     }
 
     bool isIdle()
@@ -156,83 +194,65 @@ public:
         return false;
     }
 
-    keyFrame getKeyframe()
+    KeyFrame getKeyframe()
     {
-        return kfQueue.peek();
-    }
-
-    SE3 localize(Texture<Image> &image, SE3 initialGuess)
-    {
-        Frame frame(image, frameId);
-        PoseOptimizer optimizer;
-
-        // initialize the global and local pose
-        frame.setGlobalPose(initialGuess);
-        frame.setLocalPose(kframe.globalPoseToLocal(frame.getGlobalPose()));
-
-        // this will update the local pose
-        for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
-        {
-            optimizer.init(frame, kframe, cam, lvl);
-            while (!optimizer.converged())
-            {
-                optimizer.step(frame, kframe, cam, lvl);
-
-                if (doVisualization)
-                {
-                    std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frame, kframe, cam, 1);
-                    debugLocalizationQueue.push(debugData);
-                }
-            }
-        }
-
-        // update the global pose
-        SE3f newGlobalPose = kframe.localPoseToGlobal(frame.getLocalPose());
-        frame.setGlobalPose(newGlobalPose);
-
-        return frame.getGlobalPose();
+        return kfQueue_.peek();
     }
 
 private:
     void localizationThread()
     {
-        PoseOptimizerCPU optimizer;
-        KeyFrame kframe = kframe_;
+        std::vector<float> s_ver_buff;
+        std::vector<int> s_idx_buff;
+        CreateScreenQuad(s_ver_buff, s_idx_buff);
+        Mesh screen_mesh(s_ver_buff, s_idx_buff, true, true, false);
 
-        SE3 lastGlobalPose;
-        SE3 lastGlobalMovement;
+        DIDxyRenderer didxy_renderer;
+        ResidualRenderer residual_renderer;
+        ImageRenderer image_renderer;
+        DepthRenderer depth_renderer;
+
+        Texture<ImageType> image_texture(width_, height_, -1);
+        Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
+        Texture<float> l2_texture(width_, height_, 0);
+        Texture<float> depth_texture(width_, height_, 0);
+
+        PoseExpOptimizer optimizer(width_, height_, true);
+        // KeyFrame kframe(image_texture, didxy_texture, SE3f(), screen_mesh, 1.0, -1);
+
+        KeyFrame kframe = kfQueue_.peek();
+
+        SE3f lastLocalPose;
+        SE3f lastLocalMovement;
+        Vec2f lastLocalExposure(0.0, 0.0);
 
         tic_toc tt;
 
         while (true)
         {
-            // keep only the last keyframe
-            while (true)
+            // check if there is a new kframe
+            if (kfQueue_.try_peek(kframe))
             {
-                if (!kfQueue.try_pop(kframe))
-                    break;
+                lastLocalMovement = SE3f();
+                lastLocalPose = SE3f();
             }
 
-            TextureCPU<ImageType> image = iQueue.pop();
+            Texture<ImageType> image_texture = iQueue_.pop();
 
-            // keep on reading and keep the last image
-            while (true)
-            {
-                if (!iQueue.try_pop(image))
-                    break;
-            }
+            for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
+                didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
 
-            Frame frame(image, frameId);
+            Frame frame(image_texture, didxy_texture, frameId_, kframe.id());
 
             // initialize the global and local pose
-            frame.setGlobalPose(lastGlobalMovement * lastGlobalPose);
-            frame.setLocalPose(kframe.globalPoseToLocal(frame.getGlobalPose()));
+            frame.local_pose() = lastLocalMovement * lastLocalPose;
+            frame.local_exposure() = lastLocalExposure;
 
             // this will update the local pose
             tt.tic();
             for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
             {
-                optimizer.init(frame, kframe, cam, lvl);
+                optimizer.init(frame, kframe, cam_, lvl, lvl);
                 // if (plotDebug)
                 //{
                 //     std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frame, kframe, cam, 1);
@@ -240,7 +260,7 @@ private:
                 // }
                 while (true)
                 {
-                    optimizer.step(frame, kframe, cam, lvl);
+                    optimizer.step(frame, kframe, cam_, lvl, lvl);
                     if (optimizer.converged())
                     {
                         // if (plotDebug)
@@ -254,108 +274,136 @@ private:
             }
             std::cout << "localization time " << tt.toc() << std::endl;
 
-            // update the global pose
-            SE3 newGlobalPose = kframe.localPoseToGlobal(frame.getLocalPose());
-            frame.setGlobalPose(newGlobalPose);
+            lastLocalMovement = frame.local_pose() * lastLocalPose.inverse();
+            lastLocalPose = frame.local_pose();
+            lastLocalExposure = frame.local_exposure();
 
-            lastGlobalMovement = newGlobalPose * lastGlobalPose.inverse();
-            lastGlobalPose = newGlobalPose;
+            fQueue_.push(frame);
 
-            fQueue.push(frame);
+            frameId_++;
 
-            frameId++;
+            // Debug rendering
+            depth_renderer.Render(kframe.mesh(),
+                                  frame.local_pose(), cam_, 1, depth_texture);
+
+            image_renderer.Render(kframe.mesh(),
+                                  frame.local_pose(),
+                                  frame.local_exposure(),
+                                  cam_,
+                                  1, 1,
+                                  kframe.image(),
+                                  image_texture);
+
+            residual_renderer.Render(kframe.mesh(),
+                                     frame.local_pose(),
+                                     frame.local_exposure(),
+                                     cam_,
+                                     1, 1,
+                                     kframe.image(), frame.image(), l2_texture);
+
+            cv::Mat depth_mat = DownloadTextureToMat(depth_texture, 1);
+            SaveDebugImage(depth_mat, "loc_depth_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+
+            cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
+            SaveDebugImage(image_mat, "loc_image_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+
+            cv::Mat frame_mat = DownloadTextureToMat(frame.image(), 1);
+            SaveDebugImage(frame_mat, "loc_frame_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+
+            cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
+            SaveDebugImage(l2_mat, "loc_l2_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
         }
     }
 
     void mappingThread()
     {
-        PoseMapOptimizerCPU optimizer;
-        renderCPU renderer(width, height);
-        dataMipMapCPU<imageType> image_buffer(width, height, -1);
-        dataMipMapCPU<float> depth_buffer(width, height, -1);
-        dataMipMapCPU<float> weight_buffer(width, height, -1);
+        std::vector<float> ver_buff;
+        std::vector<int> idx_buff;
 
-        std::vector<frameCPU> frameStack;
-        keyFrameCPU _kframe = kframe;
+        Texture<ImageType> image_texture(width_, height_, -1);
+        Texture<float> l2_texture(width_, height_, 0);
+        Texture<float> depth_texture(width_, height_, -1);
+
+        ImageRenderer image_renderer;
+        ResidualRenderer residual_renderer;
+        DepthRenderer depth_renderer;
+
+        NodataReducerCPU nodata_reducer;
+
+        PoseExpMapOptimizer optimizer(width_, height_, true);
+
+        std::vector<Frame> frameStack;
+
+        KeyFrame kframe = kfQueue_.peek();
+
+        bool initial_kframe = true;
 
         tic_toc tt;
 
         while (true)
         {
-            frameCPU frame = fQueue.pop();
+            Frame frame = fQueue_.pop();
 
-            while (true)
+            assert(frame.keyframe_id() == kframe.id());
+
+            float lastMinViewAngle = M_PI;
+            for (Frame f : frameStack)
             {
-                float lastMinViewAngle = M_PI;
-                for (frameCPU f : frameStack)
-                {
-                    float lastViewAngle = kframe.meanViewAngle(kframe.globalPoseToLocal(f.getGlobalPose()), kframe.globalPoseToLocal(frame.getGlobalPose()));
-                    if (lastViewAngle < lastMinViewAngle)
-                        lastMinViewAngle = lastViewAngle;
-                }
+                float lastViewAngle = kframe.meanViewAngle(f.local_pose(), frame.local_pose());
+                if (lastViewAngle < lastMinViewAngle)
+                    lastMinViewAngle = lastViewAngle;
+            }
 
-                if (lastMinViewAngle > mesh_vo::last_min_angle)
-                {
-                    frameStack.push_back(frame);
-                    if (frameStack.size() > mesh_vo::num_frames)
-                        frameStack.erase(frameStack.begin());
-                }
-
-                if (!fQueue.try_pop(frame))
-                    break;
+            if (lastMinViewAngle > mesh_vo::last_min_angle || initial_kframe)
+            {
+                frameStack.push_back(frame);
+                if (frameStack.size() > mesh_vo::num_frames)
+                    frameStack.erase(frameStack.begin());
             }
 
             if (frameStack.size() < mesh_vo::num_frames)
                 continue;
 
-            float keyframeViewAngle = kframe.meanViewAngle(SE3f(), kframe.globalPoseToLocal(frame.getGlobalPose()));
+            float keyframeViewAngle = kframe.meanViewAngle(SE3f(), frame.local_pose());
 
-            image_buffer.setToNoData(1);
-            renderer.renderImageParallel(kframe, kframe.globalPoseToLocal(frame.getGlobalPose()), image_buffer, cam, 1);
-            float pnodata = image_buffer.get(1).getPercentNoData();
+            depth_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, depth_texture);
+
+            Error nodata = nodata_reducer.reduce(1, depth_texture);
+            float pnodata = nodata.getError() / (depth_texture.width(1) * depth_texture.height(1));
             float viewPercent = 1.0 - pnodata;
 
-            if (viewPercent > mesh_vo::min_view_perc && keyframeViewAngle < mesh_vo::key_max_angle)
+            if (viewPercent > mesh_vo::min_view_perc && keyframeViewAngle < mesh_vo::key_max_angle && !initial_kframe)
                 continue;
 
             // select new keyframe
             // int newKeyframeIndex = 0;
             int newKeyframeIndex = int(frameStack.size() / 2);
             // int newKeyframeIndex = int(goodFrames.size() - 1);
-            frameCPU newKeyframe = frameStack[newKeyframeIndex];
+            Frame newKeyframe = frameStack[newKeyframeIndex];
 
-            depth_buffer.setToNoData(0);
-            weight_buffer.setToNoData(0);
-            renderer.renderDepthParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), depth_buffer, cam, 0);
-            renderer.renderWeightParallel(kframe, kframe.globalPoseToLocal(newKeyframe.getGlobalPose()), weight_buffer, cam, 0);
-            renderer.renderInterpolate(depth_buffer.get(0));
+            // CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, false);
+            CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, false);
 
-            kframe = keyFrameCPU(newKeyframe.getRawImage(0), vec2f(0.0, 0.0), newKeyframe.getGlobalPose(), kframe.getGlobalScale());
-            kframe.initGeometryFromDepth(depth_buffer.get(0), weight_buffer.get(0), cam);
+            Mesh mesh(ver_buff, idx_buff, true, true, false);
 
-            vec2f meanStd = kframe.getGeometry().meanStdDepth();
-            // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
-            // vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
-            float scale = mesh_vo::mapping_mean_depth / meanStd(0);
+            SE3f reference_pose = newKeyframe.local_pose().inverse();
+            SE3f global_pose = kframe.localPoseToGlobal(newKeyframe.local_pose());
+            float global_scale = kframe.getGlobalScale();
 
-            kframe.scaleVerticesAndWeights(scale);
+            kframe = KeyFrame(newKeyframe.image(), newKeyframe.didxy(), global_pose, mesh, global_scale, newKeyframe.id());
 
-            std::vector<frameCPU> keyframes = frameStack;
-            keyframes.erase(keyframes.begin() + newKeyframeIndex);
-
-            // initialize the local poses
-            for (size_t i = 0; i < keyframes.size(); i++)
+            for (int i = 0; i < frameStack.size(); i++)
             {
-                keyframes[i].setLocalPose(kframe.globalPoseToLocal(keyframes[i].getGlobalPose()));
+                frameStack[i].local_pose() = frameStack[i].local_pose() * reference_pose;
             }
 
-            // this will update the local pose and the local map
-            // optimizer.optimize(frameStack, kframe, cam);
+            std::vector<Frame> oframes = frameStack;
+            // oframes.erase(oframes.begin() + newKeyframeIndex);
 
             tt.tic();
             for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
             {
-                optimizer.init(keyframes, kframe, cam, lvl);
+                optimizer.init(oframes, kframe, cam_, lvl, lvl);
                 // if (plotDebug)
                 //{
                 //     std::vector<dataCPU<float>> debugData = optimizer.getDebugData(keyframes, kframe, cam, 1);
@@ -363,7 +411,7 @@ private:
                 // }
                 while (true)
                 {
-                    optimizer.step(keyframes, kframe, cam, lvl);
+                    optimizer.step(oframes, kframe, cam_, lvl, lvl);
                     if (optimizer.converged())
                     {
                         // if (plotDebug)
@@ -378,68 +426,106 @@ private:
             std::cout << "mapping time " << tt.toc() << std::endl;
 
             // update the global poses
-            for (size_t i = 0; i < keyframes.size(); i++)
+            for (size_t i = 0; i < oframes.size(); i++)
             {
-                keyframes[i].setGlobalPose(kframe.localPoseToGlobal(keyframes[i].getLocalPose()));
                 for (size_t j = 0; j < frameStack.size(); j++)
                 {
-                    if (keyframes[i].getId() == frameStack[j].getId())
+                    if (oframes[i].id() == frameStack[j].id())
                     {
-                        frameStack[j].setLocalPose(keyframes[i].getLocalPose());
-                        frameStack[j].setGlobalPose(keyframes[i].getGlobalPose());
+                        frameStack[j].local_pose() = oframes[i].local_pose();
+                        frameStack[j].local_exposure() = oframes[i].local_exposure();
                     }
                 }
             }
 
-            kfQueue.push(kframe);
+            kfQueue_.push(kframe);
+
+            // Debug rendering
+            depth_renderer.Render(kframe.mesh(),
+                                  frame.local_pose(), cam_, 1, depth_texture);
+            cv::Mat depth_mat = DownloadTextureToMat(depth_texture, 1);
+            SaveDebugImage(depth_mat, "map_depth_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+
+            image_renderer.Render(kframe.mesh(),
+                                  frame.local_pose(),
+                                  frame.local_exposure(),
+                                  cam_,
+                                  1, 1,
+                                  kframe.image(),
+                                  image_texture);
+            cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
+            SaveDebugImage(image_mat, "map_image_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+
+            cv::Mat frame_mat = DownloadTextureToMat(frame.image(), 1);
+            SaveDebugImage(frame_mat, "map_frame_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+
+            for (Frame f : frameStack)
+            {
+                residual_renderer.Render(kframe.mesh(),
+                                         f.local_pose(),
+                                         f.local_exposure(),
+                                         cam_,
+                                         1, 1,
+                                         kframe.image(), f.image(), l2_texture);
+
+                cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
+                SaveDebugImage(l2_mat, "map_l2_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + ".png");
+            }
         }
     }
 
     void voThread()
     {
-        poseOptimizerCPU poseOptimizer(width, height);
-        // poseVelOptimizerCPU poseOptimizer(width, height);
-        poseMapOptimizerCPU poseMapOptimizer(width, height);
+        std::vector<float> s_ver_buff;
+        std::vector<int> s_idx_buff;
+        CreateScreenQuad(s_ver_buff, s_idx_buff);
+        Mesh screen_mesh(s_ver_buff, s_idx_buff, true, true, false);
 
-        renderCPU renderer(width, height);
-        dataMipMapCPU<imageType> image_buffer(width, height, -1);
-        dataMipMapCPU<float> depth_buffer(width, height, -1);
-        dataMipMapCPU<float> weight_buffer(width, height, -1);
+        DIDxyRenderer didxy_renderer;
+        DepthRenderer depth_renderer;
+        ImageRenderer image_renderer;
+        ResidualRenderer residual_renderer;
 
-        dataCPU<imageType> image;
-        std::vector<frameCPU> frameStack;
-        std::vector<frameCPU> keyframes;
+        NodataReducerCPU nodata_reducer;
 
-        keyFrameCPU _kframe = kframe;
+        PoseOptimizer poseOptimizer(width_, height_, true);
+        PoseMapOptimizer poseMapOptimizer(width_, height_, true);
+
+        Texture<ImageType> image_texture(width_, height_, -1);
+        Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
+        Texture<float> depth_texture(width_, height_, -1);
+        Texture<float> l2_texture(width_, height_, 0);
+
+        std::vector<Frame> frameStack;
+        std::vector<Frame> oframes;
+
+        KeyFrame kframe = kfQueue_.peek();
 
         tic_toc tt;
 
-        SE3f lastGlobalPose;
-        SE3f lastGlobalMovement;
+        SE3f lastLocalPose;
+        SE3f lastLocalMovement;
+        Vec2f lastLocalExposure(0.0, 0.0);
 
         while (true)
         {
             // if there is a new image, compute its pose
-            if (iQueue.try_pop(image))
+            if (iQueue_.try_pop(image_texture))
             {
-                // keep on reading and keep the last image
-                while (true)
-                {
-                    if (!iQueue.try_pop(image))
-                        break;
-                }
+                for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
+                    didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
 
-                frameCPU frame(image, frameId);
+                Frame frame(image_texture, didxy_texture, frameId_, kframe.id());
 
                 // initialize the global and local pose
-                frame.setGlobalPose(lastGlobalMovement * lastGlobalPose);
-                frame.setLocalPose(kframe.globalPoseToLocal(frame.getGlobalPose()));
+                frame.local_pose() = lastLocalMovement * lastLocalPose;
+                frame.local_exposure() = lastLocalExposure;
 
                 // this will update the local pose
                 tt.tic();
                 for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
                 {
-                    poseOptimizer.init(frame, kframe, cam, lvl);
+                    poseOptimizer.init(frame, kframe, cam_, lvl, lvl);
                     // if (plotDebug)
                     //{
                     //      std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
@@ -447,14 +533,14 @@ private:
                     //  }
                     while (true)
                     {
-                        poseOptimizer.step(frame, kframe, cam, lvl);
+                        poseOptimizer.step(frame, kframe, cam_, lvl, lvl);
                         if (poseOptimizer.converged())
                         {
-                            if (doVisualization)
-                            {
-                                std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
-                                debugLocalizationQueue.push(debugData);
-                            }
+                            // if (doVisualization)
+                            //{
+                            //     std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
+                            //     debugLocalizationQueue.push(debugData);
+                            // }
                             break;
                         }
                     }
@@ -467,19 +553,48 @@ private:
 
                 std::cout << "localization time " << tt.toc() << std::endl;
 
-                // update the global pose
-                frame.setGlobalPose(kframe.localPoseToGlobal(frame.getLocalPose()));
+                lastLocalMovement = frame.local_pose() * lastLocalPose.inverse();
+                lastLocalPose = frame.local_pose();
+                lastLocalExposure = frame.local_exposure();
 
-                lastGlobalMovement = frame.getGlobalPose() * lastGlobalPose.inverse();
-                lastGlobalPose = frame.getGlobalPose();
+                frameId_++;
 
-                frameId++;
+                // Debug rendering
+                // depth_renderer.Render(kframe.mesh(),
+                //                      frame.local_pose(), cam_, 1, depth_texture);
+
+                // image_renderer.Render(kframe.mesh(),
+                //                       frame.local_pose(),
+                //                       frame.local_exposure(),
+                //                       cam_,
+                //                       1, 1,
+                //                       kframe.image(),
+                //                       image_texture);
+
+                residual_renderer.Render(kframe.mesh(),
+                                         frame.local_pose(),
+                                         frame.local_exposure(),
+                                         cam_,
+                                         1, 1,
+                                         kframe.image(), frame.image(), l2_texture);
+
+                // cv::Mat depth_mat = DownloadTextureToMat(depth_texture, 1);
+                // SaveDebugImage(depth_mat, "loc_depth_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+
+                // cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
+                // SaveDebugImage(image_mat, "loc_image_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+
+                // cv::Mat frame_mat = DownloadTextureToMat(frame.image(), 1);
+                // SaveDebugImage(frame_mat, "loc_frame_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+
+                cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
+                SaveDebugImage(l2_mat, "loc_l2_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
 
                 // Choose wether to save the frame or not
                 float lastMinViewAngle = M_PI;
-                for (frameCPU f : frameStack)
+                for (Frame f : frameStack)
                 {
-                    float lastViewAngle = kframe.meanViewAngle(f.getLocalPose(), frame.getLocalPose());
+                    float lastViewAngle = kframe.meanViewAngle(f.local_pose(), frame.local_pose());
                     if (lastViewAngle < lastMinViewAngle)
                         lastMinViewAngle = lastViewAngle;
                 }
@@ -497,87 +612,129 @@ private:
                 if (frameStack.size() < mesh_vo::num_frames)
                     continue;
 
-                float keyframeViewAngle = kframe.meanViewAngle(SE3f(), frame.getLocalPose());
+                float keyframeViewAngle = kframe.meanViewAngle(SE3f(), frame.local_pose());
 
-                image_buffer.setToNoData(1);
-                renderer.renderImageParallel(kframe, frame.getLocalPose(), image_buffer, cam, 1);
-                float pnodata = image_buffer.get(1).getPercentNoData();
+                depth_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, depth_texture);
+
+                Error nodata = nodata_reducer.reduce(1, depth_texture);
+                float pnodata = nodata.getError() / (depth_texture.width(1) * depth_texture.height(1));
                 float viewPercent = 1.0 - pnodata;
 
                 if (viewPercent > mesh_vo::min_view_perc && keyframeViewAngle < mesh_vo::key_max_angle)
                     continue;
 
                 // save last keyframe, we wont be updating it anymore
-                kfQueue.push(kframe);
+                kfQueue_.push(kframe);
 
                 // select new keyframe
                 // int newKeyframeIndex = 0;
                 int newKeyframeIndex = int(frameStack.size() / 2);
                 // int newKeyframeIndex = int(frameStack.size() - 2);
-                frameCPU newKeyframe = frameStack[newKeyframeIndex];
+                Frame newKeyframe = frameStack[newKeyframeIndex];
 
-                depth_buffer.setToNoData(1);
-                weight_buffer.setToNoData(1);
-                renderer.renderDepthParallel(kframe, newKeyframe.getLocalPose(), depth_buffer, cam, 1);
-                renderer.renderWeightParallel(kframe, newKeyframe.getLocalPose(), weight_buffer, cam, 1);
-                // dataCPU<float> depth = depth_buffer.get(1);
-                renderer.renderInterpolate(depth_buffer.get(1));
+                std::vector<float> ver_buff;
+                std::vector<int> idx_buff;
+                // CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, false);
+                CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, false);
 
-                kframe = keyFrameCPU(newKeyframe.getRawImage(0), vec2f(0.0, 0.0), newKeyframe.getGlobalPose(), kframe.getGlobalScale());
-                kframe.initGeometryFromDepth(depth_buffer.get(1), weight_buffer.get(1), cam);
-                // kframe.initGeometryVerticallySmooth(cam);
+                Mesh mesh(ver_buff, idx_buff, true, true, false);
 
-                vec2f meanStd = kframe.getGeometry().meanStdDepth();
-                // vec2f minMax = kframe.getGeometry().minMaxDepthParams();
-                // vec2f minMax = kframe.getGeometry().minMaxDepthVertices();
-                float scale = mesh_vo::mapping_mean_depth / meanStd(0);
+                SE3f reference_pose = newKeyframe.local_pose().inverse();
+                SE3f global_pose = kframe.localPoseToGlobal(newKeyframe.local_pose());
+                float global_scale = kframe.getGlobalScale();
 
-                kframe.scaleVerticesAndWeights(scale);
+                kframe = KeyFrame(newKeyframe.image(), newKeyframe.didxy(), global_pose, mesh, global_scale, newKeyframe.id());
 
                 // initialize the local poses
                 for (size_t i = 0; i < frameStack.size(); i++)
                 {
-                    frameStack[i].setLocalPose(kframe.globalPoseToLocal(frameStack[i].getGlobalPose()));
+                    frameStack[i].local_pose() = frameStack[i].local_pose() * reference_pose;
                 }
 
-                keyframes = frameStack;
-                keyframes.erase(keyframes.begin() + newKeyframeIndex);
-
-                // renderer.renderIdepthLineSearch(kframe, frameStack[0], cam, 1);
+                oframes = frameStack;
+                oframes.erase(oframes.begin() + newKeyframeIndex);
 
                 // init the posemapoptimizer
-                poseMapOptimizer.init(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
-            }
+                poseMapOptimizer.init(oframes, kframe, cam_, mesh_vo::mapping_fin_lvl, mesh_vo::mapping_fin_lvl);
+                while (poseMapOptimizer.converged() == false)
+                {
+                    poseMapOptimizer.step(oframes, kframe, cam_, mesh_vo::mapping_fin_lvl, mesh_vo::mapping_fin_lvl);
+                }
 
-            if (keyframes.size() < 1)
+                for (size_t i = 0; i < oframes.size(); i++)
+                {
+                    for (size_t j = 0; j < frameStack.size(); j++)
+                    {
+                        if (oframes[i].id() == frameStack[j].id())
+                        {
+                            frameStack[j].local_pose() = oframes[i].local_pose();
+                            frameStack[j].local_exposure() = oframes[i].local_exposure();
+                        }
+                    }
+                }
+
+                lastLocalPose = SE3f();
+                lastLocalExposure = Vec2f(0.0, 0.0);
+                lastLocalMovement = SE3f(); 
+
+                // Debug rendering
+                depth_renderer.Render(kframe.mesh(),
+                                      frame.local_pose(), cam_, 1, depth_texture);
+                cv::Mat map_depth_mat = DownloadTextureToMat(depth_texture, 1);
+                SaveDebugImage(map_depth_mat, "map_depth_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+
+                // image_renderer.Render(kframe.mesh(),
+                //                       frame.local_pose(),
+                //                       frame.local_exposure(),
+                //                       cam_,
+                //                       1, 1,
+                //                       kframe.image(),
+                //                       image_texture);
+                // cv::Mat map_image_mat = DownloadTextureToMat(image_texture, 1);
+                // SaveDebugImage(map_image_mat, "map_image_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+
+                // cv::Mat map_frame_mat = DownloadTextureToMat(frame.image(), 1);
+                // SaveDebugImage(frame_mat, "map_frame_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+
+                for (Frame f : frameStack)
+                {
+                    residual_renderer.Render(kframe.mesh(),
+                                             f.local_pose(),
+                                             f.local_exposure(),
+                                             cam_,
+                                             1, 1,
+                                             kframe.image(), f.image(), l2_texture);
+
+                    cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
+                    SaveDebugImage(l2_mat, "map_l2_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + ".png");
+                }
+            }
+            /*
+            if (oframes.size() < 1)
                 continue;
 
             // this will update the local pose and the local map
             tt.tic();
-            poseMapOptimizer.step(keyframes, kframe, cam, mesh_vo::mapping_fin_lvl);
+            poseMapOptimizer.step(oframes, kframe, cam_, mesh_vo::mapping_fin_lvl, mesh_vo::mapping_fin_lvl);
             std::cout << "mapping time " << tt.toc() << std::endl;
-            if (doVisualization)
-            {
-                std::vector<dataCPU<float>> debugData = poseMapOptimizer.getDebugData(keyframes, kframe, cam, 1);
-                debugMappingQueue.push(debugData);
-            }
 
             // update the global poses
-            for (size_t i = 0; i < keyframes.size(); i++)
+            for (size_t i = 0; i < oframes.size(); i++)
             {
-                keyframes[i].setGlobalPose(kframe.localPoseToGlobal(keyframes[i].getLocalPose()));
                 for (size_t j = 0; j < frameStack.size(); j++)
                 {
-                    if (keyframes[i].getId() == frameStack[j].getId())
+                    if (oframes[i].id() == frameStack[j].id())
                     {
-                        frameStack[j].setLocalPose(keyframes[i].getLocalPose());
-                        frameStack[j].setGlobalPose(keyframes[i].getGlobalPose());
+                        frameStack[j].local_pose() = oframes[i].local_pose();
+                        frameStack[j].local_exposure() = oframes[i].local_exposure();
                     }
                 }
             }
+            */
         }
     }
 
+    /*
     // Visualization thread using Pangolin
     int visualizationThread()
     {
@@ -597,7 +754,7 @@ private:
 
         std::vector<SE3f> poses;
 
-        geometryPlotter geomPlotter;
+        ImageRendererGL image_renderer;
         trayectoryPlotter trayPlotter;
         std::vector<imagePlotter> imgPosePlotter;
         imgPosePlotter.push_back(imagePlotter(0, 0)); // keyframe
@@ -620,25 +777,20 @@ private:
         for (imagePlotter &imgPlotter : imgMapPlotter)
             imgPlotter.compileShaders();
 
-        keyFrameCPU _kframe = kframe;
-        frameCPU frame;
-
-        dataCPU<float> imageFloat = kframe.getRawImage(0).convert<float>();
-        geomPlotter.setBuffers(imageFloat, kframe.getGeometry());
+        Keyframe kframe = kframe_;
+        Frame frame;
 
         while (!pangolin::ShouldQuit())
         {
-            if (kfQueue.try_pop(kframe))
+            if (kfQueue_.try_pop(kframe))
             {
                 kframe.scaleVerticesAndWeights(1.0 / kframe.getGlobalScale());
                 kframe.getGeometry().transform(kframe.getGlobalPose().inverse());
                 poses.push_back(kframe.getGlobalPose());
-                trayPlotter.setBuffers(poses, cam);
-                dataCPU<float> imageFloat2 = kframe.getRawImage(0).convert<float>();
-                geomPlotter.setBuffers(imageFloat2, kframe.getGeometry());
+                trayPlotter.setBuffers(poses, cam_);
             }
 
-            if (!debugLocalizationQueue.empty())
+            if (!debugLocalizationQueue_.empty())
             {
                 std::vector<dataCPU<float>> debugLoc = debugLocalizationQueue.pop();
 
@@ -652,7 +804,7 @@ private:
                 }
             }
 
-            if (!debugMappingQueue.empty())
+            if (!debugMappingQueue_.empty())
             {
                 std::vector<dataCPU<float>> debugLoc = debugMappingQueue.pop();
 
@@ -666,13 +818,13 @@ private:
                 }
             }
 
-            /*
-            if (fQueue.try_peek(frame))
-            {
-                poses.push_back(frame.getGlobalPose());
-                plotter.setBuffers(poses, cam);
-            }
-            */
+
+            //if (fQueue.try_peek(frame))
+           // {
+            //    poses.push_back(frame.getGlobalPose());
+            //    plotter.setBuffers(poses, cam);
+            //}
+
 
             // Clear screen and activate view to render into
             glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
@@ -693,25 +845,21 @@ private:
 
         return 0;
     }
+    */
 
-    std::thread tLocalization;
-    std::thread tMapping;
-    std::thread tVisualization;
+    std::thread tLocalization_;
+    std::thread tMapping_;
+    std::thread tVisualization_;
 
-    ThreadSafeQueue<TextureCPu<ImageType>> iQueue;
-    ThreadSafeQueue<Frame> fQueue;
-    ThreadSafeQueue<KeyFrame> kfQueue;
+    ThreadSafeQueue<Texture<ImageType>> iQueue_;
+    ThreadSafeQueue<Frame> fQueue_;
+    ThreadSafeQueue<KeyFrame> kfQueue_;
 
-    ThreadSafeQueue<std::vector<TextureCPU<float>>> debugLocalizationQueue;
-    ThreadSafeQueue<std::vector<TextureCPU<float>>> debugMappingQueue;
+    Camera cam_;
+    int width_;
+    int height_;
+    int frameId_;
 
-    CameraType cam;
-    int width;
-    int height;
-    int frameId;
-
-    keyFrameCPU kframe;
-
-    bool doMapping;
-    bool doVisualization;
+    bool doMapping_;
+    bool doVisualization_;
 };
