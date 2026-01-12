@@ -191,16 +191,16 @@ TEST_F(RendererTestBase, ComputeMap)
         auto endTime = std::chrono::high_resolution_clock::now();
 
         int plot_lvl = 1;
-        for (std::size_t k = 0; k < oframes.size(); k++)
+        for (std::size_t k = 0; k < frames.size(); k++)
         {
             residual_renderer.Render(kframe->mesh(),
-                                     oframes[k].local_pose(),
-                                     oframes[k].local_exposure(),
+                                     frames[k].local_pose(),
+                                     frames[k].local_exposure(),
                                      cam_,
                                      plot_lvl, plot_lvl,
-                                     kframe->image(), oframes[k].image(), l2_texture);
+                                     kframe->image(), frames[k].image(), l2_texture);
             cv::Mat l2_mat = DownloadTextureToMat(l2_texture, plot_lvl);
-            SaveDebugImage(l2_mat, "l2_" + std::to_string(img_id) + "_" + std::to_string(k) + ".png");
+            SaveDebugImage(l2_mat, "l2_" + std::to_string(kframe->id()) + "_" + std::to_string(frames[k].id()) + ".png");
         }
 
         float new_mean_depth = kframe->meanDepth();
@@ -222,17 +222,17 @@ TEST_F(RendererTestBase, ComputeMap)
         double error = RMSE(es_depth_texture, gt_depth_textures[kframeIndex], plot_lvl);
 
         cv::Mat depth_cv = DownloadTextureToMat(es_depth_texture, plot_lvl);
-        SaveDebugImage(depth_cv, "depth_" + std::to_string(img_id) + ".png");
+        SaveDebugImage(depth_cv, "depth_" + std::to_string(kframe->id()) + ".png");
 
         cv::Mat gt_depth_cv_2 = DownloadTextureToMat(gt_depth_textures[kframeIndex], plot_lvl);
-        SaveDebugImage(gt_depth_cv_2, "depth_" + std::to_string(img_id) + "_gt.png");
+        SaveDebugImage(gt_depth_cv_2, "depth_" + std::to_string(kframe->id()) + "_gt.png");
 
         pids_renderer.Render(kframe->mesh(),
                              SE3f(),
                              cam_, plot_lvl, pids_texture);
 
         cv::Mat pids_cv = DownloadTextureToMat(pids_texture, plot_lvl);
-        SaveDebugImage(pids_cv, "pids_" + std::to_string(img_id) + ".png");
+        SaveDebugImage(pids_cv, "pids_" + std::to_string(kframe->id()) + ".png");
 
         accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
         accError += error;

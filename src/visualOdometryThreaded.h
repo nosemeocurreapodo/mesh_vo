@@ -186,6 +186,8 @@ public:
     {
         Texture<ImageType> image_texture(width_, height_, -1, image_data);
         image_texture.generate_mipmaps(0);
+        while (iQueue_.empty() == false)
+            ; // wait until the queue is empty
         iQueue_.push(image_texture);
     }
 
@@ -488,8 +490,8 @@ private:
 
         NodataReducerCPU nodata_reducer;
 
-        PoseOptimizer poseOptimizer(width_, height_, true);
-        PoseMapOptimizer poseMapOptimizer(width_, height_, true);
+        PoseExpOptimizer poseOptimizer(width_, height_, true);
+        PoseExpMapOptimizer poseMapOptimizer(width_, height_, true);
 
         Texture<ImageType> image_texture(width_, height_, -1);
         Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
@@ -599,7 +601,7 @@ private:
                         lastMinViewAngle = lastViewAngle;
                 }
 
-                if (lastMinViewAngle > mesh_vo::last_min_angle)
+                if (lastMinViewAngle > mesh_vo::last_min_angle || kframe.id() == 0)
                 {
                     frameStack.push_back(frame);
                     if (frameStack.size() > mesh_vo::num_frames)
@@ -620,7 +622,7 @@ private:
                 float pnodata = nodata.getError() / (depth_texture.width(1) * depth_texture.height(1));
                 float viewPercent = 1.0 - pnodata;
 
-                if (viewPercent > mesh_vo::min_view_perc && keyframeViewAngle < mesh_vo::key_max_angle)
+                if (kframe.id() != 0 && viewPercent > mesh_vo::min_view_perc && keyframeViewAngle < mesh_vo::key_max_angle)
                     continue;
 
                 // save last keyframe, we wont be updating it anymore
@@ -674,14 +676,14 @@ private:
                 }
 
                 lastLocalPose = SE3f();
+                lastLocalMovement = SE3f();
                 lastLocalExposure = Vec2f(0.0, 0.0);
-                lastLocalMovement = SE3f(); 
 
                 // Debug rendering
                 depth_renderer.Render(kframe.mesh(),
-                                      frame.local_pose(), cam_, 1, depth_texture);
+                                      SE3f(), cam_, 1, depth_texture);
                 cv::Mat map_depth_mat = DownloadTextureToMat(depth_texture, 1);
-                SaveDebugImage(map_depth_mat, "map_depth_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+                SaveDebugImage(map_depth_mat, "map_depth_" + std::to_string(kframe.id()) + ".png");
 
                 // image_renderer.Render(kframe.mesh(),
                 //                       frame.local_pose(),

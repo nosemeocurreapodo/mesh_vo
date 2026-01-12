@@ -194,7 +194,8 @@ int main(int argc, char **argv)
 
 	for (unsigned int i = start_index + 1; i < end_index; i++) // files.size()
 	{
-		cv::Mat imageDist = cv::imread(files[i], cv::IMREAD_GRAYSCALE);
+		std::string filename = files[i];
+		cv::Mat imageDist = cv::imread(filename, cv::IMREAD_GRAYSCALE);
 
 		if (imageDist.rows != h_inp || imageDist.cols != w_inp)
 		{

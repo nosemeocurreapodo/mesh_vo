@@ -36,8 +36,8 @@ TEST_F(RendererTestBase, ComputePoseMap)
 
     NodataReducerCPU nodata_reducer;
 
-    PoseOptimizer pose_optimizer(w_, h_, true);
-    PoseMapOptimizer posemap_optimizer(w_, h_, true);
+    PoseExpOptimizer pose_optimizer(w_, h_, true);
+    PoseExpMapOptimizer posemap_optimizer(w_, h_, true);
 
     std::vector<Frame> frames;
     KeyFrame *kframe;
