@@ -150,7 +150,8 @@ TEST_F(RendererTestBase, ComputePose)
         cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
         SaveDebugImage(l2_mat, "l2_" + std::to_string(img_id) + ".png");
 
-        Error nodata = nodata_reducer.reduce(1, l2_texture);
+        Error nodata;
+        nodata_reducer.reduce(1, l2_texture, nodata);
         float pnodata = nodata.getError() / (l2_texture.width(1) * l2_texture.height(1));
         float viewPercent = 1.0 - pnodata;
 

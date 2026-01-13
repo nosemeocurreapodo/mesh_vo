@@ -145,7 +145,8 @@ TEST_F(RendererTestBase, ComputePoseMap)
                               1, 1,
                               kframe->image(), image_texture);
 
-        Error nodata = nodata_reducer.reduce(1, image_texture);
+        Error nodata;
+        nodata_reducer.reduce(1, image_texture, nodata);
         float pnodata = nodata.getError() / (image_texture.width(1) * image_texture.height(1));
         float viewPercent = 1.0 - pnodata;
 

@@ -370,7 +370,8 @@ private:
 
             depth_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, depth_texture);
 
-            Error nodata = nodata_reducer.reduce(1, depth_texture);
+            Error nodata;
+            nodata_reducer.reduce(1, depth_texture, nodata);
             float pnodata = nodata.getError() / (depth_texture.width(1) * depth_texture.height(1));
             float viewPercent = 1.0 - pnodata;
 
@@ -618,7 +619,8 @@ private:
 
                 depth_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, depth_texture);
 
-                Error nodata = nodata_reducer.reduce(1, depth_texture);
+                Error nodata;
+                nodata_reducer.reduce(1, depth_texture, nodata);
                 float pnodata = nodata.getError() / (depth_texture.width(1) * depth_texture.height(1));
                 float viewPercent = 1.0 - pnodata;
 

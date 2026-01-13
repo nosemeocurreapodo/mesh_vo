@@ -22,8 +22,9 @@ void PoseVelExpOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int 
 	if (mesh_vo::tracking_prior_weight > 0.0)
 		init_invcovariancesqrt_ = inv_covariance_.sqrt();
 
-	Error er = compute_error_(frame, kframe, cam, in_lvl, out_lvl);
-	init_error_ = er.getError() / er.getCount();
+	Error err;
+	compute_error_(frame, kframe, cam, in_lvl, out_lvl, err);
+	init_error_ = err.getError() / err.getCount();
 
 	if (mesh_vo::tracking_prior_weight > 0.0)
 	{
@@ -46,7 +47,8 @@ void PoseVelExpOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int 
 
 void PoseVelExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
 {
-	DenseLinearProblem<14> problem = compute_problem_(frame, kframe, cam, in_lvl, out_lvl);
+	DenseLinearProblem<14> problem;
+	compute_problem_(frame, kframe, cam, in_lvl, out_lvl, problem);
 	// problem *= 1.0 / problem.count();
 
 	/*
@@ -105,7 +107,9 @@ void PoseVelExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int 
 		frame.local_exposure() = new_exp;
 
 		float new_error = 0;
-		Error ne = compute_error_(frame, kframe, cam, in_lvl, out_lvl);
+		Error err;
+		compute_error_(frame, kframe, cam, in_lvl, out_lvl, err);
+		/*
 		if (ne.getCount() < 0.5 * frame.image().width(out_lvl) * frame.image().height(out_lvl))
 		{
 			// too few pixels, unreliable, set to large error
@@ -115,6 +119,8 @@ void PoseVelExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int 
 		{
 			new_error += ne.getError() / ne.getCount();
 		}
+			*/
+		new_error = err.getError() / err.getCount();
 
 		if (mesh_vo::tracking_prior_weight > 0.0)
 		{
@@ -168,8 +174,8 @@ void PoseVelExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int 
 	}
 }
 
-DenseLinearProblem<14> PoseVelExpOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+void PoseVelExpOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<14> &problem)
 {
 	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_vel(), frame.local_exposure(), cam, 30.0, in_lvl, out_lvl, kframe.image(), frame.image(), kframe.didxy(), jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, r_texture_);
-	return hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, r_texture_);
+	hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, jtravel_texture_, jrotvel_texture_, jexp_texture_, r_texture_, problem);
 }

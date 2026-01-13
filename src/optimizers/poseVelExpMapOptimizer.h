@@ -21,7 +21,7 @@ public:
     void step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
 private:
-    DenseLinearProblemx compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl);
+    void compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl, DenseLinearProblemx &total);
 
     JPoseVelExpMapRenderer jposeexpmaprenderer_;
     HGPoseVelExpMapReducerCPU hgposeexpmapreducer_;

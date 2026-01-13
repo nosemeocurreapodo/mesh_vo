@@ -40,12 +40,14 @@ void PoseExpMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Cam
         init_invcovariancesqrt = invCovariance.sqrt();
 
     init_error = 0;
+    Error err;
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        Error ef = compute_error_(frames[i], kframe, cam, in_lvl, out_lvl);
-        init_error += ef.getError() / ef.getCount();
+        compute_error_(frames[i], kframe, cam, in_lvl, out_lvl, err);
+        // init_error += ef.getError() / ef.getCount();
     }
-    init_error *= 1.0 / frames.size();
+    // init_error *= 1.0 / frames.size();
+    init_error = err.getError() / err.getCount();
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
@@ -96,14 +98,16 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
     DenseLinearProblemx problem(numParams);
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        DenseLinearProblemx fhg = compute_problem_(frames[i], kframe, cam, i, frames.size(), num_depths, in_lvl, out_lvl);
+        compute_problem_(frames[i], kframe, cam, i, frames.size(), num_depths, in_lvl, out_lvl, problem);
+        /*
         if (fhg.count() > 0)
-        {
-            fhg.scale(1.0 / fhg.count());
-            problem += fhg;
-        }
+         {
+             fhg.scale(1.0 / fhg.count());
+             problem += fhg;
+         }
+             */
     }
-    problem.scale(1.0 / frames.size());
+    // problem.scale(1.0 / frames.size());
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
@@ -194,9 +198,11 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
         }
 
         float new_error = 0;
+        Error err;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            Error fe = compute_error_(frames[i], kframe, cam, in_lvl, out_lvl);
+            compute_error_(frames[i], kframe, cam, in_lvl, out_lvl, err);
+            /*
             if (fe.getCount() < 0.5 * frames[i].image().width(out_lvl) * frames[i].image().height(out_lvl))
             {
                 new_error += init_error * 2.0;
@@ -205,8 +211,10 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
             {
                 new_error += fe.getError() / fe.getCount();
             }
+                */
         }
-        new_error *= 1.0 / frames.size();
+        // new_error *= 1.0 / frames.size();
+        new_error = err.getError() / err.getCount();
 
         if (mesh_vo::mapping_regu_weight > 0.0)
         {
@@ -279,8 +287,8 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
     }
 }
 
-DenseLinearProblemx PoseExpMapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl)
+void PoseExpMapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl, DenseLinearProblemx &total)
 {
     jposeexpmaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frame.image(), kframe.didxy(), jtra_texture_, jrot_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_);
-    return hgposeexpmapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jtra_texture_, jrot_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_, kframe.mesh());
+    hgposeexpmapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jtra_texture_, jrot_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_, kframe.mesh(), total);
 }

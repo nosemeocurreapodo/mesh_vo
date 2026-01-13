@@ -22,10 +22,10 @@ public:
 	virtual ~BaseReducerCPU() = default;
 
 protected:
-	OutType reduce_()
+	void reduce_(OutType &total)
 	{
 		const int N = derived_().size();
-		return derived_().reducepartial(0, N);
+		derived_().reducepartial(0, N, total);
 
 		/*
 		const unsigned T = std::min<unsigned>(threads_, static_cast<unsigned>(N));
@@ -71,12 +71,12 @@ public:
 	using Base = BaseReducerCPU<NodataReducerCPU, Error>;
 	explicit NodataReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
 
-	Error reduce(int lvl, const Texture<ImageType> &r_texture)
+	void reduce(int lvl, const Texture<ImageType> &r_texture, Error &total)
 	{
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
 
-		return reduce_();
+		reduce_(total);
 	}
 
 	int size()
@@ -84,11 +84,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	Error reducepartial(int begin, int end)
+	void reducepartial(int begin, int end, Error &err)
 	{
 		auto rmap = r_texture_->MapRead(lvl_);
 
-		Error err;
 		for (int i = begin; i < end; ++i)
 		{
 			const float r = rmap[i];
@@ -97,7 +96,6 @@ public:
 			else
 				err += 0.0f;
 		}
-		return err;
 	}
 
 private:
@@ -115,12 +113,12 @@ public:
 	{
 	}
 
-	Error reduce(int lvl, const Texture<float> &r_texture)
+	void reduce(int lvl, const Texture<float> &r_texture, Error &total)
 	{
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
 
-		return reduce_();
+		reduce_(total);
 	}
 
 	int size()
@@ -128,11 +126,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	Error reducepartial(int begin, int end)
+	void reducepartial(int begin, int end, Error &err)
 	{
 		auto rmap = r_texture_->MapRead(lvl_);
 
-		Error err;
 		for (int i = begin; i < end; ++i)
 		{
 			const float r = rmap[i];
@@ -141,7 +138,6 @@ public:
 			const float w = huber_weight(r, mesh_vo::huber_thresh_pix);
 			err += w * r * r;
 		}
-		return err;
 	}
 
 private:
@@ -159,14 +155,14 @@ public:
 	{
 	}
 
-	DenseLinearProblem<6> reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<float> &r_texture)
+	void reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<float> &r_texture, DenseLinearProblem<6> &total)
 	{
 		jtra_texture_ = &jtra_texture;
 		jrot_texture_ = &jrot_texture;
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
 
-		return reduce_();
+		reduce_(total);
 	}
 
 	int size()
@@ -174,9 +170,8 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblem<6> reducepartial(int begin, int end)
+	void reducepartial(int begin, int end, DenseLinearProblem<6> &hg)
 	{
-		DenseLinearProblem<6> hg;
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -206,7 +201,6 @@ public:
 			// hg.add(J, res, w, ids);
 			hg.add(J, res, w);
 		}
-		return hg;
 	}
 
 private:
@@ -227,7 +221,7 @@ public:
 	{
 	}
 
-	DenseLinearProblem<8> reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jexp_texture, const Texture<float> &r_texture)
+	void reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jexp_texture, const Texture<float> &r_texture, DenseLinearProblem<8> &total)
 	{
 		jtra_texture_ = &jtra_texture;
 		jrot_texture_ = &jrot_texture;
@@ -235,7 +229,7 @@ public:
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
 
-		return reduce_();
+		reduce_(total);
 	}
 
 	int size()
@@ -243,9 +237,8 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblem<8> reducepartial(int begin, int end)
+	void reducepartial(int begin, int end, DenseLinearProblem<8> &hg)
 	{
-		DenseLinearProblem<8> hg;
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -279,7 +272,6 @@ public:
 			// hg.add(J, res, w, ids);
 			hg.add(J, res, w);
 		}
-		return hg;
 	}
 
 private:
@@ -301,7 +293,7 @@ public:
 	{
 	}
 
-	DenseLinearProblem<12> reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<float> &r_texture)
+	void reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<float> &r_texture, DenseLinearProblem<12> &total)
 	{
 		jtra_texture_ = &jtra_texture;
 		jrot_texture_ = &jrot_texture;
@@ -310,7 +302,7 @@ public:
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
 
-		return reduce_();
+		return reduce_(total);
 	}
 
 	int size()
@@ -318,9 +310,8 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblem<12> reducepartial(int begin, int end)
+	void reducepartial(int begin, int end, DenseLinearProblem<12> &hg)
 	{
-		DenseLinearProblem<12> hg;
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -360,7 +351,6 @@ public:
 			// hg.add(J, res, w, ids);
 			hg.add(J, res, w);
 		}
-		return hg;
 	}
 
 private:
@@ -383,7 +373,7 @@ public:
 	{
 	}
 
-	DenseLinearProblem<14> reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<Vec3f> &jexp_texture, const Texture<float> &r_texture)
+	void reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<Vec3f> &jexp_texture, const Texture<float> &r_texture, DenseLinearProblem<14> &total)
 	{
 		jtra_texture_ = &jtra_texture;
 		jrot_texture_ = &jrot_texture;
@@ -393,7 +383,7 @@ public:
 		r_texture_ = &r_texture;
 		lvl_ = lvl;
 
-		return reduce_();
+		reduce_(total);
 	}
 
 	int size()
@@ -401,9 +391,8 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblem<14> reducepartial(int begin, int end)
+	void reducepartial(int begin, int end, DenseLinearProblem<14> &hg)
 	{
-		DenseLinearProblem<14> hg;
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -448,7 +437,6 @@ public:
 			// hg.add(J, res, w, ids);
 			hg.add(J, res, w);
 		}
-		return hg;
 	}
 
 private:
@@ -472,7 +460,7 @@ public:
 	{
 	}
 
-	DenseLinearProblemx reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh)
+	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh, DenseLinearProblemx &total)
 	{
 		jmap_texture_ = &jmap_texture;
 		pids_texture_ = &pids_texture;
@@ -486,7 +474,7 @@ public:
 
 		// DenseLinearProblem hg(total);
 
-		return reduce_();
+		reduce_(total);
 	}
 
 	int size()
@@ -494,9 +482,8 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblemx reducepartial(int begin, int end)
+	void reducepartial(int begin, int end, DenseLinearProblemx &hg)
 	{
-		DenseLinearProblemx hg(num_vertices_);
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
@@ -528,7 +515,6 @@ public:
 
 			hg.add(J, res, w, pids_);
 		}
-		return hg;
 	}
 
 private:
@@ -553,7 +539,7 @@ public:
 	{
 	}
 
-	DenseLinearProblemx reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jmap_texture, const Texture<Vec3f> &jexp_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh)
+	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jmap_texture, const Texture<Vec3f> &jexp_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh, DenseLinearProblemx &total)
 	{
 		jmap_texture_ = &jmap_texture;
 		jexp_texture_ = &jexp_texture;
@@ -568,7 +554,7 @@ public:
 
 		// DenseLinearProblem hg(total);
 
-		return reduce_();
+		reduce_(total);
 	}
 
 	int size()
@@ -576,9 +562,8 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblemx reducepartial(int begin, int end)
+	void reducepartial(int begin, int end, DenseLinearProblemx &hg)
 	{
-		DenseLinearProblemx hg(num_vertices_ + 2 * num_frames_);
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto jexp_map = jexp_texture_->MapRead(lvl_);
@@ -614,7 +599,6 @@ public:
 
 			hg.add(J, res, w, pids_);
 		}
-		return hg;
 	}
 
 private:
@@ -639,7 +623,7 @@ public:
 	{
 	}
 
-	DenseLinearProblemx reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh)
+	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh, DenseLinearProblemx &total)
 	{
 		jtra_texture_ = &jtra_texture;
 		jrot_texture_ = &jrot_texture;
@@ -655,7 +639,7 @@ public:
 
 		// DenseLinearProblem hg(total);
 
-		return reduce_();
+		reduce_(total);
 	}
 
 	int size()
@@ -663,9 +647,8 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblemx reducepartial(int begin, int end)
+	void reducepartial(int begin, int end, DenseLinearProblemx &hg)
 	{
-		DenseLinearProblemx hg(num_vertices_ + 6 * num_frames_);
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -717,7 +700,6 @@ public:
 
 			hg.add(J, res, w, pids_);
 		}
-		return hg;
 	}
 
 private:
@@ -743,7 +725,7 @@ public:
 	{
 	}
 
-	DenseLinearProblemx reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jexp_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh)
+	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jexp_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh, DenseLinearProblemx &total)
 	{
 		jtra_texture_ = &jtra_texture;
 		jrot_texture_ = &jrot_texture;
@@ -760,7 +742,7 @@ public:
 
 		// DenseLinearProblem hg(total);
 
-		return reduce_();
+		reduce_(total);
 	}
 
 	int size()
@@ -768,9 +750,8 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblemx reducepartial(int begin, int end)
+	void reducepartial(int begin, int end, DenseLinearProblemx &hg)
 	{
-		DenseLinearProblemx hg(num_vertices_ + 8 * num_frames_);
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -828,7 +809,6 @@ public:
 
 			hg.add(J, res, w, pids_);
 		}
-		return hg;
 	}
 
 private:
@@ -855,7 +835,7 @@ public:
 	{
 	}
 
-	DenseLinearProblemx reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh)
+	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh, DenseLinearProblemx &total)
 	{
 		jtra_texture_ = &jtra_texture;
 		jrot_texture_ = &jrot_texture;
@@ -873,7 +853,7 @@ public:
 
 		// DenseLinearProblem hg(total);
 
-		return reduce_();
+		reduce_(total);
 	}
 
 	int size()
@@ -881,9 +861,8 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblemx reducepartial(int begin, int end)
+	void reducepartial(int begin, int end, DenseLinearProblemx &hg)
 	{
-		DenseLinearProblemx hg(num_vertices_ + 12 * num_frames_);
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -957,7 +936,6 @@ public:
 
 			hg.add(J, res, w, pids_);
 		}
-		return hg;
 	}
 
 private:
@@ -985,7 +963,7 @@ public:
 	{
 	}
 
-	DenseLinearProblemx reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<Vec3f> &jexp_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh)
+	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<Vec3f> &jexp_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh, DenseLinearProblemx &total)
 	{
 		jtra_texture_ = &jtra_texture;
 		jrot_texture_ = &jrot_texture;
@@ -1004,7 +982,7 @@ public:
 
 		// DenseLinearProblem hg(total);
 
-		return reduce_();
+		reduce_(total);
 	}
 
 	int size()
@@ -1012,9 +990,8 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	DenseLinearProblemx reducepartial(int begin, int end)
+	void reducepartial(int begin, int end, DenseLinearProblemx &hg)
 	{
-		DenseLinearProblemx hg(num_vertices_ + 14 * num_frames_);
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -1095,7 +1072,6 @@ public:
 
 			hg.add(J, res, w, pids_);
 		}
-		return hg;
 	}
 
 private:
