@@ -73,7 +73,8 @@ void PoseExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 		}
 		n_try++;
 
-		Vec8f inc = problem.solve(lambda);
+		solver_.compute(problem.Hp() + Mat8f::Identity() * lambda);
+		Vec8f inc = solver_.solve(-problem.G());
 		Vec6f pose_inc;
 		pose_inc(0) = inc(0);
 		pose_inc(1) = inc(1);

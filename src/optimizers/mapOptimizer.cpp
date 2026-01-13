@@ -1,12 +1,14 @@
 #include "optimizers/mapOptimizer.h"
 
-MapOptimizer::MapOptimizer(int w, int h, bool _printLog)
+MapOptimizer::MapOptimizer(int w, int h, bool printLog)
     : BaseOptimizer(w, h),
       jmap_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
-      pids_texture_(w, h, Vec3<PidType>(-1, -1, -1))
+      pids_texture_(w, h, Vec3<PidType>(-1, -1, -1)),
+      problem_(0),
+      printLog_(printLog),
+      solver_(0)
 {
-    printLog = _printLog;
 }
 
 void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
@@ -14,24 +16,24 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     int num_depths = kframe.mesh().vertex_count();
     int numParams = num_depths;
 
-    init_depths = get_depths(kframe.mesh());
-    init_triangles = get_indices(kframe.mesh());
+    init_depths_ = get_depths(kframe.mesh());
+    init_triangles_ = get_indices(kframe.mesh());
 
-    invCovariance = Matxf::Identity(numParams, numParams);
-    init_params = Vecxf::Zero(numParams);
+    invCovariance_ = Matxf::Identity(numParams, numParams);
+    init_params_ = Vecxf::Zero(numParams);
 
     for (size_t i = 0; i < num_depths; i++)
     {
-        init_params(i) = fromDepthToParam(init_depths[i]);
-        invCovariance(i, i) = 1.0 / mesh_vo::mapping_param_initial_var;
+        init_params_(i) = fromDepthToParam(init_depths_[i]);
+        invCovariance_(i, i) = 1.0 / mesh_vo::mapping_param_initial_var;
     }
 
-    init_invcovariance = invCovariance;
+    init_invcovariance_ = invCovariance_;
 
     if (mesh_vo::mapping_prior_weight > 0.0)
-        init_invcovariancesqrt = invCovariance.sqrt();
+        init_invcovariancesqrt_ = invCovariance_.sqrt();
 
-    init_error = 0;
+    init_error_ = 0;
     Error err;
     for (std::size_t i = 0; i < frames.size(); i++)
     {
@@ -39,23 +41,23 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         // init_error += err.getError() / err.getCount();
     }
     // init_error *= 1.0 / frames.size();
-    init_error = err.getError() / err.getCount();
+    init_error_ = err.getError() / err.getCount();
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
         float regu_error = 0.0f;
-        for (size_t i = 0; i < init_triangles.size(); i++)
+        for (size_t i = 0; i < init_triangles_.size(); i++)
         {
-            Vec3i id = init_triangles[i];
-            Vec3f depth(init_depths[id(0)],
-                        init_depths[id(1)],
-                        init_depths[id(2)]);
+            Vec3i id = init_triangles_[i];
+            Vec3f depth(init_depths_[id(0)],
+                        init_depths_[id(1)],
+                        init_depths_[id(2)]);
             float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
             float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
             float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
             regu_error += r1 * r1 + r2 * r2 + r3 * r3;
         }
-        init_error += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
+        init_error_ += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
     }
 
     /*
@@ -70,13 +72,15 @@ void MapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     }
     */
 
-    depths = init_depths;
-    triangles = init_triangles;
-    params = init_params;
-    error = init_error;
+    depths_ = init_depths_;
+    triangles_ = init_triangles_;
+    params_ = init_params_;
+    error_ = init_error_;
 
-    if (printLog)
-        std::cout << "mapOptimizer initial error " << init_error << " " << in_lvl << " " << out_lvl << std::endl;
+    solver_ = Solverx<float>(numParams);
+
+    if (printLog_)
+        std::cout << "mapOptimizer initial error " << init_error_ << " " << in_lvl << " " << out_lvl << std::endl;
 
     reached_convergence_ = false;
 }
@@ -86,50 +90,51 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
     int num_depths = kframe.mesh().vertex_count();
     int numParams = kframe.mesh().vertex_count();
 
-    DenseLinearProblemx problem(numParams);
+    problem_.clear(numParams);
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        DenseLinearProblemx fhg(numParams);
-        compute_problem_(frames[i], kframe, cam, i, frames.size(), num_depths, in_lvl, out_lvl, fhg);
+        // DenseLinearProblemx fhg(numParams);
+        compute_problem_(frames[i], kframe, cam, i, frames.size(), num_depths, in_lvl, out_lvl, problem_);
 
-        if (fhg.count() > 0)
-        {
-            fhg.scale(1.0 / fhg.count());
-            problem += fhg;
-        }
+        // if (fhg.count() > 0)
+        //{
+        //  fhg.scale(1.0 / fhg.count());
+        //    problem += fhg;
+        //}
     }
-    problem.scale(1.0 / frames.size());
+    // problem.scale(1.0 / frames.size());
+    problem_.scale(1.0 / problem_.count());
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
-        for (size_t i = 0; i < triangles.size(); i++)
+        for (size_t i = 0; i < triangles_.size(); i++)
         {
-            Vec3<int> ids = triangles[i];
-            Vec3<float> depth(depths[ids(0)],
-                              depths[ids(1)],
-                              depths[ids(2)]);
+            Vec3<int> ids = triangles_[i];
+            Vec3<float> depth(depths_[ids(0)],
+                              depths_[ids(1)],
+                              depths_[ids(2)]);
             // regu_error += (depth(0) - depth(1)) * (depth(0) - depth(1)) + (depth(1) - depth(2)) * (depth(1) - depth(2));
 
             float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
             Vec3<float> jac1(1.0, -1.0, 0.0);
-            problem.add(jac1, r1, mesh_vo::mapping_regu_weight / num_depths, ids);
+            problem_.add(jac1, r1, mesh_vo::mapping_regu_weight / num_depths, ids);
 
             float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
             Vec3<float> jac2(1.0, 0.0, -1.0);
-            problem.add(jac2, r2, mesh_vo::mapping_regu_weight / num_depths, ids);
+            problem_.add(jac2, r2, mesh_vo::mapping_regu_weight / num_depths, ids);
 
             float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
             Vec3<float> jac3(0.0, 1.0, -1.0);
-            problem.add(jac3, r3, mesh_vo::mapping_regu_weight / num_depths, ids);
+            problem_.add(jac3, r3, mesh_vo::mapping_regu_weight / num_depths, ids);
         }
     }
 
     if (mesh_vo::mapping_prior_weight > 0.0)
     {
-        Vecxf res = init_invcovariancesqrt * (params - init_params);
-        Matxf jacobian = init_invcovariancesqrt;
+        Vecxf res = init_invcovariancesqrt_ * (params_ - init_params_);
+        Matxf jacobian = init_invcovariancesqrt_;
         float weight = mesh_vo::mapping_prior_weight / numParams;
-        problem.add(jacobian, res, weight);
+        problem_.add(jacobian, res, weight);
     }
 
     int n_try = 0;
@@ -144,9 +149,10 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         }
         n_try++;
 
-        Vecxf inc = problem.solve(lambda);
+        solver_.compute(problem_.Hp() + Matxf::Identity(numParams, numParams) * lambda);
+        Vecxf inc = solver_.solve(-problem_.G());
 
-        Vecxf new_params = params + inc;
+        Vecxf new_params = params_ + inc;
         std::vector<float> new_depths;
 
         for (size_t i = 0; i < num_depths; i++)
@@ -184,9 +190,9 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         if (mesh_vo::mapping_regu_weight > 0.0)
         {
             float regu_error = 0.0f;
-            for (size_t i = 0; i < triangles.size(); i++)
+            for (size_t i = 0; i < triangles_.size(); i++)
             {
-                Vec3<int> id = triangles[i];
+                Vec3<int> id = triangles_[i];
                 Vec3<float> depth(new_depths[id(0)],
                                   new_depths[id(1)],
                                   new_depths[id(2)]);
@@ -200,42 +206,42 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
         if (mesh_vo::mapping_prior_weight > 0.0)
         {
-            Vecxf res = new_params - init_params;
-            Vecxf conv_dot_res = init_invcovariance * res;
+            Vecxf res = new_params - init_params_;
+            Vecxf conv_dot_res = init_invcovariance_ * res;
             float weight = mesh_vo::mapping_prior_weight / numParams;
             float priorError = weight * (res.dot(conv_dot_res));
 
             new_error += priorError;
         }
 
-        if (printLog)
+        if (printLog_)
             std::cout << "mapOptimizer new error " << new_error << " " << lambda << " " << n_try << " lvl: " << in_lvl << " " << out_lvl << " mesh_regu: " << mesh_vo::mapping_regu_weight << std::endl;
 
-        if (new_error <= error)
+        if (new_error <= error_)
         {
-            float p = new_error / error;
-            error = new_error;
-            depths = new_depths;
-            params = new_params;
+            float p = new_error / error_;
+            error_ = new_error;
+            depths_ = new_depths;
+            params_ = new_params;
 
             if (p >= mesh_vo::mapping_convergence_p)
             {
                 reached_convergence_ = true;
-                if (printLog)
+                if (printLog_)
                     std::cout << "poseMapOptimizer converged p:" << p << std::endl;
             }
             break;
         }
         else
         {
-            set_depths(kframe.mesh(), depths);
+            set_depths(kframe.mesh(), depths_);
 
             float incMag = inc.dot(inc) / numParams;
 
             if (incMag <= mesh_vo::mapping_convergence_m_v)
             {
                 reached_convergence_ = true;
-                if (printLog)
+                if (printLog_)
                     std::cout << "mapOptimizer too small " << incMag << std::endl;
                 break;
             }

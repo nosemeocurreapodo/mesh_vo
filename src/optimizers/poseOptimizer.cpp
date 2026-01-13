@@ -70,7 +70,9 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 		}
 		n_try++;
 
-		Vec6f inc = problem.solve(lambda);
+		solver_.compute(problem.Hp() + Mat6f::Identity() * lambda);
+		Vec6f inc = solver_.solve(-problem.G());
+
 		Vec6f pose_inc;
 		pose_inc(0) = inc(0);
 		pose_inc(1) = inc(1);

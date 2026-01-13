@@ -41,5 +41,7 @@ private:
     Mat6f init_invcovariance_;
     Mat6f init_invcovariancesqrt_;
 
+    Solver<float, 8> solver_;
+
     bool print_log_;
 };

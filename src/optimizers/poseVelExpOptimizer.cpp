@@ -77,7 +77,9 @@ void PoseVelExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int 
 		}
 		n_try++;
 
-		Vec<float, 14> inc = problem.solve(lambda);
+		solver_.compute(problem.Hp() + Mat<float, 14, 14>::Identity() * lambda);
+		Vec<float, 14> inc = solver_.solve(-problem.G());
+
 		Vec6f pose_inc;
 		pose_inc(0) = inc(0);
 		pose_inc(1) = inc(1);

@@ -183,10 +183,19 @@ TEST_F(RendererTestBase, ComputeMap)
             optimizer.init(oframes, *kframe, cam_, in_lvl, out_lvl);
             while (!optimizer.converged())
             {
+                auto stepStartTime = std::chrono::high_resolution_clock::now();
                 optimizer.step(oframes, *kframe, cam_, in_lvl, out_lvl);
+                auto stepEndTime = std::chrono::high_resolution_clock::now();
+                std::chrono::milliseconds stepProcessingTime = std::chrono::duration_cast<std::chrono::milliseconds>(stepEndTime - stepStartTime);
+                auto duration = stepProcessingTime.count();
+                std::cout << "step processing time " << duration << " ms" << std::endl;
             }
         }
         auto endTime = std::chrono::high_resolution_clock::now();
+        std::chrono::milliseconds processingTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+
+        auto duration = processingTime.count();
+        std::cout << "processing time " << duration << " ms" << std::endl;
 
         int plot_lvl = 0;
         for (std::size_t k = 0; k < frames.size(); k++)
@@ -232,7 +241,7 @@ TEST_F(RendererTestBase, ComputeMap)
         cv::Mat pids_cv = DownloadTextureToMat(pids_texture, plot_lvl);
         SaveDebugImage(pids_cv, "pids_" + std::to_string(kframe->id()) + ".png");
 
-        accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+        accProcessingTime += processingTime;
         accError += error;
         framesProcessedCounter++;
     }

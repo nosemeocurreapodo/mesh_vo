@@ -121,6 +121,10 @@ TEST_F(RendererTestBase, ComputePose)
             }
         }
         auto endTime = std::chrono::high_resolution_clock::now();
+        std::chrono::milliseconds processingTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+
+        auto duration = processingTime.count();
+        std::cout << "processing time " << duration << " ms" << std::endl;
 
         SE3f new_local_pose = frame.local_pose();
         Vec6f new_local_vel = frame.local_vel();
@@ -134,7 +138,7 @@ TEST_F(RendererTestBase, ComputePose)
 
         std::array<double, 2> error = ComputeSE3Error(es_global_pose, gt_global_pose);
 
-        accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+        accProcessingTime += processingTime;
         accTranslationError += error[0];
         accRotationError += error[1];
         framesProcessedCounter++;

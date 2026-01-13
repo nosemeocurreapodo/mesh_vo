@@ -17,7 +17,7 @@ template <class Derived, typename OutType>
 class BaseReducerCPU
 {
 public:
-	BaseReducerCPU() noexcept : threads_(1 /*std::max(1u, std::thread::hardware_concurrency())*/) {}
+	BaseReducerCPU() noexcept : threads_(std::max(1u, std::thread::hardware_concurrency())) {}
 	explicit BaseReducerCPU(unsigned threads) noexcept : threads_(threads == 0 ? 1u : threads) {}
 	virtual ~BaseReducerCPU() = default;
 
@@ -25,8 +25,7 @@ protected:
 	void reduce_(OutType &total)
 	{
 		const int N = derived_().size();
-		derived_().reducepartial(0, N, total);
-
+		total += derived_().reducepartial(0, N);
 		/*
 		const unsigned T = std::min<unsigned>(threads_, static_cast<unsigned>(N));
 		const int chunk = (N + static_cast<int>(T) - 1) / static_cast<int>(T);
@@ -51,11 +50,9 @@ protected:
 			th.join();
 
 		// if (T == 0) return OutType{};
-		OutType total = partial[0];
-		for (unsigned t = 1; t < T; ++t)
+		for (unsigned t = 0; t < T; ++t)
 			total += partial[t];
-		return total;
-		*/
+			*/
 	}
 
 private:
@@ -69,7 +66,7 @@ class NodataReducerCPU : public BaseReducerCPU<NodataReducerCPU, Error>
 {
 public:
 	using Base = BaseReducerCPU<NodataReducerCPU, Error>;
-	explicit NodataReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/) : Base(threads) {}
+	explicit NodataReducerCPU() : Base() {}
 
 	void reduce(int lvl, const Texture<ImageType> &r_texture, Error &total)
 	{
@@ -84,8 +81,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	void reducepartial(int begin, int end, Error &err)
+	Error reducepartial(int begin, int end)
 	{
+		Error err;
+
 		auto rmap = r_texture_->MapRead(lvl_);
 
 		for (int i = begin; i < end; ++i)
@@ -96,6 +95,7 @@ public:
 			else
 				err += 0.0f;
 		}
+		return err;
 	}
 
 private:
@@ -108,8 +108,8 @@ class ResidualReducerCPU : public BaseReducerCPU<ResidualReducerCPU, Error>
 {
 public:
 	using Base = BaseReducerCPU<ResidualReducerCPU, Error>;
-	explicit ResidualReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
-		: Base(threads)
+	explicit ResidualReducerCPU()
+		: Base()
 	{
 	}
 
@@ -126,8 +126,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	void reducepartial(int begin, int end, Error &err)
+	Error reducepartial(int begin, int end)
 	{
+		Error err;
+
 		auto rmap = r_texture_->MapRead(lvl_);
 
 		for (int i = begin; i < end; ++i)
@@ -138,6 +140,8 @@ public:
 			const float w = huber_weight(r, mesh_vo::huber_thresh_pix);
 			err += w * r * r;
 		}
+
+		return err;
 	}
 
 private:
@@ -150,8 +154,8 @@ class HGPoseReducerCPU : public BaseReducerCPU<HGPoseReducerCPU, DenseLinearProb
 {
 public:
 	using Base = BaseReducerCPU<HGPoseReducerCPU, DenseLinearProblem<6>>;
-	explicit HGPoseReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
-		: Base(threads)
+	explicit HGPoseReducerCPU()
+		: Base()
 	{
 	}
 
@@ -170,8 +174,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	void reducepartial(int begin, int end, DenseLinearProblem<6> &hg)
+	DenseLinearProblem<6> reducepartial(int begin, int end)
 	{
+		DenseLinearProblem<6> hg;
+
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -201,6 +207,7 @@ public:
 			// hg.add(J, res, w, ids);
 			hg.add(J, res, w);
 		}
+		return hg;
 	}
 
 private:
@@ -216,8 +223,8 @@ class HGPoseExpReducerCPU : public BaseReducerCPU<HGPoseExpReducerCPU, DenseLine
 {
 public:
 	using Base = BaseReducerCPU<HGPoseExpReducerCPU, DenseLinearProblem<8>>;
-	explicit HGPoseExpReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
-		: Base(threads)
+	explicit HGPoseExpReducerCPU()
+		: Base()
 	{
 	}
 
@@ -237,8 +244,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	void reducepartial(int begin, int end, DenseLinearProblem<8> &hg)
+	DenseLinearProblem<8> reducepartial(int begin, int end)
 	{
+		DenseLinearProblem<8> hg;
+
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -272,6 +281,8 @@ public:
 			// hg.add(J, res, w, ids);
 			hg.add(J, res, w);
 		}
+
+		return hg;
 	}
 
 private:
@@ -288,8 +299,8 @@ class HGPoseVelReducerCPU : public BaseReducerCPU<HGPoseVelReducerCPU, DenseLine
 {
 public:
 	using Base = BaseReducerCPU<HGPoseVelReducerCPU, DenseLinearProblem<12>>;
-	explicit HGPoseVelReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
-		: Base(threads)
+	explicit HGPoseVelReducerCPU()
+		: Base()
 	{
 	}
 
@@ -310,8 +321,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	void reducepartial(int begin, int end, DenseLinearProblem<12> &hg)
+	DenseLinearProblem<12> reducepartial(int begin, int end)
 	{
+		DenseLinearProblem<12> hg;
+
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -351,6 +364,7 @@ public:
 			// hg.add(J, res, w, ids);
 			hg.add(J, res, w);
 		}
+		return hg;
 	}
 
 private:
@@ -360,7 +374,6 @@ private:
 	const Texture<Vec3f> *jrotvel_texture_;
 	const Texture<float> *r_texture_;
 	int lvl_;
-	// DenseLinearProblem<6> hg_;
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
@@ -368,8 +381,8 @@ class HGPoseVelExpReducerCPU : public BaseReducerCPU<HGPoseVelExpReducerCPU, Den
 {
 public:
 	using Base = BaseReducerCPU<HGPoseVelExpReducerCPU, DenseLinearProblem<14>>;
-	explicit HGPoseVelExpReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
-		: Base(threads)
+	explicit HGPoseVelExpReducerCPU()
+		: Base()
 	{
 	}
 
@@ -391,8 +404,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	void reducepartial(int begin, int end, DenseLinearProblem<14> &hg)
+	DenseLinearProblem<14> reducepartial(int begin, int end)
 	{
+		DenseLinearProblem<14> hg;
+
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -437,6 +452,7 @@ public:
 			// hg.add(J, res, w, ids);
 			hg.add(J, res, w);
 		}
+		return hg;
 	}
 
 private:
@@ -447,7 +463,6 @@ private:
 	const Texture<Vec3f> *jexp_texture_;
 	const Texture<float> *r_texture_;
 	int lvl_;
-	// DenseLinearProblem<6> hg_;
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
@@ -455,8 +470,8 @@ class HGMapReducerCPU : public BaseReducerCPU<HGMapReducerCPU, DenseLinearProble
 {
 public:
 	using Base = BaseReducerCPU<HGMapReducerCPU, DenseLinearProblemx>;
-	explicit HGMapReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
-		: Base(threads)
+	explicit HGMapReducerCPU()
+		: Base()
 	{
 	}
 
@@ -472,8 +487,6 @@ public:
 		num_vertices_ = num_vertices;
 		frame_id_ = frame_id;
 
-		// DenseLinearProblem hg(total);
-
 		reduce_(total);
 	}
 
@@ -482,8 +495,9 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	void reducepartial(int begin, int end, DenseLinearProblemx &hg)
+	DenseLinearProblemx reducepartial(int begin, int end)
 	{
+		DenseLinearProblemx hg(num_vertices_);
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
@@ -515,6 +529,7 @@ public:
 
 			hg.add(J, res, w, pids_);
 		}
+		return hg;
 	}
 
 private:
@@ -526,7 +541,6 @@ private:
 	int num_frames_;
 	int num_vertices_;
 	int frame_id_;
-	// DenseLinearProblemx hg_;
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
@@ -534,8 +548,8 @@ class HGMapExpReducerCPU : public BaseReducerCPU<HGMapExpReducerCPU, DenseLinear
 {
 public:
 	using Base = BaseReducerCPU<HGMapExpReducerCPU, DenseLinearProblemx>;
-	explicit HGMapExpReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
-		: Base(threads)
+	explicit HGMapExpReducerCPU()
+		: Base()
 	{
 	}
 
@@ -552,8 +566,6 @@ public:
 		num_vertices_ = num_vertices;
 		frame_id_ = frame_id;
 
-		// DenseLinearProblem hg(total);
-
 		reduce_(total);
 	}
 
@@ -562,8 +574,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	void reducepartial(int begin, int end, DenseLinearProblemx &hg)
+	DenseLinearProblemx reducepartial(int begin, int end)
 	{
+		DenseLinearProblemx hg(num_vertices_ + num_frames_ * 2);
+
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto jexp_map = jexp_texture_->MapRead(lvl_);
@@ -599,6 +613,8 @@ public:
 
 			hg.add(J, res, w, pids_);
 		}
+
+		return hg;
 	}
 
 private:
@@ -611,15 +627,14 @@ private:
 	int num_frames_;
 	int num_vertices_;
 	int frame_id_;
-	// DenseLinearProblemx hg_;
 };
 
 class HGPoseMapReducerCPU : public BaseReducerCPU<HGPoseMapReducerCPU, DenseLinearProblemx>
 {
 public:
 	using Base = BaseReducerCPU<HGPoseMapReducerCPU, DenseLinearProblemx>;
-	explicit HGPoseMapReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
-		: Base(threads)
+	explicit HGPoseMapReducerCPU()
+		: Base()
 	{
 	}
 
@@ -637,8 +652,6 @@ public:
 		num_vertices_ = num_vertices;
 		frame_id_ = frame_id;
 
-		// DenseLinearProblem hg(total);
-
 		reduce_(total);
 	}
 
@@ -647,8 +660,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	void reducepartial(int begin, int end, DenseLinearProblemx &hg)
+	DenseLinearProblemx reducepartial(int begin, int end)
 	{
+		DenseLinearProblemx hg(num_vertices_ + num_frames_ * 6);
+
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -700,6 +715,7 @@ public:
 
 			hg.add(J, res, w, pids_);
 		}
+		return hg;
 	}
 
 private:
@@ -713,15 +729,14 @@ private:
 	int num_frames_;
 	int num_vertices_;
 	int frame_id_;
-	// DenseLinearProblemx hg_;
 };
 
 class HGPoseExpMapReducerCPU : public BaseReducerCPU<HGPoseExpMapReducerCPU, DenseLinearProblemx>
 {
 public:
 	using Base = BaseReducerCPU<HGPoseExpMapReducerCPU, DenseLinearProblemx>;
-	explicit HGPoseExpMapReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
-		: Base(threads)
+	explicit HGPoseExpMapReducerCPU()
+		: Base()
 	{
 	}
 
@@ -740,8 +755,6 @@ public:
 		num_vertices_ = num_vertices;
 		frame_id_ = frame_id;
 
-		// DenseLinearProblem hg(total);
-
 		reduce_(total);
 	}
 
@@ -750,8 +763,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	void reducepartial(int begin, int end, DenseLinearProblemx &hg)
+	DenseLinearProblemx reducepartial(int begin, int end)
 	{
+		DenseLinearProblemx hg(num_vertices_ + num_frames_ * 8);
+
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -809,6 +824,7 @@ public:
 
 			hg.add(J, res, w, pids_);
 		}
+		return hg;
 	}
 
 private:
@@ -823,15 +839,14 @@ private:
 	int num_frames_;
 	int num_vertices_;
 	int frame_id_;
-	// DenseLinearProblemx hg_;
 };
 
 class HGPoseVelMapReducerCPU : public BaseReducerCPU<HGPoseVelMapReducerCPU, DenseLinearProblemx>
 {
 public:
 	using Base = BaseReducerCPU<HGPoseVelMapReducerCPU, DenseLinearProblemx>;
-	explicit HGPoseVelMapReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
-		: Base(threads)
+	explicit HGPoseVelMapReducerCPU()
+		: Base()
 	{
 	}
 
@@ -851,8 +866,6 @@ public:
 		num_vertices_ = num_vertices;
 		frame_id_ = frame_id;
 
-		// DenseLinearProblem hg(total);
-
 		reduce_(total);
 	}
 
@@ -861,8 +874,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	void reducepartial(int begin, int end, DenseLinearProblemx &hg)
+	DenseLinearProblemx reducepartial(int begin, int end)
 	{
+		DenseLinearProblemx hg(num_vertices_ + num_frames_ * 12);
+
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -936,6 +951,8 @@ public:
 
 			hg.add(J, res, w, pids_);
 		}
+
+		return hg;
 	}
 
 private:
@@ -951,15 +968,14 @@ private:
 	int num_frames_;
 	int num_vertices_;
 	int frame_id_;
-	// DenseLinearProblemx hg_;
 };
 
 class HGPoseVelExpMapReducerCPU : public BaseReducerCPU<HGPoseVelExpMapReducerCPU, DenseLinearProblemx>
 {
 public:
 	using Base = BaseReducerCPU<HGPoseVelExpMapReducerCPU, DenseLinearProblemx>;
-	explicit HGPoseVelExpMapReducerCPU(unsigned threads = 1 /*std::max(1u, std::thread::hardware_concurrency())*/)
-		: Base(threads)
+	explicit HGPoseVelExpMapReducerCPU()
+		: Base()
 	{
 	}
 
@@ -980,8 +996,6 @@ public:
 		num_vertices_ = num_vertices;
 		frame_id_ = frame_id;
 
-		// DenseLinearProblem hg(total);
-
 		reduce_(total);
 	}
 
@@ -990,8 +1004,10 @@ public:
 		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
 	}
 
-	void reducepartial(int begin, int end, DenseLinearProblemx &hg)
+	DenseLinearProblemx reducepartial(int begin, int end)
 	{
+		DenseLinearProblemx hg(num_vertices_ + num_frames_ * 14);
+
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jtra_map = jtra_texture_->MapRead(lvl_);
 		auto jrot_map = jrot_texture_->MapRead(lvl_);
@@ -1072,6 +1088,8 @@ public:
 
 			hg.add(J, res, w, pids_);
 		}
+
+		return hg;
 	}
 
 private:
@@ -1088,7 +1106,6 @@ private:
 	int num_frames_;
 	int num_vertices_;
 	int frame_id_;
-	// DenseLinearProblemx hg_;
 };
 
 /*

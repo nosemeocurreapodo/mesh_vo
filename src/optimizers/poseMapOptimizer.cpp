@@ -8,9 +8,10 @@ PoseMapOptimizer::PoseMapOptimizer(int w, int h, bool _printLog)
       jrotvel_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jmap_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
-      pids_texture_(w, h, Vec3<PidType>(-1, -1, -1))
+      pids_texture_(w, h, Vec3<PidType>(-1, -1, -1)),
+      solver_(0)
 {
-    printLog = _printLog;
+    printLog_ = _printLog;
 }
 
 void PoseMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
@@ -18,13 +19,13 @@ void PoseMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera
     int num_depths = kframe.mesh().vertex_count();
     int numParams = num_depths + 6 * frames.size();
 
-    init_depths = get_depths(kframe.mesh());
-    init_triangles = get_indices(kframe.mesh());
+    init_depths_ = get_depths(kframe.mesh());
+    init_triangles_ = get_indices(kframe.mesh());
 
-    init_poses.clear();
+    init_poses_.clear();
     for (int i = 0; i < frames.size(); i++)
     {
-        init_poses.push_back(frames[i].local_pose());
+        init_poses_.push_back(frames[i].local_pose());
     }
 
     invCovariance = Matxf::Identity(numParams, numParams);
@@ -34,12 +35,12 @@ void PoseMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera
         invCovariance(i, i) = 1.0 / mesh_vo::mapping_param_initial_var;
     }
 
-    init_invcovariance = invCovariance;
+    init_invcovariance_ = invCovariance;
 
     if (mesh_vo::mapping_prior_weight > 0.0)
-        init_invcovariancesqrt = invCovariance.sqrt();
+        init_invcovariancesqrt_ = invCovariance.sqrt();
 
-    init_error = 0;
+    init_error_ = 0;
     Error err;
     for (std::size_t i = 0; i < frames.size(); i++)
     {
@@ -47,23 +48,23 @@ void PoseMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera
         // init_error += ef.getError() / ef.getCount();
     }
     // init_error *= 1.0 / frames.size();
-    init_error = err.getError() / err.getCount();
+    init_error_ = err.getError() / err.getCount();
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
         float regu_error = 0.0f;
-        for (size_t i = 0; i < init_triangles.size(); i++)
+        for (size_t i = 0; i < init_triangles_.size(); i++)
         {
-            Vec3i id = init_triangles[i];
-            Vec3f depth(init_depths[id(0)],
-                        init_depths[id(1)],
-                        init_depths[id(2)]);
+            Vec3i id = init_triangles_[i];
+            Vec3f depth(init_depths_[id(0)],
+                        init_depths_[id(1)],
+                        init_depths_[id(2)]);
             float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
             float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
             float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
             regu_error += r1 * r1 + r2 * r2 + r3 * r3;
         }
-        init_error += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
+        init_error_ += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
     }
 
     /*
@@ -78,13 +79,13 @@ void PoseMapOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera
     }
     */
 
-    depths = init_depths;
-    triangles = init_triangles;
-    poses = init_poses;
-    error = init_error;
+    depths_ = init_depths_;
+    triangles_ = init_triangles_;
+    poses_ = init_poses_;
+    error_ = init_error_;
 
-    if (printLog)
-        std::cout << "poseMapOptimizer initial error " << init_error << " " << in_lvl << " " << out_lvl << std::endl;
+    if (printLog_)
+        std::cout << "poseMapOptimizer initial error " << init_error_ << " " << in_lvl << " " << out_lvl << std::endl;
 
     reached_convergence_ = false;
 }
@@ -110,12 +111,12 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
-        for (size_t i = 0; i < triangles.size(); i++)
+        for (size_t i = 0; i < triangles_.size(); i++)
         {
-            Vec3<int> ids = triangles[i];
-            Vec3<float> depth(depths[ids(0)],
-                              depths[ids(1)],
-                              depths[ids(2)]);
+            Vec3<int> ids = triangles_[i];
+            Vec3<float> depth(depths_[ids(0)],
+                              depths_[ids(1)],
+                              depths_[ids(2)]);
             // regu_error += (depth(0) - depth(1)) * (depth(0) - depth(1)) + (depth(1) - depth(2)) * (depth(1) - depth(2));
 
             float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
@@ -154,14 +155,15 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
         }
         n_try++;
 
-        Vecxf inc = problem.solve(lambda);
+        solver_.compute(problem.Hp() + Matxf::Identity(numParams, numParams) * lambda);
+        Vecxf inc = solver_.solve(-problem.G());
 
         std::vector<float> new_depths;
         std::vector<SE3f> new_poses;
 
         for (size_t i = 0; i < num_depths; i++)
         {
-            float new_param = fromDepthToParam(depths[i]) + inc(i);
+            float new_param = fromDepthToParam(depths_[i]) + inc(i);
             float new_depth = fromParamToDepth(new_param);
             if (new_depth < RenderConstants::NEAR_PLANE)
                 new_depth = RenderConstants::NEAR_PLANE;
@@ -178,7 +180,7 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
                            inc(num_depths + i * 6 + 3),
                            inc(num_depths + i * 6 + 4),
                            inc(num_depths + i * 6 + 5));
-            SE3f new_pose = poses[i] * SE3f::exp(pose_inc); // SE3::exp(inc).inverse();
+            SE3f new_pose = poses_[i] * SE3f::exp(pose_inc); // SE3::exp(inc).inverse();
             new_poses.push_back(new_pose);
         }
 
@@ -211,9 +213,9 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
         if (mesh_vo::mapping_regu_weight > 0.0)
         {
             float regu_error = 0.0f;
-            for (size_t i = 0; i < triangles.size(); i++)
+            for (size_t i = 0; i < triangles_.size(); i++)
             {
-                Vec3<int> id = triangles[i];
+                Vec3<int> id = triangles_[i];
                 Vec3<float> depth(new_depths[id(0)],
                                   new_depths[id(1)],
                                   new_depths[id(2)]);
@@ -237,31 +239,31 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
         }
         */
 
-        if (printLog)
+        if (printLog_)
             std::cout << "poseMapOptimizer new error " << new_error << " " << lambda << " " << n_try << " lvl: " << in_lvl << " " << out_lvl << " mesh_regu: " << mesh_vo::mapping_regu_weight << std::endl;
 
-        if (new_error <= error)
+        if (new_error <= error_)
         {
-            float p = new_error / error;
-            error = new_error;
-            depths = new_depths;
-            poses = new_poses;
+            float p = new_error / error_;
+            error_ = new_error;
+            depths_ = new_depths;
+            poses_ = new_poses;
 
             if (p >= mesh_vo::mapping_convergence_p)
             {
                 reached_convergence_ = true;
-                if (printLog)
+                if (printLog_)
                     std::cout << "poseMapOptimizer converged p:" << p << std::endl;
             }
             break;
         }
         else
         {
-            set_depths(kframe.mesh(), depths);
+            set_depths(kframe.mesh(), depths_);
 
             for (int i = 0; i < frames.size(); i++)
             {
-                frames[i].local_pose() = poses[i];
+                frames[i].local_pose() = poses_[i];
             }
 
             float incMag = inc.dot(inc) / numParams;
@@ -269,7 +271,7 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
             if (incMag <= mesh_vo::mapping_convergence_m_v)
             {
                 reached_convergence_ = true;
-                if (printLog)
+                if (printLog_)
                     std::cout << "poseMapOptimizer too small " << incMag << std::endl;
                 break;
             }

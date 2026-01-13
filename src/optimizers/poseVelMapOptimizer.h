@@ -34,22 +34,24 @@ private:
     Texture<Vec3<float>> jmap_texture_;
     Texture<Vec3<PidType>> pids_texture_;
 
-    Matxf invCovariance;
+    Matxf invCovariance_;
 
-    std::vector<float> init_depths;
-    std::vector<Vec3<int>> init_triangles;
-    std::vector<SE3f> init_poses;
-    std::vector<Vec6f> init_vels;
-    float init_error;
+    std::vector<float> init_depths_;
+    std::vector<Vec3<int>> init_triangles_;
+    std::vector<SE3f> init_poses_;
+    std::vector<Vec6f> init_vels_;
+    float init_error_;
 
-    std::vector<float> depths;
-    std::vector<Vec3<int>> triangles;
-    std::vector<SE3f> poses;
-    std::vector<Vec6f> vels;
-    float error;
+    std::vector<float> depths_;
+    std::vector<Vec3<int>> triangles_;
+    std::vector<SE3f> poses_;
+    std::vector<Vec6f> vels_;
+    float error_;
 
-    Matxf init_invcovariance;
-    Matxf init_invcovariancesqrt;
+    Matxf init_invcovariance_;
+    Matxf init_invcovariancesqrt_;
 
-    bool printLog;
+    Solverx<float> solver_;
+
+    bool printLog_;
 };

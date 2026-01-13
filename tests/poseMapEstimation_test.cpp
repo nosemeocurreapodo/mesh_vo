@@ -217,6 +217,10 @@ TEST_F(RendererTestBase, ComputePoseMap)
             }
         }
         auto endTime = std::chrono::high_resolution_clock::now();
+        std::chrono::milliseconds processingTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+
+        auto duration = processingTime.count();
+        std::cout << "processing time " << duration << " ms" << std::endl;
 
         for (std::size_t k = 0; k < oframes.size(); k++)
         {

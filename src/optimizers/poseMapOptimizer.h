@@ -36,18 +36,20 @@ private:
 
     Matxf invCovariance;
 
-    std::vector<float> init_depths;
-    std::vector<Vec3<int>> init_triangles;
-    std::vector<SE3f> init_poses;
-    float init_error;
+    std::vector<float> init_depths_;
+    std::vector<Vec3<int>> init_triangles_;
+    std::vector<SE3f> init_poses_;
+    float init_error_;
 
-    std::vector<float> depths;
-    std::vector<Vec3<int>> triangles;
-    std::vector<SE3f> poses;
-    float error;
+    std::vector<float> depths_;
+    std::vector<Vec3<int>> triangles_;
+    std::vector<SE3f> poses_;
+    float error_;
 
-    Matxf init_invcovariance;
-    Matxf init_invcovariancesqrt;
+    Matxf init_invcovariance_;
+    Matxf init_invcovariancesqrt_;
 
-    bool printLog;
+    Solverx<float> solver_;
+
+    bool printLog_;
 };

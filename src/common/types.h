@@ -73,6 +73,7 @@ using Vec8i = Vec<int, 8>;
 template <int C, int R>
 using Matf = Mat<float, C, R>;
 using Mat6f = Mat6<float>;
+using Mat8f = Mat<float, 8, 8>;
 
 using SE3f = SE3<float>;
 
