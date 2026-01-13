@@ -225,7 +225,7 @@ public:
             texcoords[i] = pix;
         }
 
-        std::vector<Vec2<float>> grid_uv; // = UniformTexCoords(mesh_vo::mesh_width, mesh_vo::mesh_height);
+        std::vector<Vec2<float>> grid_uv; //= UniformTexCoords(mesh_vo::mesh_width, mesh_vo::mesh_height, 0.0, 0.0, 1.0, 1.0);
 
         std::vector<Vec3<float>> new_vertices;
         std::vector<Vec2<float>> new_texcoords;
@@ -262,6 +262,70 @@ public:
             new_mesh_vertex.push_back(texcoord(0));
             new_mesh_vertex.push_back(texcoord(1));
         }
+
+        for (int i = 0; i < new_vertices.size(); i++)
+        {
+            Vec3<float> vertex = new_vertices[i];
+            Vec2<float> texcoord = new_texcoords[i];
+            new_mesh_vertex.push_back(vertex(0));
+            new_mesh_vertex.push_back(vertex(1));
+            new_mesh_vertex.push_back(vertex(2));
+            new_mesh_vertex.push_back(texcoord(0));
+            new_mesh_vertex.push_back(texcoord(1));
+        }
+
+        for (int i = 0; i < tris.size(); i++)
+        {
+            Vec3<int> tri = tris[i];
+            new_indices.push_back(tri(0));
+            new_indices.push_back(tri(1));
+            new_indices.push_back(tri(2));
+        }
+
+        Mesh new_mesh(new_mesh_vertex, new_indices, true, true, false);
+
+        image_ = new_image;
+        didxy_ = new_didxy;
+        global_pose_ = localPoseToGlobal(new_local_pose);
+        mesh_ = new_mesh;
+        id_ = new_id;
+    }
+
+    void changeFrame(const Texture<ImageType> &new_image,
+                     const Texture<Vec3f> &new_didxy,
+                     const Texture<float> &new_depth,
+                     const SE3f &new_local_pose,
+                     int new_id,
+                     const Camera &cam)
+    {
+        std::vector<Vec2<float>> grid_uv = UniformTexCoords(mesh_vo::mesh_width, mesh_vo::mesh_height, 0.0, 0.0, 1.0, 1.0);
+
+        std::vector<Vec3<float>> new_vertices;
+        std::vector<Vec2<float>> new_texcoords;
+        new_texcoords.reserve(grid_uv.size());
+
+        auto depth_map = new_depth.MapRead(0);
+        int width = new_depth.width(0);
+        int height = new_depth.height(0);
+        for (int i = 0; i < (int)grid_uv.size(); ++i)
+        {
+            const Vec2<float> p = grid_uv[i];
+            Vec3<float> new_ray = cam.PixToRay(p);
+            float depth = depth_map[p(1) * (height - 1) * width + p(0) * (width - 1)];
+            Vec3<float> new_vertice = new_ray;
+            if (depth != new_depth.nodata())
+                new_vertice = new_ray * depth;
+            new_texcoords.push_back(p);
+            new_vertices.push_back(new_vertice);
+        }
+
+        DelaunayTriangulation triangulator;
+        triangulator.LoadPoints(new_texcoords);
+        triangulator.Triangulate();
+        std::vector<Vec3<int>> tris = triangulator.GetTriangles();
+
+        std::vector<float> new_mesh_vertex;
+        std::vector<int> new_indices;
 
         for (int i = 0; i < new_vertices.size(); i++)
         {

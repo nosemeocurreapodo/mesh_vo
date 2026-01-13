@@ -159,7 +159,10 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
         {
             float new_param = fromDepthToParam(depths[i]) + inc(i);
             float new_depth = fromParamToDepth(new_param);
-
+            if (new_depth < RenderConstants::NEAR_PLANE)
+                new_depth = RenderConstants::NEAR_PLANE;
+            if (new_depth > RenderConstants::FAR_PLANE)
+                new_depth = RenderConstants::FAR_PLANE;
             new_depths.push_back(new_depth);
         }
 

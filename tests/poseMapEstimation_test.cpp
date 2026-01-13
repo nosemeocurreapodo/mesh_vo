@@ -33,11 +33,12 @@ TEST_F(RendererTestBase, ComputePoseMap)
     ImageRenderer image_renderer;
     DIDxyRenderer didxy_renderer;
     ResidualRenderer residual_renderer;
+    PidsRenderer pids_renderer;
 
     NodataReducerCPU nodata_reducer;
 
-    PoseExpOptimizer pose_optimizer(w_, h_, true);
-    PoseExpMapOptimizer posemap_optimizer(w_, h_, true);
+    PoseOptimizer pose_optimizer(w_, h_, true);
+    PoseMapOptimizer posemap_optimizer(w_, h_, true);
 
     std::vector<Frame> frames;
     KeyFrame *kframe;
@@ -47,12 +48,11 @@ TEST_F(RendererTestBase, ComputePoseMap)
     Texture<float> es_depth_texture(w_, h_, 0);
     Texture<Vec3f> didxy_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
     Texture<float> l2_texture(w_, h_, 0.0);
+    Texture<Vec3f> pids_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
 
     SE3f tracked_local_pose;
     SE3f tracked_local_movement;
     Vec2f tracked_local_exposure(0.0, 0.0);
-
-    bool initial_keyframe = true;
 
     for (std::size_t img_id = 0; img_id < image_files_.size(); img_id++)
     {
@@ -125,7 +125,7 @@ TEST_F(RendererTestBase, ComputePoseMap)
                 minViewAngle = viewAngle;
         }
 
-        if (minViewAngle < mesh_vo::last_min_angle && !initial_keyframe)
+        if (minViewAngle < mesh_vo::last_min_angle && kframe->id() != 0)
             continue;
 
         frames.push_back(frame);
@@ -151,10 +151,8 @@ TEST_F(RendererTestBase, ComputePoseMap)
 
         std::cout << "view percent " << viewPercent << std::endl;
 
-        if (viewPercent > mesh_vo::min_view_perc && !initial_keyframe) // || keyframeViewAngle > mesh_vo::key_max_angle)
+        if (viewPercent > mesh_vo::min_view_perc && kframe->id() != 0) // || keyframeViewAngle > mesh_vo::key_max_angle)
             continue;
-
-        initial_keyframe = false;
 
         int kframeIndex = frames.size() / 2;
 
@@ -276,6 +274,13 @@ TEST_F(RendererTestBase, ComputePoseMap)
 
         cv::Mat es_depth_cv = DownloadTextureToMat(es_depth_texture, plot_lvl);
         SaveDebugImage(es_depth_cv, "depth_" + std::to_string(kframe->id()) + ".png");
+
+        pids_renderer.Render(kframe->mesh(),
+                             SE3f(),
+                             cam_, plot_lvl, pids_texture);
+
+        cv::Mat pids_cv = DownloadTextureToMat(pids_texture, plot_lvl);
+        SaveDebugImage(pids_cv, "pids_" + std::to_string(kframe->id()) + ".png");
 
         accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
         accError += error;

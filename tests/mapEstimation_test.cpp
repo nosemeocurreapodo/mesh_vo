@@ -32,7 +32,7 @@ TEST_F(RendererTestBase, ComputeMap)
 
     NodataReducerCPU nodata_reducer;
 
-    MapExpOptimizer optimizer(w_, h_, true);
+    MapOptimizer optimizer(w_, h_, true);
 
     std::vector<Frame> frames;
     std::vector<Texture<float>> gt_depth_textures;
@@ -45,8 +45,6 @@ TEST_F(RendererTestBase, ComputeMap)
     Texture<float> es_depth_texture(w_, h_, 0.0);
     Texture<float> l2_texture(w_, h_, 0.0);
     Texture<Vec3f> pids_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
-
-    bool initial_keyframe = true;
 
     for (std::size_t img_id = 0; img_id < image_files_.size(); img_id++)
     {
@@ -99,7 +97,7 @@ TEST_F(RendererTestBase, ComputeMap)
 
         std::cout << "Min view angle " << minViewAngle << std::endl;
 
-        if (minViewAngle < mesh_vo::last_min_angle && !initial_keyframe)
+        if (minViewAngle < mesh_vo::last_min_angle && kframe->id() != 0)
             continue;
 
         frames.push_back(frame);
@@ -129,10 +127,8 @@ TEST_F(RendererTestBase, ComputeMap)
 
         std::cout << "view percent " << viewPercent << std::endl;
 
-        if (viewPercent > mesh_vo::min_view_perc && !initial_keyframe) // || keyframeViewAngle > mesh_vo::key_max_angle)
+        if (viewPercent > mesh_vo::min_view_perc && kframe->id() != 0) // || keyframeViewAngle > mesh_vo::key_max_angle)
             continue;
-
-        initial_keyframe = false;
 
         int kframeIndex = frames.size() / 2;
 
@@ -141,11 +137,11 @@ TEST_F(RendererTestBase, ComputeMap)
         //  CreateMesh(gt_depth_textures[kframeIndex], cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
         // CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
         //   CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
-        //   depth_renderer.Render(kframe.mesh(),
-        //                        frames[kframeIndex].local_pose(),
-        //                        cam_,
-        //                        0,
-        //                        depth);
+        depth_renderer.Render(kframe->mesh(),
+                              frames[kframeIndex].local_pose(),
+                              cam_,
+                              0,
+                              es_depth_texture);
 
         // Mesh mesh(ver_buff_, idx_buff_, true, true, true);
         // float global_scale = kframe->getGlobalScale();
@@ -156,6 +152,7 @@ TEST_F(RendererTestBase, ComputeMap)
 
         kframe->changeFrame(frames[kframeIndex].image(),
                             frames[kframeIndex].didxy(),
+                            // es_depth_texture,
                             frames[kframeIndex].local_pose(),
                             frames[kframeIndex].id(),
                             cam_);
@@ -190,7 +187,7 @@ TEST_F(RendererTestBase, ComputeMap)
         }
         auto endTime = std::chrono::high_resolution_clock::now();
 
-        int plot_lvl = 1;
+        int plot_lvl = 0;
         for (std::size_t k = 0; k < frames.size(); k++)
         {
             residual_renderer.Render(kframe->mesh(),
@@ -224,8 +221,8 @@ TEST_F(RendererTestBase, ComputeMap)
         cv::Mat depth_cv = DownloadTextureToMat(es_depth_texture, plot_lvl);
         SaveDebugImage(depth_cv, "depth_" + std::to_string(kframe->id()) + ".png");
 
-        cv::Mat gt_depth_cv_2 = DownloadTextureToMat(gt_depth_textures[kframeIndex], plot_lvl);
-        SaveDebugImage(gt_depth_cv_2, "depth_" + std::to_string(kframe->id()) + "_gt.png");
+        // cv::Mat gt_depth_cv_2 = DownloadTextureToMat(gt_depth_textures[kframeIndex], plot_lvl);
+        // SaveDebugImage(gt_depth_cv_2, "depth_" + std::to_string(kframe->id()) + "_gt.png");
 
         pids_renderer.Render(kframe->mesh(),
                              SE3f(),

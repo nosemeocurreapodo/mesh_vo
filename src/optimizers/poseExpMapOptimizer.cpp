@@ -111,8 +111,8 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
         {
             Vec3<int> ids = triangles[i];
             Vec3<float> depth(depths[ids(0)],
-                               depths[ids(1)],
-                               depths[ids(2)]);
+                              depths[ids(1)],
+                              depths[ids(2)]);
             // regu_error += (depth(0) - depth(1)) * (depth(0) - depth(1)) + (depth(1) - depth(2)) * (depth(1) - depth(2));
 
             float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
@@ -161,6 +161,10 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
         {
             float new_param = fromDepthToParam(depths[i]) + inc(i);
             float new_depth = fromParamToDepth(new_param);
+            if (new_depth < RenderConstants::NEAR_PLANE)
+                new_depth = RenderConstants::NEAR_PLANE;
+            if (new_depth > RenderConstants::FAR_PLANE)
+                new_depth = RenderConstants::FAR_PLANE;
             new_depths.push_back(new_depth);
         }
 
@@ -175,8 +179,8 @@ void PoseExpMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Cam
             SE3f new_pose = poses[i] * SE3f::exp(pose_inc); // SE3::exp(inc).inverse();
             new_poses.push_back(new_pose);
 
-            Vec2f exp_inc(inc(num_depths + i*8 + 6),
-                          inc(num_depths + i*8 + 7));
+            Vec2f exp_inc(inc(num_depths + i * 8 + 6),
+                          inc(num_depths + i * 8 + 7));
             Vec2f new_exp = exposures[i] + exp_inc;
             new_exposures.push_back(new_exp);
         }
