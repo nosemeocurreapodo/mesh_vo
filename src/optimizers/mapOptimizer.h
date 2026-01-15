@@ -11,6 +11,7 @@
 #include "common/depthParam.h"
 #include "common/reducer.h"
 #include "optimizers/baseOptimizer.h"
+#include "utils/tictoc.h"
 
 class MapOptimizer : public BaseOptimizer
 {
@@ -49,4 +50,5 @@ private:
     Solverx<float> solver_;
 
     bool printLog_;
+    tic_toc timer_;
 };

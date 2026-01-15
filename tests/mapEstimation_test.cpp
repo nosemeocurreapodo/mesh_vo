@@ -61,8 +61,11 @@ TEST_F(RendererTestBase, ComputeMap)
         for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
             didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
 
-        // didxy_renderer.Render(screen_mesh, 0, 0, image_cpu, didxy_cpu);
-        // didxy_cpu.generate_mipmaps(0);
+        // didxy_renderer.Render(screen_mesh, 0, 0, image_texture, didxy_texture);
+        // didxy_texture.generate_mipmaps(0);
+
+        // cv::Mat didxy_cv = DownloadTextureToMat(didxy_texture, 1);
+        // SaveDebugImage(didxy_cv, "didxy_" + std::to_string(img_id) + ".png");
 
         if (img_id == 0)
         {

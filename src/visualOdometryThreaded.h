@@ -4,7 +4,7 @@
 #include <fstream>
 #include <condition_variable>
 
-#include <pangolin/pangolin.h>
+//#include <pangolin/pangolin.h>
 
 #include "core/types.h"
 #include "core/mesh_helpers.h"

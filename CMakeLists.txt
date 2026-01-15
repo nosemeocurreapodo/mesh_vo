@@ -20,9 +20,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # --- Dependencies -------------------------------------------------
 find_package(Eigen3      REQUIRED)
 find_package(OpenCV      REQUIRED)
-find_package(Pangolin    REQUIRED)
+#find_package(Pangolin    REQUIRED)
 find_package(OpenGL      REQUIRED)
 find_package(Threads     REQUIRED)
+
+find_package(LAPACK REQUIRED)                 # provides LAPACK::LAPACK :contentReference[oaicite:1]{index=1}
+# LAPACKE is commonly separate:
+find_library(LAPACKE_LIB lapacke REQUIRED)
+
 
 # Some projects set these (e.g. from parent CMake). Keep them as-is if defined.
 #   CSPARSE_INCLUDE_DIR
@@ -46,44 +51,6 @@ if(COMPILE_GL AND COMPILE_GLES2)
   set(COMPILE_GLES2 OFF)
 endif()
 
-# --- Core Library -------------------------------------------------
-set(VISUALODOMETRY_SRCS
-  src/params.cpp
-  src/optimizers/poseOptimizer.cpp
-  src/optimizers/poseExpOptimizer.cpp
-  src/optimizers/poseVelOptimizer.cpp
-  src/optimizers/poseVelExpOptimizer.cpp
-  src/optimizers/mapOptimizer.cpp
-  src/optimizers/mapExpOptimizer.cpp
-  src/optimizers/poseMapOptimizer.cpp
-  src/optimizers/poseExpMapOptimizer.cpp
-  src/optimizers/poseVelMapOptimizer.cpp
-  src/optimizers/poseVelExpMapOptimizer.cpp
-)
-
-add_library(mesh_vo STATIC ${VISUALODOMETRY_SRCS})
-
-target_include_directories(mesh_vo
-  PUBLIC
-    ${PROJECT_SOURCE_DIR}/src
-    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/src
-    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/HLSLinearAlgebra/include
-    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/Sophus
-    ${Pangolin_INCLUDE_DIRS}
-    ${CSPARSE_INCLUDE_DIR}
-    ${CHOLMOD_INCLUDE_DIR}
-  PRIVATE
-    ${OpenCV_INCLUDE_DIRS}
-)
-
-target_link_libraries(mesh_vo
-  PUBLIC
-    Eigen3::Eigen
-    ${Pangolin_LIBRARIES}
-  PRIVATE
-    ${OpenCV_LIBS}
-)
-
 # --- GLAD (GL / GLES2) --------------------------------------------
 if(COMPILE_GL OR COMPILE_GLES2)
   add_library(glad STATIC)
@@ -101,6 +68,46 @@ if(COMPILE_GL OR COMPILE_GLES2)
       ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/glad2/include
   )
 endif()
+
+# --- Core Library -------------------------------------------------
+set(VISUALODOMETRY_SRCS
+  src/params.cpp
+  src/optimizers/poseOptimizer.cpp
+  src/optimizers/poseExpOptimizer.cpp
+#  src/optimizers/poseVelOptimizer.cpp
+#  src/optimizers/poseVelExpOptimizer.cpp
+  src/optimizers/mapOptimizer.cpp
+  src/optimizers/mapExpOptimizer.cpp
+  src/optimizers/poseMapOptimizer.cpp
+  src/optimizers/poseExpMapOptimizer.cpp
+#  src/optimizers/poseVelMapOptimizer.cpp
+#  src/optimizers/poseVelExpMapOptimizer.cpp
+)
+
+add_library(mesh_vo STATIC ${VISUALODOMETRY_SRCS})
+
+target_include_directories(mesh_vo
+  PUBLIC
+    ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/src
+    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/HLSLinearAlgebra/include
+    ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/Sophus
+    ${EIGEN3_INCLUDE_DIR}
+    ${Pangolin_INCLUDE_DIRS}
+#    ${CSPARSE_INCLUDE_DIR}
+#    ${CHOLMOD_INCLUDE_DIR}
+  PRIVATE
+    ${OpenCV_INCLUDE_DIRS}
+)
+
+target_link_libraries(mesh_vo
+  PUBLIC
+    Eigen3::Eigen
+    ${Pangolin_LIBRARIES}
+  PRIVATE
+    ${OpenCV_LIBS}
+    LAPACK::LAPACK ${LAPACKE_LIB}
+)
 
 # Make mesh_vo depend on glad so glad's PUBLIC includes propagate
 if(COMPILE_GL OR COMPILE_GLES2)

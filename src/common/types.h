@@ -15,7 +15,7 @@
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
 #include "backends/cpu/renderercpu.h"
-
+/*
 using DepthRenderer = DepthRendererCPU;
 using PidsRenderer = PidsRendererCPU;
 using ImageRenderer = ImageRendererCPU;
@@ -33,14 +33,15 @@ using JPoseVelExpMapRenderer = JPoseVelExpMapRendererCPU;
 template <typename T>
 using Texture = TextureCPU<T>;
 using Mesh = MeshCPU;
+*/
 
-/*
 #include "backends/gl/buffergl.h"
 #include "backends/gl/texturegl.h"
 #include "backends/gl/meshgl.h"
 #include "backends/gl/renderergl.h"
 
 using DepthRenderer = DepthRendererGL;
+using PidsRenderer = PidsRendererGL;
 using ImageRenderer = ImageRendererGL;
 using ResidualRenderer = ResidualRendererGL;
 using DIDxyRenderer = DIDxyRendererGL;
@@ -51,7 +52,7 @@ using JPoseExpMapRenderer = JPoseExpMapRendererGL;
 template <typename T>
 using Texture = TextureGL<T>;
 using Mesh = MeshGL;
-*/
+
 using Camera = PinholeCamera<float>;
 
 using Vecxf = Vecx<float>;
@@ -81,7 +82,8 @@ template <typename T, int size>
 using Solver = LDLT<T, size>;
 
 template <typename T>
-using Solverx = LDLTx<T>;
+//using Solverx = LDLTx<T>;
+using Solverx = LDLTx_LAPACK<T>;
 
 // using Solver = Eigen::LDLT<Eigen::MatrixXf>;
 

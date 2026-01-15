@@ -4,6 +4,7 @@ RUN apt-get update &&  DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
   build-essential \
   cmake \
   gdb \
+  liblapacke-dev \
   libsuitesparse-dev \
   libeigen3-dev \
   libboost-all-dev \

@@ -149,8 +149,29 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
         }
         n_try++;
 
-        solver_.compute(problem_.Hp() + Matxf::Identity(numParams, numParams) * lambda);
+        if (printLog_)
+        {
+            timer_.tic();
+        }
+        Matxf Hp_lm = problem_.Hp();
+
+        if (lambda > 0.0)
+        {
+            for (int i = 0; i < numParams; i++)
+            {
+                Hp_lm(i, i) += lambda;
+                // Hp_lm(i, i) *= 1.0 + lambda;
+            }
+        }
+
+        solver_.compute(Hp_lm);
         Vecxf inc = solver_.solve(-problem_.G());
+
+        if (printLog_)
+        {
+            float t_solve = timer_.toc();
+            std::cout << "mapOptimizer solve time: " << t_solve << " ms" << std::endl;
+        }
 
         Vecxf new_params = params_ + inc;
         std::vector<float> new_depths;
@@ -251,7 +272,26 @@ void MapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &ca
 
 void MapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl, DenseLinearProblemx &total)
 {
+    if (printLog_)
+    {
+        timer_.tic();
+    }
     jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frame.image(), kframe.didxy(), jmap_texture_, jexp_texture_, pids_texture_, r_texture_);
-    // jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), cam, in_lvl, out_lvl, kframe.frame().image(), frame.image(), kframe.frame().didxy(), jmap_texture_, pids_texture_, r_texture_);
+    // jmap_texture_.generate_mipmaps(out_lvl);
+    // jexp_texture_.generate_mipmaps(out_lvl);
+    // pids_texture_.generate_mipmaps(out_lvl);
+    // r_texture_.generate_mipmaps(out_lvl);
+    if (printLog_)
+    {
+        float t_render = timer_.toc();
+        std::cout << "mapOptimizer render time: " << t_render << " ms" << std::endl;
+        timer_.tic();
+    }
+
     hgmapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jmap_texture_, pids_texture_, r_texture_, kframe.mesh(), total);
+    if (printLog_)
+    {
+        float t_reduce = timer_.toc();
+        std::cout << "mapOptimizer reduce time: " << t_reduce << " ms" << std::endl;
+    }
 }

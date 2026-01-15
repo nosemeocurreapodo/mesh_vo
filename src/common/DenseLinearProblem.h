@@ -6,42 +6,6 @@
 
 #include "common/types.h"
 
-/*
-    Vecf<N> solve(float lambda = 0.0f)
-    {
-        Mat<float, N, N> H = m_Hp;
-
-        for (int j = 0; j < N; j++)
-            H(j, j) *= (1.0 + lambda);
-
-        solver.compute(H);
-        // assert(solver.info() == Eigen::Success);
-        Vec<float, N> dx = solver.solve(-m_G);
-        Vecf<N> dxf;
-        for (int i = 0; i < N; i++)
-            dxf(i) = dx(i);
-        // assert(solver.info() == Eigen::Success);
-        return dxf;
-    }
-            Solver<float, N> solver;
-
-                Vecxf solve(float lambda = 0.0f, int lambda_mode = 1)
-    {
-        Matxf H = m_Hp;
-
-        for (int j = 0; j < m_G.size(); j++)
-        {
-            H(j, j) *= (1.0 + lambda);
-        }
-        solver.compute(H);
-        //  assert(solver.info() == Eigen::Success);
-        Vecxf dx = solver.solve(-m_G);
-        // assert(solver.info() == Eigen::Success);
-        return dx;
-    }
-            Solverx<float> solver;
-    */
-
 template <int N>
 class DenseLinearProblem
 {
@@ -102,12 +66,28 @@ private:
 class DenseLinearProblemx
 {
 public:
-    // DenseLinearProblemx() : m_numParams(0), m_count(0), solver(0) {}
+    DenseLinearProblemx() : m_numParams(0), m_count(0) {}
     DenseLinearProblemx(int n)
     {
         clear(n);
     }
+    /*
+    DenseLinearProblemx &operator=(const DenseLinearProblemx &other)
+    {
+        if (this == &other)
+            return *this;
 
+        clear(other.m_numParams); // ensure sizes match
+        m_Hp = other.m_Hp;
+        m_G = other.m_G;
+        m_count = other.m_count;
+        return *this;
+    }
+
+    DenseLinearProblemx(const DenseLinearProblemx &) = default;
+    DenseLinearProblemx(DenseLinearProblemx &&) noexcept = default;
+    DenseLinearProblemx &operator=(DenseLinearProblemx &&) noexcept = default;
+    */
     void clear(int n)
     {
         if (n != m_numParams)

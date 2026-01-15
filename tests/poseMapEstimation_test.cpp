@@ -5,11 +5,11 @@
 #include "common/keyframe.h"
 #include "optimizers/poseOptimizer.h"
 #include "optimizers/poseExpOptimizer.h"
-#include "optimizers/poseVelExpOptimizer.h"
+// #include "optimizers/poseVelExpOptimizer.h"
 #include "optimizers/poseMapOptimizer.h"
 #include "optimizers/poseExpMapOptimizer.h"
-#include "optimizers/poseVelMapOptimizer.h"
-#include "optimizers/poseVelExpMapOptimizer.h"
+// #include "optimizers/poseVelMapOptimizer.h"
+// #include "optimizers/poseVelExpMapOptimizer.h"
 
 TEST_F(RendererTestBase, ComputePoseMap)
 {

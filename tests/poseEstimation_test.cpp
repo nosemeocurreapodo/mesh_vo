@@ -5,8 +5,8 @@
 #include "common/keyframe.h"
 #include "optimizers/poseOptimizer.h"
 #include "optimizers/poseExpOptimizer.h"
-#include "optimizers/poseVelOptimizer.h"
-#include "optimizers/poseVelExpOptimizer.h"
+//#include "optimizers/poseVelOptimizer.h"
+//#include "optimizers/poseVelExpOptimizer.h"
 
 // Function to compute error between two SE3 poses
 std::array<double, 2> ComputeSE3Error(const SE3f &pose_est, const SE3f &pose_gt)

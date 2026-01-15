@@ -17,7 +17,7 @@ template <class Derived, typename OutType>
 class BaseReducerCPU
 {
 public:
-	BaseReducerCPU() noexcept : threads_(std::max(1u, std::thread::hardware_concurrency())) {}
+	BaseReducerCPU() noexcept : threads_(2 /*std::max(1u, std::thread::hardware_concurrency())*/) {}
 	explicit BaseReducerCPU(unsigned threads) noexcept : threads_(threads == 0 ? 1u : threads) {}
 	virtual ~BaseReducerCPU() = default;
 
@@ -38,7 +38,7 @@ protected:
 		{
 			const int begin = static_cast<int>(t) * chunk;
 			const int end = std::min(N, begin + chunk);
-			pool.emplace_back([&, begin, end]()
+			pool.emplace_back([&, t, begin, end]()
 							  { partial[t] = derived_().reducepartial(begin, end); });
 		}
 		{
@@ -482,6 +482,11 @@ public:
 		r_texture_ = &r_texture;
 		mesh_ = &mesh;
 
+		// r_map_ = r_texture_->MapRead(lvl_);
+		// jmap_map_ = jmap_texture_->MapRead(lvl_);
+		// pids_map_ = pids_texture_->MapRead(lvl_);
+		depths_ = get_depths(*mesh_);
+
 		lvl_ = lvl;
 		num_frames_ = num_frames;
 		num_vertices_ = num_vertices;
@@ -501,8 +506,6 @@ public:
 		auto r_map = r_texture_->MapRead(lvl_);
 		auto jmap_map = jmap_texture_->MapRead(lvl_);
 		auto pids_map = pids_texture_->MapRead(lvl_);
-		auto depths = get_depths(*mesh_);
-		// Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
 		{
@@ -514,9 +517,15 @@ public:
 				continue;
 
 			const Vec3i pids_(pids(0), pids(1), pids(2));
-			const float depth0 = depths[pids_(0)];
-			const float depth1 = depths[pids_(1)];
-			const float depth2 = depths[pids_(2)];
+			// check if there is blending of different triangles
+			float pid0_diff = std::abs(pids_(0) - pids(0));
+			float pid1_diff = std::abs(pids_(1) - pids(1));
+			float pid2_diff = std::abs(pids_(2) - pids(2));
+			if (pid0_diff > 0 || pid1_diff > 0 || pid2_diff > 0)
+				continue;
+			const float depth0 = depths_[pids_(0)];
+			const float depth1 = depths_[pids_(1)];
+			const float depth2 = depths_[pids_(2)];
 			const float d_depth0_d_param = d_depth_d_param(depth0);
 			const float d_depth1_d_param = d_depth_d_param(depth1);
 			const float d_depth2_d_param = d_depth_d_param(depth2);
@@ -537,6 +546,12 @@ private:
 	const Texture<Vec3<PidType>> *pids_texture_;
 	const Texture<float> *r_texture_;
 	const Mesh *mesh_;
+
+	// MappedView<const float, NoopReleaser> r_map_;
+	// MappedView<const Vec3<float>, NoopReleaser> jmap_map_;
+	// MappedView<const Vec3<PidType>, NoopReleaser> pids_map_;
+	std::vector<float> depths_;
+
 	int lvl_;
 	int num_frames_;
 	int num_vertices_;
