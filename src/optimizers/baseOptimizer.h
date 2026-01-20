@@ -12,7 +12,7 @@
 class BaseOptimizer
 {
 public:
-    BaseOptimizer(int w, int h) : r_texture_(w, h, 0.0)
+    BaseOptimizer(int w, int h) : image_texture_(w, h, 0.0)
     {
     }
 
@@ -30,17 +30,14 @@ protected:
         // imagerenderer_.Render(kframe.mesh(), frame.local_pose() * kframe.frame().local_pose().inverse(), cam, lvl, lvl, kframe.frame().image(), e_texture_);
         // return errorreducer_.reduce(lvl, frame.image(), e_texture_);
 
-        residualrenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frame.image(), r_texture_);
-        residualreducer_.reduce(out_lvl, r_texture_, total);
+        imagerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
+        residualreducer_.reduce(out_lvl, image_texture_, frame.image(), total);
     }
 
-    // ImageRendererCPU imagerenderer_;
-    // ErrorReducerCPU errorreducer_;
-
-    ResidualRenderer residualrenderer_;
+    ImageRenderer imagerenderer_;
     ResidualReducerCPU residualreducer_;
 
-    Texture<float> r_texture_;
+    Texture<ImageType> image_texture_;
 
     bool reached_convergence_;
 };

@@ -4,7 +4,7 @@
 #include <fstream>
 #include <condition_variable>
 
-//#include <pangolin/pangolin.h>
+// #include <pangolin/pangolin.h>
 
 #include "core/types.h"
 #include "core/mesh_helpers.h"
@@ -210,13 +210,11 @@ private:
         Mesh screen_mesh(s_ver_buff, s_idx_buff, true, true, false);
 
         DIDxyRenderer didxy_renderer;
-        ResidualRenderer residual_renderer;
         ImageRenderer image_renderer;
         DepthRenderer depth_renderer;
 
         Texture<ImageType> image_texture(width_, height_, -1);
         Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
-        Texture<float> l2_texture(width_, height_, 0);
         Texture<float> depth_texture(width_, height_, 0);
 
         PoseExpOptimizer optimizer(width_, height_, true);
@@ -296,13 +294,6 @@ private:
                                   kframe.image(),
                                   image_texture);
 
-            residual_renderer.Render(kframe.mesh(),
-                                     frame.local_pose(),
-                                     frame.local_exposure(),
-                                     cam_,
-                                     1, 1,
-                                     kframe.image(), frame.image(), l2_texture);
-
             cv::Mat depth_mat = DownloadTextureToMat(depth_texture, 1);
             SaveDebugImage(depth_mat, "loc_depth_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
 
@@ -311,9 +302,6 @@ private:
 
             cv::Mat frame_mat = DownloadTextureToMat(frame.image(), 1);
             SaveDebugImage(frame_mat, "loc_frame_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
-
-            cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
-            SaveDebugImage(l2_mat, "loc_l2_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
         }
     }
 
@@ -323,11 +311,9 @@ private:
         std::vector<int> idx_buff;
 
         Texture<ImageType> image_texture(width_, height_, -1);
-        Texture<float> l2_texture(width_, height_, 0);
         Texture<float> depth_texture(width_, height_, -1);
 
         ImageRenderer image_renderer;
-        ResidualRenderer residual_renderer;
         DepthRenderer depth_renderer;
 
         NodataReducerCPU nodata_reducer;
@@ -464,14 +450,16 @@ private:
 
             for (Frame f : frameStack)
             {
-                residual_renderer.Render(kframe.mesh(),
-                                         f.local_pose(),
-                                         f.local_exposure(),
-                                         cam_,
-                                         1, 1,
-                                         kframe.image(), f.image(), l2_texture);
+                image_renderer.Render(kframe.mesh(),
+                                      f.local_pose(),
+                                      f.local_exposure(),
+                                      cam_,
+                                      1, 1,
+                                      kframe.image(), image_texture);
 
-                cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
+                cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
+                cv::Mat ref_mat = DownloadTextureToMat(f.image(), 1);
+                cv::Mat l2_mat = ref_mat - image_mat;
                 SaveDebugImage(l2_mat, "map_l2_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + ".png");
             }
         }
@@ -487,7 +475,6 @@ private:
         DIDxyRenderer didxy_renderer;
         DepthRenderer depth_renderer;
         ImageRenderer image_renderer;
-        ResidualRenderer residual_renderer;
 
         NodataReducerCPU nodata_reducer;
 
@@ -497,7 +484,6 @@ private:
         Texture<ImageType> image_texture(width_, height_, -1);
         Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
         Texture<float> depth_texture(width_, height_, -1);
-        Texture<float> l2_texture(width_, height_, 0);
 
         std::vector<Frame> frameStack;
         std::vector<Frame> oframes;
@@ -574,12 +560,12 @@ private:
                 //                       kframe.image(),
                 //                       image_texture);
 
-                residual_renderer.Render(kframe.mesh(),
-                                         frame.local_pose(),
-                                         frame.local_exposure(),
-                                         cam_,
-                                         1, 1,
-                                         kframe.image(), frame.image(), l2_texture);
+                image_renderer.Render(kframe.mesh(),
+                                      frame.local_pose(),
+                                      frame.local_exposure(),
+                                      cam_,
+                                      1, 1,
+                                      kframe.image(), image_texture);
 
                 // cv::Mat depth_mat = DownloadTextureToMat(depth_texture, 1);
                 // SaveDebugImage(depth_mat, "loc_depth_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
@@ -590,7 +576,9 @@ private:
                 // cv::Mat frame_mat = DownloadTextureToMat(frame.image(), 1);
                 // SaveDebugImage(frame_mat, "loc_frame_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
 
-                cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
+                cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
+                cv::Mat ref_mat = DownloadTextureToMat(frame.image(), 1);
+                cv::Mat l2_mat = ref_mat - image_mat;
                 SaveDebugImage(l2_mat, "loc_l2_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
 
                 // Choose wether to save the frame or not
@@ -702,14 +690,16 @@ private:
 
                 for (Frame f : frameStack)
                 {
-                    residual_renderer.Render(kframe.mesh(),
-                                             f.local_pose(),
-                                             f.local_exposure(),
-                                             cam_,
-                                             1, 1,
-                                             kframe.image(), f.image(), l2_texture);
+                    image_renderer.Render(kframe.mesh(),
+                                          f.local_pose(),
+                                          f.local_exposure(),
+                                          cam_,
+                                          1, 1,
+                                          kframe.image(), image_texture);
 
-                    cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
+                    cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
+                    cv::Mat ref_mat = DownloadTextureToMat(f.image(), 1);
+                    cv::Mat l2_mat = ref_mat - image_mat;
                     SaveDebugImage(l2_mat, "map_l2_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + ".png");
                 }
             }

@@ -15,11 +15,10 @@
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
 #include "backends/cpu/renderercpu.h"
-/*
+
 using DepthRenderer = DepthRendererCPU;
 using PidsRenderer = PidsRendererCPU;
 using ImageRenderer = ImageRendererCPU;
-using ResidualRenderer = ResidualRendererCPU;
 using DIDxyRenderer = DIDxyRendererCPU;
 using DIDexpRenderer = DIDexpRendererCPU;
 using JPoseFDRenderer = JPoseFDRendererCPU;
@@ -32,9 +31,13 @@ using JPoseVelExpMapRenderer = JPoseVelExpMapRendererCPU;
 
 template <typename T>
 using Texture = TextureCPU<T>;
+template <typename T>
+using TextureViewRead = TextureViewReadCPU<T>;
+template <typename T>
+using TextureViewWrite = TextureViewWriteCPU<T>;
 using Mesh = MeshCPU;
-*/
 
+/*
 #include "backends/gl/buffergl.h"
 #include "backends/gl/texturegl.h"
 #include "backends/gl/meshgl.h"
@@ -43,7 +46,6 @@ using Mesh = MeshCPU;
 using DepthRenderer = DepthRendererGL;
 using PidsRenderer = PidsRendererGL;
 using ImageRenderer = ImageRendererGL;
-using ResidualRenderer = ResidualRendererGL;
 using DIDxyRenderer = DIDxyRendererGL;
 using JPoseExpRenderer = JPoseExpRendererGL;
 using JMapExpRenderer = JMapExpRendererGL;
@@ -51,7 +53,12 @@ using JPoseExpMapRenderer = JPoseExpMapRendererGL;
 
 template <typename T>
 using Texture = TextureGL<T>;
+template <typename T>
+using TextureViewRead = TextureViewReadGL<T>;
+template <typename T>
+using TextureViewWrite = TextureViewWriteGL<T>;
 using Mesh = MeshGL;
+*/
 
 using Camera = PinholeCamera<float>;
 

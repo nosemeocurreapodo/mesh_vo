@@ -276,7 +276,7 @@ void MapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam,
     {
         timer_.tic();
     }
-    jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frame.image(), kframe.didxy(), jmap_texture_, jexp_texture_, pids_texture_, r_texture_);
+    jmaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), kframe.didxy(), image_texture_, jmap_texture_, jexp_texture_, pids_texture_);
     // jmap_texture_.generate_mipmaps(out_lvl);
     // jexp_texture_.generate_mipmaps(out_lvl);
     // pids_texture_.generate_mipmaps(out_lvl);
@@ -288,7 +288,7 @@ void MapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam,
         timer_.tic();
     }
 
-    hgmapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jmap_texture_, pids_texture_, r_texture_, kframe.mesh(), total);
+    hgmapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jmap_texture_, pids_texture_, image_texture_, frame.image(), kframe.mesh(), total);
     if (printLog_)
     {
         float t_reduce = timer_.toc();

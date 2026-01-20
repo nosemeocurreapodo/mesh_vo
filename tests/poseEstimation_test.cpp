@@ -5,8 +5,8 @@
 #include "common/keyframe.h"
 #include "optimizers/poseOptimizer.h"
 #include "optimizers/poseExpOptimizer.h"
-//#include "optimizers/poseVelOptimizer.h"
-//#include "optimizers/poseVelExpOptimizer.h"
+// #include "optimizers/poseVelOptimizer.h"
+// #include "optimizers/poseVelExpOptimizer.h"
 
 // Function to compute error between two SE3 poses
 std::array<double, 2> ComputeSE3Error(const SE3f &pose_est, const SE3f &pose_gt)
@@ -49,21 +49,19 @@ TEST_F(RendererTestBase, ComputePose)
     std::vector<float> s_ver_buff_;
     std::vector<int> s_idx_buff_;
     CreateScreenQuad(s_ver_buff_, s_idx_buff_);
-    Mesh screen_mesh(s_ver_buff_, s_idx_buff_, true, true, false);
+    Mesh screen_mesh(s_ver_buff_, s_idx_buff_, false, true, false);
 
-    Texture<ImageType> image_texture(w_, h_, -1);
+    Texture<ImageType> image_texture(w_, h_, 0);
     Texture<float> gt_depth_texture(w_, h_, 0);
     Texture<float> es_depth_texture(w_, h_, 0);
     Texture<Vec3f> didxy_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
-    Texture<float> l2_texture(w_, h_, -1);
 
     DepthRenderer depth_renderer;
     ImageRenderer image_renderer;
     DIDxyRenderer didxy_renderer;
-    ResidualRenderer residual_renderer;
     NodataReducerCPU nodata_reducer;
 
-    PoseExpOptimizer optimizer(w_, h_, true);
+    PoseOptimizer optimizer(w_, h_, true);
 
     KeyFrame *kframe;
 
@@ -94,8 +92,8 @@ TEST_F(RendererTestBase, ComputePose)
         {
             std::vector<float> ver_buff_;
             std::vector<int> idx_buff_;
-            CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-            Mesh mesh(ver_buff_, idx_buff_, true, true, true);
+            CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, false, false);
+            Mesh mesh(ver_buff_, idx_buff_, true, false, false);
 
             kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0, 0);
             float meanDepth = kframe->meanDepth();
@@ -143,20 +141,21 @@ TEST_F(RendererTestBase, ComputePose)
         accRotationError += error[1];
         framesProcessedCounter++;
 
-        residual_renderer.Render(kframe->mesh(),
-                                 frame.local_pose(),
-                                 frame.local_exposure(),
-                                 cam_,
-                                 1, 1,
-                                 kframe->image(),
-                                 frame.image(),
-                                 l2_texture);
-        cv::Mat l2_mat = DownloadTextureToMat(l2_texture, 1);
+        image_renderer.Render(kframe->mesh(),
+                              frame.local_pose(),
+                              frame.local_exposure(),
+                              cam_,
+                              1, 1,
+                              kframe->image(),
+                              image_texture);
+        cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
+        cv::Mat ref_mat = DownloadTextureToMat(frame.image(), 1);
+        cv::Mat l2_mat = ref_mat - image_mat;
         SaveDebugImage(l2_mat, "l2_" + std::to_string(img_id) + ".png");
 
         Error nodata;
-        nodata_reducer.reduce(1, l2_texture, nodata);
-        float pnodata = nodata.getError() / (l2_texture.width(1) * l2_texture.height(1));
+        nodata_reducer.reduce(1, image_texture, nodata);
+        float pnodata = nodata.getError() / (image_texture.width(1) * image_texture.height(1));
         float viewPercent = 1.0 - pnodata;
 
         std::cout << "view percent " << viewPercent << std::endl;
@@ -196,8 +195,8 @@ TEST_F(RendererTestBase, ComputePose)
                               1, 1,
                               kframe->image(),
                               image_texture);
-        cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
-        SaveDebugImage(image_mat, "Frame keyframe_" + std::to_string(img_id) + ".png");
+        cv::Mat image_mat_ = DownloadTextureToMat(image_texture, 1);
+        SaveDebugImage(image_mat_, "Frame keyframe_" + std::to_string(img_id) + ".png");
     }
 
     auto meanDuration = accProcessingTime.count() / framesProcessedCounter;

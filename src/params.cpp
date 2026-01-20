@@ -11,7 +11,7 @@ namespace mesh_vo
     float huber_thresh_param = 100000000000000000.0;
     float line_capture_time = 1.0;
 
-    int tracking_ini_lvl = 4;
+    int tracking_ini_lvl = 1;
     int tracking_fin_lvl = 1;
     float tracking_prior_weight = 0.0;
     float tracking_convergence_p = 0.999;

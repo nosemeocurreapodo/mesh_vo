@@ -108,6 +108,7 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
         */
     }
     // problem.scale(1.0 / frames.size());
+    problem.scale(1.0 / problem.count());
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
@@ -155,7 +156,16 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
         }
         n_try++;
 
-        solver_.compute(problem.Hp() + Matxf::Identity(numParams, numParams) * lambda);
+        Matxf Hp_lm = problem.Hp();
+        if (lambda > 0.0)
+        {
+            for (int i = 0; i < numParams; i++)
+            {
+                Hp_lm(i, i) += lambda;
+                // Hp_lm(i, i) *= 1.0 + lambda;
+            }
+        }
+        solver_.compute(Hp_lm);
         Vecxf inc = solver_.solve(-problem.G());
 
         std::vector<float> new_depths;
@@ -281,6 +291,6 @@ void PoseMapOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera
 
 void PoseMapOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl, DenseLinearProblemx &total)
 {
-    jposemaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frame.image(), kframe.didxy(), jtra_texture_, jrot_texture_, jexp_texture_, jmap_texture_, pids_texture_, r_texture_);
-    hgposemapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jtra_texture_, jrot_texture_, jmap_texture_, pids_texture_, r_texture_, kframe.mesh(), total);
+    jposemaprenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), kframe.didxy(), image_texture_, jtra_texture_, jrot_texture_, jexp_texture_, jmap_texture_, pids_texture_);
+    hgposemapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jtra_texture_, jrot_texture_, jmap_texture_, pids_texture_, image_texture_, frame.image(), kframe.mesh(), total);
 }

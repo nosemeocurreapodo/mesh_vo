@@ -209,9 +209,17 @@ public:
                      int new_id,
                      const Camera &cam)
     {
-        std::vector<Vec3<float>> vertices = get_vertices(mesh_);
-        std::vector<Vec2<float>> texcoords = get_texcoords(mesh_);
+        bool has_pos = mesh_.pos_offset_ >= 0 ? 1 : 0;
+        bool has_tex = mesh_.tex_offset_ >= 0 ? 1 : 0;
+
         std::vector<Vec3<int>> indices = get_indices(mesh_);
+
+        std::vector<Vec3<float>> vertices = get_vertices(mesh_);
+
+        assert(vertices.size() > 0);
+
+        std::vector<Vec2<float>> texcoords;
+        texcoords.reserve(vertices.size());
 
         for (int i = 0; i < vertices.size(); i++)
         {
@@ -222,7 +230,7 @@ public:
             Vec2<float> pix = cam.RayToPix(ray);
 
             vertices[i] = vertex;
-            texcoords[i] = pix;
+            texcoords.push_back(pix);
         }
 
         std::vector<Vec2<float>> grid_uv; //= UniformTexCoords(mesh_vo::mesh_width, mesh_vo::mesh_height, 0.0, 0.0, 1.0, 1.0);
@@ -256,22 +264,34 @@ public:
         {
             Vec3<float> vertex = vertices[i];
             Vec2<float> texcoord = texcoords[i];
-            new_mesh_vertex.push_back(vertex(0));
-            new_mesh_vertex.push_back(vertex(1));
-            new_mesh_vertex.push_back(vertex(2));
-            new_mesh_vertex.push_back(texcoord(0));
-            new_mesh_vertex.push_back(texcoord(1));
+            if (has_pos)
+            {
+                new_mesh_vertex.push_back(vertex(0));
+                new_mesh_vertex.push_back(vertex(1));
+                new_mesh_vertex.push_back(vertex(2));
+            }
+            if (has_tex)
+            {
+                new_mesh_vertex.push_back(texcoord(0));
+                new_mesh_vertex.push_back(texcoord(1));
+            }
         }
 
         for (int i = 0; i < new_vertices.size(); i++)
         {
             Vec3<float> vertex = new_vertices[i];
             Vec2<float> texcoord = new_texcoords[i];
-            new_mesh_vertex.push_back(vertex(0));
-            new_mesh_vertex.push_back(vertex(1));
-            new_mesh_vertex.push_back(vertex(2));
-            new_mesh_vertex.push_back(texcoord(0));
-            new_mesh_vertex.push_back(texcoord(1));
+            if (has_pos)
+            {
+                new_mesh_vertex.push_back(vertex(0));
+                new_mesh_vertex.push_back(vertex(1));
+                new_mesh_vertex.push_back(vertex(2));
+            }
+            if (has_tex)
+            {
+                new_mesh_vertex.push_back(texcoord(0));
+                new_mesh_vertex.push_back(texcoord(1));
+            }
         }
 
         for (int i = 0; i < tris.size(); i++)
@@ -282,7 +302,7 @@ public:
             new_indices.push_back(tri(2));
         }
 
-        Mesh new_mesh(new_mesh_vertex, new_indices, true, true, false);
+        Mesh new_mesh(new_mesh_vertex, new_indices, has_pos, has_tex, false);
 
         image_ = new_image;
         didxy_ = new_didxy;
@@ -331,11 +351,17 @@ public:
         {
             Vec3<float> vertex = new_vertices[i];
             Vec2<float> texcoord = new_texcoords[i];
-            new_mesh_vertex.push_back(vertex(0));
-            new_mesh_vertex.push_back(vertex(1));
-            new_mesh_vertex.push_back(vertex(2));
-            new_mesh_vertex.push_back(texcoord(0));
-            new_mesh_vertex.push_back(texcoord(1));
+            if (mesh_.pos_offset_ >= 0)
+            {
+                new_mesh_vertex.push_back(vertex(0));
+                new_mesh_vertex.push_back(vertex(1));
+                new_mesh_vertex.push_back(vertex(2));
+            }
+            if (mesh_.tex_offset_ >= 0)
+            {
+                new_mesh_vertex.push_back(texcoord(0));
+                new_mesh_vertex.push_back(texcoord(1));
+            }
         }
 
         for (int i = 0; i < tris.size(); i++)

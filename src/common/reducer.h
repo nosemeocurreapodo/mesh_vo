@@ -70,27 +70,24 @@ public:
 
 	void reduce(int lvl, const Texture<ImageType> &r_texture, Error &total)
 	{
-		r_texture_ = &r_texture;
-		lvl_ = lvl;
+		r_texture_ = r_texture.MapRead(lvl);
 
 		reduce_(total);
 	}
 
 	int size()
 	{
-		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
+		return r_texture_.width() * r_texture_.height();
 	}
 
 	Error reducepartial(int begin, int end)
 	{
 		Error err;
 
-		auto rmap = r_texture_->MapRead(lvl_);
-
 		for (int i = begin; i < end; ++i)
 		{
-			const float r = rmap[i];
-			if (r == r_texture_->nodata())
+			const float r = r_texture_[i];
+			if (r == r_texture_.nodata())
 				err += 1.0f;
 			else
 				err += 0.0f;
@@ -99,11 +96,10 @@ public:
 	}
 
 private:
-	const Texture<ImageType> *r_texture_;
-	int lvl_;
+	TextureViewRead<ImageType> r_texture_;
 };
 
-// Photometric L2 with Huber loss. Third input unused.
+// Photometric L2 with Huber loss.
 class ResidualReducerCPU : public BaseReducerCPU<ResidualReducerCPU, Error>
 {
 public:
@@ -113,30 +109,32 @@ public:
 	{
 	}
 
-	void reduce(int lvl, const Texture<float> &r_texture, Error &total)
+	void reduce(int lvl, const Texture<ImageType> &texture_1, const Texture<ImageType> &texture_2, Error &total)
 	{
-		r_texture_ = &r_texture;
-		lvl_ = lvl;
+		assert(texture_1.width(lvl) == texture_2.width(lvl) && texture_2.height(lvl) == texture_2.height(lvl));
+
+		texture_1_ = texture_1.MapRead(lvl);
+		texture_2_ = texture_2.MapRead(lvl);
 
 		reduce_(total);
 	}
 
 	int size()
 	{
-		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
+		return texture_1_.width() * texture_1_.height();
 	}
 
 	Error reducepartial(int begin, int end)
 	{
 		Error err;
 
-		auto rmap = r_texture_->MapRead(lvl_);
-
 		for (int i = begin; i < end; ++i)
 		{
-			const float r = rmap[i];
-			if (r == r_texture_->nodata())
+			const float tex1 = texture_1_[i];
+			const float tex2 = texture_2_[i];
+			if (tex1 == texture_1_.nodata() || tex2 == texture_2_.nodata())
 				continue;
+			const float r = tex1 - tex2;
 			const float w = huber_weight(r, mesh_vo::huber_thresh_pix);
 			err += w * r * r;
 		}
@@ -145,8 +143,8 @@ public:
 	}
 
 private:
-	const Texture<float> *r_texture_;
-	int lvl_;
+	TextureViewRead<ImageType> texture_1_;
+	TextureViewRead<ImageType> texture_2_;
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
@@ -159,28 +157,25 @@ public:
 	{
 	}
 
-	void reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<float> &r_texture, DenseLinearProblem<6> &total)
+	void reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<ImageType> &image_texture, const Texture<ImageType> ref_texture, DenseLinearProblem<6> &total)
 	{
-		jtra_texture_ = &jtra_texture;
-		jrot_texture_ = &jrot_texture;
-		r_texture_ = &r_texture;
-		lvl_ = lvl;
+		jtra_texture_ = jtra_texture.MapRead(lvl);
+		jrot_texture_ = jrot_texture.MapRead(lvl);
+		image_texture_ = image_texture.MapRead(lvl);
+		ref_texture_ = ref_texture.MapRead(lvl);
 
 		reduce_(total);
 	}
 
 	int size()
 	{
-		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
+		return image_texture_.width() * image_texture_.height();
 	}
 
 	DenseLinearProblem<6> reducepartial(int begin, int end)
 	{
 		DenseLinearProblem<6> hg;
 
-		auto r_map = r_texture_->MapRead(lvl_);
-		auto jtra_map = jtra_texture_->MapRead(lvl_);
-		auto jrot_map = jrot_texture_->MapRead(lvl_);
 		// Vec8i ids(0, 1, 2, 3, 4, 5, 6, 7);
 		Vec8i ids;
 		for (int i = 0; i < 8; i++)
@@ -188,11 +183,16 @@ public:
 
 		for (int i = begin; i < end; ++i)
 		{
-			const float res = r_map[i];
-			const Vec3f jtra = jtra_map[i];
-			const Vec3f jrot = jrot_map[i];
-			if (res == r_texture_->nodata() || jtra == jtra_texture_->nodata() || jrot == jrot_texture_->nodata())
+			const ImageType image = image_texture_[i];
+			const ImageType ref_image = ref_texture_[i];
+			const Vec3f jtra = jtra_texture_[i];
+			const Vec3f jrot = jrot_texture_[i];
+			if (image == image_texture_.nodata() ||
+				ref_image == ref_texture_.nodata() ||
+				jtra == jtra_texture_.nodata() ||
+				jrot == jrot_texture_.nodata())
 				continue;
+			float res = ref_image - image;
 			// Vec8f J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2), jexp(0), jexp(1));
 			Vec6f J;
 			J(0) = jtra(0);
@@ -211,11 +211,10 @@ public:
 	}
 
 private:
-	const Texture<Vec3f> *jtra_texture_;
-	const Texture<Vec3f> *jrot_texture_;
-	const Texture<float> *r_texture_;
-	int lvl_;
-	// DenseLinearProblem<6> hg_;
+	TextureViewRead<Vec3f> jtra_texture_;
+	TextureViewRead<Vec3f> jrot_texture_;
+	TextureViewRead<ImageType> image_texture_;
+	TextureViewRead<ImageType> ref_texture_;
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
@@ -228,30 +227,26 @@ public:
 	{
 	}
 
-	void reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jexp_texture, const Texture<float> &r_texture, DenseLinearProblem<8> &total)
+	void reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jexp_texture, const Texture<ImageType> &image_texture, const Texture<ImageType> &ref_texture, DenseLinearProblem<8> &total)
 	{
-		jtra_texture_ = &jtra_texture;
-		jrot_texture_ = &jrot_texture;
-		jexp_texture_ = &jexp_texture;
-		r_texture_ = &r_texture;
-		lvl_ = lvl;
+		jtra_texture_ = jtra_texture.MapRead(lvl);
+		jrot_texture_ = jrot_texture.MapRead(lvl);
+		jexp_texture_ = jexp_texture.MapRead(lvl);
+		image_texture_ = image_texture.MapRead(lvl);
+		ref_texture_ = ref_texture.MapRead(lvl);
 
 		reduce_(total);
 	}
 
 	int size()
 	{
-		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
+		return image_texture_.width() * image_texture_.height();
 	}
 
 	DenseLinearProblem<8> reducepartial(int begin, int end)
 	{
 		DenseLinearProblem<8> hg;
 
-		auto r_map = r_texture_->MapRead(lvl_);
-		auto jtra_map = jtra_texture_->MapRead(lvl_);
-		auto jrot_map = jrot_texture_->MapRead(lvl_);
-		auto jexp_map = jexp_texture_->MapRead(lvl_);
 		// Vec8i ids(0, 1, 2, 3, 4, 5, 6, 7);
 		Vec8i ids;
 		for (int i = 0; i < 8; i++)
@@ -259,12 +254,18 @@ public:
 
 		for (int i = begin; i < end; ++i)
 		{
-			const float res = r_map[i];
-			const Vec3f jtra = jtra_map[i];
-			const Vec3f jrot = jrot_map[i];
-			const Vec3f jexp = jexp_map[i];
-			if (res == r_texture_->nodata() || jtra == jtra_texture_->nodata() || jrot == jrot_texture_->nodata() || jexp == jexp_texture_->nodata())
+			const ImageType image = image_texture_[i];
+			const ImageType ref = ref_texture_[i];
+			const Vec3f jtra = jtra_texture_[i];
+			const Vec3f jrot = jrot_texture_[i];
+			const Vec3f jexp = jexp_texture_[i];
+			if (image == image_texture_.nodata() ||
+				ref == ref_texture_.nodata() ||
+				jtra == jtra_texture_.nodata() ||
+				jrot == jrot_texture_.nodata() ||
+				jexp == jexp_texture_.nodata())
 				continue;
+			float res = ref - image;
 			// Vec8f J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2), jexp(0), jexp(1));
 			Vec8f J;
 			J(0) = jtra(0);
@@ -286,183 +287,11 @@ public:
 	}
 
 private:
-	const Texture<Vec3f> *jtra_texture_;
-	const Texture<Vec3f> *jrot_texture_;
-	const Texture<Vec3f> *jexp_texture_;
-	const Texture<float> *r_texture_;
-	int lvl_;
-	// DenseLinearProblem<6> hg_;
-};
-
-// Pose-only Jacobian -> DenseLinearProblem reducer
-class HGPoseVelReducerCPU : public BaseReducerCPU<HGPoseVelReducerCPU, DenseLinearProblem<12>>
-{
-public:
-	using Base = BaseReducerCPU<HGPoseVelReducerCPU, DenseLinearProblem<12>>;
-	explicit HGPoseVelReducerCPU()
-		: Base()
-	{
-	}
-
-	void reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<float> &r_texture, DenseLinearProblem<12> &total)
-	{
-		jtra_texture_ = &jtra_texture;
-		jrot_texture_ = &jrot_texture;
-		jtravel_texture_ = &jtravel_texture;
-		jrotvel_texture_ = &jrotvel_texture;
-		r_texture_ = &r_texture;
-		lvl_ = lvl;
-
-		return reduce_(total);
-	}
-
-	int size()
-	{
-		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
-	}
-
-	DenseLinearProblem<12> reducepartial(int begin, int end)
-	{
-		DenseLinearProblem<12> hg;
-
-		auto r_map = r_texture_->MapRead(lvl_);
-		auto jtra_map = jtra_texture_->MapRead(lvl_);
-		auto jrot_map = jrot_texture_->MapRead(lvl_);
-		auto jtravel_map = jtravel_texture_->MapRead(lvl_);
-		auto jrotvel_map = jrotvel_texture_->MapRead(lvl_);
-		// Vec8i ids(0, 1, 2, 3, 4, 5, 6, 7);
-		Vec<int, 12> ids;
-		for (int i = 0; i < 12; i++)
-			ids(i) = i;
-
-		for (int i = begin; i < end; ++i)
-		{
-			const float res = r_map[i];
-			const Vec3f jtra = jtra_map[i];
-			const Vec3f jrot = jrot_map[i];
-			const Vec3f jtravel = jtravel_map[i];
-			const Vec3f jrotvel = jrotvel_map[i];
-			if (res == r_texture_->nodata() || jtra == jtra_texture_->nodata() || jrot == jrot_texture_->nodata() || jtravel == jtravel_texture_->nodata() || jrotvel == jrotvel_texture_->nodata())
-				continue;
-			// Vec8f J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2), jexp(0), jexp(1));
-			Vec<float, 12> J;
-			J(0) = jtra(0);
-			J(1) = jtra(1);
-			J(2) = jtra(2);
-			J(3) = jrot(0);
-			J(4) = jrot(1);
-			J(5) = jrot(2);
-			J(6) = jtravel(0);
-			J(7) = jtravel(1);
-			J(8) = jtravel(2);
-			J(9) = jrotvel(0);
-			J(10) = jrotvel(1);
-			J(11) = jrotvel(2);
-
-			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
-
-			// hg.add(J, res, w, ids);
-			hg.add(J, res, w);
-		}
-		return hg;
-	}
-
-private:
-	const Texture<Vec3f> *jtra_texture_;
-	const Texture<Vec3f> *jrot_texture_;
-	const Texture<Vec3f> *jtravel_texture_;
-	const Texture<Vec3f> *jrotvel_texture_;
-	const Texture<float> *r_texture_;
-	int lvl_;
-};
-
-// Pose-only Jacobian -> DenseLinearProblem reducer
-class HGPoseVelExpReducerCPU : public BaseReducerCPU<HGPoseVelExpReducerCPU, DenseLinearProblem<14>>
-{
-public:
-	using Base = BaseReducerCPU<HGPoseVelExpReducerCPU, DenseLinearProblem<14>>;
-	explicit HGPoseVelExpReducerCPU()
-		: Base()
-	{
-	}
-
-	void reduce(int lvl, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<Vec3f> &jexp_texture, const Texture<float> &r_texture, DenseLinearProblem<14> &total)
-	{
-		jtra_texture_ = &jtra_texture;
-		jrot_texture_ = &jrot_texture;
-		jtravel_texture_ = &jtravel_texture;
-		jrotvel_texture_ = &jrotvel_texture;
-		jexp_texture_ = &jexp_texture;
-		r_texture_ = &r_texture;
-		lvl_ = lvl;
-
-		reduce_(total);
-	}
-
-	int size()
-	{
-		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
-	}
-
-	DenseLinearProblem<14> reducepartial(int begin, int end)
-	{
-		DenseLinearProblem<14> hg;
-
-		auto r_map = r_texture_->MapRead(lvl_);
-		auto jtra_map = jtra_texture_->MapRead(lvl_);
-		auto jrot_map = jrot_texture_->MapRead(lvl_);
-		auto jtravel_map = jtravel_texture_->MapRead(lvl_);
-		auto jrotvel_map = jrotvel_texture_->MapRead(lvl_);
-		auto jexp_map = jexp_texture_->MapRead(lvl_);
-		// Vec8i ids(0, 1, 2, 3, 4, 5, 6, 7);
-		Vec<int, 14> ids;
-		for (int i = 0; i < 14; i++)
-			ids(i) = i;
-
-		for (int i = begin; i < end; ++i)
-		{
-			const float res = r_map[i];
-			const Vec3f jtra = jtra_map[i];
-			const Vec3f jrot = jrot_map[i];
-			const Vec3f jtravel = jtravel_map[i];
-			const Vec3f jrotvel = jrotvel_map[i];
-			const Vec3f jexp = jexp_map[i];
-
-			if (res == r_texture_->nodata() || jtra == jtra_texture_->nodata() || jrot == jrot_texture_->nodata() || jtravel == jtravel_texture_->nodata() || jrotvel == jrotvel_texture_->nodata() || jexp == jexp_texture_->nodata())
-				continue;
-			// Vec8f J(jtra(0), jtra(1), jtra(2), jrot(0), jrot(1), jrot(2), jexp(0), jexp(1));
-			Vec<float, 14> J;
-			J(0) = jtra(0);
-			J(1) = jtra(1);
-			J(2) = jtra(2);
-			J(3) = jrot(0);
-			J(4) = jrot(1);
-			J(5) = jrot(2);
-			J(6) = jtravel(0);
-			J(7) = jtravel(1);
-			J(8) = jtravel(2);
-			J(9) = jrotvel(0);
-			J(10) = jrotvel(1);
-			J(11) = jrotvel(2);
-			J(12) = jexp(0);
-			J(13) = jexp(1);
-
-			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
-
-			// hg.add(J, res, w, ids);
-			hg.add(J, res, w);
-		}
-		return hg;
-	}
-
-private:
-	const Texture<Vec3f> *jtra_texture_;
-	const Texture<Vec3f> *jrot_texture_;
-	const Texture<Vec3f> *jtravel_texture_;
-	const Texture<Vec3f> *jrotvel_texture_;
-	const Texture<Vec3f> *jexp_texture_;
-	const Texture<float> *r_texture_;
-	int lvl_;
+	TextureViewRead<Vec3f> jtra_texture_;
+	TextureViewRead<Vec3f> jrot_texture_;
+	TextureViewRead<Vec3f> jexp_texture_;
+	TextureViewRead<ImageType> image_texture_;
+	TextureViewRead<ImageType> ref_texture_;
 };
 
 // Pose-only Jacobian -> DenseLinearProblem reducer
@@ -475,19 +304,15 @@ public:
 	{
 	}
 
-	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh, DenseLinearProblemx &total)
+	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<ImageType> &image_texture, const Texture<ImageType> &ref_texture, const Mesh &mesh, DenseLinearProblemx &total)
 	{
-		jmap_texture_ = &jmap_texture;
-		pids_texture_ = &pids_texture;
-		r_texture_ = &r_texture;
-		mesh_ = &mesh;
+		jmap_texture_ = jmap_texture.MapRead(lvl);
+		pids_texture_ = pids_texture.MapRead(lvl);
+		image_texture_ = image_texture.MapRead(lvl);
+		ref_texture_ = ref_texture.MapRead(lvl);
 
-		// r_map_ = r_texture_->MapRead(lvl_);
-		// jmap_map_ = jmap_texture_->MapRead(lvl_);
-		// pids_map_ = pids_texture_->MapRead(lvl_);
-		depths_ = get_depths(*mesh_);
+		depths_ = get_depths(mesh);
 
-		lvl_ = lvl;
 		num_frames_ = num_frames;
 		num_vertices_ = num_vertices;
 		frame_id_ = frame_id;
@@ -497,25 +322,27 @@ public:
 
 	int size()
 	{
-		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
+		return image_texture_.width() * image_texture_.height();
 	}
 
 	DenseLinearProblemx reducepartial(int begin, int end)
 	{
 		DenseLinearProblemx hg(num_vertices_);
-		auto r_map = r_texture_->MapRead(lvl_);
-		auto jmap_map = jmap_texture_->MapRead(lvl_);
-		auto pids_map = pids_texture_->MapRead(lvl_);
 
 		for (int i = begin; i < end; ++i)
 		{
-			Vec3f jmap = jmap_map[i];
-			const Vec3<PidType> pids = pids_map[i];
-			const float res = r_map[i];
+			Vec3f jmap = jmap_texture_[i];
+			Vec3<PidType> pids = pids_texture_[i];
+			ImageType image = image_texture_[i];
+			ImageType ref = ref_texture_[i];
 
-			if (res == r_texture_->nodata() || jmap == jmap_texture_->nodata() || pids == pids_texture_->nodata())
+			if (image == image_texture_.nodata() ||
+				ref == ref_texture_.nodata() ||
+				jmap == jmap_texture_.nodata() ||
+				pids == pids_texture_.nodata())
 				continue;
 
+			float res = ref - image;
 			const Vec3i pids_(pids(0), pids(1), pids(2));
 			// check if there is blending of different triangles
 			float pid0_diff = std::abs(pids_(0) - pids(0));
@@ -542,17 +369,13 @@ public:
 	}
 
 private:
-	const Texture<Vec3f> *jmap_texture_;
-	const Texture<Vec3<PidType>> *pids_texture_;
-	const Texture<float> *r_texture_;
-	const Mesh *mesh_;
+	TextureViewRead<Vec3f> jmap_texture_;
+	TextureViewRead<Vec3<PidType>> pids_texture_;
+	TextureViewRead<ImageType> image_texture_;
+	TextureViewRead<ImageType> ref_texture_;
 
-	// MappedView<const float, NoopReleaser> r_map_;
-	// MappedView<const Vec3<float>, NoopReleaser> jmap_map_;
-	// MappedView<const Vec3<PidType>, NoopReleaser> pids_map_;
 	std::vector<float> depths_;
 
-	int lvl_;
 	int num_frames_;
 	int num_vertices_;
 	int frame_id_;
@@ -568,15 +391,16 @@ public:
 	{
 	}
 
-	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jmap_texture, const Texture<Vec3f> &jexp_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh, DenseLinearProblemx &total)
+	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jmap_texture, const Texture<Vec3f> &jexp_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<ImageType> &image_texture, const Texture<ImageType> &ref_texture, const Mesh &mesh, DenseLinearProblemx &total)
 	{
-		jmap_texture_ = &jmap_texture;
-		jexp_texture_ = &jexp_texture;
-		pids_texture_ = &pids_texture;
-		r_texture_ = &r_texture;
-		mesh_ = &mesh;
+		jmap_texture_ = jmap_texture.MapRead(lvl);
+		jexp_texture_ = jexp_texture.MapRead(lvl);
+		pids_texture_ = pids_texture.MapRead(lvl);
+		image_texture_ = image_texture.MapRead(lvl);
+		ref_texture_ = ref_texture.MapRead(lvl);
 
-		lvl_ = lvl;
+		depths = get_depths(mesh);
+
 		num_frames_ = num_frames;
 		num_vertices_ = num_vertices;
 		frame_id_ = frame_id;
@@ -586,30 +410,31 @@ public:
 
 	int size()
 	{
-		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
+		return image_texture_.width() * image_texture_.height();
 	}
 
 	DenseLinearProblemx reducepartial(int begin, int end)
 	{
 		DenseLinearProblemx hg(num_vertices_ + num_frames_ * 2);
 
-		auto r_map = r_texture_->MapRead(lvl_);
-		auto jmap_map = jmap_texture_->MapRead(lvl_);
-		auto jexp_map = jexp_texture_->MapRead(lvl_);
-		auto pids_map = pids_texture_->MapRead(lvl_);
-		auto depths = get_depths(*mesh_);
 		// Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
 		{
-			Vec3f jmap = jmap_map[i];
-			Vec3f jexp = jexp_map[i];
-			const Vec3<PidType> pids = pids_map[i];
-			const float res = r_map[i];
+			Vec3f jmap = jmap_texture_[i];
+			Vec3f jexp = jexp_texture_[i];
+			Vec3<PidType> pids = pids_texture_[i];
+			ImageType image = image_texture_[i];
+			ImageType ref = ref_texture_[i];
 
-			if (res == r_texture_->nodata() || jmap == jmap_texture_->nodata() || jexp == jexp_texture_->nodata() || pids == pids_texture_->nodata())
+			if (image == image_texture_.nodata() ||
+				ref == ref_texture_.nodata() ||
+				jmap == jmap_texture_.nodata() ||
+				jexp == jexp_texture_.nodata() ||
+				pids == pids_texture_.nodata())
 				continue;
 
+			float res = ref - image;
 			const Vec5i pids_(pids(0), pids(1), pids(2), num_vertices_ + frame_id_ * 2, num_vertices_ + frame_id_ * 2 + 1);
 			const float depth0 = depths[pids_(0)];
 			const float depth1 = depths[pids_(1)];
@@ -633,12 +458,12 @@ public:
 	}
 
 private:
-	const Texture<Vec3f> *jmap_texture_;
-	const Texture<Vec3f> *jexp_texture_;
-	const Texture<Vec3<PidType>> *pids_texture_;
-	const Texture<float> *r_texture_;
-	const Mesh *mesh_;
-	int lvl_;
+	TextureViewRead<Vec3f> jmap_texture_;
+	TextureViewRead<Vec3f> jexp_texture_;
+	TextureViewRead<Vec3<PidType>> pids_texture_;
+	TextureViewRead<ImageType> image_texture_;
+	TextureViewRead<ImageType> ref_texture_;
+	std::vector<float> depths;
 	int num_frames_;
 	int num_vertices_;
 	int frame_id_;
@@ -653,16 +478,16 @@ public:
 	{
 	}
 
-	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh, DenseLinearProblemx &total)
+	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<ImageType> &image_texture, const Texture<ImageType> &ref_texture, const Mesh &mesh, DenseLinearProblemx &total)
 	{
-		jtra_texture_ = &jtra_texture;
-		jrot_texture_ = &jrot_texture;
-		jmap_texture_ = &jmap_texture;
-		pids_texture_ = &pids_texture;
-		r_texture_ = &r_texture;
-		mesh_ = &mesh;
+		jtra_texture_ = jtra_texture.MapRead(lvl);
+		jrot_texture_ = jrot_texture.MapRead(lvl);
+		jmap_texture_ = jmap_texture.MapRead(lvl);
+		pids_texture_ = pids_texture.MapRead(lvl);
+		image_texture_ = image_texture.MapRead(lvl);
+		ref_texture_ = ref_texture.MapRead(lvl);
+		depths_ = get_depths(mesh);
 
-		lvl_ = lvl;
 		num_frames_ = num_frames;
 		num_vertices_ = num_vertices;
 		frame_id_ = frame_id;
@@ -672,31 +497,33 @@ public:
 
 	int size()
 	{
-		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
+		return image_texture_.width() * image_texture_.height();
 	}
 
 	DenseLinearProblemx reducepartial(int begin, int end)
 	{
 		DenseLinearProblemx hg(num_vertices_ + num_frames_ * 6);
 
-		auto r_map = r_texture_->MapRead(lvl_);
-		auto jtra_map = jtra_texture_->MapRead(lvl_);
-		auto jrot_map = jrot_texture_->MapRead(lvl_);
-		auto jmap_map = jmap_texture_->MapRead(lvl_);
-		auto pids_map = pids_texture_->MapRead(lvl_);
-		auto depths = get_depths(*mesh_);
 		// Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
 		{
-			Vec3f jtra = jtra_map[i];
-			Vec3f jrot = jrot_map[i];
-			Vec3f jmap = jmap_map[i];
-			const Vec3<PidType> pids = pids_map[i];
-			const float res = r_map[i];
+			Vec3f jtra = jtra_texture_[i];
+			Vec3f jrot = jrot_texture_[i];
+			Vec3f jmap = jmap_texture_[i];
+			Vec3<PidType> pids = pids_texture_[i];
+			ImageType image = image_texture_[i];
+			ImageType ref = ref_texture_[i];
 
-			if (res == r_texture_->nodata() || jtra == jtra_texture_->nodata() || jrot == jrot_texture_->nodata() || jmap == jmap_texture_->nodata() || pids == pids_texture_->nodata())
+			if (image == image_texture_.nodata() ||
+				ref == ref_texture_.nodata() ||
+				jtra == jtra_texture_.nodata() ||
+				jrot == jrot_texture_.nodata() ||
+				jmap == jmap_texture_.nodata() ||
+				pids == pids_texture_.nodata())
 				continue;
+
+			float res = ref - image;
 
 			Vec<int, 9> pids_;
 			pids_(0) = pids(0);
@@ -709,9 +536,9 @@ public:
 			pids_(7) = num_vertices_ + frame_id_ * 6 + 4;
 			pids_(8) = num_vertices_ + frame_id_ * 6 + 5;
 
-			const float depth0 = depths[pids_(0)];
-			const float depth1 = depths[pids_(1)];
-			const float depth2 = depths[pids_(2)];
+			const float depth0 = depths_[pids_(0)];
+			const float depth1 = depths_[pids_(1)];
+			const float depth2 = depths_[pids_(2)];
 			const float d_depth0_d_param = d_depth_d_param(depth0);
 			const float d_depth1_d_param = d_depth_d_param(depth1);
 			const float d_depth2_d_param = d_depth_d_param(depth2);
@@ -734,13 +561,14 @@ public:
 	}
 
 private:
-	const Texture<Vec3f> *jtra_texture_;
-	const Texture<Vec3f> *jrot_texture_;
-	const Texture<Vec3f> *jmap_texture_;
-	const Texture<Vec3<PidType>> *pids_texture_;
-	const Texture<float> *r_texture_;
-	const Mesh *mesh_;
-	int lvl_;
+	TextureViewRead<Vec3f> jtra_texture_;
+	TextureViewRead<Vec3f> jrot_texture_;
+	TextureViewRead<Vec3f> jmap_texture_;
+	TextureViewRead<Vec3<PidType>> pids_texture_;
+	TextureViewRead<ImageType> image_texture_;
+	TextureViewRead<ImageType> ref_texture_;
+
+	std::vector<float> depths_;
 	int num_frames_;
 	int num_vertices_;
 	int frame_id_;
@@ -755,17 +583,18 @@ public:
 	{
 	}
 
-	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jexp_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh, DenseLinearProblemx &total)
+	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jexp_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<ImageType> &image_texture, const Texture<ImageType> &ref_texture, const Mesh &mesh, DenseLinearProblemx &total)
 	{
-		jtra_texture_ = &jtra_texture;
-		jrot_texture_ = &jrot_texture;
-		jexp_texture_ = &jexp_texture;
-		jmap_texture_ = &jmap_texture;
-		pids_texture_ = &pids_texture;
-		r_texture_ = &r_texture;
-		mesh_ = &mesh;
+		jtra_texture_ = jtra_texture.MapRead(lvl);
+		jrot_texture_ = jrot_texture.MapRead(lvl);
+		jexp_texture_ = jexp_texture.MapRead(lvl);
+		jmap_texture_ = jmap_texture.MapRead(lvl);
+		pids_texture_ = pids_texture.MapRead(lvl);
+		image_texture_ = image_texture.MapRead(lvl);
+		ref_texture_ = ref_texture.MapRead(lvl);
 
-		lvl_ = lvl;
+		depths = get_depths(mesh);
+
 		num_frames_ = num_frames;
 		num_vertices_ = num_vertices;
 		frame_id_ = frame_id;
@@ -775,33 +604,35 @@ public:
 
 	int size()
 	{
-		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
+		return image_texture_.width() * image_texture_.height();
 	}
 
 	DenseLinearProblemx reducepartial(int begin, int end)
 	{
 		DenseLinearProblemx hg(num_vertices_ + num_frames_ * 8);
 
-		auto r_map = r_texture_->MapRead(lvl_);
-		auto jtra_map = jtra_texture_->MapRead(lvl_);
-		auto jrot_map = jrot_texture_->MapRead(lvl_);
-		auto jexp_map = jexp_texture_->MapRead(lvl_);
-		auto jmap_map = jmap_texture_->MapRead(lvl_);
-		auto pids_map = pids_texture_->MapRead(lvl_);
-		auto depths = get_depths(*mesh_);
 		// Vec6i ids(0, 1, 2, 3, 4, 5);
 
 		for (int i = begin; i < end; ++i)
 		{
-			Vec3f jtra = jtra_map[i];
-			Vec3f jrot = jrot_map[i];
-			Vec3f jexp = jexp_map[i];
-			Vec3f jmap = jmap_map[i];
-			const Vec3<PidType> pids = pids_map[i];
-			const float res = r_map[i];
+			Vec3f jtra = jtra_texture_[i];
+			Vec3f jrot = jrot_texture_[i];
+			Vec3f jexp = jexp_texture_[i];
+			Vec3f jmap = jmap_texture_[i];
+			Vec3<PidType> pids = pids_texture_[i];
+			ImageType image = image_texture_[i];
+			ImageType ref = ref_texture_[i];
 
-			if (res == r_texture_->nodata() || jtra == jtra_texture_->nodata() || jrot == jrot_texture_->nodata() || jexp == jexp_texture_->nodata() || jmap == jmap_texture_->nodata() || pids == pids_texture_->nodata())
+			if (image == image_texture_.nodata() ||
+				ref == ref_texture_.nodata() ||
+				jtra == jtra_texture_.nodata() ||
+				jrot == jrot_texture_.nodata() ||
+				jexp == jexp_texture_.nodata() ||
+				jmap == jmap_texture_.nodata() ||
+				pids == pids_texture_.nodata())
 				continue;
+
+			float res = ref - image;
 
 			Vec<int, 11> pids_;
 			pids_(0) = pids(0);
@@ -843,281 +674,15 @@ public:
 	}
 
 private:
-	const Texture<Vec3f> *jtra_texture_;
-	const Texture<Vec3f> *jrot_texture_;
-	const Texture<Vec3f> *jexp_texture_;
-	const Texture<Vec3f> *jmap_texture_;
-	const Texture<Vec3<PidType>> *pids_texture_;
-	const Texture<float> *r_texture_;
-	const Mesh *mesh_;
-	int lvl_;
-	int num_frames_;
-	int num_vertices_;
-	int frame_id_;
-};
+	TextureViewRead<Vec3f> jtra_texture_;
+	TextureViewRead<Vec3f> jrot_texture_;
+	TextureViewRead<Vec3f> jexp_texture_;
+	TextureViewRead<Vec3f> jmap_texture_;
+	TextureViewRead<Vec3<PidType>> pids_texture_;
+	TextureViewRead<ImageType> image_texture_;
+	TextureViewRead<ImageType> ref_texture_;
 
-class HGPoseVelMapReducerCPU : public BaseReducerCPU<HGPoseVelMapReducerCPU, DenseLinearProblemx>
-{
-public:
-	using Base = BaseReducerCPU<HGPoseVelMapReducerCPU, DenseLinearProblemx>;
-	explicit HGPoseVelMapReducerCPU()
-		: Base()
-	{
-	}
-
-	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh, DenseLinearProblemx &total)
-	{
-		jtra_texture_ = &jtra_texture;
-		jrot_texture_ = &jrot_texture;
-		jtravel_texture_ = &jtravel_texture;
-		jrotvel_texture_ = &jrotvel_texture;
-		jmap_texture_ = &jmap_texture;
-		pids_texture_ = &pids_texture;
-		r_texture_ = &r_texture;
-		mesh_ = &mesh;
-
-		lvl_ = lvl;
-		num_frames_ = num_frames;
-		num_vertices_ = num_vertices;
-		frame_id_ = frame_id;
-
-		reduce_(total);
-	}
-
-	int size()
-	{
-		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
-	}
-
-	DenseLinearProblemx reducepartial(int begin, int end)
-	{
-		DenseLinearProblemx hg(num_vertices_ + num_frames_ * 12);
-
-		auto r_map = r_texture_->MapRead(lvl_);
-		auto jtra_map = jtra_texture_->MapRead(lvl_);
-		auto jrot_map = jrot_texture_->MapRead(lvl_);
-		auto jtravel_map = jtravel_texture_->MapRead(lvl_);
-		auto jrotvel_map = jrotvel_texture_->MapRead(lvl_);
-		auto jmap_map = jmap_texture_->MapRead(lvl_);
-		auto pids_map = pids_texture_->MapRead(lvl_);
-		auto depths = get_depths(*mesh_);
-		// Vec6i ids(0, 1, 2, 3, 4, 5);
-
-		for (int i = begin; i < end; ++i)
-		{
-			Vec3f jtra = jtra_map[i];
-			Vec3f jrot = jrot_map[i];
-			Vec3f jtravel = jtravel_map[i];
-			Vec3f jrotvel = jrotvel_map[i];
-			Vec3f jmap = jmap_map[i];
-			const Vec3<PidType> pids = pids_map[i];
-			const float res = r_map[i];
-
-			if (res == r_texture_->nodata() ||
-				jtra == jtra_texture_->nodata() ||
-				jrot == jrot_texture_->nodata() ||
-				jtravel == jtravel_texture_->nodata() ||
-				jrotvel == jrotvel_texture_->nodata() ||
-				jmap == jmap_texture_->nodata() ||
-				pids == pids_texture_->nodata())
-				continue;
-
-			Vec<int, 15> pids_;
-			pids_(0) = pids(0);
-			pids_(1) = pids(1);
-			pids_(2) = pids(2);
-			pids_(3) = num_vertices_ + frame_id_ * 12;
-			pids_(4) = num_vertices_ + frame_id_ * 12 + 1;
-			pids_(5) = num_vertices_ + frame_id_ * 12 + 2;
-			pids_(6) = num_vertices_ + frame_id_ * 12 + 3;
-			pids_(7) = num_vertices_ + frame_id_ * 12 + 4;
-			pids_(8) = num_vertices_ + frame_id_ * 12 + 5;
-			pids_(9) = num_vertices_ + frame_id_ * 12 + 6;
-			pids_(10) = num_vertices_ + frame_id_ * 12 + 7;
-			pids_(11) = num_vertices_ + frame_id_ * 12 + 8;
-			pids_(12) = num_vertices_ + frame_id_ * 12 + 9;
-			pids_(13) = num_vertices_ + frame_id_ * 12 + 10;
-			pids_(14) = num_vertices_ + frame_id_ * 12 + 11;
-
-			const float depth0 = depths[pids_(0)];
-			const float depth1 = depths[pids_(1)];
-			const float depth2 = depths[pids_(2)];
-			const float d_depth0_d_param = d_depth_d_param(depth0);
-			const float d_depth1_d_param = d_depth_d_param(depth1);
-			const float d_depth2_d_param = d_depth_d_param(depth2);
-			Vec<float, 15> J;
-			J(0) = jmap(0) * d_depth0_d_param;
-			J(1) = jmap(1) * d_depth1_d_param;
-			J(2) = jmap(2) * d_depth2_d_param;
-			J(3) = jtra(0);
-			J(4) = jtra(1);
-			J(5) = jtra(2);
-			J(6) = jrot(0);
-			J(7) = jrot(1);
-			J(8) = jrot(2);
-			J(9) = jtravel(0);
-			J(10) = jtravel(1);
-			J(11) = jtravel(2);
-			J(12) = jrotvel(0);
-			J(13) = jrotvel(1);
-			J(14) = jrotvel(2);
-
-			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
-
-			hg.add(J, res, w, pids_);
-		}
-
-		return hg;
-	}
-
-private:
-	const Texture<Vec3f> *jtra_texture_;
-	const Texture<Vec3f> *jrot_texture_;
-	const Texture<Vec3f> *jtravel_texture_;
-	const Texture<Vec3f> *jrotvel_texture_;
-	const Texture<Vec3f> *jmap_texture_;
-	const Texture<Vec3<PidType>> *pids_texture_;
-	const Texture<float> *r_texture_;
-	const Mesh *mesh_;
-	int lvl_;
-	int num_frames_;
-	int num_vertices_;
-	int frame_id_;
-};
-
-class HGPoseVelExpMapReducerCPU : public BaseReducerCPU<HGPoseVelExpMapReducerCPU, DenseLinearProblemx>
-{
-public:
-	using Base = BaseReducerCPU<HGPoseVelExpMapReducerCPU, DenseLinearProblemx>;
-	explicit HGPoseVelExpMapReducerCPU()
-		: Base()
-	{
-	}
-
-	void reduce(int lvl, int frame_id, int num_frames, int num_vertices, const Texture<Vec3f> &jtra_texture, const Texture<Vec3f> &jrot_texture, const Texture<Vec3f> &jtravel_texture, const Texture<Vec3f> &jrotvel_texture, const Texture<Vec3f> &jexp_texture, const Texture<Vec3f> &jmap_texture, const Texture<Vec3<PidType>> &pids_texture, const Texture<float> &r_texture, const Mesh &mesh, DenseLinearProblemx &total)
-	{
-		jtra_texture_ = &jtra_texture;
-		jrot_texture_ = &jrot_texture;
-		jtravel_texture_ = &jtravel_texture;
-		jrotvel_texture_ = &jrotvel_texture;
-		jexp_texture_ = &jexp_texture;
-		jmap_texture_ = &jmap_texture;
-		pids_texture_ = &pids_texture;
-		r_texture_ = &r_texture;
-		mesh_ = &mesh;
-
-		lvl_ = lvl;
-		num_frames_ = num_frames;
-		num_vertices_ = num_vertices;
-		frame_id_ = frame_id;
-
-		reduce_(total);
-	}
-
-	int size()
-	{
-		return r_texture_->width(lvl_) * r_texture_->height(lvl_);
-	}
-
-	DenseLinearProblemx reducepartial(int begin, int end)
-	{
-		DenseLinearProblemx hg(num_vertices_ + num_frames_ * 14);
-
-		auto r_map = r_texture_->MapRead(lvl_);
-		auto jtra_map = jtra_texture_->MapRead(lvl_);
-		auto jrot_map = jrot_texture_->MapRead(lvl_);
-		auto jtravel_map = jtravel_texture_->MapRead(lvl_);
-		auto jrotvel_map = jrotvel_texture_->MapRead(lvl_);
-		auto jexp_map = jexp_texture_->MapRead(lvl_);
-		auto jmap_map = jmap_texture_->MapRead(lvl_);
-		auto pids_map = pids_texture_->MapRead(lvl_);
-		auto depths = get_depths(*mesh_);
-		// Vec6i ids(0, 1, 2, 3, 4, 5);
-
-		for (int i = begin; i < end; ++i)
-		{
-			Vec3f jtra = jtra_map[i];
-			Vec3f jrot = jrot_map[i];
-			Vec3f jtravel = jtravel_map[i];
-			Vec3f jrotvel = jrotvel_map[i];
-			Vec3f jexp = jexp_map[i];
-			Vec3f jmap = jmap_map[i];
-			const Vec3<PidType> pids = pids_map[i];
-			const float res = r_map[i];
-
-			if (res == r_texture_->nodata() ||
-				jtra == jtra_texture_->nodata() ||
-				jrot == jrot_texture_->nodata() ||
-				jtravel == jtravel_texture_->nodata() ||
-				jrotvel == jrotvel_texture_->nodata() ||
-				jexp == jexp_texture_->nodata() ||
-				jmap == jmap_texture_->nodata() ||
-				pids == pids_texture_->nodata())
-				continue;
-
-			Vec<int, 17> pids_;
-			pids_(0) = pids(0);
-			pids_(1) = pids(1);
-			pids_(2) = pids(2);
-			pids_(3) = num_vertices_ + frame_id_ * 14;
-			pids_(4) = num_vertices_ + frame_id_ * 14 + 1;
-			pids_(5) = num_vertices_ + frame_id_ * 14 + 2;
-			pids_(6) = num_vertices_ + frame_id_ * 14 + 3;
-			pids_(7) = num_vertices_ + frame_id_ * 14 + 4;
-			pids_(8) = num_vertices_ + frame_id_ * 14 + 5;
-			pids_(9) = num_vertices_ + frame_id_ * 14 + 6;
-			pids_(10) = num_vertices_ + frame_id_ * 14 + 7;
-			pids_(11) = num_vertices_ + frame_id_ * 14 + 8;
-			pids_(12) = num_vertices_ + frame_id_ * 14 + 9;
-			pids_(13) = num_vertices_ + frame_id_ * 14 + 10;
-			pids_(14) = num_vertices_ + frame_id_ * 14 + 11;
-			pids_(15) = num_vertices_ + frame_id_ * 14 + 12;
-			pids_(16) = num_vertices_ + frame_id_ * 14 + 13;
-
-			const float depth0 = depths[pids_(0)];
-			const float depth1 = depths[pids_(1)];
-			const float depth2 = depths[pids_(2)];
-			const float d_depth0_d_param = d_depth_d_param(depth0);
-			const float d_depth1_d_param = d_depth_d_param(depth1);
-			const float d_depth2_d_param = d_depth_d_param(depth2);
-			Vec<float, 17> J;
-			J(0) = jmap(0) * d_depth0_d_param;
-			J(1) = jmap(1) * d_depth1_d_param;
-			J(2) = jmap(2) * d_depth2_d_param;
-			J(3) = jtra(0);
-			J(4) = jtra(1);
-			J(5) = jtra(2);
-			J(6) = jrot(0);
-			J(7) = jrot(1);
-			J(8) = jrot(2);
-			J(9) = jtravel(0);
-			J(10) = jtravel(1);
-			J(11) = jtravel(2);
-			J(12) = jrotvel(0);
-			J(13) = jrotvel(1);
-			J(14) = jrotvel(2);
-			J(15) = jexp(0);
-			J(16) = jexp(1);
-
-			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
-
-			hg.add(J, res, w, pids_);
-		}
-
-		return hg;
-	}
-
-private:
-	const Texture<Vec3f> *jtra_texture_;
-	const Texture<Vec3f> *jrot_texture_;
-	const Texture<Vec3f> *jtravel_texture_;
-	const Texture<Vec3f> *jrotvel_texture_;
-	const Texture<Vec3f> *jexp_texture_;
-	const Texture<Vec3f> *jmap_texture_;
-	const Texture<Vec3<PidType>> *pids_texture_;
-	const Texture<float> *r_texture_;
-	const Mesh *mesh_;
-	int lvl_;
+	std::vector<float> depths;
 	int num_frames_;
 	int num_vertices_;
 	int frame_id_;
