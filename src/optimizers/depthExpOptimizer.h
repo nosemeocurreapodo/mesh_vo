@@ -12,36 +12,36 @@
 #include "common/reducer.h"
 #include "optimizers/baseOptimizer.h"
 
-class PoseMapOptimizer : public BaseOptimizer
+class DepthExpOptimizer : public BaseOptimizer
 {
 public:
-    PoseMapOptimizer(int w, int h, bool _printLog = false);
+    DepthExpOptimizer(int w, int h, bool _printLog = false);
 
     void init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
     void step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
 
 private:
-    void compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl, DenseLinearProblemx &problem);
+    void compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl, DenseLinearProblemx &total);
 
-    JPoseExpMapRenderer jposemaprenderer_;
-    HGPoseMapReducerCPU hgposemapreducer_;
+    JDepthExpRenderer jdepthrenderer_;
+    HGDepthExpReducerCPU hgmapreducer_;
 
-    Texture<Vec3<float>> jtra_texture_;
-    Texture<Vec3<float>> jrot_texture_;
+    Texture<Vec3<float>> jdepth_texture_;
     Texture<Vec3<float>> jexp_texture_;
-    Texture<Vec3<float>> jmap_texture_;
     Texture<Vec3<PidType>> pids_texture_;
 
-    Matxf invCovariance;
+    Matxf invCovariance_;
 
     std::vector<float> init_depths_;
+    std::vector<Vec2f> init_exposures_;
     std::vector<Vec3<int>> init_triangles_;
-    std::vector<SE3f> init_poses_;
+    Vecxf init_params_;
     float init_error_;
 
     std::vector<float> depths_;
+    std::vector<Vec2f> exposures_;
     std::vector<Vec3<int>> triangles_;
-    std::vector<SE3f> poses_;
+    Vecxf params_;
     float error_;
 
     Matxf init_invcovariance_;

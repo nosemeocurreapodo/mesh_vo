@@ -24,10 +24,11 @@ using DIDexpRenderer = DIDexpRendererCPU;
 using JPoseFDRenderer = JPoseFDRendererCPU;
 using JPoseExpRenderer = JPoseExpRendererCPU;
 using JPoseVelExpRenderer = JPoseVelExpRendererCPU;
-using JMapFDRenderer = JMapFDRendererCPU;
-using JMapExpRenderer = JMapExpRendererCPU;
-using JPoseExpMapRenderer = JPoseExpMapRendererCPU;
-using JPoseVelExpMapRenderer = JPoseVelExpMapRendererCPU;
+using JDepthFDRenderer = JDepthFDRendererCPU;
+using JDepthExpRenderer = JDepthExpRendererCPU;
+using JVertexExpRenderer = JVertexExpRendererCPU;
+using JPoseExpDepthRenderer = JPoseExpDepthRendererCPU;
+using JPoseVelExpDepthRenderer = JPoseVelExpDepthRendererCPU;
 
 template <typename T>
 using Texture = TextureCPU<T>;

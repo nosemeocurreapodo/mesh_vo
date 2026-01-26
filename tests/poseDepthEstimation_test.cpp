@@ -6,12 +6,12 @@
 #include "optimizers/poseOptimizer.h"
 #include "optimizers/poseExpOptimizer.h"
 // #include "optimizers/poseVelExpOptimizer.h"
-#include "optimizers/poseMapOptimizer.h"
-#include "optimizers/poseExpMapOptimizer.h"
+#include "optimizers/poseDepthOptimizer.h"
+#include "optimizers/poseExpDepthOptimizer.h"
 // #include "optimizers/poseVelMapOptimizer.h"
 // #include "optimizers/poseVelExpMapOptimizer.h"
 
-TEST_F(RendererTestBase, ComputePoseMap)
+TEST_F(RendererTestBase, ComputePoseDepth)
 {
 #ifdef COMPILE_GL
     InitEGL();
@@ -37,7 +37,7 @@ TEST_F(RendererTestBase, ComputePoseMap)
     NodataReducerCPU nodata_reducer;
 
     PoseOptimizer pose_optimizer(w_, h_, true);
-    PoseMapOptimizer posemap_optimizer(w_, h_, true);
+    PoseDepthOptimizer posemap_optimizer(w_, h_, true);
 
     std::vector<Frame> frames;
     KeyFrame *kframe;

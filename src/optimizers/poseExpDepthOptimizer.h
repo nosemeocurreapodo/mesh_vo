@@ -12,10 +12,10 @@
 #include "common/reducer.h"
 #include "optimizers/baseOptimizer.h"
 
-class PoseExpMapOptimizer : public BaseOptimizer
+class PoseExpDepthOptimizer : public BaseOptimizer
 {
 public:
-    PoseExpMapOptimizer(int w, int h, bool _printLog = false);
+    PoseExpDepthOptimizer(int w, int h, bool _printLog = false);
 
     void init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
     void step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
@@ -23,13 +23,13 @@ public:
 private:
     void compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl, DenseLinearProblemx &total);
 
-    JPoseExpMapRenderer jposeexpmaprenderer_;
-    HGPoseExpMapReducerCPU hgposeexpmapreducer_;
+    JPoseExpDepthRenderer jposeexpmaprenderer_;
+    HGPoseExpDepthReducerCPU hgposeexpmapreducer_;
 
     Texture<Vec3<float>> jtra_texture_;
     Texture<Vec3<float>> jrot_texture_;
     Texture<Vec3<float>> jexp_texture_;
-    Texture<Vec3<float>> jmap_texture_;
+    Texture<Vec3<float>> jdepth_texture_;
     Texture<Vec3<PidType>> pids_texture_;
 
     Matxf invCovariance_;

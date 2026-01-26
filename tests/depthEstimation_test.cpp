@@ -3,10 +3,10 @@
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
-#include "optimizers/mapOptimizer.h"
-#include "optimizers/mapExpOptimizer.h"
+#include "optimizers/depthOptimizer.h"
+#include "optimizers/depthExpOptimizer.h"
 
-TEST_F(RendererTestBase, ComputeMap)
+TEST_F(RendererTestBase, ComputeDepth)
 {
 #ifdef COMPILE_GL
     InitEGL();
@@ -31,7 +31,7 @@ TEST_F(RendererTestBase, ComputeMap)
 
     NodataReducerCPU nodata_reducer;
 
-    MapOptimizer optimizer(w_, h_, true);
+    DepthOptimizer optimizer(w_, h_, true);
 
     std::vector<Frame> frames;
     std::vector<Texture<float>> gt_depth_textures;

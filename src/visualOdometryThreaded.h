@@ -27,9 +27,9 @@
 #include "optimizers/poseOptimizer.h"
 #include "optimizers/poseExpOptimizer.h"
 // #include "optimizers/poseVelOptimizerCPU.h"
-#include "optimizers/mapOptimizer.h"
-#include "optimizers/poseMapOptimizer.h"
-#include "optimizers/poseExpMapOptimizer.h"
+#include "optimizers/depthOptimizer.h"
+#include "optimizers/poseDepthOptimizer.h"
+#include "optimizers/poseExpDepthOptimizer.h"
 // #include "optimizers/intrinsicPoseMapOptimizerCPU.h"
 
 // #include "visualizer/trayectoryPlotter.h"
@@ -318,7 +318,7 @@ private:
 
         NodataReducerCPU nodata_reducer;
 
-        PoseExpMapOptimizer optimizer(width_, height_, true);
+        PoseExpDepthOptimizer optimizer(width_, height_, true);
 
         std::vector<Frame> frameStack;
 
@@ -479,7 +479,7 @@ private:
         NodataReducerCPU nodata_reducer;
 
         PoseExpOptimizer poseOptimizer(width_, height_, true);
-        PoseExpMapOptimizer poseMapOptimizer(width_, height_, true);
+        PoseExpDepthOptimizer poseMapOptimizer(width_, height_, true);
 
         Texture<ImageType> image_texture(width_, height_, -1);
         Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
