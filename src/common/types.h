@@ -26,6 +26,7 @@ using JPoseExpRenderer = JPoseExpRendererCPU;
 using JPoseVelExpRenderer = JPoseVelExpRendererCPU;
 using JDepthFDRenderer = JDepthFDRendererCPU;
 using JDepthExpRenderer = JDepthExpRendererCPU;
+using JRayDepthExpRenderer = JRayDepthExpRendererCPU;
 using JVertexExpRenderer = JVertexExpRendererCPU;
 using JPoseExpDepthRenderer = JPoseExpDepthRendererCPU;
 using JPoseVelExpDepthRenderer = JPoseVelExpDepthRendererCPU;

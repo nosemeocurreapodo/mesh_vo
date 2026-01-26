@@ -78,6 +78,7 @@ set(VISUALODOMETRY_SRCS
 #  src/optimizers/poseVelExpOptimizer.cpp
   src/optimizers/depthOptimizer.cpp
   src/optimizers/depthExpOptimizer.cpp
+  src/optimizers/rayDepthOptimizer.cpp
   src/optimizers/vertexOptimizer.cpp
   src/optimizers/poseDepthOptimizer.cpp
   src/optimizers/poseExpDepthOptimizer.cpp
@@ -237,6 +238,58 @@ if(COMPILE_TESTS)
   endif()
 
   gtest_discover_tests(depthEstimation_tests)
+
+
+
+
+  add_executable(rayDepthEstimation_tests
+    tests/rayDepthEstimation_test.cpp
+  )
+
+  target_link_libraries(rayDepthEstimation_tests
+    PRIVATE
+      mesh_vo
+      gtest_main
+      Eigen3::Eigen
+      ${OpenCV_LIBS}
+      ${Pangolin_LIBRARIES}
+      Threads::Threads
+  )
+
+  target_include_directories(rayDepthEstimation_tests
+    PRIVATE
+      ${PROJECT_SOURCE_DIR}/src
+      ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty
+      ${OpenCV_INCLUDE_DIRS}
+  )
+
+  target_compile_definitions(rayDepthEstimation_tests
+    PRIVATE
+      TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+  )
+
+  if(COMPILE_GL)
+    target_link_libraries(rayDepthEstimation_tests
+      PRIVATE
+        glad
+        ${OPENGL_LIBRARIES}
+        EGL
+    )
+    target_compile_definitions(rayDepthEstimation_tests PRIVATE COMPILE_GL)
+  elseif(COMPILE_GLES2)
+    target_link_libraries(rayDepthEstimation_tests
+      PRIVATE
+        glad
+        ${OPENGL_LIBRARIES}
+        EGL
+    )
+    target_compile_definitions(rayDepthEstimation_tests PRIVATE COMPILE_GLES2)
+  endif()
+
+  gtest_discover_tests(rayDepthEstimation_tests)
+
+
+
 
 
   add_executable(vertexEstimation_tests
