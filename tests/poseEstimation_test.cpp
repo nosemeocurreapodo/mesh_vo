@@ -95,7 +95,7 @@ TEST_F(RendererTestBase, ComputePose)
             CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, false, false);
             Mesh mesh(ver_buff_, idx_buff_, true, false, false);
 
-            kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0, 0);
+            kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0, img_id);
             float meanDepth = kframe->meanDepth();
             kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
 
@@ -165,8 +165,8 @@ TEST_F(RendererTestBase, ComputePose)
 
         std::vector<float> ver_buff_;
         std::vector<int> idx_buff_;
-        CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-        Mesh new_mesh(ver_buff_, idx_buff_, true, true, true);
+        CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, false, false);
+        Mesh new_mesh(ver_buff_, idx_buff_, true, false, false);
 
         kframe = new KeyFrame(frame.image(), frame.didxy(), es_global_pose, new_mesh, 1.0, frame.id());
         frame.local_pose() = SE3f();

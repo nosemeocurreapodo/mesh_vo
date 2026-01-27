@@ -111,10 +111,16 @@ public:
 
 	void reduce(int lvl, const Texture<ImageType> &texture_1, const Texture<ImageType> &texture_2, Error &total)
 	{
-		assert(texture_1.width(lvl) == texture_2.width(lvl) && texture_2.height(lvl) == texture_2.height(lvl));
+		assert(texture_1.width(lvl) == texture_2.width(lvl) && texture_1.height(lvl) == texture_2.height(lvl));
 
-		texture_1_ = texture_1.MapRead(lvl);
-		texture_2_ = texture_2.MapRead(lvl);
+		// texture_1_ = texture_1.MapRead(lvl);
+		// texture_2_ = texture_2.MapRead(lvl);
+
+		auto v2 = texture_2.MapRead(lvl);
+		texture_2_ = std::move(v2);
+
+		auto v1 = texture_1.MapRead(lvl);
+		texture_1_ = std::move(v1);
 
 		reduce_(total);
 	}
