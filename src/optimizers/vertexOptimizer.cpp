@@ -297,7 +297,7 @@ void VertexOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &c
         timer_.tic();
     }
 
-    hgmapreducer_.reduce(out_lvl, frame_id, num_frames, num_vertices, jv0_texture_, jv1_texture_, jv2_texture_, pids_texture_, image_texture_, frame.image(), kframe.mesh(), total);
+    hgmapreducer_.reduce(out_lvl, num_vertices, jv0_texture_, jv1_texture_, jv2_texture_, pids_texture_, image_texture_, frame.image(), total);
     if (printLog_)
     {
         float t_reduce = timer_.toc();

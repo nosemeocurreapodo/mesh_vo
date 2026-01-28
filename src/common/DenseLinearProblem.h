@@ -66,7 +66,7 @@ private:
 class DenseLinearProblemx
 {
 public:
-    DenseLinearProblemx() : m_numParams(0), m_count(0) {}
+    // DenseLinearProblemx() : m_numParams(0), m_count(0) {}
     DenseLinearProblemx(int n)
     {
         clear(n);
