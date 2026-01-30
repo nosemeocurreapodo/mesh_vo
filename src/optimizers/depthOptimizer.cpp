@@ -18,6 +18,7 @@ void DepthOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &
 
     init_depths_ = get_depths(kframe.mesh());
     init_triangles_ = get_indices(kframe.mesh());
+    edges_ = get_edges(kframe.mesh());
 
     invCovariance_ = Matxf::Identity(numParams, numParams);
     init_params_ = Vecxf::Zero(numParams);
@@ -43,6 +44,7 @@ void DepthOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &
     // init_error *= 1.0 / frames.size();
     init_error_ = err.getError() / err.getCount();
 
+    /*
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
         float regu_error = 0.0f;
@@ -58,6 +60,23 @@ void DepthOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &
             regu_error += r1 * r1 + r2 * r2 + r3 * r3;
         }
         init_error_ += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
+    }
+    */
+
+    if (mesh_vo::mapping_regu_weight > 0.0)
+    {
+        float regu_error = 0.0f;
+        for (size_t i = 0; i < edges_.size(); i++)
+        {
+            Vec2<int> edge = edges_[i];
+
+            float depth0 = init_depths_[edge(0)];
+            float depth1 = init_depths_[edge(1)];
+
+            float r = fromDepthToParam(depth0) - fromDepthToParam(depth1);
+            regu_error += r * r;
+        }
+        init_error_ += (mesh_vo::mapping_regu_weight / edges_.size()) * regu_error;
     }
 
     /*
@@ -105,6 +124,7 @@ void DepthOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &
     // problem.scale(1.0 / frames.size());
     problem_.scale(1.0 / problem_.count());
 
+    /*
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
         for (size_t i = 0; i < triangles_.size(); i++)
@@ -126,6 +146,23 @@ void DepthOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &
             float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
             Vec3<float> jac3(0.0, 1.0, -1.0);
             problem_.add(jac3, r3, mesh_vo::mapping_regu_weight / num_depths, ids);
+        }
+    }
+    */
+
+    if (mesh_vo::mapping_regu_weight > 0.0)
+    {
+        float regu_error = 0.0f;
+        for (size_t i = 0; i < edges_.size(); i++)
+        {
+            Vec2<int> edge = edges_[i];
+
+            float depth0 = depths_[edge(0)];
+            float depth1 = depths_[edge(1)];
+
+            float r = fromDepthToParam(depth0) - fromDepthToParam(depth1);
+            Vec2<float> jac(1.0, -1.0);
+            problem_.add(jac, r, mesh_vo::mapping_regu_weight / edges_.size(), edge);
         }
     }
 
@@ -208,6 +245,7 @@ void DepthOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &
         // new_error *= 1.0 / frames.size();
         new_error = err.getError() / err.getCount();
 
+        /*
         if (mesh_vo::mapping_regu_weight > 0.0)
         {
             float regu_error = 0.0f;
@@ -223,6 +261,23 @@ void DepthOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &
                 regu_error += r1 * r1 + r2 * r2 + r3 * r3;
             }
             new_error += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
+        }
+        */
+
+        if (mesh_vo::mapping_regu_weight > 0.0)
+        {
+            float regu_error = 0.0f;
+            for (size_t i = 0; i < edges_.size(); i++)
+            {
+                Vec2<int> edge = edges_[i];
+
+                float depth0 = new_depths[edge(0)];
+                float depth1 = new_depths[edge(1)];
+
+                float r = fromDepthToParam(depth0) - fromDepthToParam(depth1);
+                regu_error += r * r;
+            }
+            new_error += (mesh_vo::mapping_regu_weight / edges_.size()) * regu_error;
         }
 
         if (mesh_vo::mapping_prior_weight > 0.0)

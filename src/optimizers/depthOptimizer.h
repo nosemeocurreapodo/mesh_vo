@@ -40,6 +40,7 @@ private:
 
     std::vector<float> depths_;
     std::vector<Vec3<int>> triangles_;
+    std::vector<Vec2<int>> edges_;
     Vecxf params_;
     float error_;
 

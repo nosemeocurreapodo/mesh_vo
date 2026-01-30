@@ -158,7 +158,7 @@ public:
         std::vector<float> s_ver_buff;
         std::vector<int> s_idx_buff;
         CreateScreenQuad(s_ver_buff, s_idx_buff);
-        Mesh screen_mesh(s_ver_buff, s_idx_buff, true, true, false);
+        Mesh screen_mesh(s_ver_buff, s_idx_buff, false, true, false);
 
         DIDxyRenderer didxy_renderer;
 
@@ -172,8 +172,8 @@ public:
         std::vector<float> ver_buff;
         std::vector<int> idx_buff;
 
-        CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, false);
-        Mesh mesh(ver_buff, idx_buff, true, true, false);
+        CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
+        Mesh mesh(ver_buff, idx_buff, true, false, false);
 
         KeyFrame kframe(image_texture, didxy_texture, SE3f(), mesh, 1.0, frameId_);
 
@@ -207,7 +207,7 @@ private:
         std::vector<float> s_ver_buff;
         std::vector<int> s_idx_buff;
         CreateScreenQuad(s_ver_buff, s_idx_buff);
-        Mesh screen_mesh(s_ver_buff, s_idx_buff, true, true, false);
+        Mesh screen_mesh(s_ver_buff, s_idx_buff, false, true, false);
 
         DIDxyRenderer didxy_renderer;
         ImageRenderer image_renderer;
@@ -217,7 +217,7 @@ private:
         Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
         Texture<float> depth_texture(width_, height_, 0);
 
-        PoseExpOptimizer optimizer(width_, height_, true);
+        PoseOptimizer optimizer(width_, height_, true);
         // KeyFrame kframe(image_texture, didxy_texture, SE3f(), screen_mesh, 1.0, -1);
 
         KeyFrame kframe = kfQueue_.peek();
@@ -318,7 +318,7 @@ private:
 
         NodataReducerCPU nodata_reducer;
 
-        PoseExpDepthOptimizer optimizer(width_, height_, true);
+        PoseDepthOptimizer optimizer(width_, height_, true);
 
         std::vector<Frame> frameStack;
 
@@ -371,9 +371,9 @@ private:
             Frame newKeyframe = frameStack[newKeyframeIndex];
 
             // CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, false);
-            CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, false);
+            CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
 
-            Mesh mesh(ver_buff, idx_buff, true, true, false);
+            Mesh mesh(ver_buff, idx_buff, true, false, false);
 
             SE3f reference_pose = newKeyframe.local_pose().inverse();
             SE3f global_pose = kframe.localPoseToGlobal(newKeyframe.local_pose());
@@ -470,7 +470,7 @@ private:
         std::vector<float> s_ver_buff;
         std::vector<int> s_idx_buff;
         CreateScreenQuad(s_ver_buff, s_idx_buff);
-        Mesh screen_mesh(s_ver_buff, s_idx_buff, true, true, false);
+        Mesh screen_mesh(s_ver_buff, s_idx_buff, false, true, false);
 
         DIDxyRenderer didxy_renderer;
         DepthRenderer depth_renderer;
@@ -478,8 +478,8 @@ private:
 
         NodataReducerCPU nodata_reducer;
 
-        PoseExpOptimizer poseOptimizer(width_, height_, true);
-        PoseExpDepthOptimizer poseMapOptimizer(width_, height_, true);
+        PoseOptimizer poseOptimizer(width_, height_, false);
+        PoseDepthOptimizer poseMapOptimizer(width_, height_, true);
 
         Texture<ImageType> image_texture(width_, height_, -1);
         Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
@@ -496,6 +496,11 @@ private:
         SE3f lastLocalMovement;
         Vec2f lastLocalExposure(0.0, 0.0);
 
+        cv::Mat image_mat;
+        cv::Mat depth_mat;
+        cv::Mat ref_mat;
+        cv::Mat l2_mat;
+
         while (true)
         {
             // if there is a new image, compute its pose
@@ -509,6 +514,20 @@ private:
                 // initialize the global and local pose
                 frame.local_pose() = lastLocalMovement * lastLocalPose;
                 frame.local_exposure() = lastLocalExposure;
+
+                ////////////////////// Debug ///////////////////
+                image_renderer.Render(kframe.mesh(),
+                                      frame.local_pose(),
+                                      frame.local_exposure(),
+                                      cam_,
+                                      1, 1,
+                                      kframe.image(), image_texture);
+
+                image_mat = DownloadTextureToMat(image_texture, 1);
+                ref_mat = DownloadTextureToMat(frame.image(), 1);
+                l2_mat = ref_mat - image_mat;
+                SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + "_init_l2.png");
+                /////////////
 
                 // this will update the local pose
                 tt.tic();
@@ -548,18 +567,7 @@ private:
 
                 frameId_++;
 
-                // Debug rendering
-                // depth_renderer.Render(kframe.mesh(),
-                //                      frame.local_pose(), cam_, 1, depth_texture);
-
-                // image_renderer.Render(kframe.mesh(),
-                //                       frame.local_pose(),
-                //                       frame.local_exposure(),
-                //                       cam_,
-                //                       1, 1,
-                //                       kframe.image(),
-                //                       image_texture);
-
+                /////////// Debug /////////////
                 image_renderer.Render(kframe.mesh(),
                                       frame.local_pose(),
                                       frame.local_exposure(),
@@ -567,19 +575,9 @@ private:
                                       1, 1,
                                       kframe.image(), image_texture);
 
-                // cv::Mat depth_mat = DownloadTextureToMat(depth_texture, 1);
-                // SaveDebugImage(depth_mat, "loc_depth_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
-
-                // cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
-                // SaveDebugImage(image_mat, "loc_image_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
-
-                // cv::Mat frame_mat = DownloadTextureToMat(frame.image(), 1);
-                // SaveDebugImage(frame_mat, "loc_frame_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
-
-                cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
-                cv::Mat ref_mat = DownloadTextureToMat(frame.image(), 1);
-                cv::Mat l2_mat = ref_mat - image_mat;
-                SaveDebugImage(l2_mat, "loc_l2_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+                image_mat = DownloadTextureToMat(image_texture, 1);
+                l2_mat = ref_mat - image_mat;
+                SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + "_opt_l2.png");
 
                 // Choose wether to save the frame or not
                 float lastMinViewAngle = M_PI;
@@ -605,15 +603,15 @@ private:
 
                 float keyframeViewAngle = kframe.meanViewAngle(SE3f(), frame.local_pose());
 
-                depth_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, depth_texture);
-
                 Error nodata;
-                nodata_reducer.reduce(1, depth_texture, nodata);
-                float pnodata = nodata.getError() / (depth_texture.width(1) * depth_texture.height(1));
+                nodata_reducer.reduce(1, image_texture, nodata);
+                float pnodata = nodata.getError() / (image_texture.width(1) * image_texture.height(1));
                 float viewPercent = 1.0 - pnodata;
 
                 if (kframe.id() != 0 && viewPercent > mesh_vo::min_view_perc && keyframeViewAngle < mesh_vo::key_max_angle)
                     continue;
+
+                std::cout << "Creating new keyframe because viewpercent: " << viewPercent << " keyframeViewAngle: " << keyframeViewAngle << std::endl;
 
                 // save last keyframe, we wont be updating it anymore
                 kfQueue_.push(kframe);
@@ -624,12 +622,18 @@ private:
                 // int newKeyframeIndex = int(frameStack.size() - 2);
                 Frame newKeyframe = frameStack[newKeyframeIndex];
 
+                depth_renderer.Render(kframe.mesh(),
+                                      newKeyframe.local_pose(),
+                                      cam_,
+                                      0,
+                                      depth_texture);
+
                 std::vector<float> ver_buff;
                 std::vector<int> idx_buff;
-                // CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, false);
-                CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, false);
+                // CreateMesh(depth_texture, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
+                CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
 
-                Mesh mesh(ver_buff, idx_buff, true, true, false);
+                Mesh mesh(ver_buff, idx_buff, true, false, false);
 
                 SE3f reference_pose = newKeyframe.local_pose().inverse();
                 SE3f global_pose = kframe.localPoseToGlobal(newKeyframe.local_pose());
@@ -643,6 +647,28 @@ private:
                     frameStack[i].local_pose() = frameStack[i].local_pose() * reference_pose;
                 }
 
+                /////////////////// Debug ///////////////////
+                depth_renderer.Render(kframe.mesh(),
+                                      SE3f(), cam_, 1, depth_texture);
+                depth_mat = DownloadTextureToMat(depth_texture, 1);
+                SaveDebugImage(depth_mat, "map_" + std::to_string(kframe.id()) + "_init_depth.png");
+
+                for (Frame f : frameStack)
+                {
+                    image_renderer.Render(kframe.mesh(),
+                                          f.local_pose(),
+                                          f.local_exposure(),
+                                          cam_,
+                                          1, 1,
+                                          kframe.image(), image_texture);
+
+                    image_mat = DownloadTextureToMat(image_texture, 1);
+                    ref_mat = DownloadTextureToMat(f.image(), 1);
+                    l2_mat = ref_mat - image_mat;
+                    SaveDebugImage(l2_mat, "map_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + "_ini_l2.png");
+                }
+                ///////////////////////////
+
                 oframes = frameStack;
                 oframes.erase(oframes.begin() + newKeyframeIndex);
 
@@ -651,6 +677,15 @@ private:
                 while (poseMapOptimizer.converged() == false)
                 {
                     poseMapOptimizer.step(oframes, kframe, cam_, mesh_vo::mapping_fin_lvl, mesh_vo::mapping_fin_lvl);
+                }
+
+                float mean_depth = kframe.meanDepth();
+                std::cout << "Mean depth: " << mean_depth << std::endl;
+                kframe.scaleMesh(mean_depth / mesh_vo::mapping_mean_depth);
+
+                for (size_t i = 0; i < oframes.size(); i++)
+                {
+                    oframes[i].scalePose(mean_depth / mesh_vo::mapping_mean_depth);
                 }
 
                 for (size_t i = 0; i < oframes.size(); i++)
@@ -666,27 +701,14 @@ private:
                 }
 
                 lastLocalPose = SE3f();
-                lastLocalMovement = SE3f();
+                // lastLocalMovement = SE3f();
                 lastLocalExposure = Vec2f(0.0, 0.0);
 
-                // Debug rendering
+                /////////////////// Debug ///////////////////
                 depth_renderer.Render(kframe.mesh(),
                                       SE3f(), cam_, 1, depth_texture);
-                cv::Mat map_depth_mat = DownloadTextureToMat(depth_texture, 1);
-                SaveDebugImage(map_depth_mat, "map_depth_" + std::to_string(kframe.id()) + ".png");
-
-                // image_renderer.Render(kframe.mesh(),
-                //                       frame.local_pose(),
-                //                       frame.local_exposure(),
-                //                       cam_,
-                //                       1, 1,
-                //                       kframe.image(),
-                //                       image_texture);
-                // cv::Mat map_image_mat = DownloadTextureToMat(image_texture, 1);
-                // SaveDebugImage(map_image_mat, "map_image_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
-
-                // cv::Mat map_frame_mat = DownloadTextureToMat(frame.image(), 1);
-                // SaveDebugImage(frame_mat, "map_frame_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+                depth_mat = DownloadTextureToMat(depth_texture, 1);
+                SaveDebugImage(depth_mat, "map_" + std::to_string(kframe.id()) + "_opt_depth.png");
 
                 for (Frame f : frameStack)
                 {
@@ -697,11 +719,12 @@ private:
                                           1, 1,
                                           kframe.image(), image_texture);
 
-                    cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
-                    cv::Mat ref_mat = DownloadTextureToMat(f.image(), 1);
-                    cv::Mat l2_mat = ref_mat - image_mat;
-                    SaveDebugImage(l2_mat, "map_l2_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + ".png");
+                    image_mat = DownloadTextureToMat(image_texture, 1);
+                    ref_mat = DownloadTextureToMat(f.image(), 1);
+                    l2_mat = ref_mat - image_mat;
+                    SaveDebugImage(l2_mat, "map_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + "_opt_l2.png");
                 }
+                ///////////////////////////
             }
             /*
             if (oframes.size() < 1)

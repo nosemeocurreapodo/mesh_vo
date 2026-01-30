@@ -15,7 +15,7 @@
 #include "backends/cpu/texturecpu.h"
 #include "backends/cpu/meshcpu.h"
 #include "backends/cpu/renderercpu.h"
-/*
+
 using DepthRenderer = DepthRendererCPU;
 using PidsRenderer = PidsRendererCPU;
 using ImageRenderer = ImageRendererCPU;
@@ -38,8 +38,8 @@ using TextureViewRead = TextureViewReadCPU<T>;
 template <typename T>
 using TextureViewWrite = TextureViewWriteCPU<T>;
 using Mesh = MeshCPU;
-*/
 
+/*
 #include "backends/gl/buffergl.h"
 #include "backends/gl/texturegl.h"
 #include "backends/gl/meshgl.h"
@@ -62,7 +62,7 @@ using TextureViewRead = TextureViewReadGL<T>;
 template <typename T>
 using TextureViewWrite = TextureViewWriteGL<T>;
 using Mesh = MeshGL;
-
+*/
 
 using Camera = PinholeCamera<float>;
 
