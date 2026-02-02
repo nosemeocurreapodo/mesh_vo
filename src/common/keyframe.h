@@ -381,39 +381,32 @@ public:
         id_ = new_id;
     }
 
-    float meanViewAngle(const SE3f &pose1, const SE3f &pose2)
+    float meanViewAngle(const SE3f &pose1, const SE3f &pose2, const Camera cam)
     {
-        int lvl = 1;
-
-        // geometryType scene1 = geometry;
-        // scene1.transform(pose1);
-        //  scene1.project(cam);
-
-        // geometryType scene2 = geometry;
-        // scene2.transform(pose2);
-        //  scene2.project(cam);
-
         std::vector<Vec3<float>> positions = get_vertices(mesh_);
 
-        SE3f relativePose = pose1 * pose2.inverse();
+        SE3f pose1frame1 = SE3f();
+        SE3f pose2frame1 = pose2 * pose1.inverse();
 
-        SE3f frame1PoseInv = relativePose.inverse();
-        SE3f frame2PoseInv = SE3f();
-
-        Vec3f frame1Translation = frame1PoseInv.translation();
-        Vec3f frame2Translation = frame2PoseInv.translation();
-
-        // std::vector<int> vIds = scene2.getVerticesIds();
+        Vec3f pose1frame1tra = pose1frame1.inverse().translation();
+        Vec3f pose2frame1tra = pose2frame1.inverse().translation();
 
         float accAngle = 0;
         int count = 0;
         for (int i = 0; i < positions.size(); i++)
         {
-            Vec3f vert_ini = positions[i];
-            Vec3f vert = pose2 * vert_ini;
+            Vec3f vert = positions[i];
+            Vec3f vertframe1 = pose1 * vert;
+            Vec3f vertframe2 = pose2 * vert;
 
-            Vec3f diff1 = vert - frame1Translation;
-            Vec3f diff2 = vert - frame2Translation;
+            Vec2f pix1 = cam.pointToPix(vertframe1);
+            Vec2f pix2 = cam.pointToPix(vertframe2);
+
+            if(!cam.IsPixVisible(pix1) || !cam.IsPixVisible(pix2))
+                continue;
+
+            Vec3f diff1 = vertframe1 - pose1frame1tra;
+            Vec3f diff2 = vertframe1 - pose2frame1tra;
 
             assert(diff1.norm() > 0 && diff2.norm() > 0);
 
@@ -426,7 +419,7 @@ public:
 
             assert(!std::isnan(angle));
 
-            accAngle += angle;
+            accAngle += std::abs(angle);
             count += 1;
         }
 

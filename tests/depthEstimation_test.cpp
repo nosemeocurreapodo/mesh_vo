@@ -91,7 +91,7 @@ TEST_F(RendererTestBase, ComputeDepth)
         float minViewAngle = M_PI;
         for (std::size_t j = 0; j < frames.size(); j++)
         {
-            float viewAngle = kframe->meanViewAngle(frame.local_pose(), frames[j].local_pose());
+            float viewAngle = kframe->meanViewAngle(frame.local_pose(), frames[j].local_pose(), cam_);
             if (viewAngle < minViewAngle)
                 minViewAngle = viewAngle;
         }
@@ -206,12 +206,12 @@ TEST_F(RendererTestBase, ComputeDepth)
             optimizer.init(oframes, *kframe, cam_, in_lvl, out_lvl);
             while (!optimizer.converged())
             {
-                auto stepStartTime = std::chrono::high_resolution_clock::now();
+                // auto stepStartTime = std::chrono::high_resolution_clock::now();
                 optimizer.step(oframes, *kframe, cam_, in_lvl, out_lvl);
-                auto stepEndTime = std::chrono::high_resolution_clock::now();
-                std::chrono::milliseconds stepProcessingTime = std::chrono::duration_cast<std::chrono::milliseconds>(stepEndTime - stepStartTime);
-                auto duration = stepProcessingTime.count();
-                std::cout << "step processing time " << duration << " ms" << std::endl;
+                // auto stepEndTime = std::chrono::high_resolution_clock::now();
+                // std::chrono::milliseconds stepProcessingTime = std::chrono::duration_cast<std::chrono::milliseconds>(stepEndTime - stepStartTime);
+                // auto duration = stepProcessingTime.count();
+                // std::cout << "step processing time " << duration << " ms" << std::endl;
             }
         }
         auto endTime = std::chrono::high_resolution_clock::now();

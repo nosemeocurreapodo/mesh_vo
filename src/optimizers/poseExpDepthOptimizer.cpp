@@ -7,7 +7,8 @@ PoseExpDepthOptimizer::PoseExpDepthOptimizer(int w, int h, bool _printLog)
       jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jdepth_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       pids_texture_(w, h, Vec3<PidType>(-1, -1, -1)),
-      solver_(0)
+      solver_(0),
+      problem_(0)
 {
     printLog_ = _printLog;
 }
@@ -18,7 +19,9 @@ void PoseExpDepthOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, C
     int numParams = num_depths + 8 * frames.size();
 
     init_depths_ = get_depths(kframe.mesh());
-    init_triangles_ = get_indices(kframe.mesh());
+
+    triangles_ = get_indices(kframe.mesh());
+    edges_ = get_edges(kframe.mesh());
 
     init_poses_.clear();
     init_exposures_.clear();
@@ -45,26 +48,24 @@ void PoseExpDepthOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, C
     for (std::size_t i = 0; i < frames.size(); i++)
     {
         compute_error_(frames[i], kframe, cam, in_lvl, out_lvl, err);
-        // init_error += ef.getError() / ef.getCount();
     }
-    // init_error *= 1.0 / frames.size();
     init_error_ = err.getError() / err.getCount();
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
         float regu_error = 0.0f;
-        for (size_t i = 0; i < init_triangles_.size(); i++)
+        for (size_t i = 0; i < edges_.size(); i++)
         {
-            Vec3i id = init_triangles_[i];
-            Vec3f depth(init_depths_[id(0)],
-                        init_depths_[id(1)],
-                        init_depths_[id(2)]);
-            float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
-            float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
-            float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
-            regu_error += r1 * r1 + r2 * r2 + r3 * r3;
+            Vec2<int> edge = edges_[i];
+
+            float depth0 = init_depths_[edge(0)];
+            float depth1 = init_depths_[edge(1)];
+
+            float res = fromDepthToParam(depth0) - fromDepthToParam(depth1);
+            float w = huber_weight(res, mesh_vo::huber_thresh_param);
+            regu_error += w * res * res;
         }
-        init_error_ += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
+        init_error_ += (mesh_vo::mapping_regu_weight / edges_.size()) * regu_error;
     }
 
     /*
@@ -80,10 +81,12 @@ void PoseExpDepthOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, C
     */
 
     depths_ = init_depths_;
-    triangles_ = init_triangles_;
     poses_ = init_poses_;
     exposures_ = init_exposures_;
     error_ = init_error_;
+
+    solver_ = Solverx<float>(numParams);
+
     if (printLog_)
         std::cout << "poseMapOptimizer initial error " << init_error_ << " " << in_lvl << " " << out_lvl << std::endl;
 
@@ -95,41 +98,27 @@ void PoseExpDepthOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, C
     int num_depths = kframe.mesh().vertex_count();
     int numParams = kframe.mesh().vertex_count() + 8 * frames.size();
 
-    DenseLinearProblemx problem(numParams);
+    problem_.clear(numParams);
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        compute_problem_(frames[i], kframe, cam, i, frames.size(), num_depths, in_lvl, out_lvl, problem);
-        /*
-        if (fhg.count() > 0)
-         {
-             fhg.scale(1.0 / fhg.count());
-             problem += fhg;
-         }
-             */
+        compute_problem_(frames[i], kframe, cam, i, frames.size(), num_depths, in_lvl, out_lvl, problem_);
     }
-    // problem.scale(1.0 / frames.size());
+    problem_.scale(1.0 / problem_.count());
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
-        for (size_t i = 0; i < triangles_.size(); i++)
+        float regu_error = 0.0f;
+        for (size_t i = 0; i < edges_.size(); i++)
         {
-            Vec3<int> ids = triangles_[i];
-            Vec3<float> depth(depths_[ids(0)],
-                              depths_[ids(1)],
-                              depths_[ids(2)]);
-            // regu_error += (depth(0) - depth(1)) * (depth(0) - depth(1)) + (depth(1) - depth(2)) * (depth(1) - depth(2));
+            Vec2<int> edge = edges_[i];
 
-            float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
-            Vec3<float> jac1(1.0, -1.0, 0.0);
-            problem.add(jac1, r1, mesh_vo::mapping_regu_weight / num_depths, ids);
+            float depth0 = depths_[edge(0)];
+            float depth1 = depths_[edge(1)];
 
-            float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
-            Vec3<float> jac2(1.0, 0.0, -1.0);
-            problem.add(jac2, r2, mesh_vo::mapping_regu_weight / num_depths, ids);
-
-            float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
-            Vec3<float> jac3(0.0, 1.0, -1.0);
-            problem.add(jac3, r3, mesh_vo::mapping_regu_weight / num_depths, ids);
+            float res = fromDepthToParam(depth0) - fromDepthToParam(depth1);
+            float w = huber_weight(res, mesh_vo::huber_thresh_param);
+            Vec2<float> jac(1.0, -1.0);
+            problem_.add(jac, res, w * mesh_vo::mapping_regu_weight / edges_.size(), edge);
         }
     }
 
@@ -155,8 +144,19 @@ void PoseExpDepthOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, C
         }
         n_try++;
 
-        solver_.compute(problem.Hp() + Matxf::Identity(numParams, numParams) * lambda);
-        Vecxf inc = solver_.solve(-problem.G());
+        Matxf Hp_lm = problem_.Hp();
+
+        if (lambda > 0.0)
+        {
+            for (int i = 0; i < numParams; i++)
+            {
+                Hp_lm(i, i) += lambda;
+                // Hp_lm(i, i) *= 1.0 + lambda;
+            }
+        }
+
+        solver_.compute(Hp_lm);
+        Vecxf inc = solver_.solve(-problem_.G());
 
         std::vector<float> new_depths;
         std::vector<SE3f> new_poses;
@@ -186,7 +186,7 @@ void PoseExpDepthOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, C
 
             Vec2f exp_inc(inc(num_depths + i * 8 + 6),
                           inc(num_depths + i * 8 + 7));
-            Vec2f new_exp = exposures_[i] + exp_inc;
+            Vec2f new_exp = exposures_[i] - exp_inc;
             new_exposures.push_back(new_exp);
         }
 
@@ -203,35 +203,24 @@ void PoseExpDepthOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, C
         for (std::size_t i = 0; i < frames.size(); i++)
         {
             compute_error_(frames[i], kframe, cam, in_lvl, out_lvl, err);
-            /*
-            if (fe.getCount() < 0.5 * frames[i].image().width(out_lvl) * frames[i].image().height(out_lvl))
-            {
-                new_error += init_error * 2.0;
-            }
-            else
-            {
-                new_error += fe.getError() / fe.getCount();
-            }
-                */
         }
-        // new_error *= 1.0 / frames.size();
         new_error = err.getError() / err.getCount();
 
         if (mesh_vo::mapping_regu_weight > 0.0)
         {
             float regu_error = 0.0f;
-            for (size_t i = 0; i < triangles_.size(); i++)
+            for (size_t i = 0; i < edges_.size(); i++)
             {
-                Vec3<int> id = triangles_[i];
-                Vec3<float> depth(new_depths[id(0)],
-                                  new_depths[id(1)],
-                                  new_depths[id(2)]);
-                float r1 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(1));
-                float r2 = fromDepthToParam(depth(0)) - fromDepthToParam(depth(2));
-                float r3 = fromDepthToParam(depth(1)) - fromDepthToParam(depth(2));
-                regu_error += r1 * r1 + r2 * r2 + r3 * r3;
+                Vec2<int> edge = edges_[i];
+
+                float depth0 = new_depths[edge(0)];
+                float depth1 = new_depths[edge(1)];
+
+                float res = fromDepthToParam(depth0) - fromDepthToParam(depth1);
+                float w = huber_weight(res, mesh_vo::huber_thresh_param);
+                regu_error += w * res * res;
             }
-            new_error += (mesh_vo::mapping_regu_weight / num_depths) * regu_error;
+            new_error += (mesh_vo::mapping_regu_weight / edges_.size()) * regu_error;
         }
 
         /*

@@ -35,18 +35,20 @@ private:
     Matxf invCovariance;
 
     std::vector<float> init_depths_;
-    std::vector<Vec3<int>> init_triangles_;
     std::vector<SE3f> init_poses_;
     float init_error_;
 
     std::vector<float> depths_;
-    std::vector<Vec3<int>> triangles_;
     std::vector<SE3f> poses_;
     float error_;
+
+    std::vector<Vec3<int>> triangles_;
+    std::vector<Vec2<int>> edges_;
 
     Matxf init_invcovariance_;
     Matxf init_invcovariancesqrt_;
 
+    DenseLinearProblemx problem_;
     Solverx<float> solver_;
 
     bool printLog_;

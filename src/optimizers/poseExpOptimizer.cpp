@@ -45,7 +45,7 @@ void PoseExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 {
 	DenseLinearProblem<8> problem;
 	compute_problem_(frame, kframe, cam, in_lvl, out_lvl, problem);
-	// problem *= 1.0 / problem.count();
+    problem.scale(1.0 / problem.count());
 
 	/*
 	if (mesh_vo::tracking_prior_weight > 0.0)
@@ -88,7 +88,7 @@ void PoseExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 		exp_inc(1) = inc(7);
 
 		SE3f new_pose = pose_ * SE3f::exp(pose_inc); // SE3::exp(inc).inverse();
-		Vec2f new_exp = exp_ + exp_inc;
+		Vec2f new_exp = exp_ - exp_inc;
 
 		frame.local_pose() = new_pose;
 		frame.local_exposure() = new_exp;
@@ -96,17 +96,6 @@ void PoseExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 		float new_error = 0;
 		Error err;
 		compute_error_(frame, kframe, cam, in_lvl, out_lvl, err);
-		/*
-		if (ne.getCount() < 0.5 * frame.image().width(out_lvl) * frame.image().height(out_lvl))
-		{
-			// too few pixels, unreliable, set to large error
-			new_error += init_error_ * 2.0;
-		}
-		else
-		{
-			new_error += ne.getError() / ne.getCount();
-		}
-			*/
 		new_error = err.getError() / err.getCount();
 
 		if (mesh_vo::tracking_prior_weight > 0.0)
@@ -162,6 +151,6 @@ void PoseExpOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_
 
 void PoseExpOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<8> &total)
 {
-	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), kframe.didxy(), image_texture_, jtra_texture_, jrot_texture_, jexp_texture_);
+	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frame.didxy(), image_texture_, jtra_texture_, jrot_texture_, jexp_texture_);
 	hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, jexp_texture_, image_texture_, frame.image(), total);
 }

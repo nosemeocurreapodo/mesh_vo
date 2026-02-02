@@ -61,7 +61,7 @@ TEST_F(RendererTestBase, ComputePose)
     DIDxyRenderer didxy_renderer;
     NodataReducerCPU nodata_reducer;
 
-    PoseOptimizer optimizer(w_, h_, true);
+    PoseExpOptimizer optimizer(w_, h_, true);
 
     KeyFrame *kframe;
 

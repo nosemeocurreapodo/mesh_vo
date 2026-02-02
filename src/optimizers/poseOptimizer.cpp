@@ -43,7 +43,8 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 {
 	DenseLinearProblem<6> problem;
 	compute_problem_(frame, kframe, cam, in_lvl, out_lvl, problem);
-	// problem *= 1.0 / problem.count();
+    problem.scale(1.0 / problem.count());
+
 	/*
 	if (mesh_vo::tracking_prior_weight > 0.0)
 	{
@@ -88,17 +89,6 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 		float new_error = 0;
 		Error err;
 		compute_error_(frame, kframe, cam, in_lvl, out_lvl, err);
-		/*
-		if (ne.getCount() < 0.5 * frame.image().width(out_lvl) * frame.image().height(out_lvl))
-		{
-			// too few pixels, unreliable, set to large error
-			new_error += init_error_ * 2.0;
-		}
-		else
-		{
-			new_error += ne.getError() / ne.getCount();
-		}
-		*/
 		new_error = err.getError() / err.getCount();
 
 		if (mesh_vo::tracking_prior_weight > 0.0)
@@ -152,6 +142,6 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 
 void PoseOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<6> &problem)
 {
-	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), kframe.didxy(), image_texture_, jtra_texture_, jrot_texture_, jexp_texture_);
+	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frame.didxy(), image_texture_, jtra_texture_, jrot_texture_, jexp_texture_);
 	hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, image_texture_, frame.image(), problem);
 }

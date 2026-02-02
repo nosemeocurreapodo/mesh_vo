@@ -91,7 +91,7 @@ TEST_F(RendererTestBase, ComputeDepth)
         float minViewAngle = M_PI;
         for (std::size_t j = 0; j < frames.size(); j++)
         {
-            float viewAngle = kframe->meanViewAngle(frame.local_pose(), frames[j].local_pose());
+            float viewAngle = kframe->meanViewAngle(frame.local_pose(), frames[j].local_pose(), cam_);
             if (viewAngle < minViewAngle)
                 minViewAngle = viewAngle;
         }

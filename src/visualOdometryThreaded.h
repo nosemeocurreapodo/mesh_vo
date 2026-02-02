@@ -337,7 +337,7 @@ private:
             float lastMinViewAngle = M_PI;
             for (Frame f : frameStack)
             {
-                float lastViewAngle = kframe.meanViewAngle(f.local_pose(), frame.local_pose());
+                float lastViewAngle = kframe.meanViewAngle(f.local_pose(), frame.local_pose(), cam_);
                 if (lastViewAngle < lastMinViewAngle)
                     lastMinViewAngle = lastViewAngle;
             }
@@ -352,7 +352,7 @@ private:
             if (frameStack.size() < mesh_vo::num_frames)
                 continue;
 
-            float keyframeViewAngle = kframe.meanViewAngle(SE3f(), frame.local_pose());
+            float keyframeViewAngle = kframe.meanViewAngle(SE3f(), frame.local_pose(), cam_);
 
             depth_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, depth_texture);
 
@@ -583,7 +583,7 @@ private:
                 float lastMinViewAngle = M_PI;
                 for (Frame f : frameStack)
                 {
-                    float lastViewAngle = kframe.meanViewAngle(f.local_pose(), frame.local_pose());
+                    float lastViewAngle = kframe.meanViewAngle(f.local_pose(), frame.local_pose(), cam_);
                     if (lastViewAngle < lastMinViewAngle)
                         lastMinViewAngle = lastViewAngle;
                 }
@@ -601,7 +601,7 @@ private:
                 if (frameStack.size() < mesh_vo::num_frames)
                     continue;
 
-                float keyframeViewAngle = kframe.meanViewAngle(SE3f(), frame.local_pose());
+                float keyframeViewAngle = kframe.meanViewAngle(SE3f(), frame.local_pose(), cam_);
 
                 Error nodata;
                 nodata_reducer.reduce(1, image_texture, nodata);
@@ -630,8 +630,8 @@ private:
 
                 std::vector<float> ver_buff;
                 std::vector<int> idx_buff;
-                // CreateMesh(depth_texture, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
-                CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
+                CreateMesh(depth_texture, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
+                // CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
 
                 Mesh mesh(ver_buff, idx_buff, true, false, false);
 
@@ -640,6 +640,12 @@ private:
                 float global_scale = kframe.getGlobalScale();
 
                 kframe = KeyFrame(newKeyframe.image(), newKeyframe.didxy(), global_pose, mesh, global_scale, newKeyframe.id());
+
+                lastLocalPose = lastLocalPose * reference_pose;
+                lastLocalMovement = SE3f(); // tracked_local_movement * reference_pose;
+                lastLocalExposure = Vec2f(0.0, 0.0);
+
+                frame.local_pose() = frame.local_pose() * reference_pose;
 
                 // initialize the local poses
                 for (size_t i = 0; i < frameStack.size(); i++)
@@ -679,15 +685,6 @@ private:
                     poseMapOptimizer.step(oframes, kframe, cam_, mesh_vo::mapping_fin_lvl, mesh_vo::mapping_fin_lvl);
                 }
 
-                float mean_depth = kframe.meanDepth();
-                std::cout << "Mean depth: " << mean_depth << std::endl;
-                kframe.scaleMesh(mean_depth / mesh_vo::mapping_mean_depth);
-
-                for (size_t i = 0; i < oframes.size(); i++)
-                {
-                    oframes[i].scalePose(mean_depth / mesh_vo::mapping_mean_depth);
-                }
-
                 for (size_t i = 0; i < oframes.size(); i++)
                 {
                     for (size_t j = 0; j < frameStack.size(); j++)
@@ -700,9 +697,19 @@ private:
                     }
                 }
 
-                lastLocalPose = SE3f();
-                // lastLocalMovement = SE3f();
-                lastLocalExposure = Vec2f(0.0, 0.0);
+                frameStack[newKeyframeIndex].local_pose() = SE3f();
+
+                float mean_depth = kframe.meanDepth();
+                std::cout << "Mean depth: " << mean_depth << std::endl;
+                kframe.scaleMesh(mean_depth / mesh_vo::mapping_mean_depth);
+
+                for (size_t i = 0; i < frameStack.size(); i++)
+                {
+                    frameStack[i].scalePose(mean_depth / mesh_vo::mapping_mean_depth);
+                }
+
+                lastLocalPose.translation() /= (mean_depth / mesh_vo::mapping_mean_depth);
+                lastLocalMovement.translation() /= (mean_depth / mesh_vo::mapping_mean_depth);
 
                 /////////////////// Debug ///////////////////
                 depth_renderer.Render(kframe.mesh(),

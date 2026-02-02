@@ -52,6 +52,10 @@ TEST_F(RendererTestBase, ComputePoseDepth)
     SE3f tracked_local_movement;
     Vec2f tracked_local_exposure(0.0, 0.0);
 
+    cv::Mat image_mat;
+    cv::Mat ref_mat;
+    cv::Mat l2_mat;
+
     for (std::size_t img_id = 0; img_id < image_files_.size(); img_id++)
     {
         std::cout << "Frame " << img_id << std::endl;
@@ -95,6 +99,23 @@ TEST_F(RendererTestBase, ComputePoseDepth)
 
         Frame frame(image_texture, didxy_texture, img_id, kframe->id(), init_local_pose, init_local_exposure);
 
+        int plot_lvl = 1;
+
+        ///////////// Debug //////////////////
+        image_renderer.Render(kframe->mesh(),
+                              frame.local_pose(),
+                              frame.local_exposure(),
+                              cam_,
+                              plot_lvl, plot_lvl,
+                              kframe->image(),
+                              image_texture);
+        // residual_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
+        image_mat = DownloadTextureToMat(image_texture, plot_lvl);
+        ref_mat = DownloadTextureToMat(frame.image(), plot_lvl);
+        l2_mat = ref_mat - image_mat;
+        SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe->id()) + "_" + std::to_string(frame.id()) + "_l2_ini.png");
+        //////////////////////////////////////
+
         // auto startTime = std::chrono::high_resolution_clock::now();
         for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
         {
@@ -108,6 +129,21 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         }
         // auto endTime = std::chrono::high_resolution_clock::now();
 
+        ///////////// Debug //////////////////
+        image_renderer.Render(kframe->mesh(),
+                              frame.local_pose(),
+                              frame.local_exposure(),
+                              cam_,
+                              plot_lvl, plot_lvl,
+                              kframe->image(),
+                              image_texture);
+        // residual_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
+        image_mat = DownloadTextureToMat(image_texture, plot_lvl);
+        ref_mat = DownloadTextureToMat(frame.image(), plot_lvl);
+        l2_mat = ref_mat - image_mat;
+        SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe->id()) + "_" + std::to_string(frame.id()) + "_l2_opt.png");
+        //////////////////////////////////////
+
         SE3f new_local_pose = frame.local_pose();
         Vec2f new_local_exposure = frame.local_exposure();
 
@@ -118,7 +154,7 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         float minViewAngle = M_PI;
         for (std::size_t j = 0; j < frames.size(); j++)
         {
-            float viewAngle = kframe->meanViewAngle(frame.local_pose(), frames[j].local_pose());
+            float viewAngle = kframe->meanViewAngle(frame.local_pose(), frames[j].local_pose(), cam_);
             if (viewAngle < minViewAngle)
                 minViewAngle = viewAngle;
         }
@@ -155,36 +191,34 @@ TEST_F(RendererTestBase, ComputePoseDepth)
 
         int kframeIndex = frames.size() / 2;
 
-        /*
         std::vector<float> ver_buff;
         std::vector<int> idx_buff;
 
-        // depth_renderer.Render(kframe->mesh(),
-        //                       frames[kframeIndex].local_pose(),
-        //                       cam_,
-        //                       0,
-        //                       es_depth_texture);
+        depth_renderer.Render(kframe->mesh(),
+                              frames[kframeIndex].local_pose(),
+                              cam_,
+                              0,
+                              es_depth_texture);
 
-        // CreateMesh(es_depth_texture, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, true);
-        CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, false);
+        CreateMesh(es_depth_texture, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
+        // CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, false);
 
         SE3f new_kf_global_pose = kframe->localPoseToGlobal(frames[kframeIndex].local_pose());
         float new_kf_global_scale = kframe->getGlobalScale();
 
-        Mesh mesh(ver_buff, idx_buff, true, true, false);
+        Mesh mesh(ver_buff, idx_buff, true, false, false);
         kframe = new KeyFrame(frames[kframeIndex].image(),
                               frames[kframeIndex].didxy(),
                               new_kf_global_pose,
                               mesh,
                               new_kf_global_scale,
                               frames[kframeIndex].id());
-        */
 
-        kframe->changeFrame(frames[kframeIndex].image(),
-                            frames[kframeIndex].didxy(),
-                            frames[kframeIndex].local_pose(),
-                            frames[kframeIndex].id(),
-                            cam_);
+        // kframe->changeFrame(frames[kframeIndex].image(),
+        //                     frames[kframeIndex].didxy(),
+        //                     frames[kframeIndex].local_pose(),
+        //                     frames[kframeIndex].id(),
+        //                     cam_);
 
         SE3f reference_pose = frames[kframeIndex].local_pose().inverse();
 
@@ -198,6 +232,24 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         {
             frames[k].local_pose() = frames[k].local_pose() * reference_pose;
         }
+
+        /////////////////// Debug /////////////////
+        for (std::size_t k = 0; k < frames.size(); k++)
+        {
+            image_renderer.Render(kframe->mesh(),
+                                  frames[k].local_pose(),
+                                  frames[k].local_exposure(),
+                                  cam_,
+                                  plot_lvl, plot_lvl,
+                                  kframe->image(),
+                                  image_texture);
+            // residual_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
+            cv::Mat image_mat = DownloadTextureToMat(image_texture, plot_lvl);
+            cv::Mat ref_mat = DownloadTextureToMat(frames[k].image(), plot_lvl);
+            cv::Mat l2_mat = ref_mat - image_mat;
+            SaveDebugImage(l2_mat, "map_" + std::to_string(kframe->id()) + "_" + std::to_string(frames[k].id()) + "_l2_ini.png");
+        }
+        ////////////////////
 
         std::vector<Frame> oframes = frames;
         oframes.erase(oframes.begin() + kframeIndex);
@@ -251,7 +303,6 @@ TEST_F(RendererTestBase, ComputePoseDepth)
 
         frames[kframeIndex].local_pose() = SE3f();
 
-        int plot_lvl = 0;
         for (std::size_t k = 0; k < frames.size(); k++)
         {
             image_renderer.Render(kframe->mesh(),
@@ -265,7 +316,7 @@ TEST_F(RendererTestBase, ComputePoseDepth)
             cv::Mat image_mat = DownloadTextureToMat(image_texture, plot_lvl);
             cv::Mat ref_mat = DownloadTextureToMat(frames[k].image(), plot_lvl);
             cv::Mat l2_mat = ref_mat - image_mat;
-            SaveDebugImage(l2_mat, "l2_" + std::to_string(kframe->id()) + "_" + std::to_string(frames[k].id()) + ".png");
+            SaveDebugImage(l2_mat, "map_" + std::to_string(kframe->id()) + "_" + std::to_string(frames[k].id()) + "_l2_opt.png");
         }
 
         depth_renderer.Render(kframe->mesh(),

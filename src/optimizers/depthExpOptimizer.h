@@ -34,19 +34,21 @@ private:
 
     std::vector<float> init_depths_;
     std::vector<Vec2f> init_exposures_;
-    std::vector<Vec3<int>> init_triangles_;
     Vecxf init_params_;
     float init_error_;
 
     std::vector<float> depths_;
     std::vector<Vec2f> exposures_;
-    std::vector<Vec3<int>> triangles_;
     Vecxf params_;
     float error_;
+
+    std::vector<Vec3<int>> triangles_;
+    std::vector<Vec2<int>> edges_;
 
     Matxf init_invcovariance_;
     Matxf init_invcovariancesqrt_;
 
+    DenseLinearProblemx problem_;
     Solverx<float> solver_;
 
     bool printLog_;
