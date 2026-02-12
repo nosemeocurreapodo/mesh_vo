@@ -15,7 +15,7 @@ std::array<double, 2> ComputeSE3Error(const SE3f &pose_est, const SE3f &pose_gt)
     SE3f T_error = pose_est.inverse() * pose_gt;
 
     double translation_error = T_error.translation().norm();
-    double rotation_error = 0.0; // T_error.so3().log().norm();
+    double rotation_error = T_error.so3().log().norm();
 
     std::array<double, 2> error = {translation_error, rotation_error};
 
@@ -61,7 +61,7 @@ TEST_F(RendererTestBase, ComputePose)
     DIDxyRenderer didxy_renderer;
     NodataReducerCPU nodata_reducer;
 
-    PoseExpOptimizer optimizer(w_, h_, true);
+    PoseOptimizer optimizer(w_, h_, true);
 
     KeyFrame *kframe;
 
@@ -136,6 +136,8 @@ TEST_F(RendererTestBase, ComputePose)
 
         std::array<double, 2> error = ComputeSE3Error(es_global_pose, gt_global_pose);
 
+        std::cout << "translation error " << error[0] << " rotation error " << error[1] << std::endl;
+
         accProcessingTime += processingTime;
         accTranslationError += error[0];
         accRotationError += error[1];
@@ -151,7 +153,9 @@ TEST_F(RendererTestBase, ComputePose)
         cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
         cv::Mat ref_mat = DownloadTextureToMat(frame.image(), 1);
         cv::Mat l2_mat = ref_mat - image_mat;
-        SaveDebugImage(l2_mat, "l2_" + std::to_string(img_id) + ".png");
+        SaveDebugImage(image_mat, "pose_est_" + std::to_string(img_id) + "_image.png");
+        SaveDebugImage(ref_mat, "pose_est_" + std::to_string(img_id) + "_ref.png");
+        SaveDebugImage(l2_mat, "pose_est_" + std::to_string(img_id) + "_l2.png");
 
         Error nodata;
         nodata_reducer.reduce(1, image_texture, nodata);
