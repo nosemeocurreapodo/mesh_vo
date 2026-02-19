@@ -4,6 +4,9 @@
 #     https://www.atlassian.com/git/tutorials/saving-changes/gitignore
 
 # Node artifact files
+src/mesh_vo_ros/build
+src/mesh_vo_ros/install
+src/mesh_vo_ros/log
 node_modules/
 dist/
 

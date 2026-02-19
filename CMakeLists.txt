@@ -11,6 +11,7 @@ option(COMPILE_XRT     "Enable XRT compilation"           OFF)
 option(COMPILE_DEMO    "Enable Demo compilation"          OFF)
 option(COMPILE_TUM     "Enable Tum app compilation"       ON)
 option(COMPILE_TESTS   "Enable Tests compilation"         ON)
+option(COMPILE_ROS2    "Enable ROS2 node compilation"     ON)
 
 # --- C++ Standard -------------------------------------------------
 set(CMAKE_CXX_STANDARD 17)
@@ -383,4 +384,9 @@ if(COMPILE_TESTS)
   endif()
 
   gtest_discover_tests(poseDepthEstimation_tests)
+endif()
+
+# --- ROS 2 Node ---------------------------------------------------
+if(COMPILE_ROS2)
+  add_subdirectory(src/mesh_vo_ros)
 endif()
