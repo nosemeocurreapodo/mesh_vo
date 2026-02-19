@@ -1,12 +1,6 @@
 #pragma once
 
-static inline float huber_weight(float r, float thresh) noexcept
-{
-    const float a = std::fabs(r);
-    if (a <= thresh || a == 0.0f)
-        return 1.0f;
-    return thresh / a;
-}
+#include "mpdr/common/huber.h"
 
 class Error
 {

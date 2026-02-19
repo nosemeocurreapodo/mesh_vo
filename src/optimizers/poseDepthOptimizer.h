@@ -3,7 +3,7 @@
 #include <iostream>
 #include <vector>
 #include "params.h"
-#include "core/types.h"
+#include "mpdr/common/types.h"
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"

@@ -4,9 +4,9 @@
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
-#include "backends/cpu/renderercpu.h"
 #include "common/reducer.h"
 #include "common/DenseLinearProblem.h"
+#include "mpdr/backends/cpu/renderercpu.h"
 // #include "cpu/OpenCVDebug.h"
 
 class BaseOptimizer

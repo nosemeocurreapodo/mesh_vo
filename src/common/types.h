@@ -8,13 +8,13 @@
 // #include "sophus/se3.hpp"
 // #include "sophus/sim3.hpp"
 
-#include "core/types.h"
-#include "core/camera.h"
+#include "mpdr/common/types.h"
+#include "mpdr/common/camera.h"
 
-#include "backends/cpu/buffercpu.h"
-#include "backends/cpu/texturecpu.h"
-#include "backends/cpu/meshcpu.h"
-#include "backends/cpu/renderercpu.h"
+#include "mpdr/backends/cpu/buffercpu.h"
+#include "mpdr/backends/cpu/texturecpu.h"
+#include "mpdr/backends/cpu/meshcpu.h"
+#include "mpdr/backends/cpu/renderercpu.h"
 
 using DepthRenderer = DepthRendererCPU;
 using PidsRenderer = PidsRendererCPU;

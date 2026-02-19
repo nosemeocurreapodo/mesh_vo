@@ -6,18 +6,19 @@
 
 // #include <pangolin/pangolin.h>
 
-#include "core/types.h"
-#include "core/mesh_helpers.h"
+#include "mpdr/common/types.h"
+#include "mpdr/common/mesh_helpers.h"
+#include "mpdr/common/helpers.h"
 
-#include "backends/cpu/texturecpu.h"
-#include "backends/cpu/meshcpu.h"
-#include "backends/cpu/renderercpu.h"
+#include "mpdr/backends/cpu/texturecpu.h"
+#include "mpdr/backends/cpu/meshcpu.h"
+#include "mpdr/backends/cpu/renderercpu.h"
 
 #ifdef COMPILE_GL
-#include "backends/gl/devicegl_glad.h"
-#include "backends/gl/texturegl.h"
-#include "backends/gl/meshgl.h"
-#include "backends/gl/renderergl.h"
+#include "mpdr/backends/gl/devicegl_glad.h"
+#include "mpdr/backends/gl/texturegl.h"
+#include "mpdr/backends/gl/meshgl.h"
+#include "mpdr/backends/gl/renderergl.h"
 #endif
 
 #include "common/types.h"
@@ -35,8 +36,6 @@
 // #include "visualizer/trayectoryPlotter.h"
 // #include "visualizer/imagePlotter.h"
 #include "utils/tictoc.h"
-
-#include "tests/common/test_helpers.h"
 
 template <typename T>
 class ThreadSafeQueue
@@ -155,10 +154,8 @@ public:
 
     void flatInit(const ImageType *image_data)
     {
-        std::vector<float> s_ver_buff;
-        std::vector<int> s_idx_buff;
-        CreateScreenQuad(s_ver_buff, s_idx_buff);
-        Mesh screen_mesh(s_ver_buff, s_idx_buff, false, true, false);
+        Mesh screen_mesh;
+        CreateScreenQuad(screen_mesh);
 
         DIDxyRenderer didxy_renderer;
 
@@ -169,11 +166,8 @@ public:
         for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
             didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
 
-        std::vector<float> ver_buff;
-        std::vector<int> idx_buff;
-
-        CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
-        Mesh mesh(ver_buff, idx_buff, true, false, false);
+        Mesh mesh;
+        CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, mesh);
 
         KeyFrame kframe(image_texture, didxy_texture, SE3f(), mesh, 1.0, frameId_);
 
@@ -204,10 +198,8 @@ public:
 private:
     void localizationThread()
     {
-        std::vector<float> s_ver_buff;
-        std::vector<int> s_idx_buff;
-        CreateScreenQuad(s_ver_buff, s_idx_buff);
-        Mesh screen_mesh(s_ver_buff, s_idx_buff, false, true, false);
+        Mesh screen_mesh;
+        CreateScreenQuad(screen_mesh);
 
         DIDxyRenderer didxy_renderer;
         ImageRenderer image_renderer;
@@ -307,9 +299,6 @@ private:
 
     void mappingThread()
     {
-        std::vector<float> ver_buff;
-        std::vector<int> idx_buff;
-
         Texture<ImageType> image_texture(width_, height_, -1);
         Texture<float> depth_texture(width_, height_, -1);
 
@@ -370,10 +359,9 @@ private:
             // int newKeyframeIndex = int(goodFrames.size() - 1);
             Frame newKeyframe = frameStack[newKeyframeIndex];
 
+            Mesh mesh;
             // CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, false);
-            CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
-
-            Mesh mesh(ver_buff, idx_buff, true, false, false);
+            CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, mesh);
 
             SE3f reference_pose = newKeyframe.local_pose().inverse();
             SE3f global_pose = kframe.localPoseToGlobal(newKeyframe.local_pose());
@@ -467,10 +455,8 @@ private:
 
     void voThread()
     {
-        std::vector<float> s_ver_buff;
-        std::vector<int> s_idx_buff;
-        CreateScreenQuad(s_ver_buff, s_idx_buff);
-        Mesh screen_mesh(s_ver_buff, s_idx_buff, false, true, false);
+        Mesh screen_mesh;
+        CreateScreenQuad(screen_mesh);
 
         DIDxyRenderer didxy_renderer;
         DepthRenderer depth_renderer;
@@ -628,12 +614,14 @@ private:
                                       0,
                                       depth_texture);
 
-                std::vector<float> ver_buff;
-                std::vector<int> idx_buff;
-                CreateMesh(depth_texture, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
+                Mesh mesh;
+                CreateMesh(depth_texture.MapRead(0).data(),
+                 cam_, 
+                 depth_texture.width(0),
+                 depth_texture.height(0),
+                  mesh_vo::mesh_width, 
+                  mesh);
                 // CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
-
-                Mesh mesh(ver_buff, idx_buff, true, false, false);
 
                 SE3f reference_pose = newKeyframe.local_pose().inverse();
                 SE3f global_pose = kframe.localPoseToGlobal(newKeyframe.local_pose());

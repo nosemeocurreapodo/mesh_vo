@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "tests/common/test_framework.h"
+#include "test_framework.h"
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
@@ -24,10 +24,8 @@ TEST_F(RendererTestBase, ComputePoseDepth)
     float accError = 0;
     int framesProcessedCounter = 0;
 
-    std::vector<float> s_ver_buff;
-    std::vector<int> s_idx_buff;
-    CreateScreenQuad(s_ver_buff, s_idx_buff);
-    Mesh screen_mesh(s_ver_buff, s_idx_buff, false, true, false);
+    Mesh screen_mesh;
+    CreateScreenQuad(screen_mesh);
 
     DepthRenderer depth_renderer;
     ImageRenderer image_renderer;
@@ -76,16 +74,17 @@ TEST_F(RendererTestBase, ComputePoseDepth)
 
         if (img_id == 0)
         {
-            std::vector<float> ver_buff;
-            std::vector<int> idx_buff;
-
             double gt_depth_mean = cv::mean(gt_depth_cv)[0];
 
+            Mesh mesh;
             // CreateMesh(gt_depth, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, true);
-            CreateFlatMesh(gt_depth_mean * 0.5, gt_depth_mean * 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
+            CreateFlatMesh(gt_depth_mean * 0.5, 
+                gt_depth_mean * 1.5, 
+                cam_, 
+                mesh_vo::mesh_width, 
+               mesh);
             //     CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
-            Mesh mesh(ver_buff, idx_buff, true, false, false);
             kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0, 0);
 
             float meanDepth = kframe->meanDepth();
@@ -200,13 +199,18 @@ TEST_F(RendererTestBase, ComputePoseDepth)
                               0,
                               es_depth_texture);
 
-        CreateMesh(es_depth_texture, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
+        Mesh mesh;
+        CreateMesh(es_depth_texture.MapRead(0).data(), 
+            cam_, 
+            es_depth_texture.width(0),
+            es_depth_texture.height(0),
+            mesh_vo::mesh_width,
+            mesh);
         // CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, false);
 
         SE3f new_kf_global_pose = kframe->localPoseToGlobal(frames[kframeIndex].local_pose());
         float new_kf_global_scale = kframe->getGlobalScale();
 
-        Mesh mesh(ver_buff, idx_buff, true, false, false);
         kframe = new KeyFrame(frames[kframeIndex].image(),
                               frames[kframeIndex].didxy(),
                               new_kf_global_pose,

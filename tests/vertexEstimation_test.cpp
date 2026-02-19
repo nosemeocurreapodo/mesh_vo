@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "tests/common/test_framework.h"
+#include "test_framework.h"
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
@@ -18,10 +18,8 @@ TEST_F(RendererTestBase, ComputeVertex)
     float accError = 0;
     int framesProcessedCounter = 0;
 
-    std::vector<float> s_ver_buff_;
-    std::vector<int> s_idx_buff_;
-    CreateScreenQuad(s_ver_buff_, s_idx_buff_);
-    Mesh screen_mesh(s_ver_buff_, s_idx_buff_, false, true, false);
+    Mesh screen_mesh;
+    CreateScreenQuad(screen_mesh);
 
     DepthRenderer depth_renderer;
     PidsRenderer pids_renderer;
@@ -71,11 +69,16 @@ TEST_F(RendererTestBase, ComputeVertex)
 
             double gt_depth_mean = cv::mean(gt_depth_cv)[0];
 
-            CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, false, false);
+            Mesh mesh;
+            CreateMesh(gt_depth_texture.MapRead(0).data(),
+                 cam_,
+                 gt_depth_texture.width(0),
+                 gt_depth_texture.height(0),
+                  mesh_vo::mesh_width,
+                   mesh);
             // CreateFlatMesh(gt_depth_mean * 0.5, gt_depth_mean * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, false, false);
             //     CreateSphereMesh(gt_depth_mean, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_);
 
-            Mesh mesh(ver_buff_, idx_buff_, true, false, false);
             kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0, 0);
             float meanDepth = kframe->meanDepth();
             kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
@@ -133,9 +136,13 @@ TEST_F(RendererTestBase, ComputeVertex)
 
         int kframeIndex = frames.size() / 2;
 
-        std::vector<float> ver_buff_;
-        std::vector<int> idx_buff_;
-        CreateMesh(gt_depth_textures[kframeIndex], cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, false, false);
+        Mesh mesh;
+        CreateMesh(gt_depth_textures[kframeIndex].MapRead(0).data(),
+             cam_, 
+             gt_depth_textures[kframeIndex].width(0),
+             gt_depth_textures[kframeIndex].height(0),
+             mesh_vo::mesh_width, 
+             mesh);
         // CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
         //   CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
         // depth_renderer.Render(kframe->mesh(),
@@ -144,7 +151,6 @@ TEST_F(RendererTestBase, ComputeVertex)
         //                      0,
         //                      es_depth_texture);
 
-        Mesh mesh(ver_buff_, idx_buff_, true, false, false);
         float global_scale = kframe->getGlobalScale();
         kframe = new KeyFrame(frames[kframeIndex].image(),
                               frames[kframeIndex].didxy(),

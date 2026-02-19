@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "tests/common/test_framework.h"
+#include "test_framework.h"
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
@@ -46,10 +46,8 @@ TEST_F(RendererTestBase, ComputePose)
     float accRotationError = 0;
     int framesProcessedCounter = 0;
 
-    std::vector<float> s_ver_buff_;
-    std::vector<int> s_idx_buff_;
-    CreateScreenQuad(s_ver_buff_, s_idx_buff_);
-    Mesh screen_mesh(s_ver_buff_, s_idx_buff_, false, true, false);
+    Mesh screen_mesh;
+    CreateScreenQuad(screen_mesh);
 
     Texture<ImageType> image_texture(w_, h_, 0);
     Texture<float> gt_depth_texture(w_, h_, 0);
@@ -90,10 +88,13 @@ TEST_F(RendererTestBase, ComputePose)
 
         if (img_id == 0)
         {
-            std::vector<float> ver_buff_;
-            std::vector<int> idx_buff_;
-            CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, false, false);
-            Mesh mesh(ver_buff_, idx_buff_, true, false, false);
+            Mesh mesh;
+            CreateMesh(gt_depth_texture.MapRead(0).data(), 
+                cam_, 
+                gt_depth_texture.width(0),
+                gt_depth_texture.height(0),
+                mesh_vo::mesh_width, 
+                mesh);
 
             kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0, img_id);
             float meanDepth = kframe->meanDepth();
@@ -167,10 +168,13 @@ TEST_F(RendererTestBase, ComputePose)
         if (viewPercent > mesh_vo::min_view_perc) // || keyframeViewAngle > mesh_vo::key_max_angle)
             continue;
 
-        std::vector<float> ver_buff_;
-        std::vector<int> idx_buff_;
-        CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, false, false);
-        Mesh new_mesh(ver_buff_, idx_buff_, true, false, false);
+        Mesh new_mesh;
+        CreateMesh(gt_depth_texture.MapRead(0).data(), 
+            cam_, 
+            gt_depth_texture.width(0),
+            gt_depth_texture.height(0),
+            mesh_vo::mesh_width,
+            new_mesh);
 
         kframe = new KeyFrame(frame.image(), frame.didxy(), es_global_pose, new_mesh, 1.0, frame.id());
         frame.local_pose() = SE3f();

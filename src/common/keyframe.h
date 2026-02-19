@@ -2,7 +2,7 @@
 
 #include "params.h"
 #include "common/types.h"
-#include "core/mesh_helpers.h"
+#include "mpdr/common/mesh_helpers.h"
 
 // #include <vector>
 // #include <stdexcept>
