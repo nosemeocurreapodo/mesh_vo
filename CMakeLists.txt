@@ -86,9 +86,9 @@ set(VISUALODOMETRY_SRCS
 #  src/optimizers/poseVelExpMapOptimizer.cpp
 )
 
-add_library(mesh_vo STATIC ${VISUALODOMETRY_SRCS})
+add_library(mesh_vo_core STATIC ${VISUALODOMETRY_SRCS})
 
-target_include_directories(mesh_vo
+target_include_directories(mesh_vo_core
   PUBLIC
     ${PROJECT_SOURCE_DIR}/src
     ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/src
@@ -102,7 +102,7 @@ target_include_directories(mesh_vo
     ${OpenCV_INCLUDE_DIRS}
 )
 
-target_link_libraries(mesh_vo
+target_link_libraries(mesh_vo_core
   PUBLIC
     Eigen3::Eigen
     ${Pangolin_LIBRARIES}
@@ -113,7 +113,7 @@ target_link_libraries(mesh_vo
 
 # Make mesh_vo depend on glad so glad's PUBLIC includes propagate
 if(COMPILE_GL OR COMPILE_GLES2)
-  target_link_libraries(mesh_vo
+  target_link_libraries(mesh_vo_core
     PUBLIC
       glad
   )
@@ -157,7 +157,7 @@ if(COMPILE_TESTS)
 
   target_link_libraries(poseEstimation_tests
     PRIVATE
-      mesh_vo
+      mesh_vo_core
       gtest_main
       Eigen3::Eigen
       ${OpenCV_LIBS}
@@ -204,7 +204,7 @@ if(COMPILE_TESTS)
 
   target_link_libraries(depthEstimation_tests
     PRIVATE
-      mesh_vo
+      mesh_vo_core
       gtest_main
       Eigen3::Eigen
       ${OpenCV_LIBS}
@@ -253,7 +253,7 @@ if(COMPILE_TESTS)
 
   target_link_libraries(rayDepthEstimation_tests
     PRIVATE
-      mesh_vo
+      mesh_vo_core
       gtest_main
       Eigen3::Eigen
       ${OpenCV_LIBS}
@@ -303,7 +303,7 @@ if(COMPILE_TESTS)
 
   target_link_libraries(vertexEstimation_tests
     PRIVATE
-      mesh_vo
+      mesh_vo_core
       gtest_main
       Eigen3::Eigen
       ${OpenCV_LIBS}
@@ -349,7 +349,7 @@ if(COMPILE_TESTS)
 
   target_link_libraries(poseDepthEstimation_tests
     PRIVATE
-      mesh_vo
+      mesh_vo_core
       gtest_main
       Eigen3::Eigen
       ${OpenCV_LIBS}

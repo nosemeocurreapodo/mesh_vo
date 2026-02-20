@@ -13,6 +13,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
   python3-pip \
   python3-venv \
   ros-dev-tools \
+  python3-colcon-clean \
   libeigen3-dev \
   liblapacke-dev \
   libsuitesparse-dev \

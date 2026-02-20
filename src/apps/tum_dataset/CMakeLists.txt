@@ -15,7 +15,7 @@ target_include_directories(tum_app
 
 target_link_libraries(tum_app
   PRIVATE
-    mesh_vo
+    mesh_vo_core
     Eigen3::Eigen
     ${OpenCV_LIBS}
     ${Pangolin_LIBRARIES}

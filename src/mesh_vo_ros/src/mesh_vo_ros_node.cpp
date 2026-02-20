@@ -55,6 +55,7 @@ private:
         try
         {
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::MONO8);
+            cv_ptr->image.convertTo(cv_ptr->image, GetOpenCVFormat<ImageType>());
         }
         catch (cv_bridge::Exception &e)
         {
@@ -65,12 +66,12 @@ private:
         // Pass the image to the visual odometry
         if (is_first_image_)
         {
-            vo_->flatInit(cv_ptr->image.data);
+            vo_->flatInit((ImageType *)cv_ptr->image.data);
             is_first_image_ = false;
         }
         else
         {
-            vo_->locAndMap(cv_ptr->image.data);
+            vo_->locAndMap((ImageType *)cv_ptr->image.data);
         }
     }
 
@@ -85,13 +86,13 @@ private:
             geometry_msgs::msg::PoseStamped pose_msg;
             pose_msg.header.stamp = this->now();
             pose_msg.header.frame_id = "map";
-            pose_msg.pose.position.x = kf.getGlobalPose().translation().x();
-            pose_msg.pose.position.y = kf.getGlobalPose().translation().y();
-            pose_msg.pose.position.z = kf.getGlobalPose().translation().z();
-            pose_msg.pose.orientation.x = kf.getGlobalPose().unit_quaternion().x();
-            pose_msg.pose.orientation.y = kf.getGlobalPose().unit_quaternion().y();
-            pose_msg.pose.orientation.z = kf.getGlobalPose().unit_quaternion().z();
-            pose_msg.pose.orientation.w = kf.getGlobalPose().unit_quaternion().w();
+            pose_msg.pose.position.x = kf.global_pose().translation()(0);
+            pose_msg.pose.position.y = kf.global_pose().translation()(1);
+            pose_msg.pose.position.z = kf.global_pose().translation()(2);
+            pose_msg.pose.orientation.x = kf.global_pose().so3().unit_quaternion().x();
+            pose_msg.pose.orientation.y = kf.global_pose().so3().unit_quaternion().y();
+            pose_msg.pose.orientation.z = kf.global_pose().so3().unit_quaternion().z();
+            pose_msg.pose.orientation.w = kf.global_pose().so3().unit_quaternion().w();
             pose_publisher_->publish(pose_msg);
 
             // Publish the mesh
@@ -111,8 +112,8 @@ private:
             mesh_msg.color.g = 1.0;
             mesh_msg.color.b = 1.0;
 
-            auto vertices = kf.getMesh().vert_ref();
-            auto indices = kf.getMesh().idx_ref();
+            auto vertices = kf.mesh().vertex_buffer_.MapRead();
+            auto indices = kf.mesh().ebo_buffer_.MapRead();
 
             for (size_t i = 0; i < indices.size(); i += 3)
             {
