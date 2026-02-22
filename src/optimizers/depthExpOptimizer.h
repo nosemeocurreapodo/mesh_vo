@@ -12,17 +12,138 @@
 #include "common/reducer.h"
 #include "optimizers/baseOptimizer.h"
 
-class DepthExpOptimizer : public BaseOptimizer
+class DepthExpOptimizer : public BaseOptimizer<DepthExpOptimizer,
+                                               Matx<float>,
+                                               Vecx<float>,
+                                               DenseLinearProblemx,
+                                               Solverx<float>>
 {
 public:
-    DepthExpOptimizer(int w, int h, bool _printLog = false);
+    using Base = BaseOptimizer<DepthExpOptimizer,
+                               Matx<float>,
+                               Vecx<float>,
+                               DenseLinearProblemx,
+                               Solverx<float>>;
 
-    void init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
-    void step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl);
+    DepthExpOptimizer(bool printlog = false)
+        : Base(printlog),
+          jdepth_texture_(1, 1, Vec3<float>(0.0, 0.0, 0.0)),
+          jexp_texture_(1, 1, Vec3<float>(0.0, 0.0, 0.0)),
+          pids_texture_(1, 1, Vec3<PidType>(-1, -1, -1))
+    {
+    }
+
+    int numParams()
+    {
+        return numParams_;
+    }
+
+    void init(const std::vector<Frame> &frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
+    {
+        best_depths_ = get_depths(kframe.mesh());
+        best_exps_.clear();
+        for (int i = 0; i < frames.size(); i++)
+            best_exps_.push_back(frames[i].local_exposure());
+        // triangles_ = get_indices(kframe.mesh());
+        edges_ = get_edges(kframe.mesh());
+        numDepths_ = kframe.mesh().vertex_count();
+        numParams_ = numDepths_ + 2 * frames.size();
+
+        depths_ = best_depths_;
+        exps_ = best_exps_;
+
+        problem = DenseLinearProblemx(numParams_);
+        solver = Solverx<float>(numParams_);
+    }
+
+    float regu_error() const
+    {
+        return regu_depth(depths_, edges_);
+    }
+
+    void regu_jacobian(DenseLinearProblemx &problem)
+    {
+        regu_depth_jacobian(depths_, edges_, problem);
+    }
+
+    void update_params(std::vector<Frame> &frames, KeyFrame &kframe, const Vecx<float> &inc)
+    {
+        depths_.clear();
+        for (size_t i = 0; i < numDepths_; i++)
+        {
+            float new_depth = fromParamToDepth(fromDepthToParam(best_depths_[i]) + inc(i));
+            if (new_depth < RenderConstants::NEAR_PLANE)
+                new_depth = RenderConstants::NEAR_PLANE;
+            if (new_depth > RenderConstants::FAR_PLANE)
+                new_depth = RenderConstants::FAR_PLANE;
+
+            depths_.push_back(new_depth);
+        }
+
+        for (size_t i = 0; i < frames.size(); i++)
+        {
+            Vec2<float> exp_inc(inc(numDepths_ + i * 2 + 0), inc(numDepths_ + i * 2 + 1));
+            Vec2<float> new_exp = best_exps_[i] + exp_inc;
+            exps_.push_back(new_exp);
+        }
+
+        set_depths(kframe.mesh(), depths_);
+
+        for (size_t i = 0; i < frames.size(); i++)
+        {
+            frames[i].local_exposure() = exps_[i];
+        }
+    }
+
+    void update_best_params()
+    {
+        best_depths_ = depths_;
+        best_exps_ = exps_;
+    }
+
+    void restore_best_params(std::vector<Frame> &frames, KeyFrame &kframe)
+    {
+        depths_ = best_depths_;
+        exps_ = best_exps_;
+
+        set_depths(kframe.mesh(), best_depths_);
+
+        for (size_t i = 0; i < frames.size(); i++)
+        {
+            frames[i].local_exposure() = best_exps_[i];
+        }
+    }
+
+    void compute_problem(const std::vector<Frame> &frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    {
+        for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
+        {
+            jdepthrenderer_.Render(kframe.mesh(),
+                                   frames[frame_idx].local_pose(),
+                                   frames[frame_idx].local_exposure(),
+                                   cam,
+                                   in_lvl, out_lvl,
+                                   kframe.image(),
+                                   frames[frame_idx].didxy(),
+                                   image_texture_,
+                                   jdepth_texture_,
+                                   jexp_texture_,
+                                   pids_texture_);
+            hgmapreducer_.reduce(out_lvl,
+                                 frame_idx,
+                                 frames.size(),
+                                 kframe.mesh().vertex_count(),
+                                 jdepth_texture_,
+                                 jexp_texture_,
+                                 pids_texture_,
+                                 image_texture_,
+                                 frames[frame_idx].image(),
+                                 kframe.mesh(),
+                                 total);
+        }
+    }
 
 private:
-    void compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl, DenseLinearProblemx &total);
-
     JDepthExpRenderer jdepthrenderer_;
     HGDepthExpReducerCPU hgmapreducer_;
 
@@ -30,26 +151,15 @@ private:
     Texture<Vec3<float>> jexp_texture_;
     Texture<Vec3<PidType>> pids_texture_;
 
-    Matxf invCovariance_;
-
-    std::vector<float> init_depths_;
-    std::vector<Vec2f> init_exposures_;
-    Vecxf init_params_;
-    float init_error_;
+    std::vector<float> best_depths_;
+    std::vector<Vec2f> best_exps_;
 
     std::vector<float> depths_;
-    std::vector<Vec2f> exposures_;
-    Vecxf params_;
-    float error_;
+    std::vector<Vec2f> exps_;
 
-    std::vector<Vec3<int>> triangles_;
+    // std::vector<Vec3<int>> triangles_;
     std::vector<Vec2<int>> edges_;
 
-    Matxf init_invcovariance_;
-    Matxf init_invcovariancesqrt_;
-
-    DenseLinearProblemx problem_;
-    Solverx<float> solver_;
-
-    bool printLog_;
+    int numDepths_;
+    int numParams_;
 };

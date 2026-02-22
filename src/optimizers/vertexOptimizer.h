@@ -21,7 +21,7 @@ T area3d(const Vec3<T> &v0, const Vec3<T> &v1, const Vec3<T> &v2)
     return fabs(u.cross(v))/2.0;
 }
 
-class VertexOptimizer : public BaseOptimizer
+class VertexOptimizer
 {
 public:
     VertexOptimizer(int w, int h, bool _printLog = false);
@@ -32,9 +32,12 @@ public:
 private:
     void compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl, DenseLinearProblemx &total);
 
+    PhotoError photoerror_;
+
     JVertexExpRenderer jvertexrenderer_;
     HGVertexReducerCPU hgmapreducer_;
 
+    Texture<ImageType> image_texture_;
     Texture<Vec3<float>> jv0_texture_;
     Texture<Vec3<float>> jv1_texture_;
     Texture<Vec3<float>> jv2_texture_;
@@ -60,6 +63,7 @@ private:
     DenseLinearProblemx problem_;
     Solverx<float> solver_;
 
+    bool reached_convergence_;
     bool printLog_;
     tic_toc timer_;
 };

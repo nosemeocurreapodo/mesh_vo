@@ -12,7 +12,7 @@
 #include "common/reducer.h"
 #include "optimizers/baseOptimizer.h"
 
-class PoseVelDepthOptimizer : public BaseOptimizer
+class PoseVelDepthOptimizer
 {
 public:
     PoseVelDepthOptimizer(int w, int h, bool _printLog = false);
@@ -23,9 +23,12 @@ public:
 private:
     void compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl, DenseLinearProblemx &total);
 
+    PhotoError photoerror_;
+
     JPoseVelExpDepthRenderer jposeexpmaprenderer_;
     HGPoseVelDepthReducerCPU hgposeexpmapreducer_;
 
+    Texture<ImageType> image_texture_;
     Texture<Vec3<float>> jtra_texture_;
     Texture<Vec3<float>> jrot_texture_;
     Texture<Vec3<float>> jtravel_texture_;
@@ -53,5 +56,6 @@ private:
 
     Solverx<float> solver_;
 
+    bool reached_convergence_;
     bool printLog_;
 };

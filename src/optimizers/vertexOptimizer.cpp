@@ -1,8 +1,7 @@
 #include "optimizers/vertexOptimizer.h"
 
 VertexOptimizer::VertexOptimizer(int w, int h, bool printLog)
-    : BaseOptimizer(w, h),
-      jv0_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+    : jv0_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jv1_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jv2_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
@@ -197,10 +196,9 @@ void VertexOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera 
         set_vertices(kframe.mesh(), new_vertices);
 
         float new_error = 0;
-        Error err;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            compute_error_(frames[i], kframe, cam, in_lvl, out_lvl, err);
+            new_error += photoerror_.compute(frames[i], kframe, cam, in_lvl, out_lvl);
             /*
             if (fe.getCount() < 0.5 * frames[i].image().width(out_lvl) * frames[i].image().height(out_lvl))
             {
@@ -212,8 +210,7 @@ void VertexOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camera 
             }
                 */
         }
-        // new_error *= 1.0 / frames.size();
-        new_error = err.getError() / err.getCount();
+        new_error /= frames.size();
 
         /*
         if (mesh_vo::mapping_regu_weight > 0.0)

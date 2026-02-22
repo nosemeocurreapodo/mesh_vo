@@ -1,10 +1,9 @@
 #include "optimizers/poseOptimizer.h"
 
-PoseOptimizer::PoseOptimizer(int w, int h, bool print_log)
-	: BaseOptimizer(w, h),
-	  jtra_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
-	  jrot_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
-	  jexp_texture_(w, h, Vec3f(0.0, 0.0, 0.0))
+PoseOptimizer::PoseOptimizer(bool print_log)
+	: jtra_texture_(1, 1, Vec3f(0.0, 0.0, 0.0)),
+	  jrot_texture_(1, 1, Vec3f(0.0, 0.0, 0.0)),
+	  jexp_texture_(1, 1, Vec3f(0.0, 0.0, 0.0))
 {
 	inv_covariance_ = Mat6f::Identity() / mesh_vo::tracking_pose_initial_var;
 	print_log_ = print_log;
@@ -18,9 +17,7 @@ void PoseOptimizer::init(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 	if (mesh_vo::tracking_prior_weight > 0.0)
 		init_invcovariancesqrt_ = inv_covariance_.sqrt();
 
-	Error err;
-	compute_error_(frame, kframe, cam, in_lvl, out_lvl, err);
-	init_error_ = err.getError() / err.getCount();
+	init_error_ = photoerror_.compute(frame, kframe, cam, in_lvl, out_lvl);
 
 	if (mesh_vo::tracking_prior_weight > 0.0)
 	{
@@ -142,6 +139,18 @@ void PoseOptimizer::step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl
 
 void PoseOptimizer::compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<6> &problem)
 {
+	        assert(frame.keyframe_id() == kframe.id());
+        assert(frame.image().width(0) == kframe.image().width(0) &&
+                frame.image().height(0) == kframe.image().height(0));
+
+        if(frame.image().width(0) != image_texture_.width(0) || frame.image().height(0) != image_texture_.height(0))
+        {
+            image_texture_ = Texture<ImageType>(frame.image().width(0), frame.image().height(0), 0);
+            jtra_texture_ = Texture<Vec3f>(frame.image().width(0), frame.image().height(0), Vec3f(0.0, 0.0, 0.0));
+            jrot_texture_ = Texture<Vec3f>(frame.image().width(0), frame.image().height(0), Vec3f(0.0, 0.0, 0.0));
+            jexp_texture_ = Texture<Vec3f>(frame.image().width(0), frame.image().height(0), Vec3f(0.0, 0.0, 0.0));
+		}
+
 	jposerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frame.didxy(), image_texture_, jtra_texture_, jrot_texture_, jexp_texture_);
 	hgposereducer_.reduce(out_lvl, jtra_texture_, jrot_texture_, image_texture_, frame.image(), problem);
 }

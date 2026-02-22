@@ -1,8 +1,7 @@
 #include "optimizers/poseVelDepthOptimizer.h"
 
 PoseVelDepthOptimizer::PoseVelDepthOptimizer(int w, int h, bool _printLog)
-    : BaseOptimizer(w, h),
-      jtra_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+    : jtra_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jrot_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jtravel_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jrotvel_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),

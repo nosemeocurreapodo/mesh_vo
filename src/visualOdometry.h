@@ -12,6 +12,36 @@
 #include "optimizers/poseMapOptimizerCPU.h"
 //#include "optimizers/intrinsicPoseMapOptimizerCPU.h"
 
+template <class Frame, class Keyframe, class Camera, class Optimizer>
+static void optimize(Frame &frame, Keyframe &kframe, Camera &cam, Optimizer optimizer)
+{
+    for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_ini_lvl; lvl--)
+    {
+        optimizer.init(frame, kframe, cam, lvl);
+        while (true)
+        {
+            optimizer.step(frame, kframe, cam, lvl);
+            if (optimizer.converged())
+                break;
+        }
+    }
+} 
+
+template <class Frame, class Keyframe, class Camera, class Optimizer>
+static void optimizePoseDepth(std::vector<Frame> &frames, Keyframe &kframe, Camera &cam, Optimizer &optimizer)
+{
+    for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_ini_lvl; lvl--)
+    {
+        optimizer.init(frames, kframe, cam, lvl);
+        while (true)
+        {
+            optimizer.step(frames, kframe, cam, lvl);
+            if (optimizer.converged())
+                break;
+        }
+    }
+}
+
 class visualOdometry
 {
 public:
@@ -28,9 +58,9 @@ public:
     keyFrameCPU getKeyframe();
 
 private:
+   
 
-    void optimizePose(FrameCPU &frame, KeyFrameCPU &kframe, CameraType &cam);
-    void optimizePoseMap(std::vector<FrameCPU> &frames, KeyFrameCPU &kframe, CameraType &cam);
+void optimizePoseMap(std::vector<FrameCPU> &frames, KeyFrameCPU &kframe, CameraType &cam);
 
     float meanViewAngle(SE3f pose1, SE3f pose2);
     float getViewPercent(frameCPU &frame);

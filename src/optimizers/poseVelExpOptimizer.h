@@ -9,7 +9,7 @@
 #include "optimizers/baseOptimizer.h"
 #include "common/reducer.h"
 
-class PoseVelExpOptimizer : public BaseOptimizer
+class PoseVelExpOptimizer
 {
 public:
     PoseVelExpOptimizer(int w, int h, bool print_log = false);
@@ -19,6 +19,8 @@ public:
 
 private:
     void compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<14> &problem);
+
+    PhotoError photoerror_;
 
     JPoseVelExpRenderer jposerenderer_;
     HGPoseVelExpReducerCPU hgposereducer_;
@@ -47,5 +49,6 @@ private:
 
     Solver<float, 14> solver_;
 
+    bool reached_convergence_;
     bool print_log_;
 };

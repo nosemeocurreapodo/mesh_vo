@@ -1,0 +1,56 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+    // README at: https://github.com/devcontainers/templates/tree/main/src/cpp
+    {
+        //"name": "MultiPlataformRenderer",
+        //"build": {
+       // 	"dockerfile": "Dockerfile",
+        // 	"context": "."
+        //},
+        //"image": "bcc003ce2b6d/vivado_2023.2:v1",
+        "image": "ubuntu:22.04",
+        //"mounts": [
+        //  "source=/tools/,target=/tools/,type=bind,consistency=cached"
+        //],
+        "customizations":
+            {
+              "vscode": {
+                "settings": {
+                  "terminal.integrated.shell.linux": "/bin/bash"
+                },
+                "extensions": [
+                  "ms-vscode.cpptools-extension-pack",
+                  "donjayamanne.python-extension-pack",
+                  "google.geminicodeassist",
+                  "google.gemini-cli-vscode-ide-companion"
+                ]
+              }
+            },
+        //"postCreateCommand": "cp /workspaces/MultiPlatformDiffRenderer/.devcontainer/.settings64-Vitis.sh /tools/Xilinx/Vitis/2023.2/ && apt-get update && apt-get install -y build-essential cmake gdb libbenchmark-dev libeigen3-dev libopencv-dev mesa-utils libglu1-mesa-dev freeglut3-dev mesa-common-dev libassimp-dev libboost-all-dev libglm-dev liblapacke-dev",
+        "postCreateCommand": "apt-get update && apt-get install -y build-essential cmake git gdb libbenchmark-dev libeigen3-dev libopencv-dev mesa-utils libglu1-mesa-dev freeglut3-dev mesa-common-dev libassimp-dev libboost-all-dev libglm-dev liblapacke-dev",
+        "runArgs": [
+          "--device=/dev/dri",
+          "--group-add=video"
+          //"--group-add=render"
+        ]
+        //"runArgs": ["--device=/dev/dri:/dev/dri"],
+        //"runArgs": ["--gpus all"],
+        //"postCreateCommand": "cmake -S . -B build && cmake --build build",
+        //"postCreateCommand": "apt-get update && apt-get install -y build-essential cmake"
+        //"remoteUser": "vscode"
+  
+        // Features to add to the dev container. More info: https://containers.dev/features.
+        // "features": {},
+  
+        // Use 'forwardPorts' to make a list of ports inside the container available locally.
+        // "forwardPorts": [],
+  
+        // Use 'postCreateCommand' to run commands after the container is created.
+        // "postCreateCommand": "gcc -v",
+  
+        // Configure tool-specific properties.
+        // "customizations": {},
+  
+        // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+        // "remoteUser": "root"
+      }
+  

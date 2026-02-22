@@ -66,10 +66,13 @@ private:
 class DenseLinearProblemx
 {
 public:
-    // DenseLinearProblemx() : m_numParams(0), m_count(0) {}
+    DenseLinearProblemx() : m_numParams(0), m_count(0) {}
     DenseLinearProblemx(int n)
     {
-        clear(n);
+        m_numParams = n;
+        m_Hp = Matxf::Zero(n, n);
+        m_G = Vecxf::Zero(n);
+        m_count = 0;
     }
     /*
     DenseLinearProblemx &operator=(const DenseLinearProblemx &other)
@@ -88,21 +91,11 @@ public:
     DenseLinearProblemx(DenseLinearProblemx &&) noexcept = default;
     DenseLinearProblemx &operator=(DenseLinearProblemx &&) noexcept = default;
     */
-    void clear(int n)
+    void clear()
     {
-        if (n != m_numParams)
-        {
-            m_numParams = n;
-            m_Hp = Matxf::Zero(n, n);
-            m_G = Vecxf::Zero(n);
-            m_count = 0;
-        }
-        else if (m_numParams > 0)
-        {
-            m_Hp.setZero();
-            m_G.setZero();
-            m_count = 0;
-        }
+        m_Hp.setZero();
+        m_G.setZero();
+        m_count = 0;
     }
 
     int size() const { return m_numParams; }

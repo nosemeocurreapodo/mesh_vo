@@ -72,16 +72,16 @@ endif()
 # --- Core Library -------------------------------------------------
 set(VISUALODOMETRY_SRCS
   src/params.cpp
-  src/optimizers/poseOptimizer.cpp
-  src/optimizers/poseExpOptimizer.cpp
+#  src/optimizers/poseOptimizer.cpp
+#  src/optimizers/poseExpOptimizer.cpp
 #  src/optimizers/poseVelOptimizer.cpp
 #  src/optimizers/poseVelExpOptimizer.cpp
-  src/optimizers/depthOptimizer.cpp
-  src/optimizers/depthExpOptimizer.cpp
-  src/optimizers/rayDepthOptimizer.cpp
-  src/optimizers/vertexOptimizer.cpp
-  src/optimizers/poseDepthOptimizer.cpp
-  src/optimizers/poseExpDepthOptimizer.cpp
+#  src/optimizers/depthOptimizer.cpp
+#  src/optimizers/depthExpOptimizer.cpp
+#  src/optimizers/rayDepthOptimizer.cpp
+#  src/optimizers/vertexOptimizer.cpp
+#  src/optimizers/poseDepthOptimizer.cpp
+#  src/optimizers/poseExpDepthOptimizer.cpp
 #  src/optimizers/poseVelMapOptimizer.cpp
 #  src/optimizers/poseVelExpMapOptimizer.cpp
 )

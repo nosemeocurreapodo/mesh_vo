@@ -118,34 +118,6 @@ float visualOdometry::getViewPercent(frameCPU &frame)
     return 1.0 - pnodata;
 }
 
-void visualOdometry::optimizePose(frameCPU &frame, keyFrameCPU &kframe, cameraType &cam)
-{
-    for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_ini_lvl; lvl--)
-    {
-        while (true)
-        {
-            poseOptimizer.init(frame, kframe, cam, lvl);
-            poseOptimizer.step(frame, kframe, cam, lvl);
-            if (poseOptimizer.converged())
-                break;
-        }
-    }
-}
-
-void visualOdometry::optimizePoseMap(std::vector<frameCPU> &frames, keyFrameCPU &kframe, cameraType &cam)
-{
-    for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_ini_lvl; lvl--)
-    {
-        while (true)
-        {
-            poseMapOptimizer.init(frames, kframe, cam, lvl);
-            poseMapOptimizer.step(frames, kframe, cam, lvl);
-            if (poseMapOptimizer.converged())
-                break;
-        }
-    }
-}
-
 int visualOdometry::locAndMap(dataCPU<imageType> &image)
 {
     tic_toc t;

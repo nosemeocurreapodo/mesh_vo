@@ -13,7 +13,7 @@
 #include "optimizers/baseOptimizer.h"
 #include "utils/tictoc.h"
 
-class RayDepthOptimizer : public BaseOptimizer
+class RayDepthOptimizer
 {
 public:
     RayDepthOptimizer(int w, int h, bool _printLog = false);
@@ -24,9 +24,12 @@ public:
 private:
     void compute_problem_(Frame &frame, KeyFrame &kframe, Camera &cam, int frame_id, int num_frames, int num_vertices, int in_lvl, int out_lvl, DenseLinearProblemx &total);
 
+    PhotoError photoerror_;
+
     JRayDepthExpRenderer jmaprenderer_;
     HGDepthReducerCPU hgmapreducer_;
 
+    Texture<ImageType> image_texture_;
     Texture<Vec3<float>> jdepth_texture_;
     Texture<Vec3<float>> jray0_texture_;
     Texture<Vec3<float>> jray1_texture_;
@@ -52,6 +55,7 @@ private:
     DenseLinearProblemx problem_;
     Solverx<float> solver_;
 
+    bool reached_convergence_;
     bool printLog_;
     tic_toc timer_;
 };

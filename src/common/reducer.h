@@ -380,13 +380,13 @@ public:
 				const Mesh &mesh,
 				DenseLinearProblemx &total) const
 	{
-		const int dof = num_vertices; // Depth params only
+		//const int dof = num_vertices; // Depth params only
 
 		// If caller wants accumulation across calls, we must ensure consistent size.
-		if (total.size() == 0)
-			total.clear(dof);
-		else
-			assert(total.size() == dof);
+		//if (total.size() == 0)
+		//	total.clear(dof);
+		//else
+		//	assert(total.size() == dof);
 
 		compute(lvl, num_vertices,
 				jdepth_texture, pids_texture, image_texture, ref_texture, mesh, total);

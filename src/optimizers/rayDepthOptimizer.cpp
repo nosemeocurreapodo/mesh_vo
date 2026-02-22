@@ -1,8 +1,7 @@
 #include "optimizers/rayDepthOptimizer.h"
 
 RayDepthOptimizer::RayDepthOptimizer(int w, int h, bool printLog)
-    : BaseOptimizer(w, h),
-      jdepth_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+    : jdepth_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jray0_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jray1_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
       jray2_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
@@ -37,14 +36,12 @@ void RayDepthOptimizer::init(std::vector<Frame> &frames, KeyFrame &kframe, Camer
         init_invcovariancesqrt_ = invCovariance_.sqrt();
 
     init_error_ = 0;
-    Error err;
     for (std::size_t i = 0; i < frames.size(); i++)
     {
-        compute_error_(frames[i], kframe, cam, in_lvl, out_lvl, err);
+        init_error_ += photoerror_.compute(frames[i], kframe, cam, in_lvl, out_lvl);
         // init_error += err.getError() / err.getCount();
     }
-    // init_error *= 1.0 / frames.size();
-    init_error_ = err.getError() / err.getCount();
+    init_error_ /= frames.size();
 
     if (mesh_vo::mapping_regu_weight > 0.0)
     {
@@ -193,10 +190,9 @@ void RayDepthOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camer
         set_depths(kframe.mesh(), new_depths);
 
         float new_error = 0;
-        Error err;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            compute_error_(frames[i], kframe, cam, in_lvl, out_lvl, err);
+            new_error += photoerror_.compute(frames[i], kframe, cam, in_lvl, out_lvl);
             /*
             if (fe.getCount() < 0.5 * frames[i].image().width(out_lvl) * frames[i].image().height(out_lvl))
             {
@@ -208,8 +204,7 @@ void RayDepthOptimizer::step(std::vector<Frame> &frames, KeyFrame &kframe, Camer
             }
                 */
         }
-        // new_error *= 1.0 / frames.size();
-        new_error = err.getError() / err.getCount();
+        new_error /= frames.size();
 
         if (mesh_vo::mapping_regu_weight > 0.0)
         {

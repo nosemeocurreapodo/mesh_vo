@@ -1,8 +1,7 @@
 #include "optimizers/poseVelExpOptimizer.h"
 
 PoseVelExpOptimizer::PoseVelExpOptimizer(int w, int h, bool print_log)
-	: BaseOptimizer(w, h),
-	  jtra_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
+	: jtra_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
 	  jrot_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
 	  jtravel_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),
 	  jrotvel_texture_(w, h, Vec3f(0.0, 0.0, 0.0)),

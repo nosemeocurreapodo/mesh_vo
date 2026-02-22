@@ -113,22 +113,22 @@ public:
         return *this;
     }
 
-    int id()
+    int id() const
     {
         return id_;
     }
 
-    const Texture<ImageType> &image()
+    const Texture<ImageType> &image() const
     {
         return image_;
     }
 
-    const Texture<Vec3f> &didxy()
+    const Texture<Vec3f> &didxy() const
     {
         return didxy_;
     }
 
-    const SE3f &global_pose()
+    const SE3f &global_pose() const
     {
         return global_pose_;
     }
