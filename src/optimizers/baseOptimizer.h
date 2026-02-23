@@ -1,5 +1,6 @@
 #pragma once
 
+#include <span>
 #include "params.h"
 #include "common/types.h"
 #include "common/frame.h"
@@ -47,29 +48,50 @@ template <class Derived, typename HessianType, typename GradType, typename Probl
 class BaseOptimizer
 {
 public:
-    BaseOptimizer(bool printlog)
-        : image_texture_(1, 1, 0),
+    BaseOptimizer(int w, int h, bool printlog)
+        : image_texture_(w, h, 0),
+          reached_convergence_(false),
           printlog_(printlog)
     {
     }
 
-    void init(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+    bool converged()
     {
-        derived().init(frames, kframe, problem_, solver_);
+        return reached_convergence_;
+    }
 
-        init_error_ = 0;
+    void init(const Frame &frame, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    {
+        init(std::span{&frame, 1}, kframe, cam, in_lvl, out_lvl);
+    }
+
+    void init(std::span<const Frame> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    {
+        derived().reset(frames, kframe, problem_, solver_);
+
+        init_error_.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            init_error_ += compute_error_(frames[i], kframe, cam, in_lvl, out_lvl);
+            compute_error_(frames[i], kframe, cam, in_lvl, out_lvl, init_error_);
         }
-        init_error_ += derived().regu_error_();
+        init_error_ *= 1.0f / init_error_.getCount();
+
+        init_error_ += derived().regu_error();
+
+        if (printlog_)
+            std::cout << "optimizer " << in_lvl << " " << out_lvl << " initial error: " << init_error_() << std::endl;
 
         error_ = init_error_;
 
         reached_convergence_ = false;
     }
 
-    void step(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+    void step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+    {
+        step(std::span{&frame, 1}, kframe, cam, in_lvl, out_lvl);
+    }
+
+    void step(std::span<Frame> frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
     {
         problem_.clear();
         derived().compute_problem(frames, kframe, cam, in_lvl, out_lvl, problem_);
@@ -104,18 +126,24 @@ public:
 
             derived().update_params(frames, kframe, inc);
 
-            float new_error = 0;
+            Error new_error;
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                new_error += compute_error_(frames[i], kframe, cam, in_lvl, out_lvl);
+                compute_error_(frames[i], kframe, cam, in_lvl, out_lvl, new_error);
             }
-            new_error /= frames.size();
+            new_error *= 1.0f / new_error.getCount();
 
             new_error += derived().regu_error();
 
-            if (new_error <= error_)
+            if (printlog_)
+                std::cout << "optimizer " << in_lvl << " " << out_lvl << " new error: " << new_error() << " lambda: " << lambda << std::endl;
+
+            if (new_error() <= error_())
             {
-                float p = new_error / error_;
+                // if (printlog_)
+                //     std::cout << "accepted " << std::endl;
+
+                float p = new_error() / error_();
                 error_ = new_error;
 
                 derived().update_best_params();
@@ -124,12 +152,15 @@ public:
                 {
                     reached_convergence_ = true;
                     if (printlog_)
-                        std::cout << "poseMapOptimizer converged p:" << p << std::endl;
+                        std::cout << "optimizer " << in_lvl << " " << out_lvl << " converged p:" << p << std::endl;
                 }
                 break;
             }
             else
             {
+                // if (printlog_)
+                //     std::cout << "rejected" << std::endl;
+
                 derived().restore_best_params(frames, kframe);
 
                 float incMag = inc.dot(inc) / derived().numParams();
@@ -138,7 +169,7 @@ public:
                 {
                     reached_convergence_ = true;
                     if (printlog_)
-                        std::cout << "mapOptimizer too small " << incMag << std::endl;
+                        std::cout << "optimizer " << in_lvl << " " << out_lvl << " too small " << incMag << std::endl;
                     break;
                 }
             }
@@ -146,7 +177,7 @@ public:
     }
 
 protected:
-    float compute_error_(const Frame &frame, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    void compute_error_(const Frame &frame, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, Error &total)
     {
         // imagerenderer_.Render(kframe.mesh(), frame.local_pose() * kframe.frame().local_pose().inverse(), cam, lvl, lvl, kframe.frame().image(), e_texture_);
         // return errorreducer_.reduce(lvl, frame.image(), e_texture_);
@@ -155,18 +186,11 @@ protected:
         assert(frame.image().width(0) == kframe.image().width(0) &&
                frame.image().height(0) == kframe.image().height(0));
 
-        if (frame.image().width(0) != image_texture_.width(0) || frame.image().height(0) != image_texture_.height(0))
-        {
-            image_texture_ = Texture<ImageType>(frame.image().width(0), frame.image().height(0), 0);
-        }
-
         imagerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
-        Error total;
         residualreducer_.reduce(out_lvl, image_texture_, frame.image(), total);
-        return total.getError() / total.getCount();
     }
 
-    Derived& derived() { return static_cast<Derived&>(*this); }
+    Derived &derived() { return static_cast<Derived &>(*this); }
 
     ImageRenderer imagerenderer_;
     ResidualReducerCPU residualreducer_;
@@ -176,8 +200,8 @@ protected:
     Problem problem_;
     Solver solver_;
 
-    float init_error_;
-    float error_;
+    Error init_error_;
+    Error error_;
 
     bool reached_convergence_;
 

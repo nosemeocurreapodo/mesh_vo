@@ -13,22 +13,22 @@
 #include "optimizers/baseOptimizer.h"
 
 class PoseOptimizer : public BaseOptimizer<PoseOptimizer,
-                                              Matx<float>,
-                                              Vecx<float>,
+                                              Mat6<float>,
+                                              Vec6<float>,
                                               DenseLinearProblem<6>,
                                               Solver<float, 6>>
 {
 public:
     using Base = BaseOptimizer<PoseOptimizer,
-                               Matx<float>,
-                               Vecx<float>,
+                               Mat6<float>,
+                               Vec6<float>,
                                DenseLinearProblem<6>,
                                Solver<float, 6>>;
-    PoseOptimizer(bool printlog = false)
-        : Base(printlog),
-          jtra_texture_(1, 1, Vec3<float>(0.0, 0.0, 0.0)),
-          jrot_texture_(1, 1, Vec3<float>(0.0, 0.0, 0.0)),
-          jexp_texture_(1, 1, Vec3<float>(0.0, 0.0, 0.0))
+    PoseOptimizer(int w, int h,bool printlog = false)
+        : Base(w, h, printlog),
+          jtra_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+          jrot_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+          jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0))
     {
     }
 
@@ -37,7 +37,7 @@ public:
         return numParams_;
     }
 
-    void init(const std::vector<Frame> &frames, const KeyFrame &kframe, DenseLinearProblem<6> &problem, Solver<float, 6> &solver)
+    void reset(std::span<const Frame> frames, const KeyFrame &kframe, DenseLinearProblem<6> &problem, Solver<float, 6> &solver)
     {
         best_poses_.clear();
         for (int i = 0; i < frames.size(); i++)
@@ -52,13 +52,15 @@ public:
         return 0;//regu_depth(depths_, edges_);
     }
 
-    void regu_jacobian(DenseLinearProblemx &problem)
+    void regu_jacobian(DenseLinearProblem<6> &problem) const
     {
         //regu_depth_jacobian(depths_, edges_, problem);
     }
 
-    void update_params(std::vector<Frame> &frames, KeyFrame &kframe, const Vecx<float> &inc)
+    void update_params(std::span<Frame> frames, KeyFrame &kframe, const Vec6<float> &inc)
     {
+        poses_.clear();
+        
         for (size_t i = 0; i < frames.size(); i++)
         {
             Vec6<float> pose_inc(inc(i * 6 + 0),
@@ -82,7 +84,7 @@ public:
         best_poses_ = poses_;
     }
 
-    void restore_best_params(std::vector<Frame> &frames, KeyFrame &kframe)
+    void restore_best_params(std::span<Frame> frames, KeyFrame &kframe)
     {
         poses_ = best_poses_;
 
@@ -92,7 +94,7 @@ public:
         }
     }
 
-    void compute_problem(std::vector<Frame> &frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<6> &total)
+    void compute_problem(std::span<const Frame> frames, const KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<6> &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {

@@ -3,10 +3,7 @@
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
-#include "optimizers/poseOptimizer.h"
-#include "optimizers/poseExpOptimizer.h"
-// #include "optimizers/poseVelOptimizer.h"
-// #include "optimizers/poseVelExpOptimizer.h"
+#include "poseEstimator.h"
 
 // Function to compute error between two SE3 poses
 std::array<double, 2> ComputeSE3Error(const SE3f &pose_est, const SE3f &pose_gt)
@@ -35,8 +32,6 @@ TEST_F(RendererTestBase, ComputePose)
     InitEGL();
 #endif
 
-    const int in_lvl = 0, out_lvl = 0;
-
     const long long acceptableTimeMs = 30;
     const float translationErrorThreshold = 0.02; // best = 0.0160271;
     const float rotationErrorThreshold = 0.0011;  // best = 0.00105154;
@@ -59,7 +54,7 @@ TEST_F(RendererTestBase, ComputePose)
     DIDxyRenderer didxy_renderer;
     NodataReducerCPU nodata_reducer;
 
-    PoseOptimizer optimizer(w_, h_, true);
+    PoseEstimator estimator(w_, h_, true);
 
     KeyFrame *kframe;
 
@@ -103,40 +98,19 @@ TEST_F(RendererTestBase, ComputePose)
             continue;
         }
 
-        SE3f ini_local_pose = tracked_local_movement * tracked_local_pose;
-        Vec2f ini_local_exposure = tracked_local_exposure;
-
-        Frame frame(image_texture, didxy_texture, img_id, kframe->id(), ini_local_pose, ini_local_exposure);
+        Frame frame(image_texture, didxy_texture, img_id, kframe->id());
+        estimator.guess(frame);
 
         auto startTime = std::chrono::high_resolution_clock::now();
-        for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
-        {
-            int in_lvl = lvl;
-            int out_lvl = lvl;
-            optimizer.init(frame, *kframe, cam_, in_lvl, out_lvl);
-            while (!optimizer.converged())
-            {
-                optimizer.step(frame, *kframe, cam_, in_lvl, out_lvl);
-            }
-        }
+        estimator.estimate(frame, *kframe, cam_);
         auto endTime = std::chrono::high_resolution_clock::now();
         std::chrono::milliseconds processingTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
 
         auto duration = processingTime.count();
         std::cout << "processing time " << duration << " ms" << std::endl;
 
-        SE3f new_local_pose = frame.local_pose();
-        Vec6f new_local_vel = frame.local_vel();
-        Vec2f new_local_exposure = frame.local_exposure();
-
-        tracked_local_movement = new_local_pose * tracked_local_pose.inverse();
-        tracked_local_pose = new_local_pose;
-        tracked_local_exposure = new_local_exposure;
-
         SE3f es_global_pose = kframe->localPoseToGlobal(frame.local_pose());
-
         std::array<double, 2> error = ComputeSE3Error(es_global_pose, gt_global_pose);
-
         std::cout << "translation error " << error[0] << " rotation error " << error[1] << std::endl;
 
         accProcessingTime += processingTime;
@@ -177,12 +151,8 @@ TEST_F(RendererTestBase, ComputePose)
             new_mesh);
 
         kframe = new KeyFrame(frame.image(), frame.didxy(), es_global_pose, new_mesh, 1.0, frame.id());
-        frame.local_pose() = SE3f();
-        frame.local_exposure() = Vec2f(0.0, 0.0);
-        frame.local_vel() = Vec6f(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-        tracked_local_pose = SE3f();
-        tracked_local_movement = SE3f();
-        tracked_local_exposure = Vec2f(0.0, 0.0);
+        
+        estimator.changeKeyframe(frame, frame, cam_);
 
         float meanDepth = kframe->meanDepth();
         kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);

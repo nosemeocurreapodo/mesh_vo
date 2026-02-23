@@ -75,12 +75,17 @@ public:
         e_ *= a;
     }
 
-    float getError()
+    float operator()() const
     {
         return e_;
     }
 
-    int getCount()
+    float getError() const
+    {
+        return e_;
+    }
+
+    int getCount() const
     {
         return c_;
     }

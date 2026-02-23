@@ -3,8 +3,7 @@
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
-#include "optimizers/depthOptimizer.h"
-#include "optimizers/depthExpOptimizer.h"
+#include "depthEstimator.h"
 
 TEST_F(RendererTestBase, ComputeDepth)
 {
@@ -29,7 +28,7 @@ TEST_F(RendererTestBase, ComputeDepth)
 
     NodataReducerCPU nodata_reducer;
 
-    DepthOptimizer optimizer(w_, h_, true);
+    DepthEstimator estimator(w_, h_, true);
 
     std::vector<Frame> frames;
     std::vector<Texture<float>> gt_depth_textures;
@@ -136,51 +135,10 @@ TEST_F(RendererTestBase, ComputeDepth)
 
         int kframeIndex = frames.size() / 2;
         Frame newKeyFrame = frames[kframeIndex];
-        SE3f global_pose = kframe->localPoseToGlobal(newKeyFrame.local_pose());
 
-        depth_renderer.Render(kframe->mesh(),
-                              newKeyFrame.local_pose(),
-                              cam_,
-                              0,
-                              es_depth_texture);
-
-        Mesh mesh;
-        CreateMesh(es_depth_texture.MapRead(0).data(), 
-            cam_, 
-            es_depth_texture.width(0),
-            es_depth_texture.height(0),
-            mesh_vo::mesh_width, 
-            mesh);
-        // CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-        //   CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
-
-        float global_scale = kframe->getGlobalScale();
-        kframe = new KeyFrame(newKeyFrame.image(),
-                              newKeyFrame.didxy(),
-                              global_pose,
-                              mesh,
-                              global_scale,
-                              newKeyFrame.id());
-
-        // kframe->changeFrame(frames[kframeIndex].image(),
-        //                     frames[kframeIndex].didxy(),
-        //                     // es_depth_texture,
-        //                     frames[kframeIndex].local_pose(),
-        //                     frames[kframeIndex].id(),
-        //                     cam_);
+        estimator.changeKeyframe(newKeyFrame, frames, kframe, cam_);
 
         std::cout << "Mean depth " << kframe->meanDepth() << std::endl;
-
-        SE3f reference_pose = frames[kframeIndex].local_pose().inverse();
-
-        frame.local_pose() = frame.local_pose() * reference_pose;
-        // frame.local_pose() = kframe->globalPoseToLocal(gt_global_pose);
-
-        for (std::size_t k = 0; k < frames.size(); k++)
-        {
-            frames[k].local_pose() = frames[k].local_pose() * reference_pose;
-            // frames[k].local_pose() = kframe->globalPoseToLocal(gt_global_poses[k]);
-        }
 
         //////////// Debug /////////////////
         int plot_lvl = 0;
@@ -203,41 +161,12 @@ TEST_F(RendererTestBase, ComputeDepth)
         oframes.erase(oframes.begin() + kframeIndex);
 
         auto startTime = std::chrono::high_resolution_clock::now();
-        for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
-        {
-            int in_lvl = lvl;
-            int out_lvl = lvl;
-
-            optimizer.init(oframes, *kframe, cam_, in_lvl, out_lvl);
-            while (!optimizer.converged())
-            {
-                // auto stepStartTime = std::chrono::high_resolution_clock::now();
-                optimizer.step(oframes, *kframe, cam_, in_lvl, out_lvl);
-                // auto stepEndTime = std::chrono::high_resolution_clock::now();
-                // std::chrono::milliseconds stepProcessingTime = std::chrono::duration_cast<std::chrono::milliseconds>(stepEndTime - stepStartTime);
-                // auto duration = stepProcessingTime.count();
-                // std::cout << "step processing time " << duration << " ms" << std::endl;
-            }
-        }
+        estimator.estimate(oframes, *kframe, cam_);
         auto endTime = std::chrono::high_resolution_clock::now();
         std::chrono::milliseconds processingTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
 
         auto duration = processingTime.count();
         std::cout << "processing time " << duration << " ms" << std::endl;
-
-        /*
-        for (size_t i = 0; i < oframes.size(); i++)
-        {
-            for (size_t j = 0; j < frames.size(); j++)
-            {
-                if (oframes[i].id() == frames[j].id())
-                {
-                    frames[j].local_pose() = oframes[i].local_pose();
-                    frames[j].local_exposure() = oframes[i].local_exposure();
-                }
-            }
-        }
-        */
 
         float new_mean_depth = kframe->meanDepth();
         kframe->scaleMesh(new_mean_depth / mesh_vo::mapping_mean_depth);

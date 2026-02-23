@@ -70,7 +70,12 @@ public:
         return id_;
     }
 
-    int keyframe_id() const
+    const int &keyframe_id() const
+    {
+        return kframe_id_;
+    }
+
+    int &keyframe_id()
     {
         return kframe_id_;
     }

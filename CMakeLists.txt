@@ -13,7 +13,7 @@ option(COMPILE_TUM     "Enable Tum app compilation"       ON)
 option(COMPILE_TESTS   "Enable Tests compilation"         ON)
 
 # --- C++ Standard -------------------------------------------------
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
