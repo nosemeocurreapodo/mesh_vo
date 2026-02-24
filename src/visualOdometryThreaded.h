@@ -25,13 +25,8 @@
 #include "common/frame.h"
 #include "common/keyframe.h"
 
-#include "optimizers/poseOptimizer.h"
-#include "optimizers/poseExpOptimizer.h"
-// #include "optimizers/poseVelOptimizerCPU.h"
-#include "optimizers/depthOptimizer.h"
-#include "optimizers/poseDepthOptimizer.h"
-#include "optimizers/poseExpDepthOptimizer.h"
-// #include "optimizers/intrinsicPoseMapOptimizerCPU.h"
+#include "poseEstimator.h"
+#include "poseDepthEstimator.h"
 
 // #include "visualizer/trayectoryPlotter.h"
 // #include "visualizer/imagePlotter.h"
@@ -209,14 +204,10 @@ private:
         Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
         Texture<float> depth_texture(width_, height_, 0);
 
-        PoseOptimizer optimizer(width_, height_, true);
+        PoseEstimator estimator(width_, height_, true);
         // KeyFrame kframe(image_texture, didxy_texture, SE3f(), screen_mesh, 1.0, -1);
 
         KeyFrame kframe = kfQueue_.peek();
-
-        SE3f lastLocalPose;
-        SE3f lastLocalMovement;
-        Vec2f lastLocalExposure(0.0, 0.0);
 
         tic_toc tt;
 
@@ -225,8 +216,7 @@ private:
             // check if there is a new kframe
             if (kfQueue_.try_peek(kframe))
             {
-                lastLocalMovement = SE3f();
-                lastLocalPose = SE3f();
+                // estimator.changeKeyframe()
             }
 
             Texture<ImageType> image_texture = iQueue_.pop();
@@ -236,39 +226,10 @@ private:
 
             Frame frame(image_texture, didxy_texture, frameId_, kframe.id());
 
-            // initialize the global and local pose
-            frame.local_pose() = lastLocalMovement * lastLocalPose;
-            frame.local_exposure() = lastLocalExposure;
-
-            // this will update the local pose
             tt.tic();
-            for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
-            {
-                optimizer.init(frame, kframe, cam_, lvl, lvl);
-                // if (plotDebug)
-                //{
-                //     std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frame, kframe, cam, 1);
-                //     debugLocalizationQueue.push(debugData);
-                // }
-                while (true)
-                {
-                    optimizer.step(frame, kframe, cam_, lvl, lvl);
-                    if (optimizer.converged())
-                    {
-                        // if (plotDebug)
-                        //{
-                        //     std::vector<dataCPU<float>> debugData = optimizer.getDebugData(frame, kframe, cam, 1);
-                        //     debugLocalizationQueue.push(debugData);
-                        // }
-                        break;
-                    }
-                }
-            }
+            estimator.guess(frame);
+            estimator.estimate(frame, kframe, cam_);
             std::cout << "localization time " << tt.toc() << std::endl;
-
-            lastLocalMovement = frame.local_pose() * lastLocalPose.inverse();
-            lastLocalPose = frame.local_pose();
-            lastLocalExposure = frame.local_exposure();
 
             fQueue_.push(frame);
 
@@ -307,7 +268,7 @@ private:
 
         NodataReducerCPU nodata_reducer;
 
-        PoseDepthOptimizer optimizer(width_, height_, true);
+        PoseDepthEstimator estimator(width_, height_, true);
 
         std::vector<Frame> frameStack;
 
@@ -359,61 +320,14 @@ private:
             // int newKeyframeIndex = int(goodFrames.size() - 1);
             Frame newKeyframe = frameStack[newKeyframeIndex];
 
-            Mesh mesh;
-            // CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, false);
-            CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, mesh);
-
-            SE3f reference_pose = newKeyframe.local_pose().inverse();
-            SE3f global_pose = kframe.localPoseToGlobal(newKeyframe.local_pose());
-            float global_scale = kframe.getGlobalScale();
-
-            kframe = KeyFrame(newKeyframe.image(), newKeyframe.didxy(), global_pose, mesh, global_scale, newKeyframe.id());
-
-            for (int i = 0; i < frameStack.size(); i++)
-            {
-                frameStack[i].local_pose() = frameStack[i].local_pose() * reference_pose;
-            }
+            estimator.changeKeyframe(newKeyframe, frameStack, kframe, cam_);
 
             std::vector<Frame> oframes = frameStack;
             // oframes.erase(oframes.begin() + newKeyframeIndex);
 
             tt.tic();
-            for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
-            {
-                optimizer.init(oframes, kframe, cam_, lvl, lvl);
-                // if (plotDebug)
-                //{
-                //     std::vector<dataCPU<float>> debugData = optimizer.getDebugData(keyframes, kframe, cam, 1);
-                //     debugMappingQueue.push(debugData);
-                // }
-                while (true)
-                {
-                    optimizer.step(oframes, kframe, cam_, lvl, lvl);
-                    if (optimizer.converged())
-                    {
-                        // if (plotDebug)
-                        //{
-                        //     std::vector<dataCPU<float>> debugData = optimizer.getDebugData(keyframes, kframe, cam, 1);
-                        //     debugMappingQueue.push(debugData);
-                        // }
-                        break;
-                    }
-                }
-            }
+            estimator.estimate(frameStack, kframe, cam_);
             std::cout << "mapping time " << tt.toc() << std::endl;
-
-            // update the global poses
-            for (size_t i = 0; i < oframes.size(); i++)
-            {
-                for (size_t j = 0; j < frameStack.size(); j++)
-                {
-                    if (oframes[i].id() == frameStack[j].id())
-                    {
-                        frameStack[j].local_pose() = oframes[i].local_pose();
-                        frameStack[j].local_exposure() = oframes[i].local_exposure();
-                    }
-                }
-            }
 
             kfQueue_.push(kframe);
 
@@ -616,11 +530,11 @@ private:
 
                 Mesh mesh;
                 CreateMesh(depth_texture.MapRead(0).data(),
-                 cam_, 
-                 depth_texture.width(0),
-                 depth_texture.height(0),
-                  mesh_vo::mesh_width, 
-                  mesh);
+                           cam_,
+                           depth_texture.width(0),
+                           depth_texture.height(0),
+                           mesh_vo::mesh_width,
+                           mesh);
                 // CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
 
                 SE3f reference_pose = newKeyframe.local_pose().inverse();

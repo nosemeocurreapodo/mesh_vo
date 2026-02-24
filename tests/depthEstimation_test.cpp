@@ -136,7 +136,7 @@ TEST_F(RendererTestBase, ComputeDepth)
         int kframeIndex = frames.size() / 2;
         Frame newKeyFrame = frames[kframeIndex];
 
-        estimator.changeKeyframe(newKeyFrame, frames, kframe, cam_);
+        estimator.changeKeyframe(newKeyFrame, frames, *kframe, cam_);
 
         std::cout << "Mean depth " << kframe->meanDepth() << std::endl;
 

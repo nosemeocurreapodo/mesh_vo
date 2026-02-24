@@ -152,7 +152,7 @@ TEST_F(RendererTestBase, ComputePose)
 
         kframe = new KeyFrame(frame.image(), frame.didxy(), es_global_pose, new_mesh, 1.0, frame.id());
         
-        estimator.changeKeyframe(frame, frame, cam_);
+        //estimator.changeKeyframe(frame, frame, cam_);
 
         float meanDepth = kframe->meanDepth();
         kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);

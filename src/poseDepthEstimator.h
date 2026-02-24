@@ -1,12 +1,12 @@
 #pragma once
 
 #include "common/types.h"
-#include "optimizers/depthOptimizer.h"
+#include "optimizers/poseDepthOptimizer.h"
 
-class DepthEstimator
+class PoseDepthEstimator
 {
 public:
-    DepthEstimator(int w, int h, bool log)
+    PoseDepthEstimator(int w, int h, bool log)
         : optimizer(w, h, log),
           depth_texture(w, h, -1.0)
     {
@@ -74,7 +74,7 @@ public:
     }
 
 private:
-    DepthOptimizer optimizer;
+    PoseDepthOptimizer optimizer;
     DepthRenderer depth_renderer;
     Texture<float> depth_texture;
 };
