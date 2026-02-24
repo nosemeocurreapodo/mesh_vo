@@ -3,13 +3,8 @@
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
-#include "optimizers/poseOptimizer.h"
-#include "optimizers/poseExpOptimizer.h"
-// #include "optimizers/poseVelExpOptimizer.h"
-#include "optimizers/poseDepthOptimizer.h"
-#include "optimizers/poseExpDepthOptimizer.h"
-// #include "optimizers/poseVelMapOptimizer.h"
-// #include "optimizers/poseVelExpMapOptimizer.h"
+#include "poseEstimator.h"
+#include "poseDepthEstimator.h"
 
 TEST_F(RendererTestBase, ComputePoseDepth)
 {
@@ -34,8 +29,8 @@ TEST_F(RendererTestBase, ComputePoseDepth)
 
     NodataReducerCPU nodata_reducer;
 
-    PoseOptimizer pose_optimizer(w_, h_, true);
-    PoseDepthOptimizer posemap_optimizer(w_, h_, true);
+    PoseEstimator pose_estimator(w_, h_, true);
+    PoseDepthEstimator posedepth_estimator(w_, h_, true);
 
     std::vector<Frame> frames;
     KeyFrame *kframe;
@@ -45,10 +40,6 @@ TEST_F(RendererTestBase, ComputePoseDepth)
     Texture<float> es_depth_texture(w_, h_, 0);
     Texture<Vec3f> didxy_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
     Texture<Vec3f> pids_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
-
-    SE3f tracked_local_pose;
-    SE3f tracked_local_movement;
-    Vec2f tracked_local_exposure(0.0, 0.0);
 
     cv::Mat image_mat;
     cv::Mat ref_mat;
@@ -78,11 +69,11 @@ TEST_F(RendererTestBase, ComputePoseDepth)
 
             Mesh mesh;
             // CreateMesh(gt_depth, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, true);
-            CreateFlatMesh(gt_depth_mean * 0.5, 
-                gt_depth_mean * 1.5, 
-                cam_, 
-                mesh_vo::mesh_width, 
-               mesh);
+            CreateFlatMesh(gt_depth_mean * 0.5,
+                           gt_depth_mean * 1.5,
+                           cam_,
+                           mesh_vo::mesh_width,
+                           mesh);
             //     CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
             kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0, 0);
@@ -93,14 +84,12 @@ TEST_F(RendererTestBase, ComputePoseDepth)
             continue;
         }
 
-        SE3f init_local_pose = tracked_local_movement * tracked_local_pose;
-        Vec2f init_local_exposure = tracked_local_exposure;
+        Frame frame(image_texture, didxy_texture, img_id, kframe->id());
 
-        Frame frame(image_texture, didxy_texture, img_id, kframe->id(), init_local_pose, init_local_exposure);
-
-        int plot_lvl = 1;
+        pose_estimator.guess(frame);
 
         ///////////// Debug //////////////////
+        int plot_lvl = 1;
         image_renderer.Render(kframe->mesh(),
                               frame.local_pose(),
                               frame.local_exposure(),
@@ -116,16 +105,7 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         //////////////////////////////////////
 
         // auto startTime = std::chrono::high_resolution_clock::now();
-        for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
-        {
-            int in_lvl = lvl;
-            int out_lvl = lvl;
-            pose_optimizer.init(frame, *kframe, cam_, in_lvl, out_lvl);
-            while (!pose_optimizer.converged())
-            {
-                pose_optimizer.step(frame, *kframe, cam_, in_lvl, out_lvl);
-            }
-        }
+        pose_estimator.estimate(frame, *kframe, cam_);
         // auto endTime = std::chrono::high_resolution_clock::now();
 
         ///////////// Debug //////////////////
@@ -142,13 +122,6 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         l2_mat = ref_mat - image_mat;
         SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe->id()) + "_" + std::to_string(frame.id()) + "_l2_opt.png");
         //////////////////////////////////////
-
-        SE3f new_local_pose = frame.local_pose();
-        Vec2f new_local_exposure = frame.local_exposure();
-
-        tracked_local_movement = new_local_pose * tracked_local_pose.inverse();
-        tracked_local_pose = new_local_pose;
-        tracked_local_exposure = new_local_exposure;
 
         float minViewAngle = M_PI;
         for (std::size_t j = 0; j < frames.size(); j++)
@@ -189,53 +162,9 @@ TEST_F(RendererTestBase, ComputePoseDepth)
             continue;
 
         int kframeIndex = frames.size() / 2;
+        Frame newkframe = frames[kframeIndex];
 
-        std::vector<float> ver_buff;
-        std::vector<int> idx_buff;
-
-        depth_renderer.Render(kframe->mesh(),
-                              frames[kframeIndex].local_pose(),
-                              cam_,
-                              0,
-                              es_depth_texture);
-
-        Mesh mesh;
-        CreateMesh(es_depth_texture.MapRead(0).data(), 
-            cam_, 
-            es_depth_texture.width(0),
-            es_depth_texture.height(0),
-            mesh_vo::mesh_width,
-            mesh);
-        // CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, true, false);
-
-        SE3f new_kf_global_pose = kframe->localPoseToGlobal(frames[kframeIndex].local_pose());
-        float new_kf_global_scale = kframe->getGlobalScale();
-
-        kframe = new KeyFrame(frames[kframeIndex].image(),
-                              frames[kframeIndex].didxy(),
-                              new_kf_global_pose,
-                              mesh,
-                              new_kf_global_scale,
-                              frames[kframeIndex].id());
-
-        // kframe->changeFrame(frames[kframeIndex].image(),
-        //                     frames[kframeIndex].didxy(),
-        //                     frames[kframeIndex].local_pose(),
-        //                     frames[kframeIndex].id(),
-        //                     cam_);
-
-        SE3f reference_pose = frames[kframeIndex].local_pose().inverse();
-
-        tracked_local_pose = tracked_local_pose * reference_pose;
-        tracked_local_movement = SE3f(); // tracked_local_movement * reference_pose;
-        tracked_local_exposure = Vec2f(0.0, 0.0);
-
-        frame.local_pose() = frame.local_pose() * reference_pose;
-
-        for (std::size_t k = 0; k < frames.size(); k++)
-        {
-            frames[k].local_pose() = frames[k].local_pose() * reference_pose;
-        }
+        posedepth_estimator.changeKeyframe(newkframe, frames, *kframe, cam_);
 
         /////////////////// Debug /////////////////
         for (std::size_t k = 0; k < frames.size(); k++)
@@ -259,17 +188,7 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         oframes.erase(oframes.begin() + kframeIndex);
 
         auto startTime = std::chrono::high_resolution_clock::now();
-        for (int lvl = mesh_vo::mapping_ini_lvl; lvl >= mesh_vo::mapping_fin_lvl; lvl--)
-        {
-            int in_lvl = lvl;
-            int out_lvl = lvl;
-
-            posemap_optimizer.init(oframes, *kframe, cam_, in_lvl, out_lvl);
-            while (!posemap_optimizer.converged())
-            {
-                posemap_optimizer.step(oframes, *kframe, cam_, in_lvl, out_lvl);
-            }
-        }
+        posedepth_estimator.estimate(oframes, *kframe, cam_);
         auto endTime = std::chrono::high_resolution_clock::now();
         std::chrono::milliseconds processingTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
 
@@ -295,8 +214,8 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         float meanDepth = kframe->meanDepth();
         kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
 
-        tracked_local_pose.translation() /= (meanDepth / mesh_vo::mapping_mean_depth);
-        tracked_local_movement.translation() /= (meanDepth / mesh_vo::mapping_mean_depth);
+        //tracked_local_pose.translation() /= (meanDepth / mesh_vo::mapping_mean_depth);
+        //tracked_local_movement.translation() /= (meanDepth / mesh_vo::mapping_mean_depth);
 
         frame.scalePose(meanDepth / mesh_vo::mapping_mean_depth);
 

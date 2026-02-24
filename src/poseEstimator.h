@@ -18,6 +18,11 @@ public:
         frame.local_exposure() = last_local_exp;
     }
 
+    void update_lastpose(SE3f new_last_pose)
+    {
+        last_local_pose = new_last_pose;
+    }
+
     void estimate(Frame &frame, KeyFrame &kframe, Camera &cam)
     {
         assert(frame.keyframe_id() == kframe.id());

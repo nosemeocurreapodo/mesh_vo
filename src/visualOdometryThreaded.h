@@ -378,8 +378,8 @@ private:
 
         NodataReducerCPU nodata_reducer;
 
-        PoseOptimizer poseOptimizer(width_, height_, false);
-        PoseDepthOptimizer poseMapOptimizer(width_, height_, true);
+        PoseEstimator poseEstimator(width_, height_, false);
+        PoseDepthEstimator poseDepthEstimator(width_, height_, true);
 
         Texture<ImageType> image_texture(width_, height_, -1);
         Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
@@ -411,9 +411,7 @@ private:
 
                 Frame frame(image_texture, didxy_texture, frameId_, kframe.id());
 
-                // initialize the global and local pose
-                frame.local_pose() = lastLocalMovement * lastLocalPose;
-                frame.local_exposure() = lastLocalExposure;
+                poseEstimator.guess(frame);
 
                 ////////////////////// Debug ///////////////////
                 image_renderer.Render(kframe.mesh(),
@@ -431,39 +429,8 @@ private:
 
                 // this will update the local pose
                 tt.tic();
-                for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
-                {
-                    poseOptimizer.init(frame, kframe, cam_, lvl, lvl);
-                    // if (plotDebug)
-                    //{
-                    //      std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
-                    //      debugLocalizationQueue.push(debugData);
-                    //  }
-                    while (true)
-                    {
-                        poseOptimizer.step(frame, kframe, cam_, lvl, lvl);
-                        if (poseOptimizer.converged())
-                        {
-                            // if (doVisualization)
-                            //{
-                            //     std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
-                            //     debugLocalizationQueue.push(debugData);
-                            // }
-                            break;
-                        }
-                    }
-                }
-                // if (plotDebug)
-                //{
-                //     std::vector<dataCPU<float>> debugData = poseOptimizer.getDebugData(frame, kframe, cam, 1);
-                //     debugLocalizationQueue.push(debugData);
-                // }
-
+                poseEstimator.estimate(frame, kframe, cam_);
                 std::cout << "localization time " << tt.toc() << std::endl;
-
-                lastLocalMovement = frame.local_pose() * lastLocalPose.inverse();
-                lastLocalPose = frame.local_pose();
-                lastLocalExposure = frame.local_exposure();
 
                 frameId_++;
 
@@ -522,38 +489,7 @@ private:
                 // int newKeyframeIndex = int(frameStack.size() - 2);
                 Frame newKeyframe = frameStack[newKeyframeIndex];
 
-                depth_renderer.Render(kframe.mesh(),
-                                      newKeyframe.local_pose(),
-                                      cam_,
-                                      0,
-                                      depth_texture);
-
-                Mesh mesh;
-                CreateMesh(depth_texture.MapRead(0).data(),
-                           cam_,
-                           depth_texture.width(0),
-                           depth_texture.height(0),
-                           mesh_vo::mesh_width,
-                           mesh);
-                // CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, ver_buff, idx_buff, true, false, false);
-
-                SE3f reference_pose = newKeyframe.local_pose().inverse();
-                SE3f global_pose = kframe.localPoseToGlobal(newKeyframe.local_pose());
-                float global_scale = kframe.getGlobalScale();
-
-                kframe = KeyFrame(newKeyframe.image(), newKeyframe.didxy(), global_pose, mesh, global_scale, newKeyframe.id());
-
-                lastLocalPose = lastLocalPose * reference_pose;
-                lastLocalMovement = SE3f(); // tracked_local_movement * reference_pose;
-                lastLocalExposure = Vec2f(0.0, 0.0);
-
-                frame.local_pose() = frame.local_pose() * reference_pose;
-
-                // initialize the local poses
-                for (size_t i = 0; i < frameStack.size(); i++)
-                {
-                    frameStack[i].local_pose() = frameStack[i].local_pose() * reference_pose;
-                }
+                poseDepthEstimator.changeKeyframe(newKeyframe, frameStack, kframe, cam_);
 
                 /////////////////// Debug ///////////////////
                 depth_renderer.Render(kframe.mesh(),
@@ -581,11 +517,7 @@ private:
                 oframes.erase(oframes.begin() + newKeyframeIndex);
 
                 // init the posemapoptimizer
-                poseMapOptimizer.init(oframes, kframe, cam_, mesh_vo::mapping_fin_lvl, mesh_vo::mapping_fin_lvl);
-                while (poseMapOptimizer.converged() == false)
-                {
-                    poseMapOptimizer.step(oframes, kframe, cam_, mesh_vo::mapping_fin_lvl, mesh_vo::mapping_fin_lvl);
-                }
+                poseDepthEstimator.estimate(oframes, kframe, cam_);
 
                 for (size_t i = 0; i < oframes.size(); i++)
                 {

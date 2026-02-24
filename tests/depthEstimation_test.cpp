@@ -30,7 +30,7 @@ TEST_F(RendererTestBase, ComputeDepth)
 
     DepthEstimator estimator(w_, h_, true);
 
-    std::vector<Frame> frames;
+    std::vector<std::unique_ptr<Frame>> frames;
     std::vector<Texture<float>> gt_depth_textures;
     std::vector<SE3f> gt_global_poses;
     KeyFrame *kframe;
@@ -71,11 +71,11 @@ TEST_F(RendererTestBase, ComputeDepth)
 
             Mesh mesh;
             // CreateMesh(gt_depth_texture, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
-            CreateFlatMesh(gt_depth_mean * 0.5, 
-                gt_depth_mean * 1.5, 
-                cam_, 
-                mesh_vo::mesh_width, 
-                mesh);
+            CreateFlatMesh(gt_depth_mean * 0.5,
+                           gt_depth_mean * 1.5,
+                           cam_,
+                           mesh_vo::mesh_width,
+                           mesh);
             //    CreateSphereMesh(gt_depth_mean, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_);
 
             kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0, 0);
@@ -87,12 +87,13 @@ TEST_F(RendererTestBase, ComputeDepth)
 
         SE3f init_local_pose = kframe->globalPoseToLocal(gt_global_pose);
 
-        Frame frame(image_texture, didxy_texture, img_id, kframe->id(), init_local_pose);
+        // Frame frame(image_texture, didxy_texture, img_id, kframe->id(), init_local_pose);
+        std::unique_ptr<Frame> frame = std::make_unique<Frame>(image_texture, didxy_texture, img_id, kframe->id(), init_local_pose);
 
         float minViewAngle = M_PI;
         for (std::size_t j = 0; j < frames.size(); j++)
         {
-            float viewAngle = kframe->meanViewAngle(frame.local_pose(), frames[j].local_pose(), cam_);
+            float viewAngle = kframe->meanViewAngle(frame->local_pose(), frames[j]->local_pose(), cam_);
             if (viewAngle < minViewAngle)
                 minViewAngle = viewAngle;
         }
@@ -103,6 +104,7 @@ TEST_F(RendererTestBase, ComputeDepth)
             continue;
 
         frames.push_back(frame);
+
         gt_depth_textures.push_back(gt_depth_texture);
         gt_global_poses.push_back(gt_global_pose);
         if (frames.size() > mesh_vo::num_frames)
@@ -117,8 +119,8 @@ TEST_F(RendererTestBase, ComputeDepth)
         }
 
         image_renderer.Render(kframe->mesh(),
-                              frame.local_pose(),
-                              frame.local_exposure(),
+                              frame->local_pose(),
+                              frame->local_exposure(),
                               cam_,
                               1, 1,
                               kframe->image(), image_texture);
@@ -134,9 +136,9 @@ TEST_F(RendererTestBase, ComputeDepth)
             continue;
 
         int kframeIndex = frames.size() / 2;
-        Frame newKeyFrame = frames[kframeIndex];
+        Frame* newKeyFrame = frames[kframeIndex].get();
 
-        estimator.changeKeyframe(newKeyFrame, frames, *kframe, cam_);
+        estimator.changeKeyframe(*newKeyFrame, frames, *kframe, cam_);
 
         std::cout << "Mean depth " << kframe->meanDepth() << std::endl;
 
@@ -145,19 +147,19 @@ TEST_F(RendererTestBase, ComputeDepth)
         for (std::size_t k = 0; k < frames.size(); k++)
         {
             image_renderer.Render(kframe->mesh(),
-                                  frames[k].local_pose(),
-                                  frames[k].local_exposure(),
+                                  frames[k]->local_pose(),
+                                  frames[k]->local_exposure(),
                                   cam_,
                                   plot_lvl, plot_lvl,
                                   kframe->image(), image_texture);
             cv::Mat image_mat = DownloadTextureToMat(image_texture, plot_lvl);
-            cv::Mat ref_mat = DownloadTextureToMat(frames[k].image(), plot_lvl);
+            cv::Mat ref_mat = DownloadTextureToMat(frames[k]->image(), plot_lvl);
             cv::Mat l2_mat = ref_mat - image_mat;
             SaveDebugImage(l2_mat, "l2_" + std::to_string(kframe->id()) + "_" + std::to_string(frames[k].id()) + "_init.png");
         }
         //////////////////////////
 
-        std::vector<Frame> oframes = frames;
+        std::vector<std::unique_ptr<Frame>> oframes = frames;
         oframes.erase(oframes.begin() + kframeIndex);
 
         auto startTime = std::chrono::high_resolution_clock::now();
