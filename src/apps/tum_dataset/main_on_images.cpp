@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 	int runningIDX = 0;
 	float fakeTimeStamp = 0;
 
-	VisualOdometryThreaded odometry(fx, fy, cx, cy, w, h);
+	VisualOdometryThreaded odometry(fx, fy, cx, cy, w, h, true, true);
 
 	for (unsigned int i = start_index + 1; i < end_index; i++) // files.size()
 	{

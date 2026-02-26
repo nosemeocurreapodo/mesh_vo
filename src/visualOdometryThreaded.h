@@ -51,7 +51,8 @@ public:
     {
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            if (closed_) return;
+            if (closed_)
+                return;
             queue_.push(std::move(value));
         }
         cv_.notify_one();
@@ -61,7 +62,8 @@ public:
     bool try_pop(T &out)
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (queue_.empty()) return false;
+        if (queue_.empty())
+            return false;
         out = std::move(queue_.front());
         queue_.pop();
         return true;
@@ -71,8 +73,10 @@ public:
     bool pop(T &out)
     {
         std::unique_lock<std::mutex> lock(mutex_);
-        cv_.wait(lock, [&] { return closed_ || !queue_.empty(); });
-        if (queue_.empty()) return false; // closed + empty
+        cv_.wait(lock, [&]
+                 { return closed_ || !queue_.empty(); });
+        if (queue_.empty())
+            return false; // closed + empty
         out = std::move(queue_.front());
         queue_.pop();
         return true;
@@ -83,8 +87,10 @@ public:
     bool wait_pop_for(T &out, const std::chrono::duration<Rep, Period> &dur)
     {
         std::unique_lock<std::mutex> lock(mutex_);
-        cv_.wait_for(lock, dur, [&] { return closed_ || !queue_.empty(); });
-        if (queue_.empty()) return false;
+        cv_.wait_for(lock, dur, [&]
+                     { return closed_ || !queue_.empty(); });
+        if (queue_.empty())
+            return false;
         out = std::move(queue_.front());
         queue_.pop();
         return true;
@@ -94,7 +100,8 @@ public:
     bool try_peek(T &out) const
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (queue_.empty()) return false;
+        if (queue_.empty())
+            return false;
         out = queue_.front(); // copy
         return true;
     }
@@ -135,16 +142,16 @@ class VisualOdometryThreaded
 public:
     VisualOdometryThreaded(float fx, float fy, float cx, float cy,
                            int width, int height,
-                           bool doMapping = true,
-                           bool doVisualization = true)
+                           bool debug_log = true,
+                           bool debug_img = false)
         : width_(width),
           height_(height),
-          doMapping_(doMapping),
-          doVisualization_(doVisualization)
+          debug_log_(debug_log),
+          debug_img_(debug_img)
     {
-#ifdef COMPILE_GL
-        InitEGL(); // assumes this creates/makes current a context on this thread; be careful with multi-thread GL
-#endif
+        // #ifdef COMPILE_GL
+        //         InitEGL(); // assumes this creates/makes current a context on this thread; be careful with multi-thread GL
+        // #endif
         frameId_.store(0);
 
         // FIX: you had Camera(fy, fy, ...) - use fx, fy
@@ -152,6 +159,9 @@ public:
 
         running_.store(true);
         worker_ = std::thread(&VisualOdometryThreaded::workerLoop, this);
+
+        if (debug_log_)
+            std::cout << "init vo, cam : " << fx << " " << fy << " " << cx << " " << cy << std::endl;
     }
 
     ~VisualOdometryThreaded()
@@ -174,6 +184,9 @@ public:
     // Initializes first keyframe and releases worker thread from init wait
     void flatInit(const ImageType *image_data)
     {
+        if (debug_log_)
+            std::cout << "flatInit" << std::endl;
+
         Mesh screen_mesh;
         CreateScreenQuad(screen_mesh);
 
@@ -210,7 +223,16 @@ public:
     // Push new frame image for processing (copies into Texture)
     void locAndMap(const ImageType *image_data)
     {
-        if (!image_data) return;
+        if (debug_log_)
+            std::cout << "locAndMap" << std::endl;
+
+        if (!image_data)
+        {
+            if (debug_log_)
+                std::cout << "no image_data" << std::endl;
+
+            return;
+        }
 
         Texture<ImageType> image_texture(width_, height_, ImageType(-1), image_data);
         image_texture.generate_mipmaps(0);
@@ -223,7 +245,8 @@ public:
     bool tryGetLatestKeyframe(KeyFrame &out) const
     {
         std::lock_guard<std::mutex> lk(latest_kf_mtx_);
-        if (!has_latest_kf_) return false;
+        if (!has_latest_kf_)
+            return false;
         out = latest_kf_; // copy (KeyFrame likely owns textures; if heavy, consider shared_ptr snapshot)
         return true;
     }
@@ -231,10 +254,14 @@ public:
     // Blocking get (waits until initialized at least once)
     KeyFrame getKeyframe() const
     {
+        if (debug_log_)
+            std::cout << "getKeyframe" << std::endl;
+
         // Wait for first init
         {
             std::unique_lock<std::mutex> lk(init_mtx_);
-            init_cv_.wait(lk, [&] { return initialized_ || !running_.load(); });
+            init_cv_.wait(lk, [&]
+                          { return initialized_ || !running_.load(); });
         }
 
         std::lock_guard<std::mutex> lk(latest_kf_mtx_);
@@ -250,12 +277,17 @@ public:
 private:
     void workerLoop()
     {
+        if (debug_log_)
+            std::cout << "workerLoop" << std::endl;
+
         // Wait for init
         {
             std::unique_lock<std::mutex> lk(init_mtx_);
-            init_cv_.wait(lk, [&] { return initialized_ || !running_.load(); });
+            init_cv_.wait(lk, [&]
+                          { return initialized_ || !running_.load(); });
         }
-        if (!running_.load()) return;
+        if (!running_.load())
+            return;
 
         // Setup renderers/estimators
         Mesh screen_mesh;
@@ -267,7 +299,7 @@ private:
         NodataReducerCPU nodata_reducer;
 
         PoseEstimator poseEstimator(width_, height_, false);
-        PoseDepthEstimator poseDepthEstimator(width_, height_, true);
+        PoseDepthEstimator poseDepthEstimator(width_, height_, debug_log_);
 
         Texture<ImageType> image_texture(width_, height_, ImageType(-1));
         Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0f, 0.0f, 0.0f));
@@ -294,6 +326,9 @@ private:
 
             if (got_frame)
             {
+                if (debug_log_)
+                    std::cout << "got_frame" << std::endl;
+
                 // Precompute gradients
                 for (int lvl = 0; lvl < static_cast<int>(didxy_texture.levels()); ++lvl)
                     didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
@@ -302,10 +337,41 @@ private:
 
                 poseEstimator.guess(frame, kframe);
 
+                if (debug_img_)
+                {
+                    image_renderer.Render(kframe.mesh(),
+                                          frame.local_pose(),
+                                          frame.local_exposure(),
+                                          cam_,
+                                          1, 1,
+                                          kframe.image(), image_texture);
+
+                    image_mat = DownloadTextureToMat(image_texture, 1);
+                    ref_mat = DownloadTextureToMat(frame.image(), 1);
+                    l2_mat = ref_mat - image_mat;
+                    SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + "_init_l2.png");
+                }
+
                 // Localize
                 tt.tic();
                 poseEstimator.estimate(frame, kframe, cam_);
-                std::cout << "localization time " << tt.toc() << std::endl;
+
+                if (debug_log_)
+                    std::cout << "localization time " << tt.toc() << std::endl;
+
+                if (debug_img_)
+                {
+                    image_renderer.Render(kframe.mesh(),
+                                          frame.local_pose(),
+                                          frame.local_exposure(),
+                                          cam_,
+                                          1, 1,
+                                          kframe.image(), image_texture);
+
+                    image_mat = DownloadTextureToMat(image_texture, 1);
+                    l2_mat = ref_mat - image_mat;
+                    SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + "_opt_l2.png");
+                }
 
                 // Select whether to keep the frame
                 float lastMinViewAngle = PI;
@@ -348,8 +414,9 @@ private:
                     continue;
                 }
 
-                std::cout << "Creating new keyframe because viewPercent=" << viewPercent
-                          << " keyframeViewAngle=" << keyframeViewAngle << std::endl;
+                if (debug_log_)
+                    std::cout << "Creating new keyframe because viewPercent=" << viewPercent
+                              << " keyframeViewAngle=" << keyframeViewAngle << std::endl;
 
                 // "Finalize" current keyframe (history). If you want, store it somewhere; currently we just overwrite latest.
                 // Select new keyframe as middle frame
@@ -358,6 +425,31 @@ private:
                 poseDepthEstimator.changeKeyframe(frameStack[newKeyframeIndex], frameStack, kframe, cam_);
                 poseDepthEstimator.init(frameStack, kframe, cam_);
                 opt_steps = 0;
+
+                if (debug_img_)
+                {
+                    /////////////////// Debug ///////////////////
+                    depth_renderer.Render(kframe.mesh(),
+                                          SE3f(), cam_, 1, depth_texture);
+                    depth_mat = DownloadTextureToMat(depth_texture, 1);
+                    SaveDebugImage(depth_mat, "map_" + std::to_string(kframe.id()) + "_init_depth.png");
+
+                    for (Frame f : frameStack)
+                    {
+                        image_renderer.Render(kframe.mesh(),
+                                              f.local_pose(),
+                                              f.local_exposure(),
+                                              cam_,
+                                              1, 1,
+                                              kframe.image(), image_texture);
+
+                        image_mat = DownloadTextureToMat(image_texture, 1);
+                        ref_mat = DownloadTextureToMat(f.image(), 1);
+                        l2_mat = ref_mat - image_mat;
+                        SaveDebugImage(l2_mat, "map_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + "_ini_l2.png");
+                    }
+                    ///////////////////////////
+                }
 
                 // Publish latest keyframe snapshot for ROS consumers
                 {
@@ -369,12 +461,12 @@ private:
             else
             {
                 // No new frame
-                if (!doMapping_)
-                {
-                    // Avoid busy-spin
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                    continue;
-                }
+                // if (!doMapping_)
+                //{
+                //    // Avoid busy-spin
+                //    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                //    continue;
+                //}
 
                 if (frameStack.size() < static_cast<size_t>(mesh_vo::num_frames))
                 {
@@ -394,10 +486,30 @@ private:
                     has_latest_kf_ = true;
                 }
 
-                // Optional debug (VERY expensive)
-                // depth_renderer.Render(kframe.mesh(), SE3f(), cam_, 1, depth_texture);
-                // depth_mat = DownloadTextureToMat(depth_texture, 1);
-                // SaveDebugImage(depth_mat, "map_" + std::to_string(kframe.id()) + "_opt_depth_" + std::to_string(opt_steps) + ".png");
+                if (debug_img_)
+                {
+                    /////////////////// Debug ///////////////////
+                    depth_renderer.Render(kframe.mesh(),
+                                          SE3f(), cam_, 1, depth_texture);
+                    depth_mat = DownloadTextureToMat(depth_texture, 1);
+                    SaveDebugImage(depth_mat, "map_" + std::to_string(kframe.id()) + "_opt_depth_" + std::to_string(opt_steps) + ".png");
+
+                    for (Frame f : frameStack)
+                    {
+                        image_renderer.Render(kframe.mesh(),
+                                              f.local_pose(),
+                                              f.local_exposure(),
+                                              cam_,
+                                              1, 1,
+                                              kframe.image(), image_texture);
+
+                        image_mat = DownloadTextureToMat(image_texture, 1);
+                        ref_mat = DownloadTextureToMat(f.image(), 1);
+                        l2_mat = ref_mat - image_mat;
+                        SaveDebugImage(l2_mat, "map_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + "_opt_l2_" + std::to_string(opt_steps) + ".png");
+                    }
+                    ///////////////////////////
+                }
             }
         }
     }
@@ -426,6 +538,6 @@ private:
     int height_{0};
     std::atomic<int> frameId_{0};
 
-    bool doMapping_{true};
-    bool doVisualization_{true};
+    bool debug_log_{true};
+    bool debug_img_{false};
 };
