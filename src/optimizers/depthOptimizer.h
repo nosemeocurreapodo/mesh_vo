@@ -96,6 +96,9 @@ public:
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
+            //if(frames[frame_idx].id() == kframe.id())
+            //    continue;
+
             jdepthrenderer_.Render(kframe.mesh(),
                                    frames[frame_idx].local_pose(),
                                    frames[frame_idx].local_exposure(),

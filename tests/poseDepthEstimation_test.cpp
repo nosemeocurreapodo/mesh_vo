@@ -86,10 +86,12 @@ TEST_F(RendererTestBase, ComputePoseDepth)
 
         Frame frame(image_texture, didxy_texture, img_id, kframe->id());
 
-        pose_estimator.guess(frame);
+        pose_estimator.guess(frame, *kframe);
+
+        int plot_lvl = 1;
 
         ///////////// Debug //////////////////
-        int plot_lvl = 1;
+        /*
         image_renderer.Render(kframe->mesh(),
                               frame.local_pose(),
                               frame.local_exposure(),
@@ -102,13 +104,13 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         ref_mat = DownloadTextureToMat(frame.image(), plot_lvl);
         l2_mat = ref_mat - image_mat;
         SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe->id()) + "_" + std::to_string(frame.id()) + "_l2_ini.png");
+        */
         //////////////////////////////////////
 
         // auto startTime = std::chrono::high_resolution_clock::now();
         pose_estimator.estimate(frame, *kframe, cam_);
         // auto endTime = std::chrono::high_resolution_clock::now();
 
-        ///////////// Debug //////////////////
         image_renderer.Render(kframe->mesh(),
                               frame.local_pose(),
                               frame.local_exposure(),
@@ -116,33 +118,16 @@ TEST_F(RendererTestBase, ComputePoseDepth)
                               plot_lvl, plot_lvl,
                               kframe->image(),
                               image_texture);
+
+        ///////////// Debug //////////////////
+        /*
         // residual_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
         image_mat = DownloadTextureToMat(image_texture, plot_lvl);
         ref_mat = DownloadTextureToMat(frame.image(), plot_lvl);
         l2_mat = ref_mat - image_mat;
         SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe->id()) + "_" + std::to_string(frame.id()) + "_l2_opt.png");
+        */
         //////////////////////////////////////
-
-        float minViewAngle = M_PI;
-        for (std::size_t j = 0; j < frames.size(); j++)
-        {
-            float viewAngle = kframe->meanViewAngle(frame.local_pose(), frames[j].local_pose(), cam_);
-            if (viewAngle < minViewAngle)
-                minViewAngle = viewAngle;
-        }
-
-        if (minViewAngle < mesh_vo::last_min_angle && kframe->id() != 0)
-            continue;
-
-        frames.push_back(frame);
-        if (frames.size() > mesh_vo::num_frames)
-        {
-            frames.erase(frames.begin());
-        }
-        else
-        {
-            continue;
-        }
 
         image_renderer.Render(kframe->mesh(),
                               frame.local_pose(),
@@ -161,12 +146,33 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         if (viewPercent > mesh_vo::min_view_perc && kframe->id() != 0) // || keyframeViewAngle > mesh_vo::key_max_angle)
             continue;
 
-        int kframeIndex = frames.size() / 2;
-        Frame newkframe = frames[kframeIndex];
+        float minViewAngle = M_PI;
+        for (std::size_t j = 0; j < frames.size(); j++)
+        {
+            float viewAngle = kframe->meanViewAngle(frame.local_pose(), frames[j].local_pose(), cam_);
+            if (viewAngle < minViewAngle)
+                minViewAngle = viewAngle;
+        }
 
-        posedepth_estimator.changeKeyframe(newkframe, frames, *kframe, cam_);
+        if (minViewAngle < mesh_vo::last_min_angle && kframe->id() != 0)
+            continue;
+
+        frames.push_back(std::move(frame));
+        if (frames.size() > mesh_vo::num_frames)
+        {
+            frames.erase(frames.begin());
+        }
+        else
+        {
+            continue;
+        }
+
+        int kframeIndex = frames.size() / 2;
+
+        posedepth_estimator.changeKeyframe(frames[kframeIndex], frames, *kframe, cam_);
 
         /////////////////// Debug /////////////////
+        /*
         for (std::size_t k = 0; k < frames.size(); k++)
         {
             image_renderer.Render(kframe->mesh(),
@@ -182,50 +188,23 @@ TEST_F(RendererTestBase, ComputePoseDepth)
             cv::Mat l2_mat = ref_mat - image_mat;
             SaveDebugImage(l2_mat, "map_" + std::to_string(kframe->id()) + "_" + std::to_string(frames[k].id()) + "_l2_ini.png");
         }
+        */
         ////////////////////
 
-        std::vector<Frame> oframes = frames;
-        oframes.erase(oframes.begin() + kframeIndex);
-
         auto startTime = std::chrono::high_resolution_clock::now();
-        posedepth_estimator.estimate(oframes, *kframe, cam_);
+        posedepth_estimator.estimate(frames, *kframe, cam_);
         auto endTime = std::chrono::high_resolution_clock::now();
         std::chrono::milliseconds processingTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
 
         auto duration = processingTime.count();
         std::cout << "processing time " << duration << " ms" << std::endl;
 
-        for (std::size_t k = 0; k < oframes.size(); k++)
-        {
-            if (frame.id() == oframes[k].id())
-            {
-                frame.local_pose() = oframes[k].local_pose();
-            }
-
-            for (int j = 0; j < frames.size(); j++)
-            {
-                if (frames[j].id() == oframes[k].id())
-                {
-                    frames[j].local_pose() = oframes[k].local_pose();
-                }
-            }
-        }
-
-        float meanDepth = kframe->meanDepth();
-        kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
-
-        //tracked_local_pose.translation() /= (meanDepth / mesh_vo::mapping_mean_depth);
-        //tracked_local_movement.translation() /= (meanDepth / mesh_vo::mapping_mean_depth);
-
-        frame.scalePose(meanDepth / mesh_vo::mapping_mean_depth);
-
-        for (int j = 0; j < frames.size(); j++)
-        {
-            frames[j].scalePose(meanDepth / mesh_vo::mapping_mean_depth);
-        }
+        posedepth_estimator.normalize_depth(frames, *kframe);
 
         frames[kframeIndex].local_pose() = SE3f();
 
+        ////// Debug //////////////
+        /*
         for (std::size_t k = 0; k < frames.size(); k++)
         {
             image_renderer.Render(kframe->mesh(),
@@ -263,6 +242,8 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         accProcessingTime += std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
         accError += error;
         framesProcessedCounter++;
+        */
+        //////////////////////////
     }
 
     auto meanDuration = accProcessingTime.count() / framesProcessedCounter;

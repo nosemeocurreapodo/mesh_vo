@@ -7,10 +7,12 @@
         // 	"context": "."
         //},
         //"image": "bcc003ce2b6d/vivado_2023.2:v1",
-        "image": "ubuntu:22.04",
-        //"mounts": [
-        //  "source=/tools/,target=/tools/,type=bind,consistency=cached"
-        //],
+        //"image": "ubuntu:22.04",
+        "image": "osrf/ros:kilted-desktop",
+        "mounts": [
+        //  "source=/tools/,target=/tools/,type=bind,consistency=cached",
+          "source=/media/emanuel/266E6D7C1E0922A0/datasets,target=/datasets/,type=bind,consistency=cached"
+        ],
         "customizations":
             {
               "vscode": {

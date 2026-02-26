@@ -12,15 +12,11 @@ public:
         last_local_exp = Vec2f(0.0, 0.0);
     }
 
-    void guess(Frame &frame)
+    void guess(Frame &frame, KeyFrame &kframe)
     {
-        frame.local_pose() = last_local_move * last_local_pose;
+        SE3f guess_global_pose = last_global_move * last_global_pose;
+        frame.local_pose() = kframe.globalPoseToLocal(guess_global_pose);
         frame.local_exposure() = last_local_exp;
-    }
-
-    void update_lastpose(SE3f new_last_pose)
-    {
-        last_local_pose = new_last_pose;
     }
 
     void estimate(Frame &frame, KeyFrame &kframe, Camera &cam)
@@ -37,31 +33,15 @@ public:
                     break;
             }
         }
-        last_local_move = frame.local_pose() * last_local_pose.inverse();
-        last_local_pose = frame.local_pose();
+        SE3f new_global_pose = kframe.localPoseToGlobal(frame.local_pose());
+        last_global_move = new_global_pose * last_global_pose.inverse();
+        last_global_pose = new_global_pose;
         last_local_exp = frame.local_exposure();
-    }
-
-    void changeKeyframe(const Frame &new_kframe, KeyFrame &old_kframe, const Camera &cam)
-    {
-        /*
-        assert(frame.keyframe_id() == kframe.keyframe_id());
-
-        SE3f ref = kframe.local_pose().inverse();
-        SE3f new_pose = frame.local_pose() * ref;
-        frame.local_pose() = new_pose;
-        frame.keyframe_id() = kframe.id();
-        frame.local_exposure() = Vec2f(0.0, 0.0);
-
-        last_local_pose = SE3f();
-        last_local_move = SE3f();
-        last_local_exp = Vec2f(0.0, 0.0);
-        */
     }
 
 private:
     PoseOptimizer optimizer;
-    SE3f last_local_pose;
-    SE3f last_local_move;
+    SE3f last_global_pose;
+    SE3f last_global_move;
     Vec2f last_local_exp;
 };

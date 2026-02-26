@@ -76,14 +76,10 @@ static bool pointInMesh2D(
 class KeyFrame
 {
 public:
-    /*
-        keyFrame()
-        {
-            globalPose = SE3();
-            globalExp = Vec2(0.0f, 0.0f);
-            globalScale = 1.0;
-        };
-    */
+    KeyFrame()
+    {
+    }
+
     KeyFrame(const Texture<ImageType> &image, const Texture<Vec3f> &didxy, SE3f global_pose, const Mesh &mesh, float global_scale, int id)
         : image_(image), didxy_(didxy), global_pose_(global_pose), mesh_(mesh), global_scale_(global_scale), id_(id)
     {
@@ -402,7 +398,7 @@ public:
             Vec2f pix1 = cam.pointToPix(vertframe1);
             Vec2f pix2 = cam.pointToPix(vertframe2);
 
-            if(!cam.IsPixVisible(pix1) || !cam.IsPixVisible(pix2))
+            if (!cam.IsPixVisible(pix1) || !cam.IsPixVisible(pix2))
                 continue;
 
             Vec3f diff1 = vertframe1 - pose1frame1tra;

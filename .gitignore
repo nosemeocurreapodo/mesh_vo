@@ -4,15 +4,10 @@
 #     https://www.atlassian.com/git/tutorials/saving-changes/gitignore
 
 # Node artifact files
-src/mesh_vo_ros/build
-src/mesh_vo_ros/install
-src/mesh_vo_ros/log
-src/mesh_vo_ros/test
-
-src/folder_image_publisher/build
-src/folder_image_publisher/install
-src/folder_image_publisher/log
-src/folder_image_publisher/test
+src/ros2_packages/build
+src/ros2_packages/install
+src/ros2_packages/log
+src/ros2_packages/test
 
 .vscode/browse.vc.db
 .vscode/browse.vc.db-shm

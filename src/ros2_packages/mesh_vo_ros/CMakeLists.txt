@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(mesh_vo_ros)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -20,7 +20,7 @@ find_package(LAPACK REQUIRED)
 find_library(LAPACKE_LIB lapacke REQUIRED)
 
 # Add the include directory for the mesh_vo library
-set(MESH_VO_SRC_DIR ../../)
+set(MESH_VO_SRC_DIR ../../../)
 
 include_directories(
     ${MESH_VO_SRC_DIR}/src
@@ -32,16 +32,16 @@ include_directories(
 
 set(VISUALODOMETRY_SRCS
   ${MESH_VO_SRC_DIR}/src/params.cpp
-  ${MESH_VO_SRC_DIR}/src/optimizers/poseOptimizer.cpp
-  ${MESH_VO_SRC_DIR}/src/optimizers/poseExpOptimizer.cpp
+#  ${MESH_VO_SRC_DIR}/src/optimizers/poseOptimizer.cpp
+#  ${MESH_VO_SRC_DIR}/src/optimizers/poseExpOptimizer.cpp
 #  ${MESH_VO_SRC_DIR}/src/optimizers/poseVelOptimizer.cpp
 #  ${MESH_VO_SRC_DIR}/src/optimizers/poseVelExpOptimizer.cpp
-  ${MESH_VO_SRC_DIR}/src/optimizers/depthOptimizer.cpp
-  ${MESH_VO_SRC_DIR}/src/optimizers/depthExpOptimizer.cpp
-  ${MESH_VO_SRC_DIR}/src/optimizers/rayDepthOptimizer.cpp
-  ${MESH_VO_SRC_DIR}/src/optimizers/vertexOptimizer.cpp
-  ${MESH_VO_SRC_DIR}/src/optimizers/poseDepthOptimizer.cpp
-  ${MESH_VO_SRC_DIR}/src/optimizers/poseExpDepthOptimizer.cpp
+#  ${MESH_VO_SRC_DIR}/src/optimizers/depthOptimizer.cpp
+#  ${MESH_VO_SRC_DIR}/src/optimizers/depthExpOptimizer.cpp
+#  ${MESH_VO_SRC_DIR}/src/optimizers/rayDepthOptimizer.cpp
+#  ${MESH_VO_SRC_DIR}/src/optimizers/vertexOptimizer.cpp
+#  ${MESH_VO_SRC_DIR}/src/optimizers/poseDepthOptimizer.cpp
+#  ${MESH_VO_SRC_DIR}/src/optimizers/poseExpDepthOptimizer.cpp
 #  ${MESH_VO_SRC_DIR}/src/optimizers/poseVelMapOptimizer.cpp
 #  ${MESH_VO_SRC_DIR}/src/optimizers/poseVelExpMapOptimizer.cpp
 )

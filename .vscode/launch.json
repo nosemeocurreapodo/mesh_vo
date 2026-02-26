@@ -121,7 +121,7 @@
             "args": [
                 "/datasets/tum_datasets/sequence_49/camera.txt",
                 "/datasets/tum_datasets/sequence_49/images/",
-                "2000",
+                "0",
                 "100000"
             ],
             //"args": [

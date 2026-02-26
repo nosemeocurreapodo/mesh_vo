@@ -1,10 +1,18 @@
 #pragma once
 
-#include <iostream>
-#include <fstream>
+#include <atomic>
+#include <chrono>
 #include <condition_variable>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <mutex>
+#include <queue>
+#include <thread>
+#include <utility>
+#include <vector>
 
-// #include <pangolin/pangolin.h>
+#include <opencv2/core.hpp>
 
 #include "mpdr/common/types.h"
 #include "mpdr/common/mesh_helpers.h"
@@ -27,68 +35,70 @@
 
 #include "poseEstimator.h"
 #include "poseDepthEstimator.h"
-
-// #include "visualizer/trayectoryPlotter.h"
-// #include "visualizer/imagePlotter.h"
 #include "utils/tictoc.h"
 
+// ------------------------------
+// ThreadSafeQueue (move-capable + close + timed wait)
+// ------------------------------
 template <typename T>
 class ThreadSafeQueue
 {
 public:
-    // Push an element into the queue
-    void push(const T &value)
+    ThreadSafeQueue() = default;
+
+    // Push by value (enables move from caller)
+    void push(T value)
     {
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            queue_.push(value);
+            if (closed_) return;
+            queue_.push(std::move(value));
         }
-        // cv_.notify_one();
-        cv_.notify_all();
+        cv_.notify_one();
     }
 
-    // Peek at the front element without removing it (blocks if the queue is empty)
-    T peek()
-    {
-        std::unique_lock<std::mutex> lock(mutex_);
-        cv_.wait(lock, [this]
-                 { return !queue_.empty(); });
-        return queue_.front();
-    }
-
-    // Try to peek an element; returns false if queue is empty
-    bool try_peek(T &value)
+    // Non-blocking pop
+    bool try_pop(T &out)
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (queue_.empty())
-            return false;
-        value = queue_.front();
-        return true;
-    }
-
-    // Pop an element from the queue (blocks if the queue is empty)
-    T pop()
-    {
-        std::unique_lock<std::mutex> lock(mutex_);
-        cv_.wait(lock, [this]
-                 { return !queue_.empty(); });
-        T value = queue_.front();
-        queue_.pop();
-        return value;
-    }
-
-    // Try to pop an element; returns false if queue is empty
-    bool try_pop(T &value)
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (queue_.empty())
-            return false;
-        value = queue_.front();
+        if (queue_.empty()) return false;
+        out = std::move(queue_.front());
         queue_.pop();
         return true;
     }
 
-    // Check if the queue is empty
+    // Blocking pop (returns false if closed and empty)
+    bool pop(T &out)
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        cv_.wait(lock, [&] { return closed_ || !queue_.empty(); });
+        if (queue_.empty()) return false; // closed + empty
+        out = std::move(queue_.front());
+        queue_.pop();
+        return true;
+    }
+
+    // Timed pop (returns false on timeout or closed+empty)
+    template <class Rep, class Period>
+    bool wait_pop_for(T &out, const std::chrono::duration<Rep, Period> &dur)
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        cv_.wait_for(lock, dur, [&] { return closed_ || !queue_.empty(); });
+        if (queue_.empty()) return false;
+        out = std::move(queue_.front());
+        queue_.pop();
+        return true;
+    }
+
+    // Peek (copies) - generally avoid for large T
+    bool try_peek(T &out) const
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (queue_.empty()) return false;
+        out = queue_.front(); // copy
+        return true;
+    }
+
     bool empty() const
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -101,52 +111,67 @@ public:
         return queue_.size();
     }
 
+    void close()
+    {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            closed_ = true;
+        }
+        cv_.notify_all();
+    }
+
 private:
     mutable std::mutex mutex_;
     std::queue<T> queue_;
     std::condition_variable cv_;
+    bool closed_{false};
 };
 
+// ------------------------------
+// VisualOdometryThreaded (actually: 1 worker thread)
+// ------------------------------
 class VisualOdometryThreaded
 {
 public:
-    VisualOdometryThreaded(float fx, float fy, float cx, float cy, int width, int height, bool doMapping = true, bool doVisualization = true)
+    VisualOdometryThreaded(float fx, float fy, float cx, float cy,
+                           int width, int height,
+                           bool doMapping = true,
+                           bool doVisualization = true)
+        : width_(width),
+          height_(height),
+          doMapping_(doMapping),
+          doVisualization_(doVisualization)
     {
 #ifdef COMPILE_GL
-        InitEGL();
+        InitEGL(); // assumes this creates/makes current a context on this thread; be careful with multi-thread GL
 #endif
+        frameId_.store(0);
 
-        frameId_ = 0;
+        // FIX: you had Camera(fy, fy, ...) - use fx, fy
+        cam_ = Camera(fx, fy, cx, cy, width, height);
 
-        width_ = width;
-        height_ = height;
-
-        cam_ = Camera(fy, fy, cx, cy, width, height);
-
-        doMapping_ = doMapping;
-        doVisualization_ = doVisualization;
-
-        tLocalization_ = std::thread(&VisualOdometryThreaded::voThread, this);
-        // tLocalization_ = std::thread(&VisualOdometryThreaded::localizationThread, this);
-        // tMapping_ = std::thread(&VisualOdometryThreaded::mappingThread, this);
-
-        // if (doVisualization)
-        //     tVisualization_ = std::thread(&VisualOdometryThreaded::visualizationThread, this);
+        running_.store(true);
+        worker_ = std::thread(&VisualOdometryThreaded::workerLoop, this);
     }
-
-    /*
-    visualOdometryThreaded(dataCPU<imageType> &image, SE3f globalPose, cameraType _cam) : cam(_cam)
-    {
-        init(image, globalPose);
-    }
-    */
 
     ~VisualOdometryThreaded()
     {
-        tLocalization_.join();
-        tMapping_.join();
+        // Signal stop
+        running_.store(false);
+
+        // Wake any waits
+        iQueue_.close();
+        {
+            std::lock_guard<std::mutex> lk(init_mtx_);
+            // nothing else
+        }
+        init_cv_.notify_all();
+
+        if (worker_.joinable())
+            worker_.join();
     }
 
+    // Initializes first keyframe and releases worker thread from init wait
     void flatInit(const ImageType *image_data)
     {
         Mesh screen_mesh;
@@ -154,301 +179,137 @@ public:
 
         DIDxyRenderer didxy_renderer;
 
-        Texture<ImageType> image_texture(width_, height_, -1, image_data);
+        Texture<ImageType> image_texture(width_, height_, ImageType(-1), image_data);
         image_texture.generate_mipmaps(0);
 
-        Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
-        for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
+        Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0f, 0.0f, 0.0f));
+        for (int lvl = 0; lvl < static_cast<int>(didxy_texture.levels()); ++lvl)
             didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
 
         Mesh mesh;
-        CreateFlatMesh(0.5, 1.5, cam_, mesh_vo::mesh_width, mesh);
+        CreateFlatMesh(0.5f, 1.5f, cam_, mesh_vo::mesh_width, mesh);
 
-        KeyFrame kframe(image_texture, didxy_texture, SE3f(), mesh, 1.0, frameId_);
+        const int id = frameId_.fetch_add(1);
+        KeyFrame kframe(image_texture, didxy_texture, SE3f(), mesh, 1.0f, id);
 
-        kfQueue_.push(kframe);
+        // Publish latest keyframe (for ROS)
+        {
+            std::lock_guard<std::mutex> lk(latest_kf_mtx_);
+            latest_kf_ = kframe;
+            has_latest_kf_ = true;
+        }
 
-        frameId_++;
+        // Wake worker
+        {
+            std::lock_guard<std::mutex> lk(init_mtx_);
+            initialized_ = true;
+        }
+        init_cv_.notify_all();
     }
 
-    void locAndMap(ImageType *image_data)
+    // Push new frame image for processing (copies into Texture)
+    void locAndMap(const ImageType *image_data)
     {
-        Texture<ImageType> image_texture(width_, height_, -1, image_data);
+        if (!image_data) return;
+
+        Texture<ImageType> image_texture(width_, height_, ImageType(-1), image_data);
         image_texture.generate_mipmaps(0);
-        while (iQueue_.empty() == false)
-            ; // wait until the queue is empty
-        iQueue_.push(image_texture);
+
+        // Move into queue (no heavy copies if Texture is movable)
+        iQueue_.push(std::move(image_texture));
     }
 
-    bool isIdle()
+    // Non-blocking "latest keyframe" fetch (recommended for ROS thread)
+    bool tryGetLatestKeyframe(KeyFrame &out) const
     {
-        return false;
+        std::lock_guard<std::mutex> lk(latest_kf_mtx_);
+        if (!has_latest_kf_) return false;
+        out = latest_kf_; // copy (KeyFrame likely owns textures; if heavy, consider shared_ptr snapshot)
+        return true;
     }
 
-    KeyFrame getKeyframe()
+    // Blocking get (waits until initialized at least once)
+    KeyFrame getKeyframe() const
     {
-        return kfQueue_.peek();
+        // Wait for first init
+        {
+            std::unique_lock<std::mutex> lk(init_mtx_);
+            init_cv_.wait(lk, [&] { return initialized_ || !running_.load(); });
+        }
+
+        std::lock_guard<std::mutex> lk(latest_kf_mtx_);
+        return latest_kf_;
+    }
+
+    // Best-effort idle indicator
+    bool isIdle() const
+    {
+        return iQueue_.empty();
     }
 
 private:
-    void localizationThread()
+    void workerLoop()
     {
-        Mesh screen_mesh;
-        CreateScreenQuad(screen_mesh);
-
-        DIDxyRenderer didxy_renderer;
-        ImageRenderer image_renderer;
-        DepthRenderer depth_renderer;
-
-        Texture<ImageType> image_texture(width_, height_, -1);
-        Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
-        Texture<float> depth_texture(width_, height_, 0);
-
-        PoseEstimator estimator(width_, height_, true);
-        // KeyFrame kframe(image_texture, didxy_texture, SE3f(), screen_mesh, 1.0, -1);
-
-        KeyFrame kframe = kfQueue_.peek();
-
-        tic_toc tt;
-
-        while (true)
+        // Wait for init
         {
-            // check if there is a new kframe
-            if (kfQueue_.try_peek(kframe))
-            {
-                // estimator.changeKeyframe()
-            }
-
-            Texture<ImageType> image_texture = iQueue_.pop();
-
-            for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
-                didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
-
-            Frame frame(image_texture, didxy_texture, frameId_, kframe.id());
-
-            tt.tic();
-            estimator.guess(frame);
-            estimator.estimate(frame, kframe, cam_);
-            std::cout << "localization time " << tt.toc() << std::endl;
-
-            fQueue_.push(frame);
-
-            frameId_++;
-
-            // Debug rendering
-            depth_renderer.Render(kframe.mesh(),
-                                  frame.local_pose(), cam_, 1, depth_texture);
-
-            image_renderer.Render(kframe.mesh(),
-                                  frame.local_pose(),
-                                  frame.local_exposure(),
-                                  cam_,
-                                  1, 1,
-                                  kframe.image(),
-                                  image_texture);
-
-            cv::Mat depth_mat = DownloadTextureToMat(depth_texture, 1);
-            SaveDebugImage(depth_mat, "loc_depth_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
-
-            cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
-            SaveDebugImage(image_mat, "loc_image_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
-
-            cv::Mat frame_mat = DownloadTextureToMat(frame.image(), 1);
-            SaveDebugImage(frame_mat, "loc_frame_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
+            std::unique_lock<std::mutex> lk(init_mtx_);
+            init_cv_.wait(lk, [&] { return initialized_ || !running_.load(); });
         }
-    }
+        if (!running_.load()) return;
 
-    void mappingThread()
-    {
-        Texture<ImageType> image_texture(width_, height_, -1);
-        Texture<float> depth_texture(width_, height_, -1);
-
-        ImageRenderer image_renderer;
-        DepthRenderer depth_renderer;
-
-        NodataReducerCPU nodata_reducer;
-
-        PoseDepthEstimator estimator(width_, height_, true);
-
-        std::vector<Frame> frameStack;
-
-        KeyFrame kframe = kfQueue_.peek();
-
-        bool initial_kframe = true;
-
-        tic_toc tt;
-
-        while (true)
-        {
-            Frame frame = fQueue_.pop();
-
-            assert(frame.keyframe_id() == kframe.id());
-
-            float lastMinViewAngle = M_PI;
-            for (Frame f : frameStack)
-            {
-                float lastViewAngle = kframe.meanViewAngle(f.local_pose(), frame.local_pose(), cam_);
-                if (lastViewAngle < lastMinViewAngle)
-                    lastMinViewAngle = lastViewAngle;
-            }
-
-            if (lastMinViewAngle > mesh_vo::last_min_angle || initial_kframe)
-            {
-                frameStack.push_back(frame);
-                if (frameStack.size() > mesh_vo::num_frames)
-                    frameStack.erase(frameStack.begin());
-            }
-
-            if (frameStack.size() < mesh_vo::num_frames)
-                continue;
-
-            float keyframeViewAngle = kframe.meanViewAngle(SE3f(), frame.local_pose(), cam_);
-
-            depth_renderer.Render(kframe.mesh(), frame.local_pose(), cam_, 1, depth_texture);
-
-            Error nodata;
-            nodata_reducer.reduce(1, depth_texture, nodata);
-            float pnodata = nodata.getError() / (depth_texture.width(1) * depth_texture.height(1));
-            float viewPercent = 1.0 - pnodata;
-
-            if (viewPercent > mesh_vo::min_view_perc && keyframeViewAngle < mesh_vo::key_max_angle && !initial_kframe)
-                continue;
-
-            // select new keyframe
-            // int newKeyframeIndex = 0;
-            int newKeyframeIndex = int(frameStack.size() / 2);
-            // int newKeyframeIndex = int(goodFrames.size() - 1);
-            Frame newKeyframe = frameStack[newKeyframeIndex];
-
-            estimator.changeKeyframe(newKeyframe, frameStack, kframe, cam_);
-
-            std::vector<Frame> oframes = frameStack;
-            // oframes.erase(oframes.begin() + newKeyframeIndex);
-
-            tt.tic();
-            estimator.estimate(frameStack, kframe, cam_);
-            std::cout << "mapping time " << tt.toc() << std::endl;
-
-            kfQueue_.push(kframe);
-
-            // Debug rendering
-            depth_renderer.Render(kframe.mesh(),
-                                  frame.local_pose(), cam_, 1, depth_texture);
-            cv::Mat depth_mat = DownloadTextureToMat(depth_texture, 1);
-            SaveDebugImage(depth_mat, "map_depth_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
-
-            image_renderer.Render(kframe.mesh(),
-                                  frame.local_pose(),
-                                  frame.local_exposure(),
-                                  cam_,
-                                  1, 1,
-                                  kframe.image(),
-                                  image_texture);
-            cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
-            SaveDebugImage(image_mat, "map_image_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
-
-            cv::Mat frame_mat = DownloadTextureToMat(frame.image(), 1);
-            SaveDebugImage(frame_mat, "map_frame_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + ".png");
-
-            for (Frame f : frameStack)
-            {
-                image_renderer.Render(kframe.mesh(),
-                                      f.local_pose(),
-                                      f.local_exposure(),
-                                      cam_,
-                                      1, 1,
-                                      kframe.image(), image_texture);
-
-                cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
-                cv::Mat ref_mat = DownloadTextureToMat(f.image(), 1);
-                cv::Mat l2_mat = ref_mat - image_mat;
-                SaveDebugImage(l2_mat, "map_l2_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + ".png");
-            }
-        }
-    }
-
-    void voThread()
-    {
+        // Setup renderers/estimators
         Mesh screen_mesh;
         CreateScreenQuad(screen_mesh);
 
         DIDxyRenderer didxy_renderer;
         DepthRenderer depth_renderer;
         ImageRenderer image_renderer;
-
         NodataReducerCPU nodata_reducer;
 
         PoseEstimator poseEstimator(width_, height_, false);
         PoseDepthEstimator poseDepthEstimator(width_, height_, true);
 
-        Texture<ImageType> image_texture(width_, height_, -1);
-        Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0, 0.0, 0.0));
-        Texture<float> depth_texture(width_, height_, -1);
+        Texture<ImageType> image_texture(width_, height_, ImageType(-1));
+        Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0f, 0.0f, 0.0f));
+        Texture<float> depth_texture(width_, height_, -1.0f);
 
         std::vector<Frame> frameStack;
-        std::vector<Frame> oframes;
+        frameStack.reserve(mesh_vo::num_frames);
 
-        KeyFrame kframe = kfQueue_.peek();
+        // Local current keyframe state lives here
+        KeyFrame kframe = getKeyframe();
 
         tic_toc tt;
+        cv::Mat image_mat, depth_mat, ref_mat, l2_mat;
 
-        SE3f lastLocalPose;
-        SE3f lastLocalMovement;
-        Vec2f lastLocalExposure(0.0, 0.0);
+        int opt_steps = 0;
 
-        cv::Mat image_mat;
-        cv::Mat depth_mat;
-        cv::Mat ref_mat;
-        cv::Mat l2_mat;
+        constexpr float PI = 3.14159265358979323846f;
 
-        while (true)
+        while (running_.load())
         {
-            // if there is a new image, compute its pose
-            if (iQueue_.try_pop(image_texture))
+            // Try to get a new image, but don't block forever.
+            // If no new frame, we spend time mapping (idle optimization).
+            const bool got_frame = iQueue_.wait_pop_for(image_texture, std::chrono::milliseconds(2));
+
+            if (got_frame)
             {
-                for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
+                // Precompute gradients
+                for (int lvl = 0; lvl < static_cast<int>(didxy_texture.levels()); ++lvl)
                     didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
 
-                Frame frame(image_texture, didxy_texture, frameId_, kframe.id());
+                Frame frame(image_texture, didxy_texture, frameId_.fetch_add(1), kframe.id());
 
-                poseEstimator.guess(frame);
+                poseEstimator.guess(frame, kframe);
 
-                ////////////////////// Debug ///////////////////
-                image_renderer.Render(kframe.mesh(),
-                                      frame.local_pose(),
-                                      frame.local_exposure(),
-                                      cam_,
-                                      1, 1,
-                                      kframe.image(), image_texture);
-
-                image_mat = DownloadTextureToMat(image_texture, 1);
-                ref_mat = DownloadTextureToMat(frame.image(), 1);
-                l2_mat = ref_mat - image_mat;
-                SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + "_init_l2.png");
-                /////////////
-
-                // this will update the local pose
+                // Localize
                 tt.tic();
                 poseEstimator.estimate(frame, kframe, cam_);
                 std::cout << "localization time " << tt.toc() << std::endl;
 
-                frameId_++;
-
-                /////////// Debug /////////////
-                image_renderer.Render(kframe.mesh(),
-                                      frame.local_pose(),
-                                      frame.local_exposure(),
-                                      cam_,
-                                      1, 1,
-                                      kframe.image(), image_texture);
-
-                image_mat = DownloadTextureToMat(image_texture, 1);
-                l2_mat = ref_mat - image_mat;
-                SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + "_opt_l2.png");
-
-                // Choose wether to save the frame or not
-                float lastMinViewAngle = M_PI;
-                for (Frame f : frameStack)
+                // Select whether to keep the frame
+                float lastMinViewAngle = PI;
+                for (const Frame &f : frameStack)
                 {
                     float lastViewAngle = kframe.meanViewAngle(f.local_pose(), frame.local_pose(), cam_);
                     if (lastViewAngle < lastMinViewAngle)
@@ -458,266 +319,113 @@ private:
                 if (lastMinViewAngle > mesh_vo::last_min_angle || kframe.id() == 0)
                 {
                     frameStack.push_back(frame);
-                    if (frameStack.size() > mesh_vo::num_frames)
+                    if (frameStack.size() > static_cast<size_t>(mesh_vo::num_frames))
                         frameStack.erase(frameStack.begin());
                 }
                 else
+                {
+                    // Drop frame
+                    continue;
+                }
+
+                // Need enough frames before considering new keyframe / mapping init
+                if (frameStack.size() < static_cast<size_t>(mesh_vo::num_frames))
                     continue;
 
-                // Choose wether to get a new keyframe
-                if (frameStack.size() < mesh_vo::num_frames)
-                    continue;
-
+                // Evaluate whether to create a new keyframe
                 float keyframeViewAngle = kframe.meanViewAngle(SE3f(), frame.local_pose(), cam_);
 
                 Error nodata;
                 nodata_reducer.reduce(1, image_texture, nodata);
-                float pnodata = nodata.getError() / (image_texture.width(1) * image_texture.height(1));
-                float viewPercent = 1.0 - pnodata;
+                float pnodata = nodata.getError() / float(image_texture.width(1) * image_texture.height(1));
+                float viewPercent = 1.0f - pnodata;
 
-                if (kframe.id() != 0 && viewPercent > mesh_vo::min_view_perc && keyframeViewAngle < mesh_vo::key_max_angle)
+                // Keep current keyframe if still good enough
+                if (kframe.id() != 0 &&
+                    viewPercent > mesh_vo::min_view_perc &&
+                    keyframeViewAngle < mesh_vo::key_max_angle)
+                {
                     continue;
-
-                std::cout << "Creating new keyframe because viewpercent: " << viewPercent << " keyframeViewAngle: " << keyframeViewAngle << std::endl;
-
-                // save last keyframe, we wont be updating it anymore
-                kfQueue_.push(kframe);
-
-                // select new keyframe
-                // int newKeyframeIndex = 0;
-                int newKeyframeIndex = int(frameStack.size() / 2);
-                // int newKeyframeIndex = int(frameStack.size() - 2);
-                Frame newKeyframe = frameStack[newKeyframeIndex];
-
-                poseDepthEstimator.changeKeyframe(newKeyframe, frameStack, kframe, cam_);
-
-                /////////////////// Debug ///////////////////
-                depth_renderer.Render(kframe.mesh(),
-                                      SE3f(), cam_, 1, depth_texture);
-                depth_mat = DownloadTextureToMat(depth_texture, 1);
-                SaveDebugImage(depth_mat, "map_" + std::to_string(kframe.id()) + "_init_depth.png");
-
-                for (Frame f : frameStack)
-                {
-                    image_renderer.Render(kframe.mesh(),
-                                          f.local_pose(),
-                                          f.local_exposure(),
-                                          cam_,
-                                          1, 1,
-                                          kframe.image(), image_texture);
-
-                    image_mat = DownloadTextureToMat(image_texture, 1);
-                    ref_mat = DownloadTextureToMat(f.image(), 1);
-                    l2_mat = ref_mat - image_mat;
-                    SaveDebugImage(l2_mat, "map_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + "_ini_l2.png");
-                }
-                ///////////////////////////
-
-                oframes = frameStack;
-                oframes.erase(oframes.begin() + newKeyframeIndex);
-
-                // init the posemapoptimizer
-                poseDepthEstimator.estimate(oframes, kframe, cam_);
-
-                for (size_t i = 0; i < oframes.size(); i++)
-                {
-                    for (size_t j = 0; j < frameStack.size(); j++)
-                    {
-                        if (oframes[i].id() == frameStack[j].id())
-                        {
-                            frameStack[j].local_pose() = oframes[i].local_pose();
-                            frameStack[j].local_exposure() = oframes[i].local_exposure();
-                        }
-                    }
                 }
 
-                frameStack[newKeyframeIndex].local_pose() = SE3f();
+                std::cout << "Creating new keyframe because viewPercent=" << viewPercent
+                          << " keyframeViewAngle=" << keyframeViewAngle << std::endl;
 
-                float mean_depth = kframe.meanDepth();
-                std::cout << "Mean depth: " << mean_depth << std::endl;
-                kframe.scaleMesh(mean_depth / mesh_vo::mapping_mean_depth);
+                // "Finalize" current keyframe (history). If you want, store it somewhere; currently we just overwrite latest.
+                // Select new keyframe as middle frame
+                const int newKeyframeIndex = int(frameStack.size() / 2);
 
-                for (size_t i = 0; i < frameStack.size(); i++)
+                poseDepthEstimator.changeKeyframe(frameStack[newKeyframeIndex], frameStack, kframe, cam_);
+                poseDepthEstimator.init(frameStack, kframe, cam_);
+                opt_steps = 0;
+
+                // Publish latest keyframe snapshot for ROS consumers
                 {
-                    frameStack[i].scalePose(mean_depth / mesh_vo::mapping_mean_depth);
+                    std::lock_guard<std::mutex> lk(latest_kf_mtx_);
+                    latest_kf_ = kframe;
+                    has_latest_kf_ = true;
                 }
-
-                lastLocalPose.translation() /= (mean_depth / mesh_vo::mapping_mean_depth);
-                lastLocalMovement.translation() /= (mean_depth / mesh_vo::mapping_mean_depth);
-
-                /////////////////// Debug ///////////////////
-                depth_renderer.Render(kframe.mesh(),
-                                      SE3f(), cam_, 1, depth_texture);
-                depth_mat = DownloadTextureToMat(depth_texture, 1);
-                SaveDebugImage(depth_mat, "map_" + std::to_string(kframe.id()) + "_opt_depth.png");
-
-                for (Frame f : frameStack)
-                {
-                    image_renderer.Render(kframe.mesh(),
-                                          f.local_pose(),
-                                          f.local_exposure(),
-                                          cam_,
-                                          1, 1,
-                                          kframe.image(), image_texture);
-
-                    image_mat = DownloadTextureToMat(image_texture, 1);
-                    ref_mat = DownloadTextureToMat(f.image(), 1);
-                    l2_mat = ref_mat - image_mat;
-                    SaveDebugImage(l2_mat, "map_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + "_opt_l2.png");
-                }
-                ///////////////////////////
             }
-            /*
-            if (oframes.size() < 1)
-                continue;
-
-            // this will update the local pose and the local map
-            tt.tic();
-            poseMapOptimizer.step(oframes, kframe, cam_, mesh_vo::mapping_fin_lvl, mesh_vo::mapping_fin_lvl);
-            std::cout << "mapping time " << tt.toc() << std::endl;
-
-            // update the global poses
-            for (size_t i = 0; i < oframes.size(); i++)
+            else
             {
-                for (size_t j = 0; j < frameStack.size(); j++)
+                // No new frame
+                if (!doMapping_)
                 {
-                    if (oframes[i].id() == frameStack[j].id())
-                    {
-                        frameStack[j].local_pose() = oframes[i].local_pose();
-                        frameStack[j].local_exposure() = oframes[i].local_exposure();
-                    }
+                    // Avoid busy-spin
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
                 }
+
+                if (frameStack.size() < static_cast<size_t>(mesh_vo::num_frames))
+                {
+                    // Still warming up; avoid burning CPU
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
+                }
+
+                // One mapping iteration per idle cycle (your proposed scheduler)
+                opt_steps++;
+                poseDepthEstimator.step(frameStack, kframe, cam_);
+
+                // Publish latest keyframe snapshot (mesh updated inside kframe)
+                {
+                    std::lock_guard<std::mutex> lk(latest_kf_mtx_);
+                    latest_kf_ = kframe;
+                    has_latest_kf_ = true;
+                }
+
+                // Optional debug (VERY expensive)
+                // depth_renderer.Render(kframe.mesh(), SE3f(), cam_, 1, depth_texture);
+                // depth_mat = DownloadTextureToMat(depth_texture, 1);
+                // SaveDebugImage(depth_mat, "map_" + std::to_string(kframe.id()) + "_opt_depth_" + std::to_string(opt_steps) + ".png");
             }
-            */
         }
     }
 
-    /*
-    // Visualization thread using Pangolin
-    int visualizationThread()
-    {
-        pangolin::CreateWindowAndBind("Main", 640, 480);
-        glEnable(GL_DEPTH_TEST);
+private:
+    // Worker thread control
+    std::atomic<bool> running_{false};
+    std::thread worker_;
 
-        // Define Projection and initial ModelView matrix
-        pangolin::OpenGlRenderState s_cam(
-            pangolin::ProjectionMatrix(640, 480, 420, 420, 320, 240, 0.1, 100),
-            pangolin::ModelViewLookAt(-2, 2, -2, 0, 0, 0, pangolin::AxisY));
+    // Init barrier (worker waits until first keyframe exists)
+    mutable std::mutex init_mtx_;
+    mutable std::condition_variable init_cv_;
+    bool initialized_{false};
 
-        // Create Interactive View in window
-        pangolin::Handler3D handler(s_cam);
-        pangolin::View &d_cam = pangolin::CreateDisplay()
-                                    .SetBounds(0.0, 1.0, 0.0, 1.0, -640.0f / 480.0f)
-                                    .SetHandler(&handler);
+    // Latest keyframe snapshot (for ROS thread)
+    mutable std::mutex latest_kf_mtx_;
+    KeyFrame latest_kf_;
+    bool has_latest_kf_{false};
 
-        std::vector<SE3f> poses;
-
-        ImageRendererGL image_renderer;
-        trayectoryPlotter trayPlotter;
-        std::vector<imagePlotter> imgPosePlotter;
-        imgPosePlotter.push_back(imagePlotter(0, 0)); // keyframe
-        imgPosePlotter.push_back(imagePlotter(0, 1)); // depth
-        imgPosePlotter.push_back(imagePlotter(0, 2)); // frame
-        imgPosePlotter.push_back(imagePlotter(0, 3)); // errpr
-
-        std::vector<imagePlotter> imgMapPlotter;
-        imgMapPlotter.push_back(imagePlotter(1, 0)); // keyframe
-        imgMapPlotter.push_back(imagePlotter(1, 1)); // depth
-        imgMapPlotter.push_back(imagePlotter(2, 0)); // frame
-        imgMapPlotter.push_back(imagePlotter(2, 1)); // error
-        imgMapPlotter.push_back(imagePlotter(3, 0)); // frame
-        imgMapPlotter.push_back(imagePlotter(3, 1)); // error
-
-        geomPlotter.compileShaders();
-        trayPlotter.compileShaders();
-        for (imagePlotter &imgPlotter : imgPosePlotter)
-            imgPlotter.compileShaders();
-        for (imagePlotter &imgPlotter : imgMapPlotter)
-            imgPlotter.compileShaders();
-
-        Keyframe kframe = kframe_;
-        Frame frame;
-
-        while (!pangolin::ShouldQuit())
-        {
-            if (kfQueue_.try_pop(kframe))
-            {
-                kframe.scaleVerticesAndWeights(1.0 / kframe.getGlobalScale());
-                kframe.getGeometry().transform(kframe.getGlobalPose().inverse());
-                poses.push_back(kframe.getGlobalPose());
-                trayPlotter.setBuffers(poses, cam_);
-            }
-
-            if (!debugLocalizationQueue_.empty())
-            {
-                std::vector<dataCPU<float>> debugLoc = debugLocalizationQueue.pop();
-
-                for (int i = 0; i < debugLoc.size(); i++)
-                {
-                    if (i >= imgPosePlotter.size())
-                        break;
-                    vec2f minMax = debugLoc[i].getMinMax();
-                    debugLoc[i].normalize(minMax(0), minMax(1));
-                    imgPosePlotter[i].setBuffers(debugLoc[i]);
-                }
-            }
-
-            if (!debugMappingQueue_.empty())
-            {
-                std::vector<dataCPU<float>> debugLoc = debugMappingQueue.pop();
-
-                for (int i = 0; i < debugLoc.size(); i++)
-                {
-                    if (i >= imgMapPlotter.size())
-                        break;
-                    vec2f minMax = debugLoc[i].getMinMax();
-                    debugLoc[i].normalize(minMax(0), minMax(1));
-                    imgMapPlotter[i].setBuffers(debugLoc[i]);
-                }
-            }
-
-
-            //if (fQueue.try_peek(frame))
-           // {
-            //    poses.push_back(frame.getGlobalPose());
-            //    plotter.setBuffers(poses, cam);
-            //}
-
-
-            // Clear screen and activate view to render into
-            glClearColor(0.2f, 0.3f, 0.4f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            d_cam.Activate(s_cam);
-            pangolin::OpenGlMatrix mvp = s_cam.GetProjectionModelViewMatrix();
-
-            geomPlotter.draw(mvp);
-            trayPlotter.draw(mvp);
-            for (imagePlotter &iPlotter : imgPosePlotter)
-                iPlotter.draw();
-            for (imagePlotter &iPlotter : imgMapPlotter)
-                iPlotter.draw();
-
-            // Swap frames and Process Events
-            pangolin::FinishFrame();
-        }
-
-        return 0;
-    }
-    */
-
-    std::thread tLocalization_;
-    std::thread tMapping_;
-    std::thread tVisualization_;
-
+    // Input queue of textures
     ThreadSafeQueue<Texture<ImageType>> iQueue_;
-    ThreadSafeQueue<Frame> fQueue_;
-    ThreadSafeQueue<KeyFrame> kfQueue_;
 
+    // Camera + params
     Camera cam_;
-    int width_;
-    int height_;
-    int frameId_;
+    int width_{0};
+    int height_{0};
+    std::atomic<int> frameId_{0};
 
-    bool doMapping_;
-    bool doVisualization_;
+    bool doMapping_{true};
+    bool doVisualization_{true};
 };

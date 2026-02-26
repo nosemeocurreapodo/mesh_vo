@@ -16,7 +16,7 @@ class FolderImagePublisher(Node):
 
         self.declare_parameter("folder", "")
         self.declare_parameter("topic", "/camera/image_raw")
-        self.declare_parameter("fps", 10.0)
+        self.declare_parameter("fps", 1.0)
         self.declare_parameter("loop", True)
         self.declare_parameter("encoding", "bgr8")  # "mono8" if grayscale
 

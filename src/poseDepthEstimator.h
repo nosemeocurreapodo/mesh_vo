@@ -18,6 +18,16 @@ public:
     //     frame.local_exposure() = last_local_exp;
     // }
 
+    void init(std::span<Frame> frames, KeyFrame &kframe, Camera &cam)
+    {
+        optimizer.init(frames, kframe, cam, 1, 1);
+    }
+
+    void step(std::span<Frame> frames, KeyFrame &kframe, Camera &cam)
+    {
+        optimizer.step(frames, kframe, cam, 1, 1);
+    }
+
     void estimate(std::span<Frame> frames, KeyFrame &kframe, Camera &cam)
     {
         for (auto frame : frames)
@@ -70,6 +80,17 @@ public:
             old_frames[k].local_pose() = old_frames[k].local_pose() * reference_pose;
             // frames[k].local_pose() = kframe->globalPoseToLocal(gt_global_poses[k]);
             old_frames[k].keyframe_id() = new_kframe.id();
+        }
+    }
+
+    void normalize_depth(std::span<Frame> frames, KeyFrame &kframe)
+    {
+        float meanDepth = kframe.meanDepth();
+        kframe.scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
+
+        for (int j = 0; j < frames.size(); j++)
+        {
+            frames[j].scalePose(meanDepth / mesh_vo::mapping_mean_depth);
         }
     }
 

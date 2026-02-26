@@ -35,7 +35,7 @@ public:
         }
     }
 
-    void changeKeyframe(Frame &new_kframe, std::span<Frame *const> old_frames, KeyFrame &old_kframe, const Camera &cam)
+    void changeKeyframe(Frame &new_kframe, std::span<Frame> old_frames, KeyFrame &old_kframe, const Camera &cam)
     {
         SE3f global_pose = old_kframe.localPoseToGlobal(new_kframe.local_pose());
         float global_scale = old_kframe.getGlobalScale();
@@ -67,9 +67,9 @@ public:
 
         for (std::size_t k = 0; k < old_frames.size(); k++)
         {
-            old_frames[k]->local_pose() = old_frames[k]->local_pose() * reference_pose;
+            old_frames[k].local_pose() = old_frames[k].local_pose() * reference_pose;
             // frames[k].local_pose() = kframe->globalPoseToLocal(gt_global_poses[k]);
-            old_frames[k]->keyframe_id() = new_kframe.id();
+            old_frames[k].keyframe_id() = new_kframe.id();
         }
     }
 

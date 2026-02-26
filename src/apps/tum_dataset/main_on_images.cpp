@@ -236,7 +236,7 @@ int main(int argc, char **argv)
 		runningIDX++;
 		fakeTimeStamp += 0.03;
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+		std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 
 		// if(hz != 0)
 		//	r.sleep();

@@ -50,6 +50,9 @@ public:
         numDepths_ = kframe.mesh().vertex_count();
         numParams_ = numDepths_ + 6 * frames.size();
 
+        depths_ = best_depths_;
+        poses_ = best_poses_;
+
         problem = DenseLinearProblemx(numParams_);
         solver = Solverx<float>(numParams_);
     }
@@ -68,7 +71,7 @@ public:
     {
         depths_.clear();
         poses_.clear();
-        
+
         for (size_t i = 0; i < numDepths_; i++)
         {
             float new_depth = fromParamToDepth(fromDepthToParam(best_depths_[i]) + inc(i));

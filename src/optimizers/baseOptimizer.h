@@ -186,6 +186,9 @@ protected:
         assert(frame.image().width(0) == kframe.image().width(0) &&
                frame.image().height(0) == kframe.image().height(0));
 
+        // if(frame.id() == kframe.id())
+        //     return;
+
         imagerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
         residualreducer_.reduce(out_lvl, image_texture_, frame.image(), total);
     }

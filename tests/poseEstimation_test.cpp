@@ -99,7 +99,7 @@ TEST_F(RendererTestBase, ComputePose)
         }
 
         Frame frame(image_texture, didxy_texture, img_id, kframe->id());
-        estimator.guess(frame);
+        estimator.guess(frame, *kframe);
 
         auto startTime = std::chrono::high_resolution_clock::now();
         estimator.estimate(frame, *kframe, cam_);
