@@ -40,8 +40,6 @@ TEST_F(RendererTestBase, ComputeDepth)
     KeyFrame *kframe;
 
     Texture<ImageType> image_texture(w_, h_, 0);
-    Texture<Vec3f> didxy_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
-    Texture<float> gt_depth_texture(w_, h_, 0.0);
     Texture<float> es_depth_texture(w_, h_, 0.0);
     Texture<Vec3f> pids_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
 
@@ -54,12 +52,14 @@ TEST_F(RendererTestBase, ComputeDepth)
         gt_depth_cv.convertTo(gt_depth_cv, CV_32FC1);
         gt_depth_cv = gt_depth_cv / depth_factor_;
 
+        Texture<float> gt_depth_texture(w_, h_, 0.0);
+
         Frame &frame = frames.latest();
         UploadMatToTexture(frame.image(), 0, image_cv);
         UploadMatToTexture(gt_depth_texture, 0, gt_depth_cv);
         SE3f gt_global_pose = poses_[img_id];
 
-        for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
+        for (int lvl = 0; lvl < frame.didxy().levels(); lvl++)
             didxy_renderer.Render(screen_mesh, lvl, lvl, frame.image(), frame.didxy());
 
         if (img_id == 0)
@@ -116,8 +116,8 @@ TEST_F(RendererTestBase, ComputeDepth)
 
         frames.accept_latest();
 
-        gt_depth_textures.push_back(gt_depth_texture);
-        gt_global_poses.push_back(gt_global_pose);
+        gt_depth_textures.push_back(std::move(gt_depth_texture));
+        gt_global_poses.push_back(std::move(gt_global_pose));
         if (frames.size() > mesh_vo::num_frames)
         {
             gt_depth_textures.erase(gt_depth_textures.begin());

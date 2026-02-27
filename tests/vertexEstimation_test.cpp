@@ -37,8 +37,6 @@ TEST_F(RendererTestBase, ComputeVertex)
     std::vector<SE3f> gt_global_poses;
 
     Texture<ImageType> image_texture(w_, h_, 0);
-    Texture<Vec3f> didxy_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
-    Texture<float> gt_depth_texture(w_, h_, 0.0);
     Texture<float> es_depth_texture(w_, h_, 0.0);
     Texture<Vec3f> pids_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
 
@@ -52,12 +50,13 @@ TEST_F(RendererTestBase, ComputeVertex)
         gt_depth_cv = gt_depth_cv / depth_factor_;
 
         Frame &frame = frames.latest();
+        Texture<float> gt_depth_texture(w_, h_, 0.0);
 
         UploadMatToTexture(frame.image(), 0, image_cv);
         UploadMatToTexture(gt_depth_texture, 0, gt_depth_cv);
         SE3f gt_global_pose = poses_[img_id];
 
-        for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
+        for (int lvl = 0; lvl < frame.didxy().levels(); lvl++)
             didxy_renderer.Render(screen_mesh, lvl, lvl, frame.image(), frame.didxy());
 
         // didxy_renderer.Render(screen_mesh, 0, 0, image_texture, didxy_texture);
@@ -68,16 +67,13 @@ TEST_F(RendererTestBase, ComputeVertex)
 
         if (img_id == 0)
         {
-            std::vector<float> ver_buff_;
-            std::vector<int> idx_buff_;
-
             double gt_depth_mean = cv::mean(gt_depth_cv)[0];
 
             Mesh mesh = CreateMesh<Mesh>(gt_depth_texture.MapRead(0).data(),
-                 cam_,
-                 gt_depth_texture.width(0),
-                 gt_depth_texture.height(0),
-                  mesh_vo::mesh_width);
+                                         cam_,
+                                         gt_depth_texture.width(0),
+                                         gt_depth_texture.height(0),
+                                         mesh_vo::mesh_width);
             // CreateFlatMesh(gt_depth_mean * 0.5, gt_depth_mean * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, false, false);
             //     CreateSphereMesh(gt_depth_mean, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_);
 
@@ -92,7 +88,7 @@ TEST_F(RendererTestBase, ComputeVertex)
         frame.local_pose() = init_local_pose;
 
         float minViewAngle = M_PI;
-        for (Frame* f : frames.window_span_mut())
+        for (Frame *f : frames.window_span_mut())
         {
             float viewAngle = kframe->meanViewAngle(frame.local_pose(), f->local_pose(), cam_);
             if (viewAngle < minViewAngle)
@@ -106,7 +102,7 @@ TEST_F(RendererTestBase, ComputeVertex)
 
         frames.accept_latest();
 
-        gt_depth_textures.push_back(gt_depth_texture);
+        gt_depth_textures.push_back(std::move(gt_depth_texture));
         gt_global_poses.push_back(gt_global_pose);
         if (frames.size() > mesh_vo::num_frames)
         {
@@ -137,14 +133,14 @@ TEST_F(RendererTestBase, ComputeVertex)
 
         int kframeIndex = frames.size() / 2;
         frames.promote_middle_to_keyframe();
-        Frame& new_kf = frames.keyframe_frame();
-        std::span<Frame* const> frame_span = frames.window_span_mut();
+        Frame &new_kf = frames.keyframe_frame();
+        std::span<Frame *const> frame_span = frames.window_span_mut();
 
         Mesh mesh = CreateMesh<Mesh>(gt_depth_textures[kframeIndex].MapRead(0).data(),
-             cam_, 
-             gt_depth_textures[kframeIndex].width(0),
-             gt_depth_textures[kframeIndex].height(0),
-             mesh_vo::mesh_width);
+                                     cam_,
+                                     gt_depth_textures[kframeIndex].width(0),
+                                     gt_depth_textures[kframeIndex].height(0),
+                                     mesh_vo::mesh_width);
         // CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
         //   CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
         // depth_renderer.Render(kframe->mesh(),
@@ -174,7 +170,7 @@ TEST_F(RendererTestBase, ComputeVertex)
         frame.local_pose() = frame.local_pose() * reference_pose;
         // frame.local_pose() = kframe->globalPoseToLocal(gt_global_pose);
 
-        for (Frame* f : frame_span)
+        for (Frame *f : frame_span)
         {
             f->local_pose() = f->local_pose() * reference_pose;
             // frames[k].local_pose() = kframe->globalPoseToLocal(gt_global_poses[k]);
@@ -204,7 +200,7 @@ TEST_F(RendererTestBase, ComputeVertex)
         std::cout << "processing time " << duration << " ms" << std::endl;
 
         int plot_lvl = 0;
-        for (Frame* f : frame_span)
+        for (Frame *f : frame_span)
         {
             image_renderer.Render(kframe->mesh(),
                                   f->local_pose(),
@@ -221,7 +217,7 @@ TEST_F(RendererTestBase, ComputeVertex)
         float new_mean_depth = kframe->meanDepth();
         kframe->scaleMesh(new_mean_depth / mesh_vo::mapping_mean_depth);
         frame.scalePose(new_mean_depth / mesh_vo::mapping_mean_depth);
-        for (Frame* f: frame_span)
+        for (Frame *f : frame_span)
         {
             f->scalePose(new_mean_depth / mesh_vo::mapping_mean_depth);
         }

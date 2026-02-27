@@ -46,7 +46,6 @@ TEST_F(RendererTestBase, ComputePose)
     Texture<ImageType> image_texture(w_, h_, 0);
     Texture<float> gt_depth_texture(w_, h_, 0);
     Texture<float> es_depth_texture(w_, h_, 0);
-    Texture<Vec3f> didxy_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
 
     DepthRenderer depth_renderer;
     ImageRenderer image_renderer;
@@ -56,7 +55,8 @@ TEST_F(RendererTestBase, ComputePose)
     PoseEstimator estimator(w_, h_, true);
 
     Frame frame(w_, h_);
-    KeyFrame *kframe;
+    Frame kframee(w_, h_);
+    std::unique_ptr<KeyFrame> kframe;
 
     for (unsigned int img_id = 0; img_id < image_files_.size(); img_id++)
     {
@@ -71,7 +71,7 @@ TEST_F(RendererTestBase, ComputePose)
         UploadMatToTexture(frame.image(), 0, image_cv);
         UploadMatToTexture(gt_depth_texture, 0, gt_depth_cv);
 
-        for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
+        for (int lvl = 0; lvl < frame.didxy().levels(); lvl++)
             didxy_renderer.Render(screen_mesh, lvl, lvl, frame.image(), frame.didxy());
 
         // didxy_renderer.Render(screen_mesh, 0, 0, image_cpu, didxy_cpu);
@@ -79,13 +79,15 @@ TEST_F(RendererTestBase, ComputePose)
 
         if (img_id == 0)
         {
-            Mesh mesh = CreateMesh<Mesh>(gt_depth_texture.MapRead(0).data(), 
-                cam_, 
-                gt_depth_texture.width(0),
-                gt_depth_texture.height(0),
-                mesh_vo::mesh_width);
+            std::swap(kframee, frame);
 
-            kframe = new KeyFrame(frame, std::move(mesh), gt_global_pose, 1.0);
+            Mesh mesh = CreateMesh<Mesh>(gt_depth_texture.MapRead(0).data(),
+                                         cam_,
+                                         gt_depth_texture.width(0),
+                                         gt_depth_texture.height(0),
+                                         mesh_vo::mesh_width);
+
+            kframe = std::make_unique<KeyFrame>(kframee, std::move(mesh), gt_global_pose, 1.0);
             float meanDepth = kframe->meanDepth();
             kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
 
@@ -135,19 +137,21 @@ TEST_F(RendererTestBase, ComputePose)
         if (viewPercent > mesh_vo::min_view_perc) // || keyframeViewAngle > mesh_vo::key_max_angle)
             continue;
 
-        Mesh new_mesh = CreateMesh<Mesh>(gt_depth_texture.MapRead(0).data(), 
-            cam_, 
-            gt_depth_texture.width(0),
-            gt_depth_texture.height(0),
-            mesh_vo::mesh_width);
+        std::swap(kframee, frame);
 
-        kframe = new KeyFrame(frame, std::move(new_mesh), es_global_pose, 1.0);
-        
-        //estimator.changeKeyframe(frame, frame, cam_);
+        Mesh new_mesh = CreateMesh<Mesh>(gt_depth_texture.MapRead(0).data(),
+                                         cam_,
+                                         gt_depth_texture.width(0),
+                                         gt_depth_texture.height(0),
+                                         mesh_vo::mesh_width);
+
+        kframe = std::make_unique<KeyFrame>(kframee, std::move(new_mesh), gt_global_pose, 1.0);
+
+        // estimator.changeKeyframe(frame, frame, cam_);
 
         float meanDepth = kframe->meanDepth();
         kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
-        frame.scalePose(meanDepth / mesh_vo::mapping_mean_depth);
+        // frame.scalePose(meanDepth / mesh_vo::mapping_mean_depth);
 
         depth_renderer.Render(kframe->mesh(),
                               SE3f(),
