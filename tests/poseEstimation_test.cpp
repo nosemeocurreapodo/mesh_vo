@@ -91,6 +91,8 @@ TEST_F(RendererTestBase, ComputePose)
             float meanDepth = kframe->meanDepth();
             kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
 
+            estimator.init_global_pose(gt_global_pose);
+
             continue;
         }
 

@@ -12,6 +12,11 @@ public:
         last_local_exp = Vec2f(0.0, 0.0);
     }
 
+    void init_global_pose(SE3f &global_pose)
+    {
+        last_global_pose = global_pose;
+    }
+
     void guess(Frame &frame, KeyFrame &kframe)
     {
         SE3f guess_global_pose = last_global_move * last_global_pose;
