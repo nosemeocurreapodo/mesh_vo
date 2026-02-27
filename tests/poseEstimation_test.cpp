@@ -41,8 +41,7 @@ TEST_F(RendererTestBase, ComputePose)
     float accRotationError = 0;
     int framesProcessedCounter = 0;
 
-    Mesh screen_mesh;
-    CreateScreenQuad(screen_mesh);
+    Mesh screen_mesh = CreateScreenQuad<Mesh>();
 
     Texture<ImageType> image_texture(w_, h_, 0);
     Texture<float> gt_depth_texture(w_, h_, 0);
@@ -56,11 +55,8 @@ TEST_F(RendererTestBase, ComputePose)
 
     PoseEstimator estimator(w_, h_, true);
 
+    Frame frame(w_, h_);
     KeyFrame *kframe;
-
-    SE3f tracked_local_pose;
-    SE3f tracked_local_movement;
-    Vec2f tracked_local_exposure(0, 0);
 
     for (unsigned int img_id = 0; img_id < image_files_.size(); img_id++)
     {
@@ -72,33 +68,30 @@ TEST_F(RendererTestBase, ComputePose)
         gt_depth_cv = gt_depth_cv / depth_factor_;
         SE3f gt_global_pose = poses_[img_id];
 
-        UploadMatToTexture(image_texture, 0, image_cv);
+        UploadMatToTexture(frame.image(), 0, image_cv);
         UploadMatToTexture(gt_depth_texture, 0, gt_depth_cv);
 
         for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
-            didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
+            didxy_renderer.Render(screen_mesh, lvl, lvl, frame.image(), frame.didxy());
 
         // didxy_renderer.Render(screen_mesh, 0, 0, image_cpu, didxy_cpu);
         // didxy_cpu.generate_mipmaps(0);
 
         if (img_id == 0)
         {
-            Mesh mesh;
-            CreateMesh(gt_depth_texture.MapRead(0).data(), 
+            Mesh mesh = CreateMesh<Mesh>(gt_depth_texture.MapRead(0).data(), 
                 cam_, 
                 gt_depth_texture.width(0),
                 gt_depth_texture.height(0),
-                mesh_vo::mesh_width, 
-                mesh);
+                mesh_vo::mesh_width);
 
-            kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0, img_id);
+            kframe = new KeyFrame(frame, std::move(mesh), gt_global_pose, 1.0);
             float meanDepth = kframe->meanDepth();
             kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
 
             continue;
         }
 
-        Frame frame(image_texture, didxy_texture, img_id, kframe->id());
         estimator.guess(frame, *kframe);
 
         auto startTime = std::chrono::high_resolution_clock::now();
@@ -142,15 +135,13 @@ TEST_F(RendererTestBase, ComputePose)
         if (viewPercent > mesh_vo::min_view_perc) // || keyframeViewAngle > mesh_vo::key_max_angle)
             continue;
 
-        Mesh new_mesh;
-        CreateMesh(gt_depth_texture.MapRead(0).data(), 
+        Mesh new_mesh = CreateMesh<Mesh>(gt_depth_texture.MapRead(0).data(), 
             cam_, 
             gt_depth_texture.width(0),
             gt_depth_texture.height(0),
-            mesh_vo::mesh_width,
-            new_mesh);
+            mesh_vo::mesh_width);
 
-        kframe = new KeyFrame(frame.image(), frame.didxy(), es_global_pose, new_mesh, 1.0, frame.id());
+        kframe = new KeyFrame(frame, std::move(new_mesh), es_global_pose, 1.0);
         
         //estimator.changeKeyframe(frame, frame, cam_);
 

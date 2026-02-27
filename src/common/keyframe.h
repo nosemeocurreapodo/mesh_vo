@@ -76,57 +76,35 @@ static bool pointInMesh2D(
 class KeyFrame
 {
 public:
-    KeyFrame()
+    KeyFrame(const Frame &frame, Mesh mesh, SE3f global_pose, float global_scale)
+        : frame_(&frame), mesh_(std::move(mesh)), global_pose_(global_pose), global_scale_(global_scale)
     {
     }
 
-    KeyFrame(const Texture<ImageType> &image, const Texture<Vec3f> &didxy, SE3f global_pose, const Mesh &mesh, float global_scale, int id)
-        : image_(image), didxy_(didxy), global_pose_(global_pose), mesh_(mesh), global_scale_(global_scale), id_(id)
+    KeyFrame(const KeyFrame &) = delete;
+    KeyFrame &operator=(const KeyFrame &) = delete;
+
+    KeyFrame(KeyFrame &&) noexcept = default;
+    KeyFrame &operator=(KeyFrame &&) noexcept = default;
+
+    //const Frame* frame() const
+    //{
+    //    return frame_;
+    //}
+
+    const Texture<ImageType>& image() const
     {
+        return frame_->image();
     }
 
-    KeyFrame(const KeyFrame &other)
-        : image_(other.image_),
-          didxy_(other.didxy_),
-          global_pose_(other.global_pose_),
-          mesh_(other.mesh_),
-          global_scale_(other.global_scale_),
-          id_(other.id_)
+    const Texture<Vec3<float>>& didxy() const
     {
+        return frame_->didxy();
     }
 
-    KeyFrame &operator=(const KeyFrame &other)
+    const int& id() const
     {
-        if (this != &other)
-        {
-            image_ = other.image_;
-            didxy_ = other.didxy_;
-            global_pose_ = other.global_pose_;
-            mesh_ = other.mesh_;
-            global_scale_ = other.global_scale_;
-            id_ = other.id_;
-        }
-        return *this;
-    }
-
-    int id() const
-    {
-        return id_;
-    }
-
-    const Texture<ImageType> &image() const
-    {
-        return image_;
-    }
-
-    const Texture<Vec3f> &didxy() const
-    {
-        return didxy_;
-    }
-
-    const SE3f &global_pose() const
-    {
-        return global_pose_;
+        return frame_->id();
     }
 
     const Mesh &mesh() const
@@ -137,6 +115,11 @@ public:
     Mesh &mesh()
     {
         return mesh_;
+    }
+
+    const SE3f &global_pose() const
+    {
+        return global_pose_;
     }
 
     float getGlobalScale()
@@ -199,6 +182,7 @@ public:
         set_vertices(mesh_, vertices);
     }
 
+    /*
     void changeFrame(const Texture<ImageType> &new_image,
                      const Texture<Vec3f> &new_didxy,
                      const SE3f &new_local_pose,
@@ -376,6 +360,7 @@ public:
         mesh_ = new_mesh;
         id_ = new_id;
     }
+    */
 
     float meanViewAngle(const SE3f &pose1, const SE3f &pose2, const Camera cam)
     {
@@ -424,10 +409,8 @@ public:
 
 private:
     // Frame frame_;
-    Texture<ImageType> image_;
-    Texture<Vec3f> didxy_;
+    const Frame *frame_;
     Mesh mesh_;
     SE3f global_pose_;
     float global_scale_;
-    int id_;
 };

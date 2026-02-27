@@ -37,12 +37,12 @@ public:
         return numParams_;
     }
 
-    void reset(std::span<const Frame> frames, const KeyFrame &kframe, DenseLinearProblem<6> &problem, Solver<float, 6> &solver)
+    void reset(std::span<const Frame* const> frames, const KeyFrame &kframe, DenseLinearProblem<6> &problem, Solver<float, 6> &solver)
     {
         best_poses_.clear();
         for (int i = 0; i < frames.size(); i++)
         {
-            best_poses_.push_back(frames[i].local_pose());
+            best_poses_.push_back(frames[i]->local_pose());
         }
         numParams_ = 6 * frames.size();
     }
@@ -57,7 +57,7 @@ public:
         //regu_depth_jacobian(depths_, edges_, problem);
     }
 
-    void update_params(std::span<Frame> frames, KeyFrame &kframe, const Vec6<float> &inc)
+    void update_params(std::span<Frame* const> frames, KeyFrame &kframe, const Vec6<float> &inc)
     {
         poses_.clear();
         
@@ -75,7 +75,7 @@ public:
 
         for (size_t i = 0; i < frames.size(); i++)
         {
-            frames[i].local_pose() = poses_[i];
+            frames[i]->local_pose() = poses_[i];
         }
     }
 
@@ -84,23 +84,23 @@ public:
         best_poses_ = poses_;
     }
 
-    void restore_best_params(std::span<Frame> frames, KeyFrame &kframe)
+    void restore_best_params(std::span<Frame* const> frames, KeyFrame &kframe)
     {
         poses_ = best_poses_;
 
         for (size_t i = 0; i < frames.size(); i++)
         {
-            frames[i].local_pose() = best_poses_[i];
+            frames[i]->local_pose() = best_poses_[i];
         }
     }
 
-    void compute_problem(std::span<const Frame> frames, const KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<6> &total)
+    void compute_problem(std::span<const Frame* const> frames, const KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<6> &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
             jposedepthrenderer_.Render(kframe.mesh(),
-                                       frames[frame_idx].local_pose(),
-                                       frames[frame_idx].local_exposure(),
+                                       frames[frame_idx]->local_pose(),
+                                       frames[frame_idx]->local_exposure(),
                                        cam,
                                        in_lvl, out_lvl,
                                        kframe.image(),
@@ -113,7 +113,7 @@ public:
                                        jtra_texture_,
                                        jrot_texture_,
                                        image_texture_,
-                                       frames[frame_idx].image(),
+                                       frames[frame_idx]->image(),
                                        total);
         }
     }

@@ -37,7 +37,7 @@ public:
         return numParams_;
     }
 
-    void reset(std::span<const Frame> frames, const KeyFrame &kframe, DenseLinearProblem<8> &problem, Solver<float, 8> &solver)
+    void reset(std::span<const Frame* const> frames, const KeyFrame &kframe, DenseLinearProblem<8> &problem, Solver<float, 8> &solver)
     {
         best_poses_.clear();
         best_exps_.clear();
@@ -59,7 +59,7 @@ public:
         //regu_depth_jacobian(depths_, edges_, problem);
     }
 
-    void update_params(std::span<Frame> frames, KeyFrame &kframe, const Vecx<float> &inc)
+    void update_params(std::span<Frame* const> frames, KeyFrame &kframe, const Vecx<float> &inc)
     {
         poses_.clear();
         exps_.clear();
@@ -94,7 +94,7 @@ public:
         best_exps_ = exps_;
     }
 
-    void restore_best_params(std::span<Frame> frames, KeyFrame &kframe)
+    void restore_best_params(std::span<Frame* const> frames, KeyFrame &kframe)
     {
         poses_ = best_poses_;
         exps_ = best_exps_;
@@ -106,7 +106,7 @@ public:
         }
     }
 
-    void compute_problem(std::span<const Frame> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<8> &total)
+    void compute_problem(std::span<const Frame* const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<8> &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {

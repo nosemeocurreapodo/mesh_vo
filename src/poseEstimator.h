@@ -25,10 +25,10 @@ public:
 
         for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
         {
-            optimizer.init(frame, kframe, cam, lvl, lvl);
+            optimizer.init(&frame, kframe, cam, lvl, lvl);
             while (true)
             {
-                optimizer.step(frame, kframe, cam, lvl, lvl);
+                optimizer.step(&frame, kframe, cam, lvl, lvl);
                 if (optimizer.converged())
                     break;
             }

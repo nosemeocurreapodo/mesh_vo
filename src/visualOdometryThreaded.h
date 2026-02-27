@@ -32,6 +32,7 @@
 #include "common/types.h"
 #include "common/frame.h"
 #include "common/keyframe.h"
+#include "common/FrameWindow.h"
 
 #include "poseEstimator.h"
 #include "poseDepthEstimator.h"
@@ -187,8 +188,7 @@ public:
         if (debug_log_)
             std::cout << "flatInit" << std::endl;
 
-        Mesh screen_mesh;
-        CreateScreenQuad(screen_mesh);
+        Mesh screen_mesh = CreateScreenQuad<Mesh>();
 
         DIDxyRenderer didxy_renderer;
 
@@ -199,8 +199,7 @@ public:
         for (int lvl = 0; lvl < static_cast<int>(didxy_texture.levels()); ++lvl)
             didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
 
-        Mesh mesh;
-        CreateFlatMesh(0.5f, 1.5f, cam_, mesh_vo::mesh_width, mesh);
+        Mesh mesh = CreateFlatMesh<Mesh>(0.5f, 1.5f, cam_, mesh_vo::mesh_width);
 
         const int id = frameId_.fetch_add(1);
         KeyFrame kframe(image_texture, didxy_texture, SE3f(), mesh, 1.0f, id);
@@ -208,7 +207,7 @@ public:
         // Publish latest keyframe (for ROS)
         {
             std::lock_guard<std::mutex> lk(latest_kf_mtx_);
-            latest_kf_ = kframe;
+            latest_kf_ = std::move(kframe);
             has_latest_kf_ = true;
         }
 
@@ -290,8 +289,7 @@ private:
             return;
 
         // Setup renderers/estimators
-        Mesh screen_mesh;
-        CreateScreenQuad(screen_mesh);
+        Mesh screen_mesh = CreateScreenQuad<Mesh>();
 
         DIDxyRenderer didxy_renderer;
         DepthRenderer depth_renderer;
@@ -305,8 +303,7 @@ private:
         Texture<Vec3f> didxy_texture(width_, height_, Vec3f(0.0f, 0.0f, 0.0f));
         Texture<float> depth_texture(width_, height_, -1.0f);
 
-        std::vector<Frame> frameStack;
-        frameStack.reserve(mesh_vo::num_frames);
+        FrameWindow frameWindow(width_, height_);
 
         // Local current keyframe state lives here
         KeyFrame kframe = getKeyframe();
@@ -322,7 +319,8 @@ private:
         {
             // Try to get a new image, but don't block forever.
             // If no new frame, we spend time mapping (idle optimization).
-            const bool got_frame = iQueue_.wait_pop_for(image_texture, std::chrono::milliseconds(2));
+            Frame &frame = frameWindow.latest();
+            const bool got_frame = iQueue_.wait_pop_for(frame.image(), std::chrono::milliseconds(2));
 
             if (got_frame)
             {
@@ -331,9 +329,7 @@ private:
 
                 // Precompute gradients
                 for (int lvl = 0; lvl < static_cast<int>(didxy_texture.levels()); ++lvl)
-                    didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
-
-                Frame frame(image_texture, didxy_texture, frameId_.fetch_add(1), kframe.id());
+                    didxy_renderer.Render(screen_mesh, lvl, lvl, frame.image(), frame.didxy());
 
                 poseEstimator.guess(frame, kframe);
 
@@ -375,18 +371,16 @@ private:
 
                 // Select whether to keep the frame
                 float lastMinViewAngle = PI;
-                for (const Frame &f : frameStack)
+                for (const Frame *f : frameWindow.window_span_mut())
                 {
-                    float lastViewAngle = kframe.meanViewAngle(f.local_pose(), frame.local_pose(), cam_);
+                    float lastViewAngle = kframe.meanViewAngle(f->local_pose(), frame.local_pose(), cam_);
                     if (lastViewAngle < lastMinViewAngle)
                         lastMinViewAngle = lastViewAngle;
                 }
 
                 if (lastMinViewAngle > mesh_vo::last_min_angle || kframe.id() == 0)
                 {
-                    frameStack.push_back(frame);
-                    if (frameStack.size() > static_cast<size_t>(mesh_vo::num_frames))
-                        frameStack.erase(frameStack.begin());
+                    frameWindow.accept_latest();
                 }
                 else
                 {
@@ -395,7 +389,7 @@ private:
                 }
 
                 // Need enough frames before considering new keyframe / mapping init
-                if (frameStack.size() < static_cast<size_t>(mesh_vo::num_frames))
+                if (!frameWindow.full())
                     continue;
 
                 // Evaluate whether to create a new keyframe
@@ -420,10 +414,12 @@ private:
 
                 // "Finalize" current keyframe (history). If you want, store it somewhere; currently we just overwrite latest.
                 // Select new keyframe as middle frame
-                const int newKeyframeIndex = int(frameStack.size() / 2);
+                frameWindow.promote_middle_to_keyframe();
+                Frame &newkframe = frameWindow.keyframe_frame();
+                std::span<Frame *const> frame_span = frameWindow.window_span_mut();
 
-                poseDepthEstimator.changeKeyframe(frameStack[newKeyframeIndex], frameStack, kframe, cam_);
-                poseDepthEstimator.init(frameStack, kframe, cam_);
+                poseDepthEstimator.changeKeyframe(newkframe, frame_span, kframe, cam_);
+                poseDepthEstimator.init(frame_span, kframe, cam_);
                 opt_steps = 0;
 
                 if (debug_img_)
@@ -434,19 +430,19 @@ private:
                     depth_mat = DownloadTextureToMat(depth_texture, 1);
                     SaveDebugImage(depth_mat, "map_" + std::to_string(kframe.id()) + "_init_depth.png");
 
-                    for (Frame f : frameStack)
+                    for (Frame *f : frame_span)
                     {
                         image_renderer.Render(kframe.mesh(),
-                                              f.local_pose(),
-                                              f.local_exposure(),
+                                              f->local_pose(),
+                                              f->local_exposure(),
                                               cam_,
                                               1, 1,
                                               kframe.image(), image_texture);
 
                         image_mat = DownloadTextureToMat(image_texture, 1);
-                        ref_mat = DownloadTextureToMat(f.image(), 1);
+                        ref_mat = DownloadTextureToMat(f->image(), 1);
                         l2_mat = ref_mat - image_mat;
-                        SaveDebugImage(l2_mat, "map_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + "_ini_l2.png");
+                        SaveDebugImage(l2_mat, "map_" + std::to_string(kframe.id()) + "_" + std::to_string(f->id()) + "_ini_l2.png");
                     }
                     ///////////////////////////
                 }
@@ -468,16 +464,18 @@ private:
                 //    continue;
                 //}
 
-                if (frameStack.size() < static_cast<size_t>(mesh_vo::num_frames))
+                if (!frameWindow.full())
                 {
                     // Still warming up; avoid burning CPU
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     continue;
                 }
 
+                std::span<Frame* const> frame_span = frameWindow.window_span_mut();
+
                 // One mapping iteration per idle cycle (your proposed scheduler)
                 opt_steps++;
-                poseDepthEstimator.step(frameStack, kframe, cam_);
+                poseDepthEstimator.step(frame_span, kframe, cam_);
 
                 // Publish latest keyframe snapshot (mesh updated inside kframe)
                 {
@@ -494,19 +492,19 @@ private:
                     depth_mat = DownloadTextureToMat(depth_texture, 1);
                     SaveDebugImage(depth_mat, "map_" + std::to_string(kframe.id()) + "_opt_depth_" + std::to_string(opt_steps) + ".png");
 
-                    for (Frame f : frameStack)
+                    for (Frame* f : frame_span)
                     {
                         image_renderer.Render(kframe.mesh(),
-                                              f.local_pose(),
-                                              f.local_exposure(),
+                                              f->local_pose(),
+                                              f->local_exposure(),
                                               cam_,
                                               1, 1,
                                               kframe.image(), image_texture);
 
                         image_mat = DownloadTextureToMat(image_texture, 1);
-                        ref_mat = DownloadTextureToMat(f.image(), 1);
+                        ref_mat = DownloadTextureToMat(f->image(), 1);
                         l2_mat = ref_mat - image_mat;
-                        SaveDebugImage(l2_mat, "map_" + std::to_string(kframe.id()) + "_" + std::to_string(f.id()) + "_opt_l2_" + std::to_string(opt_steps) + ".png");
+                        SaveDebugImage(l2_mat, "map_" + std::to_string(kframe.id()) + "_" + std::to_string(f->id()) + "_opt_l2_" + std::to_string(opt_steps) + ".png");
                     }
                     ///////////////////////////
                 }

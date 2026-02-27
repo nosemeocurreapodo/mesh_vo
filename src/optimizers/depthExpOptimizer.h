@@ -38,12 +38,12 @@ public:
         return numParams_;
     }
 
-    void reset(std::span<const Frame> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
+    void reset(std::span<const Frame* const> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
     {
         best_depths_ = get_depths(kframe.mesh());
         best_exps_.clear();
         for (int i = 0; i < frames.size(); i++)
-            best_exps_.push_back(frames[i].local_exposure());
+            best_exps_.push_back(frames[i]->local_exposure());
         // triangles_ = get_indices(kframe.mesh());
         edges_ = get_edges(kframe.mesh());
         numDepths_ = kframe.mesh().vertex_count();
@@ -66,7 +66,7 @@ public:
         regu_depth_jacobian(depths_, edges_, problem);
     }
 
-    void update_params(std::span<Frame> frames, KeyFrame &kframe, const Vecx<float> &inc)
+    void update_params(std::span<Frame* const> frames, KeyFrame &kframe, const Vecx<float> &inc)
     {
         depths_.clear();
         exps_.clear();
@@ -92,7 +92,7 @@ public:
 
         for (size_t i = 0; i < frames.size(); i++)
         {
-            frames[i].local_exposure() = exps_[i];
+            frames[i]->local_exposure() = exps_[i];
         }
     }
 
@@ -102,7 +102,7 @@ public:
         best_exps_ = exps_;
     }
 
-    void restore_best_params(std::span<Frame> frames, KeyFrame &kframe)
+    void restore_best_params(std::span<Frame* const> frames, KeyFrame &kframe)
     {
         depths_ = best_depths_;
         exps_ = best_exps_;
@@ -111,21 +111,21 @@ public:
 
         for (size_t i = 0; i < frames.size(); i++)
         {
-            frames[i].local_exposure() = best_exps_[i];
+            frames[i]->local_exposure() = best_exps_[i];
         }
     }
 
-    void compute_problem(std::span<const Frame> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    void compute_problem(std::span<const Frame* const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
             jdepthrenderer_.Render(kframe.mesh(),
-                                   frames[frame_idx].local_pose(),
-                                   frames[frame_idx].local_exposure(),
+                                   frames[frame_idx]->local_pose(),
+                                   frames[frame_idx]->local_exposure(),
                                    cam,
                                    in_lvl, out_lvl,
                                    kframe.image(),
-                                   frames[frame_idx].didxy(),
+                                   frames[frame_idx]->didxy(),
                                    image_texture_,
                                    jdepth_texture_,
                                    jexp_texture_,
@@ -138,7 +138,7 @@ public:
                                  jexp_texture_,
                                  pids_texture_,
                                  image_texture_,
-                                 frames[frame_idx].image(),
+                                 frames[frame_idx]->image(),
                                  kframe.mesh(),
                                  total);
         }

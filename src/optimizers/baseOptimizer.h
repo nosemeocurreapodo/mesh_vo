@@ -60,19 +60,19 @@ public:
         return reached_convergence_;
     }
 
-    void init(const Frame &frame, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    void init(const Frame* frame, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
     {
         init(std::span{&frame, 1}, kframe, cam, in_lvl, out_lvl);
     }
 
-    void init(std::span<const Frame> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    void init(std::span<const Frame* const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
     {
         derived().reset(frames, kframe, problem_, solver_);
 
         init_error_.setZero();
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            compute_error_(frames[i], kframe, cam, in_lvl, out_lvl, init_error_);
+            compute_error_(*frames[i], kframe, cam, in_lvl, out_lvl, init_error_);
         }
         init_error_ *= 1.0f / init_error_.getCount();
 
@@ -86,12 +86,12 @@ public:
         reached_convergence_ = false;
     }
 
-    void step(Frame &frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+    void step(Frame *frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
     {
         step(std::span{&frame, 1}, kframe, cam, in_lvl, out_lvl);
     }
 
-    void step(std::span<Frame> frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+    void step(std::span<Frame* const> frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
     {
         problem_.clear();
         derived().compute_problem(frames, kframe, cam, in_lvl, out_lvl, problem_);
@@ -129,7 +129,7 @@ public:
             Error new_error;
             for (std::size_t i = 0; i < frames.size(); i++)
             {
-                compute_error_(frames[i], kframe, cam, in_lvl, out_lvl, new_error);
+                compute_error_(*frames[i], kframe, cam, in_lvl, out_lvl, new_error);
             }
             new_error *= 1.0f / new_error.getCount();
 

@@ -40,7 +40,7 @@ public:
         return numParams_;
     }
 
-    void reset(const std::span<const Frame> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
+    void reset(const std::span<const Frame* const> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
     {
         best_vertex_ = get_vertices(kframe.mesh());
 
@@ -65,7 +65,7 @@ public:
         // regu_depth_jacobian(depths_, edges_, problem);
     }
 
-    void update_params(std::span<Frame> frames, KeyFrame &kframe, const Vecx<float> &inc)
+    void update_params(std::span<Frame* const> frames, KeyFrame &kframe, const Vecx<float> &inc)
     {
         vertex_.clear();
         for (size_t i = 0; i < numVertex_; i++)
@@ -84,24 +84,24 @@ public:
         best_vertex_ = vertex_;
     }
 
-    void restore_best_params(std::span<Frame> frames, KeyFrame &kframe)
+    void restore_best_params(std::span<Frame* const> frames, KeyFrame &kframe)
     {
         vertex_ = best_vertex_;
 
         set_vertices(kframe.mesh(), best_vertex_);
     }
 
-    void compute_problem(std::span<const Frame> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    void compute_problem(std::span<const Frame* const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
             jdepthrenderer_.Render(kframe.mesh(),
-                                   frames[frame_idx].local_pose(),
-                                   frames[frame_idx].local_exposure(),
+                                   frames[frame_idx]->local_pose(),
+                                   frames[frame_idx]->local_exposure(),
                                    cam,
                                    in_lvl, out_lvl,
                                    kframe.image(),
-                                   frames[frame_idx].didxy(),
+                                   frames[frame_idx]->didxy(),
                                    image_texture_,
                                    jv0_texture_,
                                    jv1_texture_,
@@ -115,7 +115,7 @@ public:
                                  jv2_texture_,
                                  pids_texture_,
                                  image_texture_,
-                                 frames[frame_idx].image(),
+                                 frames[frame_idx]->image(),
                                  total);
         }
     }

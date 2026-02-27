@@ -1,139 +1,89 @@
 #pragma once
-
 #include "params.h"
 #include "common/types.h"
 
 class Frame
 {
 public:
-    /*
-        Frame()
-        {
-            id = 0;
-            localPose = SE3();
-            globalPose = SE3();
-            localVel = jvelType::Zero();
-            globalVel = jvelType::Zero();
-            localExp = Vec2(0.0f, 0.0f);
-        };
-        */
+    // Allocate once (pool uses this)
+    Frame(int width, int height,
+          ImageType img_nodata = ImageType(-1),
+          Vec3f didxy_nodata = Vec3f(0.f, 0.f, 0.f))
+        : image_(width, height, img_nodata),
+          didxy_(width, height, didxy_nodata),
+          local_pose_(SE3f()),
+          local_vel_(Vec6f(0,0,0,0,0,0)),
+          local_exp_(Vec2f(0,0)),
+          id_(0),
+          kframe_id_(0)
+    {}
 
-    Frame(const Texture<ImageType> &im,
-          const Texture<Vec3f> &di,
+    // Move-in constructor (optional, if you ever want to build frames from temp textures)
+    Frame(Texture<ImageType> im,
+          Texture<Vec3f> di,
           int id,
           int kframe_id,
           SE3f local_pose = SE3f(),
-          Vec2f local_exp = Vec2f(0.0, 0.0),
-          Vec6f local_vel = Vec6f(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)) : image_(im),
-                                                                   didxy_(di)
+          Vec2f local_exp = Vec2f(0.f, 0.f),
+          Vec6f local_vel = Vec6f(0,0,0,0,0,0))
+        : image_(std::move(im)),
+          didxy_(std::move(di)),
+          local_pose_(local_pose),
+          local_vel_(local_vel),
+          local_exp_(local_exp),
+          id_(id),
+          kframe_id_(kframe_id)
+    {}
+
+    Frame(const Frame&) = delete;
+    Frame& operator=(const Frame&) = delete;
+    Frame(Frame&&) noexcept = default;
+    Frame& operator=(Frame&&) noexcept = default;
+
+    // Reset metadata when reusing from pool
+    void reset(int id, int kframe_id)
     {
         id_ = id;
         kframe_id_ = kframe_id;
-        local_pose_ = local_pose;
-        local_vel_ = local_vel;
-        // globalVel = JvelType::Zero();
-        local_exp_ = local_exp;
+        local_pose_ = SE3f();
+        local_vel_  = Vec6f(0,0,0,0,0,0);
+        local_exp_  = Vec2f(0,0);
     }
 
-    Frame(const Frame &other)
-    {
-        image_ = other.image_;
-        didxy_ = other.didxy_;
+    const int& id() const { return id_; }
+    int& id() { return id_; }
 
-        id_ = other.id_;
-        kframe_id_ = other.kframe_id_;
-        local_pose_ = other.local_pose_;
-        local_vel_ = other.local_vel_;
-        // globalVel = other.globalVel;
-        local_exp_ = other.local_exp_;
-    }
+    const int& keyframe_id() const { return kframe_id_; }
+    int& keyframe_id() { return kframe_id_; }
 
-    Frame &operator=(const Frame &other)
-    {
-        if (this != &other)
-        {
-            id_ = other.id_;
-            kframe_id_ = other.kframe_id_;
-            local_pose_ = other.local_pose_;
-            local_vel_ = other.local_vel_;
-            // globalVel = other.globalVel;
-            local_exp_ = other.local_exp_;
+    // ✅ allow writing into textures (for preprocessing)
+    Texture<ImageType>& image() { return image_; }
+    const Texture<ImageType>& image() const { return image_; }
 
-            image_ = other.image_;
-            didxy_ = other.didxy_;
-        }
-        return *this;
-    }
+    Texture<Vec3f>& didxy() { return didxy_; }
+    const Texture<Vec3f>& didxy() const { return didxy_; }
 
-    int id() const
-    {
-        return id_;
-    }
+    SE3f& local_pose() { return local_pose_; }
+    const SE3f& local_pose() const { return local_pose_; }
 
-    const int &keyframe_id() const
-    {
-        return kframe_id_;
-    }
+    Vec2f& local_exposure() { return local_exp_; }
+    const Vec2f& local_exposure() const { return local_exp_; }
 
-    int &keyframe_id()
-    {
-        return kframe_id_;
-    }
-
-    const Texture<ImageType> &image() const
-    {
-        return image_;
-    }
-
-    const Texture<Vec3f> &didxy() const
-    {
-        return didxy_;
-    }
-
-    const SE3f &local_pose() const
-    {
-        return local_pose_;
-    }
-
-    SE3f &local_pose()
-    {
-        return local_pose_;
-    }
-
-    const Vec2f &local_exposure() const
-    {
-        return local_exp_;
-    }
-
-    Vec2f &local_exposure()
-    {
-        return local_exp_;
-    }
-
-    const Vec6f &local_vel() const
-    {
-        return local_vel_;
-    }
-
-    Vec6f &local_vel()
-    {
-        return local_vel_;
-    }
+    Vec6f& local_vel() { return local_vel_; }
+    const Vec6f& local_vel() const { return local_vel_; }
 
     void scalePose(float scale)
     {
-        SE3f local_pose_scaled = local_pose_;
-        local_pose_scaled.translation() /= scale;
-        local_pose_ = local_pose_scaled;
+        SE3f tmp = local_pose_;
+        tmp.translation() /= scale;
+        local_pose_ = tmp;
     }
 
-protected:
+private:
     Texture<ImageType> image_;
     Texture<Vec3f> didxy_;
-
     SE3f local_pose_;
     Vec6f local_vel_;
-    // JvelType globalVel;
     Vec2f local_exp_;
     int id_;
     int kframe_id_;
