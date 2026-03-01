@@ -20,14 +20,12 @@ public:
     void guess(Frame &frame, KeyFrame &kframe)
     {
         SE3f guess_global_pose = last_global_move * last_global_pose;
-        frame.local_pose() = kframe.globalPoseToLocal(guess_global_pose);
+        frame.global_pose() = guess_global_pose;
         frame.local_exposure() = last_local_exp;
     }
 
     void estimate(Frame &frame, KeyFrame &kframe, Camera &cam)
     {
-        assert(frame.keyframe_id() == kframe.id());
-
         for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
         {
             optimizer.init(&frame, kframe, cam, lvl, lvl);
@@ -37,8 +35,9 @@ public:
                 if (optimizer.converged())
                     break;
             }
+            optimizer.update(&frame, kframe, cam);
         }
-        SE3f new_global_pose = kframe.localPoseToGlobal(frame.local_pose());
+        SE3f new_global_pose = frame.global_pose();
         last_global_move = new_global_pose * last_global_pose.inverse();
         last_global_pose = new_global_pose;
         last_local_exp = frame.local_exposure();

@@ -7,8 +7,7 @@ class DepthEstimator
 {
 public:
     DepthEstimator(int w, int h, bool log)
-        : optimizer(w, h, log),
-          depth_texture(w, h, -1.0)
+        : optimizer(w, h, log)
     {
     }
 
@@ -18,7 +17,7 @@ public:
     //     frame.local_exposure() = last_local_exp;
     // }
 
-    void estimate(std::span<Frame* const> frames, KeyFrame &kframe, Camera &cam)
+    void estimate(std::span<Frame *const> frames, KeyFrame &kframe, Camera &cam)
     {
         // for (auto frame : frames)
         //     assert(frame.keyframe_id() == kframe.id());
@@ -32,45 +31,34 @@ public:
                 if (optimizer.converged())
                     break;
             }
+            optimizer.update(frames, kframe, cam);
         }
+        float md = mean_depth(kframe.mesh());
+        kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
     }
 
-    void changeKeyframe(Frame &new_kframe, std::span<Frame* const> old_frames, KeyFrame &old_kframe, const Camera &cam)
+    void update_keyframe(const Frame &new_frame, const Texture<float> new_depth, KeyFrame &kframe, const Camera &cam)
     {
-        SE3f global_pose = old_kframe.localPoseToGlobal(new_kframe.local_pose());
-        float global_scale = old_kframe.getGlobalScale();
+        SE3f global_pose = new_frame.global_pose();
+        float global_scale = kframe.global_scale();
 
-        depth_renderer.Render(old_kframe.mesh(),
-                              new_kframe.local_pose(),
-                              cam,
-                              0,
-                              depth_texture);
-
-        Mesh mesh = CreateMesh<Mesh>(depth_texture.MapRead(0).data(),
+        Mesh mesh = CreateMesh<Mesh>(new_depth.MapRead(0).data(),
                                      cam,
-                                     depth_texture.width(0),
-                                     depth_texture.height(0),
-                                     mesh_vo::mesh_width);
+                                     new_depth.width(0),
+                                     new_depth.height(0),
+                                     mesh_vo::mesh_width,
+                                     mesh_vo::mapping_mean_depth);
         // CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
         //   CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
-        old_kframe = KeyFrame(new_kframe,
-                              std::move(mesh),
-                              global_pose,
-                              global_scale);
-
-        SE3f reference_pose = new_kframe.local_pose().inverse();
-
-        for (Frame* f: old_frames)
-        {
-            f->local_pose() = f->local_pose() * reference_pose;
-            // frames[k].local_pose() = kframe->globalPoseToLocal(gt_global_poses[k]);
-            f->keyframe_id() = new_kframe.id();
-        }
+        kframe.image() = new_frame.image();
+        kframe.didxy() = new_frame.didxy();
+        kframe.mesh() = std::move(mesh);
+        kframe.global_pose() = global_pose;
+        kframe.global_scale() = global_scale;
+        kframe.id() = new_frame.id();
     }
 
 private:
     DepthOptimizer optimizer;
-    DepthRenderer depth_renderer;
-    Texture<float> depth_texture;
 };

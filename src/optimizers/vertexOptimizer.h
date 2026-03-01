@@ -65,7 +65,7 @@ public:
         // regu_depth_jacobian(depths_, edges_, problem);
     }
 
-    void update_params(std::span<Frame* const> frames, KeyFrame &kframe, const Vecx<float> &inc)
+    void apply_inc(std::span<Frame* const> frames, KeyFrame &kframe, const Vecx<float> &inc)
     {
         vertex_.clear();
         for (size_t i = 0; i < numVertex_; i++)
@@ -75,8 +75,11 @@ public:
 
             vertex_.push_back(new_vertex);
         }
+    }
 
-        set_vertices(kframe.mesh(), vertex_);
+    void update_params(std::span<Frame* const> frames, KeyFrame &kframe)
+    {
+        set_vertices(kframe.mesh(), best_vertex_);
     }
 
     void update_best_params()
@@ -91,12 +94,23 @@ public:
         set_vertices(kframe.mesh(), best_vertex_);
     }
 
+    Error compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    {
+        Error total;
+        for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
+        {
+            imagerenderer_.Render(kframe.mesh(), local_poses_[frame_idx], frames[frame_idx]->local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
+            residualreducer_.reduce(out_lvl, image_texture_, frames[frame_idx]->image(), total);
+        }
+        return total;
+    }
+
     void compute_problem(std::span<const Frame* const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
             jdepthrenderer_.Render(kframe.mesh(),
-                                   frames[frame_idx]->local_pose(),
+                                   local_poses_[frame_idx],
                                    frames[frame_idx]->local_exposure(),
                                    cam,
                                    in_lvl, out_lvl,
@@ -133,6 +147,7 @@ private:
     std::vector<Vec3<float>> best_vertex_;
     std::vector<Vec3<float>> vertex_;
 
+    std::vector<SE3f> local_poses_;
     // std::vector<Vec3<int>> triangles_;
     std::vector<Vec2<int>> edges_;
 

@@ -39,19 +39,23 @@ public:
         return numParams_;
     }
 
-    void reset(std::span<const Frame* const> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
+    void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
     {
         best_depths_ = get_depths(kframe.mesh());
-        best_poses_.clear();
+
+        best_local_poses_.clear();
         for (int i = 0; i < frames.size(); i++)
-            best_poses_.push_back(frames[i]->local_pose());
+        {
+            SE3f local_pose = kframe.global_pose_to_local(frames[i]->global_pose());
+            best_local_poses_.push_back(local_pose);
+        }
         // triangles_ = get_indices(kframe.mesh());
         edges_ = get_edges(kframe.mesh());
         numDepths_ = kframe.mesh().vertex_count();
         numParams_ = numDepths_ + 6 * frames.size();
 
         depths_ = best_depths_;
-        poses_ = best_poses_;
+        local_poses_ = best_local_poses_;
 
         problem = DenseLinearProblemx(numParams_);
         solver = Solverx<float>(numParams_);
@@ -67,10 +71,10 @@ public:
         regu_depth_jacobian(depths_, edges_, problem);
     }
 
-    void update_params(std::span<Frame* const> frames, KeyFrame &kframe, const Vecx<float> &inc)
+    void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
     {
         depths_.clear();
-        poses_.clear();
+        local_poses_.clear();
 
         for (size_t i = 0; i < numDepths_; i++)
         {
@@ -91,43 +95,52 @@ public:
                                  inc(numDepths_ + i * 6 + 3),
                                  inc(numDepths_ + i * 6 + 4),
                                  inc(numDepths_ + i * 6 + 5));
-            SE3f new_pose = best_poses_[i] * SE3f::exp(pose_inc);
-            poses_.push_back(new_pose);
+            SE3f new_pose = best_local_poses_[i] * SE3f::exp(pose_inc);
+            local_poses_.push_back(new_pose);
         }
-
         set_depths(kframe.mesh(), depths_);
+    }
+
+    void update_params(std::span<Frame *const> frames, KeyFrame &kframe)
+    {
+        set_depths(kframe.mesh(), best_depths_);
 
         for (size_t i = 0; i < frames.size(); i++)
         {
-            frames[i]->local_pose() = poses_[i];
+            frames[i]->global_pose() = kframe.local_pose_to_global(best_local_poses_[i]);
         }
     }
 
     void update_best_params()
     {
         best_depths_ = depths_;
-        best_poses_ = poses_;
+        best_local_poses_ = local_poses_;
     }
 
-    void restore_best_params(std::span<Frame* const> frames, KeyFrame &kframe)
+    void restore_best_params(std::span<Frame *const> frames, KeyFrame &kframe)
     {
         depths_ = best_depths_;
-        poses_ = best_poses_;
-
-        set_depths(kframe.mesh(), best_depths_);
-
-        for (size_t i = 0; i < frames.size(); i++)
-        {
-            frames[i]->local_pose() = best_poses_[i];
-        }
+        local_poses_ = best_local_poses_;
+        // set_depths(kframe.mesh(), best_depths_);
     }
 
-    void compute_problem(std::span<const Frame* const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    Error compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    {
+        Error total;
+        for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
+        {
+            imagerenderer_.Render(kframe.mesh(), local_poses_[frame_idx], frames[frame_idx]->local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
+            residualreducer_.reduce(out_lvl, image_texture_, frames[frame_idx]->image(), total);
+        }
+        return total;
+    }
+
+    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
             jposedepthrenderer_.Render(kframe.mesh(),
-                                       frames[frame_idx]->local_pose(),
+                                       local_poses_[frame_idx],
                                        frames[frame_idx]->local_exposure(),
                                        cam,
                                        in_lvl, out_lvl,
@@ -163,10 +176,10 @@ private:
     Texture<Vec3<PidType>> pids_texture_;
 
     std::vector<float> best_depths_;
-    std::vector<SE3f> best_poses_;
+    std::vector<SE3f> best_local_poses_;
 
     std::vector<float> depths_;
-    std::vector<SE3f> poses_;
+    std::vector<SE3f> local_poses_;
 
     // std::vector<Vec3<int>> triangles_;
     std::vector<Vec2<int>> edges_;

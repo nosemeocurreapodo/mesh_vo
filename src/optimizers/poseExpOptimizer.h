@@ -37,7 +37,7 @@ public:
         return numParams_;
     }
 
-    void reset(std::span<const Frame* const> frames, const KeyFrame &kframe, DenseLinearProblem<8> &problem, Solver<float, 8> &solver)
+    void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblem<8> &problem, Solver<float, 8> &solver)
     {
         best_poses_.clear();
         best_exps_.clear();
@@ -51,19 +51,19 @@ public:
 
     float regu_error() const
     {
-        return 0;//regu_depth(depths_, edges_);
+        return 0; // regu_depth(depths_, edges_);
     }
 
     void regu_jacobian(DenseLinearProblemx &problem) const
     {
-        //regu_depth_jacobian(depths_, edges_, problem);
+        // regu_depth_jacobian(depths_, edges_, problem);
     }
 
-    void update_params(std::span<Frame* const> frames, KeyFrame &kframe, const Vecx<float> &inc)
+    void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
     {
         poses_.clear();
         exps_.clear();
-        
+
         for (size_t i = 0; i < frames.size(); i++)
         {
             Vec6<float> pose_inc(inc(i * 8 + 0),
@@ -71,7 +71,7 @@ public:
                                  inc(i * 8 + 2),
                                  inc(i * 8 + 3),
                                  inc(i * 8 + 4),
-                                 inc( i * 8 + 5));
+                                 inc(i * 8 + 5));
             SE3f new_pose = best_poses_[i] * SE3f::exp(pose_inc);
             poses_.push_back(new_pose);
 
@@ -80,7 +80,10 @@ public:
             Vec2<float> new_exp = best_exps_[i] + exp_inc;
             exps_.push_back(new_exp);
         }
+    }
 
+    void update_params(std::span<Frame *const> frames, KeyFrame &kframe)
+    {
         for (size_t i = 0; i < frames.size(); i++)
         {
             frames[i].local_pose() = poses_[i];
@@ -94,7 +97,7 @@ public:
         best_exps_ = exps_;
     }
 
-    void restore_best_params(std::span<Frame* const> frames, KeyFrame &kframe)
+    void restore_best_params(std::span<Frame *const> frames, KeyFrame &kframe)
     {
         poses_ = best_poses_;
         exps_ = best_exps_;
@@ -106,7 +109,16 @@ public:
         }
     }
 
-    void compute_problem(std::span<const Frame* const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<8> &total)
+    void compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    {
+        for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
+        {
+            imagerenderer_.Render(kframe.mesh(), local_pose_[frame_idx], frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
+            residualreducer_.reduce(out_lvl, image_texture_, frame.image(), total);
+        }
+    }
+
+    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<8> &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {

@@ -39,7 +39,7 @@ public:
         return numParams_;
     }
 
-    void reset(std::span<const Frame* const> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
+    void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
     {
         best_depths_ = get_depths(kframe.mesh());
         best_poses_.clear();
@@ -68,12 +68,12 @@ public:
         regu_depth_jacobian(depths_, edges_, problem);
     }
 
-    void update_params(std::span<Frame* const> frames, KeyFrame &kframe, const Vecx<float> &inc)
+    void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
     {
         depths_.clear();
         poses_.clear();
         exps_.clear();
-        
+
         for (size_t i = 0; i < numDepths_; i++)
         {
             float new_depth = fromParamToDepth(fromDepthToParam(best_depths_[i]) + inc(i));
@@ -101,7 +101,10 @@ public:
             Vec2<float> new_exp = best_exps_[i] + exp_inc;
             exps_.push_back(new_exp);
         }
+    }
 
+    void update_params(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
+    {
         set_depths(kframe.mesh(), depths_);
 
         for (size_t i = 0; i < frames.size(); i++)
@@ -118,7 +121,7 @@ public:
         best_exps_ = exps_;
     }
 
-    void restore_best_params(std::span<Frame* const> frames, KeyFrame &kframe)
+    void restore_best_params(std::span<Frame *const> frames, KeyFrame &kframe)
     {
         depths_ = best_depths_;
         poses_ = best_poses_;
@@ -133,7 +136,17 @@ public:
         }
     }
 
-    void compute_problem(std::span<const Frame* const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    void compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    {
+        for (std::size_t i = 0; i < frames.size(); i++)
+        {
+            SE3f local_pose = kframe.global_pose_to_local(frame.global_pose(), 1.0);
+            imagerenderer_.Render(kframe.mesh(), local_pose, frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
+            residualreducer_.reduce(out_lvl, image_texture_, frame.image(), total);
+        }
+    }
+
+    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {

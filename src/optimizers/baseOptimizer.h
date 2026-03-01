@@ -55,7 +55,7 @@ public:
     {
     }
 
-    bool converged()
+    bool converged() const
     {
         return reached_convergence_;
     }
@@ -70,10 +70,7 @@ public:
         derived().reset(frames, kframe, problem_, solver_);
 
         init_error_.setZero();
-        for (std::size_t i = 0; i < frames.size(); i++)
-        {
-            compute_error_(*frames[i], kframe, cam, in_lvl, out_lvl, init_error_);
-        }
+        init_error_ += derived().compute_error(frames, kframe, cam, in_lvl, out_lvl);
         init_error_ *= 1.0f / init_error_.getCount();
 
         init_error_ += derived().regu_error();
@@ -84,6 +81,16 @@ public:
         error_ = init_error_;
 
         reached_convergence_ = false;
+    }
+
+    void update(Frame *frame, KeyFrame &kframe, Camera &cam)
+    {
+        update(std::span{&frame, 1}, kframe, cam);
+    }
+
+    void update(std::span<Frame* const> frames, KeyFrame &kframe, Camera &cam)
+    {
+        derived().update_params(frames, kframe);
     }
 
     void step(Frame *frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
@@ -124,13 +131,9 @@ public:
             solver_.compute(Hp_lm);
             GradType inc = solver_.solve(-problem_.G());
 
-            derived().update_params(frames, kframe, inc);
+            derived().apply_inc(frames, kframe, inc);
 
-            Error new_error;
-            for (std::size_t i = 0; i < frames.size(); i++)
-            {
-                compute_error_(*frames[i], kframe, cam, in_lvl, out_lvl, new_error);
-            }
+            Error new_error = derived().compute_error(frames, kframe, cam, in_lvl, out_lvl);
             new_error *= 1.0f / new_error.getCount();
 
             new_error += derived().regu_error();
@@ -177,22 +180,6 @@ public:
     }
 
 protected:
-    void compute_error_(const Frame &frame, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, Error &total)
-    {
-        // imagerenderer_.Render(kframe.mesh(), frame.local_pose() * kframe.frame().local_pose().inverse(), cam, lvl, lvl, kframe.frame().image(), e_texture_);
-        // return errorreducer_.reduce(lvl, frame.image(), e_texture_);
-
-        assert(frame.keyframe_id() == kframe.id());
-        assert(frame.image().width(0) == kframe.image().width(0) &&
-               frame.image().height(0) == kframe.image().height(0));
-
-        // if(frame.id() == kframe.id())
-        //     return;
-
-        imagerenderer_.Render(kframe.mesh(), frame.local_pose(), frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
-        residualreducer_.reduce(out_lvl, image_texture_, frame.image(), total);
-    }
-
     Derived &derived() { return static_cast<Derived &>(*this); }
 
     ImageRenderer imagerenderer_;

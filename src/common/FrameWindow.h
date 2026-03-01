@@ -13,7 +13,6 @@ public:
 
 	FrameWindow(int width, int height)
 		: latest_(width, height),
-		  keyframe_(width, height), // requires Frame(width,height) ctor
 		  window_(make_window_(width, height, std::make_index_sequence<W>{}))
 	{
 		// Start “empty”: you can also pre-fill by inserting first frames
@@ -48,29 +47,31 @@ public:
 	// Oldest-to-newest view as pointers (so optimizer can modify frames)
 	std::span<Frame *const> window_span_mut()
 	{
-		build_view_();
-		return {view_.data(), static_cast<size_t>(count_)};
+		int size = build_view_();
+		// int size = count_;
+		return {view_.data(), static_cast<size_t>(size)};
 	}
 
 	// Promote middle frame to keyframe (swap, no copies)
-	void promote_middle_to_keyframe()
-	{
-		if (!full())
-			return;
-		int mid = (oldest_index_() + (W / 2)) % W; // for W=7 -> +3
-		std::swap(keyframe_, window_[mid]);
-	}
+	// void promote_middle_to_keyframe()
+	//{
+	//	if (!full())
+	//		return;
+	//	int mid = (oldest_index_() + (W / 2)) % W; // for W=7 -> +3
+	//	std::swap(keyframe_, window_[mid]);
+	//}
 
-	Frame &keyframe_frame() { return keyframe_; }
-	const Frame &keyframe_frame() const { return keyframe_; }
+	// Frame &keyframe_frame() { return keyframe_; }
+	// const Frame &keyframe_frame() const { return keyframe_; }
 
 	// Middle frame (only meaningful once full)
-	/*
+
 	Frame &middle()
 	{
 		assert(full_ && "middle() requires full window");
 		const int oldest = oldest_index_();
-		const int mid = (oldest + 3) % W; // 0..6, middle of 7
+		const int mid = (oldest + int(W / 2)) % W; // 0..6, middle of 7
+		kf_id = window_[mid].id();
 		return window_[mid];
 	}
 
@@ -80,7 +81,6 @@ public:
 		assert(count_ > 0);
 		return window_[head_];
 	}
-	*/
 
 private:
 	template <std::size_t... Is>
@@ -112,28 +112,34 @@ private:
 		return 0;
 	}
 
-	void build_view_()
+	int build_view_()
 	{
 		// Build pointers oldest->newest into view_
 		if (count_ == 0)
-			return;
+			return 0;
 
 		int oldest = oldest_index_();
-		for (int i = 0; i < count_; ++i)
+
+		int vidx = 0;
+		for (int i = 0; i < count_; i++)
 		{
 			int idx = (oldest + i) % W;
-			view_[i] = &window_[idx];
+			if (window_[idx].id() == kf_id)
+				continue;
+			view_[vidx] = &window_[idx];
+			vidx++;
 		}
+		return vidx;
 	}
 
 private:
 	Frame latest_;
 	std::array<Frame, W> window_;
-	Frame keyframe_;
 
 	// Ring state
 	int head_ = -1; // index of newest element in window_
 	int count_ = 0; // number of valid frames (<=7)
+	int kf_id = -1;
 	bool full_ = false;
 
 	// View buffer (pointers oldest->newest)
