@@ -13,22 +13,23 @@
 #include "optimizers/baseOptimizer.h"
 
 class PoseExpOptimizer : public BaseOptimizer<PoseExpOptimizer,
-                                              Matx<float>,
-                                              Vecx<float>,
+                                              Mat<float, 8, 8>,
+                                              Vec<float, 8>,
                                               DenseLinearProblem<8>,
                                               Solver<float, 8>>
 {
 public:
     using Base = BaseOptimizer<PoseExpOptimizer,
-                               Matx<float>,
-                               Vecx<float>,
+                               Mat<float, 8, 8>,
+                               Vec<float, 8>,
                                DenseLinearProblem<8>,
                                Solver<float, 8>>;
     PoseExpOptimizer(int w, int h, bool printlog = false)
-        : Base(w, h, printlog),
+        : Base(printlog),
           jtra_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
           jrot_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
-          jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0))
+          jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+          res_texture_(w, h, 0.0)
     {
     }
 
@@ -43,9 +44,11 @@ public:
         best_exps_.clear();
         for (int i = 0; i < frames.size(); i++)
         {
-            best_poses_.push_back(frames[i].local_pose());
-            best_exps_.push_back(frames[i].local_exposure());
+            best_poses_.push_back(kframe.global_pose_to_local(frames[i]->global_pose()));
+            best_exps_.push_back(frames[i]->local_exposure());
         }
+        poses_ = best_poses_;
+        exps_ = best_exps_;
         numParams_ = 8 * frames.size();
     }
 
@@ -54,12 +57,12 @@ public:
         return 0; // regu_depth(depths_, edges_);
     }
 
-    void regu_jacobian(DenseLinearProblemx &problem) const
+    void regu_jacobian(DenseLinearProblem<8> &problem) const
     {
         // regu_depth_jacobian(depths_, edges_, problem);
     }
 
-    void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
+    void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vec<float, 8> &inc)
     {
         poses_.clear();
         exps_.clear();
@@ -80,14 +83,20 @@ public:
             Vec2<float> new_exp = best_exps_[i] + exp_inc;
             exps_.push_back(new_exp);
         }
+
+        for (size_t i = 0; i < frames.size(); i++)
+        {
+            frames[i]->global_pose() = kframe.local_pose_to_global(poses_[i]);
+            frames[i]->local_exposure() = exps_[i];
+        }
     }
 
     void update_params(std::span<Frame *const> frames, KeyFrame &kframe)
     {
         for (size_t i = 0; i < frames.size(); i++)
         {
-            frames[i].local_pose() = poses_[i];
-            frames[i].local_exposure() = exps_[i];
+            frames[i]->global_pose() = kframe.local_pose_to_global(best_poses_[i]);
+            frames[i]->local_exposure() = best_exps_[i];
         }
     }
 
@@ -104,18 +113,20 @@ public:
 
         for (size_t i = 0; i < frames.size(); i++)
         {
-            frames[i].local_pose() = best_poses_[i];
-            frames[i].local_exposure() = best_exps_[i];
+            frames[i]->global_pose() = kframe.local_pose_to_global(best_poses_[i]);
+            frames[i]->local_exposure() = best_exps_[i];
         }
     }
 
-    void compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    Error compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
     {
+        Error total;
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
-            imagerenderer_.Render(kframe.mesh(), local_pose_[frame_idx], frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
-            residualreducer_.reduce(out_lvl, image_texture_, frame.image(), total);
+            residualrenderer_.Render(kframe.mesh(), poses_[frame_idx], exps_[frame_idx], cam, in_lvl, out_lvl, kframe.image(), frames[frame_idx]->image(), res_texture_);
+            residualreducer_.reduce(out_lvl, res_texture_, total);
         }
+        return total;
     }
 
     void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<8> &total)
@@ -123,22 +134,22 @@ public:
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
             jposedepthrenderer_.Render(kframe.mesh(),
-                                       frames[frame_idx].local_pose(),
-                                       frames[frame_idx].local_exposure(),
+                                       poses_[frame_idx],
+                                       exps_[frame_idx],
                                        cam,
                                        in_lvl, out_lvl,
                                        kframe.image(),
-                                       kframe.didxy(),
-                                       image_texture_,
+                                       frames[frame_idx]->image(),
+                                       frames[frame_idx]->didxy(),
                                        jtra_texture_,
                                        jrot_texture_,
-                                       jexp_texture_);
+                                       jexp_texture_,
+                                       res_texture_);
             hgposedepthreducer_.reduce(out_lvl,
                                        jtra_texture_,
                                        jrot_texture_,
                                        jexp_texture_,
-                                       image_texture_,
-                                       frames[frame_idx].image(),
+                                       res_texture_,
                                        total);
         }
     }
@@ -146,10 +157,13 @@ public:
 private:
     JPoseExpRenderer jposedepthrenderer_;
     HGPoseExpReducerCPU hgposedepthreducer_;
+    ResidualRenderer residualrenderer_;
+    ResidualReducerCPU residualreducer_;
 
     Texture<Vec3<float>> jtra_texture_;
     Texture<Vec3<float>> jrot_texture_;
     Texture<Vec3<float>> jexp_texture_;
+    Texture<float> res_texture_;
 
     std::vector<SE3f> best_poses_;
     std::vector<Vec2f> best_exps_;

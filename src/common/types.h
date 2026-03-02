@@ -19,17 +19,15 @@
 using DepthRenderer = DepthRendererCPU;
 using PidsRenderer = PidsRendererCPU;
 using ImageRenderer = ImageRendererCPU;
+using ResidualRenderer = ResidualRendererCPU;
 using DIDxyRenderer = DIDxyRendererCPU;
-using DIDexpRenderer = DIDexpRendererCPU;
 using JPoseFDRenderer = JPoseFDRendererCPU;
 using JPoseExpRenderer = JPoseExpRendererCPU;
-using JPoseVelExpRenderer = JPoseVelExpRendererCPU;
 using JDepthFDRenderer = JDepthFDRendererCPU;
 using JDepthExpRenderer = JDepthExpRendererCPU;
 using JRayDepthExpRenderer = JRayDepthExpRendererCPU;
 using JVertexExpRenderer = JVertexExpRendererCPU;
 using JPoseExpDepthRenderer = JPoseExpDepthRendererCPU;
-using JPoseVelExpDepthRenderer = JPoseVelExpDepthRendererCPU;
 
 template <typename T>
 using Texture = TextureCPU<T>;
@@ -48,6 +46,7 @@ using Mesh = MeshCPU;
 using DepthRenderer = DepthRendererGL;
 using PidsRenderer = PidsRendererGL;
 using ImageRenderer = ImageRendererGL;
+using ResidualRenderer = ResidualRendererGL;
 using DIDxyRenderer = DIDxyRendererGL;
 using JPoseExpRenderer = JPoseExpRendererGL;
 using JDepthExpRenderer = JDepthExpRendererGL;

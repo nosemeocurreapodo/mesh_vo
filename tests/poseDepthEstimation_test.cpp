@@ -62,8 +62,6 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         if (img_id == 0)
         {
             UploadMatToTexture(kframe.image(), 0, image_cv);
-            for (int lvl = 0; lvl < kframe.didxy().levels(); lvl++)
-                didxy_renderer.Render(screen_mesh, lvl, lvl, kframe.image(), kframe.didxy());
 
             // Mesh mesh = CreateFlatMesh<Mesh>(gt_depth_mean * 0.5,
             //                                  gt_depth_mean * 1.5,
@@ -102,20 +100,18 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         int plot_lvl = 0;
 
         ///////////// Debug //////////////////
-        /*
-        image_renderer.Render(kframe->mesh(),
-                              frame.local_pose(),
+        image_renderer.Render(kframe.mesh(),
+                              kframe.global_pose_to_local(frame.global_pose()),
                               frame.local_exposure(),
                               cam_,
                               plot_lvl, plot_lvl,
-                              kframe->image(),
-                              image_texture);
+                              kframe.image(),
+                              image_tex_tmp);
         // residual_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
-        image_mat = DownloadTextureToMat(image_texture, plot_lvl);
+        image_mat = DownloadTextureToMat(image_tex_tmp, plot_lvl);
         ref_mat = DownloadTextureToMat(frame.image(), plot_lvl);
         l2_mat = ref_mat - image_mat;
-        SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe->id()) + "_" + std::to_string(frame.id()) + "_l2_ini.png");
-        */
+        SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + "_l2_ini.png");
         //////////////////////////////////////
 
         // auto startTime = std::chrono::high_resolution_clock::now();
@@ -123,61 +119,55 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         // auto endTime = std::chrono::high_resolution_clock::now();
 
         ///////////// Debug //////////////////
-        /*
-        SE3f local_pose = kframe.global_pose_to_local(frame.global_pose());
         image_renderer.Render(kframe.mesh(),
-                              local_pose,
+                              kframe.global_pose_to_local(frame.global_pose()),
                               frame.local_exposure(),
                               cam_,
                               plot_lvl, plot_lvl,
                               kframe.image(),
-                              image_texture);
+                              image_tex_tmp);
 
         // residual_renderer.Render(kframe->mesh(), SE3f(), cam_, plot_lvl, plot_lvl, kframe->frame().image(), oframes[k].image(), l2_cpu);
-        image_mat = DownloadTextureToMat(image_texture, plot_lvl);
+        image_mat = DownloadTextureToMat(image_tex_tmp, plot_lvl);
         ref_mat = DownloadTextureToMat(frame.image(), plot_lvl);
         l2_mat = ref_mat - image_mat;
-        SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe->id()) + "_" + std::to_string(frame.id()) + "_l2_opt.png");
-        */
+        SaveDebugImage(l2_mat, "loc_" + std::to_string(kframe.id()) + "_" + std::to_string(frame.id()) + "_l2_opt.png");
         //////////////////////////////////////
+
+        // image_renderer.Render(kframe.mesh(),
+        //                       kframe.global_pose_to_local(frame.global_pose()),
+        //                       frame.local_exposure(),
+        //                       cam_,
+        //                       1, 1,
+        //                       kframe.image(), image_tex_tmp);
+
+        // Error nodata;
+        // nodata_reducer.reduce(1, image_tex_tmp, nodata);
+        // float pnodata = nodata.getError() / (image_tex_tmp.width(1) * image_tex_tmp.height(1));
+        // float viewPercent = 1.0 - pnodata;
+
+        // std::cout << "view percent " << viewPercent << std::endl;
+
+        float minViewAngle = M_PI;
+        for (Frame *f : frames.window_span_mut())
+        {
+            float viewAngle = kframe.meanViewAngle(frame.global_pose(), f->global_pose(), cam_);
+            if (viewAngle < minViewAngle)
+                minViewAngle = viewAngle;
+        }
+
+        if (minViewAngle < mesh_vo::last_min_angle && kframe.id() != 0)
+            continue;
+
+        frames.accept_latest();
 
         if (!frames.full())
         {
-            frames.accept_latest();
             continue;
         }
-        else
-        {
-            image_renderer.Render(kframe.mesh(),
-                                  kframe.global_pose_to_local(frame.global_pose()),
-                                  frame.local_exposure(),
-                                  cam_,
-                                  1, 1,
-                                  kframe.image(), image_tex_tmp);
 
-            float minViewAngle = M_PI;
-            for (Frame *f : frames.window_span_mut())
-            {
-                float viewAngle = kframe.meanViewAngle(frame.global_pose(), f->global_pose(), cam_);
-                if (viewAngle < minViewAngle)
-                    minViewAngle = viewAngle;
-            }
-
-            Error nodata;
-            nodata_reducer.reduce(1, image_tex_tmp, nodata);
-            float pnodata = nodata.getError() / (image_tex_tmp.width(1) * image_tex_tmp.height(1));
-            float viewPercent = 1.0 - pnodata;
-
-            std::cout << "view percent " << viewPercent << std::endl;
-
-            if (minViewAngle < mesh_vo::last_min_angle && kframe.id() != 0)
-                continue;
-
-            frames.accept_latest();
-
-            if (viewPercent > mesh_vo::min_view_perc && kframe.id() != 0) // || keyframeViewAngle > mesh_vo::key_max_angle)
-                continue;
-        }
+        // if (viewPercent > mesh_vo::min_view_perc && kframe.id() != 0) // || keyframeViewAngle > mesh_vo::key_max_angle)
+        //     continue;
 
         Frame &new_kf = frames.middle();
         std::span<Frame *const> frame_span = frames.window_span_mut();

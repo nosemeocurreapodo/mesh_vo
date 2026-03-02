@@ -26,10 +26,11 @@ public:
                                Solverx<float>>;
 
     DepthOptimizer(int w, int h, bool printlog = false)
-        : Base(w, h, printlog),
+        : Base(printlog),
           jdepth_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
           jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
-          pids_texture_(w, h, Vec3<PidType>(-1, -1, -1))
+          pids_texture_(w, h, Vec3<PidType>(-1, -1, -1)),
+          res_texture_(w, h, 0.0)
     {
     }
 
@@ -96,7 +97,7 @@ public:
     void restore_best_params(std::span<Frame *const> frames, KeyFrame &kframe)
     {
         depths_ = best_depths_;
-        // set_depths(kframe.mesh(), best_depths_);
+        set_depths(kframe.mesh(), best_depths_);
     }
 
     Error compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
@@ -106,8 +107,13 @@ public:
         {
             if (frames[i]->id() == kframe.id())
                 continue;
-            imagerenderer_.Render(kframe.mesh(), local_poses_[i], frames[i]->local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
-            residualreducer_.reduce(out_lvl, image_texture_, frames[i]->image(), total);
+            residualrenderer_.Render(kframe.mesh(),
+                                     local_poses_[i],
+                                     frames[i]->local_exposure(),
+                                     cam, in_lvl, out_lvl,
+                                     kframe.image(), frames[i]->image(),
+                                     res_texture_);
+            residualreducer_.reduce(out_lvl, res_texture_, total);
         }
         return total;
     }
@@ -124,20 +130,19 @@ public:
                                    cam,
                                    in_lvl, out_lvl,
                                    kframe.image(),
-                                   // frames[frame_idx].didxy(),
-                                   kframe.didxy(),
-                                   image_texture_,
+                                   frames[frame_idx]->image(),
+                                   frames[frame_idx]->didxy(),
                                    jdepth_texture_,
                                    jexp_texture_,
-                                   pids_texture_);
+                                   pids_texture_,
+                                   res_texture_);
             hgmapreducer_.reduce(out_lvl,
                                  frame_idx,
                                  frames.size(),
                                  kframe.mesh().vertex_count(),
                                  jdepth_texture_,
                                  pids_texture_,
-                                 image_texture_,
-                                 frames[frame_idx]->image(),
+                                 res_texture_,
                                  kframe.mesh(), total);
         }
     }
@@ -145,10 +150,13 @@ public:
 private:
     JDepthExpRenderer jdepthrenderer_;
     HGDepthReducerCPU hgmapreducer_;
+    ResidualRenderer residualrenderer_;
+    ResidualReducerCPU residualreducer_;
 
     Texture<Vec3<float>> jdepth_texture_;
     Texture<Vec3<float>> jexp_texture_;
     Texture<Vec3<PidType>> pids_texture_;
+    Texture<float> res_texture_;
 
     std::vector<float> best_depths_;
     std::vector<float> depths_;

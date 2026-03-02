@@ -55,9 +55,6 @@ TEST_F(RendererTestBase, ComputeVertex)
         {
             UploadMatToTexture(kframe.image(), 0, image_cv);
 
-            for (int lvl = 0; lvl < kframe.didxy().levels(); lvl++)
-                didxy_renderer.Render(screen_mesh, lvl, lvl, kframe.image(), kframe.didxy());
-
             kframe.global_pose() = gt_global_pose;
             kframe.global_scale() = 1.0;
 

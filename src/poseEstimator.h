@@ -2,6 +2,7 @@
 
 #include "common/types.h"
 #include "optimizers/poseOptimizer.h"
+#include "optimizers/poseExpOptimizer.h"
 
 class PoseEstimator
 {
@@ -21,7 +22,7 @@ public:
     {
         SE3f guess_global_pose = last_global_move * last_global_pose;
         frame.global_pose() = guess_global_pose;
-        frame.local_exposure() = last_local_exp;
+        frame.local_exposure() = Vec2<float>(0.0, 0.0);
     }
 
     void estimate(Frame &frame, KeyFrame &kframe, Camera &cam)
@@ -35,7 +36,7 @@ public:
                 if (optimizer.converged())
                     break;
             }
-            optimizer.update(&frame, kframe, cam);
+            // optimizer.update(&frame, kframe, cam);
         }
         SE3f new_global_pose = frame.global_pose();
         last_global_move = new_global_pose * last_global_pose.inverse();
@@ -44,7 +45,7 @@ public:
     }
 
 private:
-    PoseOptimizer optimizer;
+    PoseExpOptimizer optimizer;
     SE3f last_global_pose;
     SE3f last_global_move;
     Vec2f last_local_exp;

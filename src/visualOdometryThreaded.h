@@ -244,10 +244,6 @@ private:
             if (!iQueue_.pop(kf->image()))
                 return;
 
-            // compute gradients for keyframe
-            for (int lvl = 0; lvl < static_cast<int>(kf->didxy().levels()); ++lvl)
-                didxy_renderer.Render(screen_mesh, lvl, lvl, kf->image(), kf->didxy());
-
             kf->global_pose() = SE3f();
             kf->global_scale() = 1.0;
             kf->id() = img_id;

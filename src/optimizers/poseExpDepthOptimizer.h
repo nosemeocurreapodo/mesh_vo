@@ -25,12 +25,13 @@ public:
                                DenseLinearProblemx,
                                Solverx<float>>;
     PoseExpDepthOptimizer(int w, int h, bool printlog = false)
-        : Base(w, h, printlog),
+        : Base(printlog),
           jtra_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
           jrot_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
           jdepth_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
           jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
-          pids_texture_(w, h, Vec3<PidType>(-1, -1, -1))
+          pids_texture_(w, h, Vec3<PidType>(-1, -1, -1)),
+          res_texture_(w, h, 0.0)
     {
     }
 
@@ -46,13 +47,17 @@ public:
         best_exps_.clear();
         for (int i = 0; i < frames.size(); i++)
         {
-            best_poses_.push_back(frames[i].local_pose());
-            best_exps_.push_back(frames[i].local_exposure());
+            best_poses_.push_back(kframe.global_pose_to_local(frames[i]->global_pose()));
+            best_exps_.push_back(frames[i]->local_exposure());
         }
         // triangles_ = get_indices(kframe.mesh());
         edges_ = get_edges(kframe.mesh());
         numDepths_ = kframe.mesh().vertex_count();
         numParams_ = numDepths_ + 8 * frames.size();
+
+        depths_ = best_depths_;
+        poses_ = best_poses_;
+        exps_ = best_exps_;
 
         problem = DenseLinearProblemx(numParams_);
         solver = Solverx<float>(numParams_);
@@ -101,16 +106,24 @@ public:
             Vec2<float> new_exp = best_exps_[i] + exp_inc;
             exps_.push_back(new_exp);
         }
-    }
 
-    void update_params(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
-    {
         set_depths(kframe.mesh(), depths_);
 
         for (size_t i = 0; i < frames.size(); i++)
         {
-            frames[i].local_pose() = poses_[i];
-            frames[i].local_exposure() = exps_[i];
+            frames[i]->global_pose() = kframe.local_pose_to_global(poses_[i]);
+            frames[i]->local_exposure() = exps_[i];
+        }
+    }
+
+    void update_params(std::span<Frame *const> frames, KeyFrame &kframe)
+    {
+        set_depths(kframe.mesh(), best_depths_);
+
+        for (size_t i = 0; i < frames.size(); i++)
+        {
+            frames[i]->global_pose() = kframe.local_pose_to_global(best_poses_[i]);
+            frames[i]->local_exposure() = best_exps_[i];
         }
     }
 
@@ -131,19 +144,20 @@ public:
 
         for (size_t i = 0; i < frames.size(); i++)
         {
-            frames[i].local_pose() = best_poses_[i];
-            frames[i].local_exposure() = best_exps_[i];
+            frames[i]->global_pose() = kframe.local_pose_to_global(best_poses_[i]);
+            frames[i]->local_exposure() = best_exps_[i];
         }
     }
 
-    void compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    Error compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
     {
+        Error total;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
-            SE3f local_pose = kframe.global_pose_to_local(frame.global_pose(), 1.0);
-            imagerenderer_.Render(kframe.mesh(), local_pose, frame.local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
-            residualreducer_.reduce(out_lvl, image_texture_, frame.image(), total);
+            residualrenderer_.Render(kframe.mesh(), poses_[i], exps_[i], cam, in_lvl, out_lvl, kframe.image(), frames[i]->image(), res_texture_);
+            residualreducer_.reduce(out_lvl, res_texture_, total);
         }
+        return total;
     }
 
     void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
@@ -151,18 +165,19 @@ public:
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
             jposedepthrenderer_.Render(kframe.mesh(),
-                                       frames[frame_idx].local_pose(),
-                                       frames[frame_idx].local_exposure(),
+                                       poses_[frame_idx],
+                                       exps_[frame_idx],
                                        cam,
                                        in_lvl, out_lvl,
                                        kframe.image(),
-                                       kframe.didxy(),
-                                       image_texture_,
+                                       frames[frame_idx]->image(),
+                                       frames[frame_idx]->didxy(),
                                        jtra_texture_,
                                        jrot_texture_,
                                        jexp_texture_,
                                        jdepth_texture_,
-                                       pids_texture_);
+                                       pids_texture_,
+                                       res_texture_);
             hgposedepthreducer_.reduce(out_lvl,
                                        frame_idx, frames.size(), numDepths_,
                                        jtra_texture_,
@@ -170,8 +185,7 @@ public:
                                        jexp_texture_,
                                        jdepth_texture_,
                                        pids_texture_,
-                                       image_texture_,
-                                       frames[frame_idx].image(),
+                                       res_texture_,
                                        kframe.mesh(),
                                        total);
         }
@@ -180,12 +194,15 @@ public:
 private:
     JPoseExpDepthRenderer jposedepthrenderer_;
     HGPoseExpDepthReducerCPU hgposedepthreducer_;
+    ResidualRenderer residualrenderer_;
+    ResidualReducerCPU residualreducer_;
 
     Texture<Vec3<float>> jtra_texture_;
     Texture<Vec3<float>> jrot_texture_;
     Texture<Vec3<float>> jdepth_texture_;
     Texture<Vec3<float>> jexp_texture_;
     Texture<Vec3<PidType>> pids_texture_;
+    Texture<float> res_texture_;
 
     std::vector<float> best_depths_;
     std::vector<SE3f> best_poses_;

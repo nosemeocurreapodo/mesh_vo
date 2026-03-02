@@ -31,14 +31,17 @@ public:
                 if (optimizer.converged())
                     break;
             }
-            optimizer.update(frames, kframe, cam);
+            // optimizer.update(frames, kframe, cam);
         }
-        float md = mean_depth(kframe.mesh());
-        kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
+        // float md = mean_depth(kframe.mesh());
+        // kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
     }
 
     void update_keyframe(const Frame &new_frame, const Texture<float> new_depth, KeyFrame &kframe, const Camera &cam)
     {
+        float md = mean_depth(kframe.mesh());
+        kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
+
         SE3f global_pose = new_frame.global_pose();
         float global_scale = kframe.global_scale();
 
@@ -52,7 +55,6 @@ public:
         //   CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
 
         kframe.image() = new_frame.image();
-        kframe.didxy() = new_frame.didxy();
         kframe.mesh() = std::move(mesh);
         kframe.global_pose() = global_pose;
         kframe.global_scale() = global_scale;

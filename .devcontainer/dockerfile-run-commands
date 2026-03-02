@@ -13,7 +13,7 @@ docker run -it -e DISPLAY --device=/dev/dri --group-add=video -v /tmp/.X11-unix:
 ros2 run folder_image_publisher folder_pub --ros-args -p folder:=/datasets/rgbd_datasets/rgbd_dataset_freiburg1_floor/rgb -p fps:=0.1 -p loop:=true -p topic:=/camera/image_raw
 
 ros2 run mesh_vo_ros mesh_vo_ros_node --ros-args \
-  -p fx:=600.0 -p fy:=600.0 -p cx:=320.0 -p cy:=240.0 \
+  -p fx:=525.0 -p fy:=525.0 -p cx:=319.5 -p cy:=239.5 \
   -p width:=640 -p height:=480 \
   -p image_topic:=/camera/image_raw \
   -p publish_period_ms:=100

@@ -48,9 +48,8 @@ template <class Derived, typename HessianType, typename GradType, typename Probl
 class BaseOptimizer
 {
 public:
-    BaseOptimizer(int w, int h, bool printlog)
-        : image_texture_(w, h, 0),
-          reached_convergence_(false),
+    BaseOptimizer(bool printlog)
+        : reached_convergence_(false),
           printlog_(printlog)
     {
     }
@@ -181,11 +180,6 @@ public:
 
 protected:
     Derived &derived() { return static_cast<Derived &>(*this); }
-
-    ImageRenderer imagerenderer_;
-    ResidualReducerCPU residualreducer_;
-
-    Texture<ImageType> image_texture_;
 
     Problem problem_;
     Solver solver_;

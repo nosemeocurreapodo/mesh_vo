@@ -26,12 +26,13 @@ public:
                                Solverx<float>>;
 
     VertexOptimizer(int w, int h, bool printlog = false)
-        : Base(w, h, printlog),
+        : Base(printlog),
           jv0_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
           jv1_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
           jv2_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
           jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
-          pids_texture_(w, h, Vec3<PidType>(-1, -1, -1))
+          pids_texture_(w, h, Vec3<PidType>(-1, -1, -1)),
+          res_texture_(w, h, 0.0)
     {
     }
 
@@ -40,7 +41,7 @@ public:
         return numParams_;
     }
 
-    void reset(const std::span<const Frame* const> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
+    void reset(const std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
     {
         best_vertex_ = get_vertices(kframe.mesh());
 
@@ -65,7 +66,7 @@ public:
         // regu_depth_jacobian(depths_, edges_, problem);
     }
 
-    void apply_inc(std::span<Frame* const> frames, KeyFrame &kframe, const Vecx<float> &inc)
+    void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
     {
         vertex_.clear();
         for (size_t i = 0; i < numVertex_; i++)
@@ -77,7 +78,7 @@ public:
         }
     }
 
-    void update_params(std::span<Frame* const> frames, KeyFrame &kframe)
+    void update_params(std::span<Frame *const> frames, KeyFrame &kframe)
     {
         set_vertices(kframe.mesh(), best_vertex_);
     }
@@ -87,7 +88,7 @@ public:
         best_vertex_ = vertex_;
     }
 
-    void restore_best_params(std::span<Frame* const> frames, KeyFrame &kframe)
+    void restore_best_params(std::span<Frame *const> frames, KeyFrame &kframe)
     {
         vertex_ = best_vertex_;
 
@@ -99,13 +100,13 @@ public:
         Error total;
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
-            imagerenderer_.Render(kframe.mesh(), local_poses_[frame_idx], frames[frame_idx]->local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
-            residualreducer_.reduce(out_lvl, image_texture_, frames[frame_idx]->image(), total);
+            residualrenderer_.Render(kframe.mesh(), local_poses_[frame_idx], frames[frame_idx]->local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frames[frame_idx]->image(), res_texture_);
+            residualreducer_.reduce(out_lvl, res_texture_, total);
         }
         return total;
     }
 
-    void compute_problem(std::span<const Frame* const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
@@ -115,21 +116,21 @@ public:
                                    cam,
                                    in_lvl, out_lvl,
                                    kframe.image(),
+                                   frames[frame_idx]->image(),
                                    frames[frame_idx]->didxy(),
-                                   image_texture_,
                                    jv0_texture_,
                                    jv1_texture_,
                                    jv2_texture_,
                                    jexp_texture_,
-                                   pids_texture_);
+                                   pids_texture_,
+                                   res_texture_);
             hgmapreducer_.reduce(out_lvl,
                                  kframe.mesh().vertex_count(),
                                  jv0_texture_,
                                  jv1_texture_,
                                  jv2_texture_,
                                  pids_texture_,
-                                 image_texture_,
-                                 frames[frame_idx]->image(),
+                                 res_texture_,
                                  total);
         }
     }
@@ -137,12 +138,15 @@ public:
 private:
     JVertexExpRenderer jdepthrenderer_;
     HGVertexReducerCPU hgmapreducer_;
+    ResidualRenderer residualrenderer_;
+    ResidualReducerCPU residualreducer_;
 
     Texture<Vec3<float>> jv0_texture_;
     Texture<Vec3<float>> jv1_texture_;
     Texture<Vec3<float>> jv2_texture_;
     Texture<Vec3<float>> jexp_texture_;
     Texture<Vec3<PidType>> pids_texture_;
+    Texture<float> res_texture_;
 
     std::vector<Vec3<float>> best_vertex_;
     std::vector<Vec3<float>> vertex_;

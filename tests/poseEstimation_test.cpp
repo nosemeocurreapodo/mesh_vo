@@ -75,9 +75,6 @@ TEST_F(RendererTestBase, ComputePose)
         {
             UploadMatToTexture(kframe.image(), 0, image_cv);
 
-            for (int lvl = 0; lvl < frame.didxy().levels(); lvl++)
-                didxy_renderer.Render(screen_mesh, lvl, lvl, kframe.image(), kframe.didxy());
-
             Mesh mesh = CreateMesh<Mesh>(depth_tex_tmp.MapRead(0).data(),
                                          cam_,
                                          depth_tex_tmp.width(0),
@@ -157,7 +154,6 @@ TEST_F(RendererTestBase, ComputePose)
                                          gt_depth_mean);
 
         kframe.image() = frame.image();
-        kframe.didxy() = frame.didxy();
         kframe.global_pose() = frame.global_pose();
         kframe.global_scale() = 1.0;
         kframe.id() = frame.id();

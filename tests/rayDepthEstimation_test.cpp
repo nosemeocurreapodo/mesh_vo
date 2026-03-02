@@ -57,9 +57,6 @@ TEST_F(RendererTestBase, ComputeDepth)
         {
             UploadMatToTexture(kframe.image(), 0, image_cv);
 
-            for (int lvl = 0; lvl < kframe.didxy().levels(); lvl++)
-                didxy_renderer.Render(screen_mesh, lvl, lvl, kframe.image(), kframe.didxy());
-
             Mesh mesh = CreateFlatMesh<Mesh>(gt_depth_mean * 0.5,
                                              gt_depth_mean * 1.5,
                                              cam_,

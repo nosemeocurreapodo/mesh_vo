@@ -25,10 +25,11 @@ public:
                                DenseLinearProblem<6>,
                                Solver<float, 6>>;
     PoseOptimizer(int w, int h, bool printlog = false)
-        : Base(w, h, printlog),
+        : Base(printlog),
           jtra_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
           jrot_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
-          jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0))
+          jexp_texture_(w, h, Vec3<float>(0.0, 0.0, 0.0)),
+          res_texture_(w, h, 0.0)
     {
     }
 
@@ -39,7 +40,7 @@ public:
 
     void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblem<6> &problem, Solver<float, 6> &solver)
     {
-        //scale_ = mean_depth(kframe.mesh());
+        // scale_ = mean_depth(kframe.mesh());
         best_local_poses_.clear();
         for (int i = 0; i < frames.size(); i++)
         {
@@ -75,6 +76,11 @@ public:
             SE3f new_pose = best_local_poses_[i] * SE3f::exp(pose_inc);
             local_poses_.push_back(new_pose);
         }
+
+        for (size_t i = 0; i < frames.size(); i++)
+        {
+            frames[i]->global_pose() = kframe.local_pose_to_global(local_poses_[i]);
+        }
     }
 
     void update_params(std::span<Frame *const> frames, KeyFrame &kframe)
@@ -93,6 +99,11 @@ public:
     void restore_best_params(std::span<Frame *const> frames, KeyFrame &kframe)
     {
         local_poses_ = best_local_poses_;
+
+        for (size_t i = 0; i < frames.size(); i++)
+        {
+            frames[i]->global_pose() = kframe.local_pose_to_global(best_local_poses_[i]);
+        }
     }
 
     Error compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
@@ -100,8 +111,8 @@ public:
         Error total;
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
-            imagerenderer_.Render(kframe.mesh(), local_poses_[frame_idx], frames[frame_idx]->local_exposure(), cam, in_lvl, out_lvl, kframe.image(), image_texture_);
-            residualreducer_.reduce(out_lvl, image_texture_, frames[frame_idx]->image(), total);
+            residualrenderer_.Render(kframe.mesh(), local_poses_[frame_idx], frames[frame_idx]->local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frames[frame_idx]->image(), res_texture_);
+            residualreducer_.reduce(out_lvl, res_texture_, total);
         }
         return total;
     }
@@ -116,16 +127,16 @@ public:
                                        cam,
                                        in_lvl, out_lvl,
                                        kframe.image(),
-                                       kframe.didxy(),
-                                       image_texture_,
+                                       frames[frame_idx]->image(),
+                                       frames[frame_idx]->didxy(),
                                        jtra_texture_,
                                        jrot_texture_,
-                                       jexp_texture_);
+                                       jexp_texture_,
+                                       res_texture_);
             hgposedepthreducer_.reduce(out_lvl,
                                        jtra_texture_,
                                        jrot_texture_,
-                                       image_texture_,
-                                       frames[frame_idx]->image(),
+                                       res_texture_,
                                        total);
         }
     }
@@ -133,10 +144,13 @@ public:
 private:
     JPoseExpRenderer jposedepthrenderer_;
     HGPoseReducerCPU hgposedepthreducer_;
+    ResidualRenderer residualrenderer_;
+    ResidualReducerCPU residualreducer_;
 
     Texture<Vec3<float>> jtra_texture_;
     Texture<Vec3<float>> jrot_texture_;
     Texture<Vec3<float>> jexp_texture_;
+    Texture<float> res_texture_;
 
     std::vector<SE3f> best_local_poses_;
     std::vector<SE3f> local_poses_;

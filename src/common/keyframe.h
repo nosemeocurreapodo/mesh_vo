@@ -82,7 +82,6 @@ public:
     // }
     KeyFrame(int width, int height, Mesh mesh)
         : image_(width, height, -1),
-          didxy_(width, height, Vec3f(0.0, 0.0, 0.0)),
           mesh_(std::move(mesh)),
           global_scale_(1.0)
     {
@@ -101,9 +100,6 @@ public:
 
     const Texture<ImageType> &image() const { return image_; }
     Texture<ImageType> &image() { return image_; }
-
-    const Texture<Vec3<float>> &didxy() const { return didxy_; }
-    Texture<Vec3<float>> &didxy() { return didxy_; }
 
     const int &id() const { return id_; }
     int &id() { return id_; }
@@ -229,7 +225,6 @@ private:
     // Frame frame_;
     // const Frame *frame_;
     Texture<ImageType> image_;
-    Texture<Vec3f> didxy_;
     Mesh mesh_;
     SE3f global_pose_;
     float global_scale_;
