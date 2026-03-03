@@ -40,7 +40,7 @@
 #include "utils/tictoc.h"
 
 // ------------------------------
-// ThreadSafeQueue (move-capable + close + timed wait)
+// ThreadSafeQueue
 // ------------------------------
 template <typename T>
 class ThreadSafeQueue
@@ -72,8 +72,7 @@ public:
     bool pop(T &out)
     {
         std::unique_lock<std::mutex> lock(mutex_);
-        cv_.wait(lock, [&]
-                 { return closed_ || !queue_.empty(); });
+        cv_.wait(lock, [&] { return closed_ || !queue_.empty(); });
         if (queue_.empty())
             return false;
         out = std::move(queue_.front());
@@ -85,8 +84,7 @@ public:
     bool wait_pop_for(T &out, const std::chrono::duration<Rep, Period> &dur)
     {
         std::unique_lock<std::mutex> lock(mutex_);
-        cv_.wait_for(lock, dur, [&]
-                     { return closed_ || !queue_.empty(); });
+        cv_.wait_for(lock, dur, [&] { return closed_ || !queue_.empty(); });
         if (queue_.empty())
             return false;
         out = std::move(queue_.front());
@@ -116,11 +114,19 @@ private:
     bool closed_{false};
 };
 
+
 // ------------------------------
-// VisualOdometryThreaded (1 worker thread)
+// VisualOdometryThreaded
 // ------------------------------
 class VisualOdometryThreaded
 {
+public:
+    struct PoseUpdate
+    {
+        SE3f global_pose = SE3f();
+        int frame_id = -1;
+    };
+
 public:
     VisualOdometryThreaded(float fx, float fy, float cx, float cy,
                            int width, int height,
@@ -131,8 +137,8 @@ public:
           debug_log_(debug_log),
           debug_img_(debug_img)
     {
-        frameId_.store(0);
         cam_ = Camera(fx, fy, cx, cy, width, height);
+        frameId_.store(0);
 
         running_.store(true);
         worker_ = std::thread(&VisualOdometryThreaded::workerLoop, this);
@@ -146,16 +152,15 @@ public:
         running_.store(false);
         iQueue_.close();
 
-        {
-            std::lock_guard<std::mutex> lk(init_mtx_);
-        }
         init_cv_.notify_all();
+        pose_cv_.notify_all();
+        kf_sel_cv_.notify_all();
+        kf_upd_cv_.notify_all();
 
         if (worker_.joinable())
             worker_.join();
     }
 
-    // Push new image (still builds a Texture here; you can later queue pointer jobs instead)
     void locAndMap(const ImageType *image_data)
     {
         if (!image_data)
@@ -167,50 +172,157 @@ public:
         iQueue_.push(std::move(image_texture));
     }
 
-    // Wait until the first keyframe exists (optional helper for caller)
     bool waitUntilInitialized(std::chrono::milliseconds timeout = std::chrono::milliseconds(0)) const
     {
         std::unique_lock<std::mutex> lk(init_mtx_);
         if (timeout.count() == 0)
         {
-            init_cv_.wait(lk, [&]
-                          { return initialized_ || !running_.load(); });
+            init_cv_.wait(lk, [&] { return initialized_ || !running_.load(); });
             return initialized_;
         }
-        return init_cv_.wait_for(lk, timeout, [&]
-                                 { return initialized_ || !running_.load(); }) &&
+
+        return init_cv_.wait_for(lk, timeout, [&] { return initialized_ || !running_.load(); }) &&
                initialized_;
     }
 
-    // ---- Keyframe access without copying ----
-    // Runs 'fn(kf)' under a shared lock. fn must not store references beyond the call.
+    // Read-only access to current keyframe without copying
     template <class Fn>
     bool withKeyframe(Fn &&fn) const
     {
-        // Wait until initialized
         {
             std::unique_lock<std::mutex> lk(init_mtx_);
             if (!initialized_)
-                init_cv_.wait(lk, [&]
-                              { return initialized_ || !running_.load(); });
+                init_cv_.wait(lk, [&] { return initialized_ || !running_.load(); });
         }
+
         if (!running_.load())
             return false;
 
         std::shared_lock<std::shared_mutex> lk(kf_mtx_);
         if (!kf_)
             return false;
+
         fn(*kf_);
         return true;
     }
 
+    // ---- Notifications ----
+
+    bool waitForNextPose(uint64_t &last_seen_seq,
+                         PoseUpdate &out,
+                         std::chrono::milliseconds timeout = std::chrono::milliseconds(0)) const
+    {
+        std::unique_lock<std::mutex> lk(pose_mtx_);
+
+        auto pred = [&] {
+            return !running_.load() || pose_seq_ > last_seen_seq;
+        };
+
+        if (timeout.count() == 0)
+        {
+            pose_cv_.wait(lk, pred);
+        }
+        else
+        {
+            if (!pose_cv_.wait_for(lk, timeout, pred))
+                return false;
+        }
+
+        if (!running_.load())
+            return false;
+
+        out = latest_pose_;
+        last_seen_seq = pose_seq_;
+        return true;
+    }
+
+    bool waitForNextKeyframeSelected(uint64_t &last_seen_seq,
+                                     std::chrono::milliseconds timeout = std::chrono::milliseconds(0)) const
+    {
+        std::unique_lock<std::mutex> lk(kf_sel_mtx_);
+
+        auto pred = [&] {
+            return !running_.load() || kf_selected_seq_ > last_seen_seq;
+        };
+
+        if (timeout.count() == 0)
+        {
+            kf_sel_cv_.wait(lk, pred);
+        }
+        else
+        {
+            if (!kf_sel_cv_.wait_for(lk, timeout, pred))
+                return false;
+        }
+
+        if (!running_.load())
+            return false;
+
+        last_seen_seq = kf_selected_seq_;
+        return true;
+    }
+
+    bool waitForNextKeyframeUpdate(uint64_t &last_seen_seq,
+                                   std::chrono::milliseconds timeout = std::chrono::milliseconds(0)) const
+    {
+        std::unique_lock<std::mutex> lk(kf_upd_mtx_);
+
+        auto pred = [&] {
+            return !running_.load() || kf_updated_seq_ > last_seen_seq;
+        };
+
+        if (timeout.count() == 0)
+        {
+            kf_upd_cv_.wait(lk, pred);
+        }
+        else
+        {
+            if (!kf_upd_cv_.wait_for(lk, timeout, pred))
+                return false;
+        }
+
+        if (!running_.load())
+            return false;
+
+        last_seen_seq = kf_updated_seq_;
+        return true;
+    }
+
 private:
+    void notifyPoseUpdated(const SE3f &pose, int frame_id)
+    {
+        {
+            std::lock_guard<std::mutex> lk(pose_mtx_);
+            latest_pose_.global_pose = pose;
+            latest_pose_.frame_id = frame_id;
+            ++pose_seq_;
+        }
+        pose_cv_.notify_all();
+    }
+
+    void notifyKeyframeSelected()
+    {
+        {
+            std::lock_guard<std::mutex> lk(kf_sel_mtx_);
+            ++kf_selected_seq_;
+        }
+        kf_sel_cv_.notify_all();
+    }
+
+    void notifyKeyframeUpdated()
+    {
+        {
+            std::lock_guard<std::mutex> lk(kf_upd_mtx_);
+            ++kf_updated_seq_;
+        }
+        kf_upd_cv_.notify_all();
+    }
+
     void workerLoop()
     {
         if (debug_log_)
             std::cout << "workerLoop\n";
 
-        // Setup renderers/estimators
         Mesh screen_mesh = CreateScreenQuad<Mesh>();
 
         DIDxyRenderer didxy_renderer;
@@ -221,32 +333,25 @@ private:
         PoseEstimator poseEstimator(width_, height_, false);
         PoseDepthEstimator poseDepthEstimator(width_, height_, debug_log_);
 
-        Texture<ImageType> render_tmp(width_, height_, ImageType(-1)); // scratch for debug renders
+        Texture<ImageType> render_tmp(width_, height_, ImageType(-1));
         Texture<float> depth_tmp(width_, height_, -1.0f);
 
         FrameWindow frameWindow(width_, height_);
-        int img_id = 0;
 
         // --------------------------
         // Initialize from first frame
         // --------------------------
         {
-            // Frame &kf_frame = frameWindow.keyframe_frame();
-
-            // create initial mesh
             Mesh mesh = CreateFlatMesh<Mesh>(0.5f, 1.5f, cam_, mesh_vo::mesh_width);
-
-            // build initial keyframe (ASSUMPTION: KeyFrame can be built from a Frame + Mesh)
-            // If your KeyFrame ctor differs, adjust this line accordingly.
             auto kf = std::make_unique<KeyFrame>(width_, height_, std::move(mesh));
 
-            // block until first image arrives (or shutdown)
             if (!iQueue_.pop(kf->image()))
                 return;
 
+            const int first_id = frameId_.fetch_add(1);
             kf->global_pose() = SE3f();
-            kf->global_scale() = 1.0;
-            kf->id() = img_id;
+            kf->global_scale() = 1.0f;
+            kf->id() = first_id;
 
             float md = mean_depth(kf->mesh());
             kf->scale_mesh(md / mesh_vo::mapping_mean_depth);
@@ -262,6 +367,10 @@ private:
             }
             init_cv_.notify_all();
 
+            notifyKeyframeSelected();
+            notifyKeyframeUpdated();
+            notifyPoseUpdated(SE3f(), first_id);
+
             if (debug_log_)
                 std::cout << "Initialized first keyframe\n";
         }
@@ -275,20 +384,17 @@ private:
         {
             Frame &frame = frameWindow.latest();
 
-            // Move a new image texture into the preallocated latest frame slot (no default ctor needed)
             const bool got_frame = iQueue_.wait_pop_for(frame.image(), std::chrono::milliseconds(2));
 
             if (got_frame)
             {
-                img_id++;
+                const int img_id = frameId_.fetch_add(1);
 
-                // Precompute gradients for this frame
                 for (int lvl = 0; lvl < static_cast<int>(frame.didxy().levels()); ++lvl)
                     didxy_renderer.Render(screen_mesh, lvl, lvl, frame.image(), frame.didxy());
 
                 frame.id() = img_id;
 
-                // Tracking uses shared access to keyframe
                 {
                     std::shared_lock<std::shared_mutex> lk(kf_mtx_);
                     if (!kf_)
@@ -317,6 +423,8 @@ private:
                     if (debug_log_)
                         std::cout << "localization time " << tt.toc() << "\n";
 
+                    notifyPoseUpdated(frame.global_pose(), frame.id());
+
                     if (debug_img_)
                     {
                         image_renderer.Render(kf_->mesh(),
@@ -332,7 +440,6 @@ private:
                     }
                 }
 
-                // Decide whether to keep frame (also read-only on keyframe)
                 float lastMinViewAngle = PI;
                 {
                     std::shared_lock<std::shared_mutex> lk(kf_mtx_);
@@ -346,20 +453,6 @@ private:
                             lastMinViewAngle = lastViewAngle;
                     }
 
-                    // float keyframeViewAngle = kf_->meanViewAngle(kf_->global_pose(), frame.global_pose(), cam_);
-
-                    // image_renderer.Render(kf_->mesh(),
-                    //                       kf_->global_pose_to_local(frame.global_pose()),
-                    //                       frame.local_exposure(),
-                    //                       cam_,
-                    //                       1, 1,
-                    //                       kf_->image(), render_tmp);
-
-                    // Error nodata;
-                    // nodata_reducer.reduce(1, render_tmp, nodata);
-                    // float pnodata = nodata.getError() / float(render_tmp.width(1) * render_tmp.height(1));
-                    // float viewPercent = 1.0f - pnodata;
-
                     if (lastMinViewAngle > mesh_vo::last_min_angle || kf_->id() == 0)
                         frameWindow.accept_latest();
                     else
@@ -367,26 +460,16 @@ private:
 
                     if (!frameWindow.full())
                         continue;
-
-                    // Evaluate keyframe switch
-                    // if (kf_->id() != 0 &&
-                    //    viewPercent > mesh_vo::min_view_perc &&
-                    //    keyframeViewAngle < mesh_vo::key_max_angle)
-                    //{
-                    //    continue;
-                    //}
                 }
 
-                // Keyframe promotion + mapping init needs exclusive access to keyframe
                 {
                     std::unique_lock<std::shared_mutex> lk(kf_mtx_);
                     if (!kf_)
                         continue;
 
                     if (debug_log_)
-                        std::cout << "Creating new keyframe\n";
+                        std::cout << "Creating/updating keyframe\n";
 
-                    // frameWindow.promote_middle_to_keyframe();
                     Frame &newkf_frame = frameWindow.middle();
                     std::span<Frame *const> frame_span = frameWindow.window_span_mut();
 
@@ -397,8 +480,15 @@ private:
                     poseDepthEstimator.update_keyframe(newkf_frame, depth_tmp, *kf_, cam_);
                     poseDepthEstimator.init(frame_span, *kf_, cam_);
                     opt_steps = 0;
+                }
 
-                    if (debug_img_)
+                notifyKeyframeSelected();
+                notifyKeyframeUpdated();
+
+                if (debug_img_)
+                {
+                    std::shared_lock<std::shared_mutex> lk(kf_mtx_);
+                    if (kf_)
                     {
                         depth_renderer.Render(kf_->mesh(), SE3f(), cam_, 1, depth_tmp);
                         depth_mat = DownloadTextureToMat(depth_tmp, 1);
@@ -408,7 +498,6 @@ private:
             }
             else
             {
-                // No new frame -> mapping iteration if window full
                 if (!frameWindow.full() || poseDepthEstimator.converged())
                 {
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -417,18 +506,26 @@ private:
 
                 std::span<Frame *const> frame_span = frameWindow.window_span_mut();
 
-                std::unique_lock<std::shared_mutex> lk(kf_mtx_);
-                if (!kf_)
-                    continue;
+                {
+                    std::unique_lock<std::shared_mutex> lk(kf_mtx_);
+                    if (!kf_)
+                        continue;
 
-                opt_steps++;
-                poseDepthEstimator.step(frame_span, *kf_, cam_);
+                    ++opt_steps;
+                    poseDepthEstimator.step(frame_span, *kf_, cam_);
+                }
+
+                notifyKeyframeUpdated();
 
                 if (debug_img_)
                 {
-                    depth_renderer.Render(kf_->mesh(), SE3f(), cam_, 1, depth_tmp);
-                    depth_mat = DownloadTextureToMat(depth_tmp, 1);
-                    SaveDebugImage(depth_mat, "map_" + std::to_string(kf_->id()) + "_opt_depth_" + std::to_string(opt_steps) + ".png");
+                    std::shared_lock<std::shared_mutex> lk(kf_mtx_);
+                    if (kf_)
+                    {
+                        depth_renderer.Render(kf_->mesh(), SE3f(), cam_, 1, depth_tmp);
+                        depth_mat = DownloadTextureToMat(depth_tmp, 1);
+                        SaveDebugImage(depth_mat, "map_" + std::to_string(kf_->id()) + "_opt_depth_" + std::to_string(opt_steps) + ".png");
+                    }
                 }
             }
         }
@@ -444,7 +541,7 @@ private:
     mutable std::condition_variable init_cv_;
     bool initialized_{false};
 
-    // Keyframe (non-copyable) stored by pointer
+    // Keyframe
     mutable std::shared_mutex kf_mtx_;
     std::unique_ptr<KeyFrame> kf_;
 
@@ -456,6 +553,22 @@ private:
     int width_{0};
     int height_{0};
     std::atomic<int> frameId_{0};
+
+    // Pose event
+    mutable std::mutex pose_mtx_;
+    mutable std::condition_variable pose_cv_;
+    PoseUpdate latest_pose_;
+    uint64_t pose_seq_{0};
+
+    // Keyframe selected event
+    mutable std::mutex kf_sel_mtx_;
+    mutable std::condition_variable kf_sel_cv_;
+    uint64_t kf_selected_seq_{0};
+
+    // Keyframe updated event
+    mutable std::mutex kf_upd_mtx_;
+    mutable std::condition_variable kf_upd_cv_;
+    uint64_t kf_updated_seq_{0};
 
     bool debug_log_{true};
     bool debug_img_{false};

@@ -8,7 +8,7 @@ xhost +si:localuser:root
 sudo docker run --runtime=nvidia -ti --rm -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix glxgears
 docker run -it -v /home/emanuel/workspace/datasets:/datasets -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix  osrf/ros:rolling-desktop
 docker run -it -e DISPLAY --device=/dev/dri --group-add=video -v /tmp/.X11-unix:/tmp/.X11-unix osrf/ros:kilted-desktop
-docker run -it -e DISPLAY --device=/dev/dri --group-add=video -v /tmp/.X11-unix:/tmp/.X11-unix osrf/ros:kilted-desktop
+docker run -it -e DISPLAY --gpus all -v /tmp/.X11-unix:/tmp/.X11-unix osrf/ros:kilted-desktop
 
 ros2 run folder_image_publisher folder_pub --ros-args -p folder:=/datasets/rgbd_datasets/rgbd_dataset_freiburg1_floor/rgb -p fps:=0.1 -p loop:=true -p topic:=/camera/image_raw
 

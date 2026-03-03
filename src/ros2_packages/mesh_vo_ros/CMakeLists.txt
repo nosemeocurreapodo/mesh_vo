@@ -14,6 +14,8 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(LAPACK REQUIRED)               
@@ -65,7 +67,6 @@ add_library(mesh_vo_core STATIC ${VISUALODOMETRY_SRCS})
 target_link_libraries(mesh_vo_core
   PUBLIC
     Eigen3::Eigen
-    ${Pangolin_LIBRARIES}
   PRIVATE
     ${OpenCV_LIBS}
     LAPACK::LAPACK ${LAPACKE_LIB}
@@ -109,7 +110,9 @@ target_link_libraries(mesh_vo_ros_node PUBLIC
   ${geometry_msgs_TARGETS}
   ${sensor_msgs_TARGETS}
   ${visualization_msgs_TARGETS}
+  ${nav_msgs_TARGETS}
   cv_bridge::cv_bridge
+  tf2_ros::tf2_ros
   rclcpp::rclcpp
   sensor_msgs::sensor_msgs_library
   ${OpenCV_LIBRARIES}
