@@ -41,13 +41,10 @@ TEST_F(RendererTestBase, ComputePose)
     float accRotationError = 0;
     int framesProcessedCounter = 0;
 
-    Mesh screen_mesh;
-    CreateScreenQuad(screen_mesh);
+    Mesh screen_mesh = CreateScreenQuad<Mesh>();
 
-    Texture<ImageType> image_texture(w_, h_, 0);
-    Texture<float> gt_depth_texture(w_, h_, 0);
-    Texture<float> es_depth_texture(w_, h_, 0);
-    Texture<Vec3f> didxy_texture(w_, h_, Vec3f(0.0, 0.0, 0.0));
+    Texture<ImageType> image_tex_tmp(w_, h_, 0);
+    Texture<float> depth_tex_tmp(w_, h_, 0);
 
     DepthRenderer depth_renderer;
     ImageRenderer image_renderer;
@@ -55,12 +52,12 @@ TEST_F(RendererTestBase, ComputePose)
     NodataReducerCPU nodata_reducer;
 
     PoseEstimator estimator(w_, h_, true);
-
-    KeyFrame *kframe;
-
-    SE3f tracked_local_pose;
-    SE3f tracked_local_movement;
-    Vec2f tracked_local_exposure(0, 0);
+    Frame frame(w_, h_);
+    KeyFrame kframe(w_, h_,
+                    CreateFlatMesh<Mesh>(0.5,
+                                         1.5,
+                                         cam_,
+                                         mesh_vo::mesh_width));
 
     for (unsigned int img_id = 0; img_id < image_files_.size(); img_id++)
     {
@@ -70,47 +67,53 @@ TEST_F(RendererTestBase, ComputePose)
         cv::Mat gt_depth_cv = cv::imread(depth_files_[img_id], cv::IMREAD_GRAYSCALE);
         gt_depth_cv.convertTo(gt_depth_cv, CV_32FC1);
         gt_depth_cv = gt_depth_cv / depth_factor_;
+        double gt_depth_mean = cv::mean(gt_depth_cv)[0];
         SE3f gt_global_pose = poses_[img_id];
-
-        UploadMatToTexture(image_texture, 0, image_cv);
-        UploadMatToTexture(gt_depth_texture, 0, gt_depth_cv);
-
-        for (int lvl = 0; lvl < didxy_texture.levels(); lvl++)
-            didxy_renderer.Render(screen_mesh, lvl, lvl, image_texture, didxy_texture);
-
-        // didxy_renderer.Render(screen_mesh, 0, 0, image_cpu, didxy_cpu);
-        // didxy_cpu.generate_mipmaps(0);
+        UploadMatToTexture(depth_tex_tmp, 0, gt_depth_cv);
 
         if (img_id == 0)
         {
-            Mesh mesh;
-            CreateMesh(gt_depth_texture.MapRead(0).data(), 
-                cam_, 
-                gt_depth_texture.width(0),
-                gt_depth_texture.height(0),
-                mesh_vo::mesh_width, 
-                mesh);
+            UploadMatToTexture(kframe.image(), 0, image_cv);
 
-            kframe = new KeyFrame(image_texture, didxy_texture, gt_global_pose, mesh, 1.0, img_id);
-            float meanDepth = kframe->meanDepth();
-            kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
+            Mesh mesh = CreateMesh<Mesh>(depth_tex_tmp.MapRead(0).data(),
+                                         cam_,
+                                         depth_tex_tmp.width(0),
+                                         depth_tex_tmp.height(0),
+                                         mesh_vo::mesh_width,
+                                         gt_depth_mean);
+
+            kframe.global_pose() = gt_global_pose;
+            kframe.id() = img_id;
+            kframe.mesh() = std::move(mesh);
+            kframe.global_scale() = 1.0;
+
+            estimator.init_global_pose(gt_global_pose);
 
             continue;
         }
 
-        Frame frame(image_texture, didxy_texture, img_id, kframe->id());
-        estimator.guess(frame, *kframe);
+        UploadMatToTexture(frame.image(), 0, image_cv);
+
+        for (int lvl = 0; lvl < frame.didxy().levels(); lvl++)
+            didxy_renderer.Render(screen_mesh, lvl, lvl, frame.image(), frame.didxy());
+        
+        //didxy_renderer.Render(screen_mesh, 0, 0, image_cpu, didxy_cpu);
+        //didxy_cpu.generate_mipmaps(0);
+
+        // frame.global_pose() = gt_global_pose;
+        frame.id() = img_id;
+
+        estimator.guess(frame, kframe);
 
         auto startTime = std::chrono::high_resolution_clock::now();
-        estimator.estimate(frame, *kframe, cam_);
+        estimator.estimate(frame, kframe, cam_);
         auto endTime = std::chrono::high_resolution_clock::now();
         std::chrono::milliseconds processingTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
 
         auto duration = processingTime.count();
         std::cout << "processing time " << duration << " ms" << std::endl;
 
-        SE3f es_global_pose = kframe->localPoseToGlobal(frame.local_pose());
-        std::array<double, 2> error = ComputeSE3Error(es_global_pose, gt_global_pose);
+        std::array<double, 2> error = ComputeSE3Error(frame.global_pose(), gt_global_pose);
         std::cout << "translation error " << error[0] << " rotation error " << error[1] << std::endl;
 
         accProcessingTime += processingTime;
@@ -118,14 +121,15 @@ TEST_F(RendererTestBase, ComputePose)
         accRotationError += error[1];
         framesProcessedCounter++;
 
-        image_renderer.Render(kframe->mesh(),
-                              frame.local_pose(),
+        image_renderer.Render(kframe.mesh(),
+                              kframe.global_pose_to_local(frame.global_pose()),
                               frame.local_exposure(),
                               cam_,
                               1, 1,
-                              kframe->image(),
-                              image_texture);
-        cv::Mat image_mat = DownloadTextureToMat(image_texture, 1);
+                              kframe.image(),
+                              image_tex_tmp);
+
+        cv::Mat image_mat = DownloadTextureToMat(image_tex_tmp, 1);
         cv::Mat ref_mat = DownloadTextureToMat(frame.image(), 1);
         cv::Mat l2_mat = ref_mat - image_mat;
         SaveDebugImage(image_mat, "pose_est_" + std::to_string(img_id) + "_image.png");
@@ -133,8 +137,8 @@ TEST_F(RendererTestBase, ComputePose)
         SaveDebugImage(l2_mat, "pose_est_" + std::to_string(img_id) + "_l2.png");
 
         Error nodata;
-        nodata_reducer.reduce(1, image_texture, nodata);
-        float pnodata = nodata.getError() / (image_texture.width(1) * image_texture.height(1));
+        nodata_reducer.reduce(1, image_tex_tmp, nodata);
+        float pnodata = nodata.getError() / (image_tex_tmp.width(1) * image_tex_tmp.height(1));
         float viewPercent = 1.0 - pnodata;
 
         std::cout << "view percent " << viewPercent << std::endl;
@@ -142,38 +146,35 @@ TEST_F(RendererTestBase, ComputePose)
         if (viewPercent > mesh_vo::min_view_perc) // || keyframeViewAngle > mesh_vo::key_max_angle)
             continue;
 
-        Mesh new_mesh;
-        CreateMesh(gt_depth_texture.MapRead(0).data(), 
-            cam_, 
-            gt_depth_texture.width(0),
-            gt_depth_texture.height(0),
-            mesh_vo::mesh_width,
-            new_mesh);
+        Mesh new_mesh = CreateMesh<Mesh>(depth_tex_tmp.MapRead(0).data(),
+                                         cam_,
+                                         depth_tex_tmp.width(0),
+                                         depth_tex_tmp.height(0),
+                                         mesh_vo::mesh_width,
+                                         gt_depth_mean);
 
-        kframe = new KeyFrame(frame.image(), frame.didxy(), es_global_pose, new_mesh, 1.0, frame.id());
-        
-        //estimator.changeKeyframe(frame, frame, cam_);
+        kframe.image() = frame.image();
+        kframe.global_pose() = frame.global_pose();
+        kframe.global_scale() = 1.0;
+        kframe.id() = frame.id();
+        kframe.mesh() = std::move(new_mesh);
 
-        float meanDepth = kframe->meanDepth();
-        kframe->scaleMesh(meanDepth / mesh_vo::mapping_mean_depth);
-        frame.scalePose(meanDepth / mesh_vo::mapping_mean_depth);
-
-        depth_renderer.Render(kframe->mesh(),
+        depth_renderer.Render(kframe.mesh(),
                               SE3f(),
                               cam_,
                               1,
-                              es_depth_texture);
-        cv::Mat depth_mat = DownloadTextureToMat(es_depth_texture, 1);
+                              depth_tex_tmp);
+        cv::Mat depth_mat = DownloadTextureToMat(depth_tex_tmp, 1);
         SaveDebugImage(depth_mat, "Depth keyframe_" + std::to_string(img_id) + ".png");
 
-        image_renderer.Render(kframe->mesh(),
+        image_renderer.Render(kframe.mesh(),
                               SE3f(),
                               Vec2f(0.0, 0.0),
                               cam_,
                               1, 1,
-                              kframe->image(),
-                              image_texture);
-        cv::Mat image_mat_ = DownloadTextureToMat(image_texture, 1);
+                              kframe.image(),
+                              image_tex_tmp);
+        cv::Mat image_mat_ = DownloadTextureToMat(image_tex_tmp, 1);
         SaveDebugImage(image_mat_, "Frame keyframe_" + std::to_string(img_id) + ".png");
     }
 

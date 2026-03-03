@@ -76,88 +76,67 @@ static bool pointInMesh2D(
 class KeyFrame
 {
 public:
-    KeyFrame()
+    // KeyFrame(const Texture<ImageType> &image, const Texture<Vec3f> didxy, Mesh mesh, SE3f global_pose, float global_scale, int id)
+    //     : image_(image), didxy_(didxy), mesh_(std::move(mesh)), global_pose_(global_pose), global_scale_(global_scale), id_(id)
+    //{
+    // }
+    KeyFrame(int width, int height, Mesh mesh)
+        : image_(width, height, -1),
+          mesh_(std::move(mesh)),
+          global_scale_(1.0)
     {
     }
 
-    KeyFrame(const Texture<ImageType> &image, const Texture<Vec3f> &didxy, SE3f global_pose, const Mesh &mesh, float global_scale, int id)
-        : image_(image), didxy_(didxy), global_pose_(global_pose), mesh_(mesh), global_scale_(global_scale), id_(id)
-    {
-    }
+    KeyFrame(const KeyFrame &) = delete;
+    KeyFrame &operator=(const KeyFrame &) = delete;
 
-    KeyFrame(const KeyFrame &other)
-        : image_(other.image_),
-          didxy_(other.didxy_),
-          global_pose_(other.global_pose_),
-          mesh_(other.mesh_),
-          global_scale_(other.global_scale_),
-          id_(other.id_)
-    {
-    }
+    KeyFrame(KeyFrame &&) noexcept = default;
+    KeyFrame &operator=(KeyFrame &&) noexcept = default;
 
-    KeyFrame &operator=(const KeyFrame &other)
-    {
-        if (this != &other)
-        {
-            image_ = other.image_;
-            didxy_ = other.didxy_;
-            global_pose_ = other.global_pose_;
-            mesh_ = other.mesh_;
-            global_scale_ = other.global_scale_;
-            id_ = other.id_;
-        }
-        return *this;
-    }
+    // const Frame* frame() const
+    //{
+    //     return frame_;
+    // }
 
-    int id() const
-    {
-        return id_;
-    }
+    const Texture<ImageType> &image() const { return image_; }
+    Texture<ImageType> &image() { return image_; }
 
-    const Texture<ImageType> &image() const
-    {
-        return image_;
-    }
+    const int &id() const { return id_; }
+    int &id() { return id_; }
 
-    const Texture<Vec3f> &didxy() const
-    {
-        return didxy_;
-    }
+    const Mesh &mesh() const { return mesh_; }
+    Mesh &mesh() { return mesh_; }
 
-    const SE3f &global_pose() const
-    {
-        return global_pose_;
-    }
+    const SE3f &global_pose() const { return global_pose_; }
+    SE3f &global_pose() { return global_pose_; }
 
-    const Mesh &mesh() const
-    {
-        return mesh_;
-    }
+    const float &global_scale() const { return global_scale_; }
+    float &global_scale() { return global_scale_; }
 
-    Mesh &mesh()
+    SE3f local_pose_to_global(SE3f local_pose) const
     {
-        return mesh_;
-    }
-
-    float getGlobalScale()
-    {
-        return global_scale_;
-    }
-
-    SE3f localPoseToGlobal(SE3f localPose)
-    {
-        SE3f localPoseScaled = localPose;
+        SE3f localPoseScaled = local_pose;
         localPoseScaled.translation() *= global_scale_;
         SE3f globalPose = localPoseScaled * global_pose_;
         return globalPose;
     }
 
-    SE3f globalPoseToLocal(SE3f globalPose)
+    SE3f global_pose_to_local(SE3f global_pose) const
     {
-        SE3f localPose = globalPose * global_pose_.inverse();
+        SE3f localPose = global_pose * global_pose_.inverse();
         localPose.translation() /= global_scale_;
         return localPose;
     }
+
+    void scale_mesh(float scale)
+    {
+        global_scale_ *= scale;
+        std::vector<Vec3<float>> vertices = get_vertices(mesh_);
+        for (int i = 0; i < vertices.size(); i++)
+            vertices[i] = vertices[i] / scale;
+        set_vertices(mesh_, vertices);
+    }
+
     /*
     Vec2f localExpToGlobal(const Vec2f &local_exposure)
     {
@@ -180,252 +159,72 @@ public:
     }
     */
 
-    float meanDepth()
+    float meanViewAngle(const SE3f &pose1, const SE3f &pose2, const Camera &cam) const
     {
-        std::vector<Vec3<float>> vertices = get_vertices(mesh_);
-        int size = vertices.size();
-        float mean = 0.0;
-        for (int i = 0; i < size; i++)
-            mean += vertices[i](2);
-        return mean / size;
-    }
+        const std::vector<Vec3f> positions = get_vertices(mesh_);
 
-    void scaleMesh(float scale)
-    {
-        global_scale_ *= scale;
-        std::vector<Vec3<float>> vertices = get_vertices(mesh_);
-        for (int i = 0; i < vertices.size(); i++)
-            vertices[i] = vertices[i] / scale;
-        set_vertices(mesh_, vertices);
-    }
+        // Convert both poses into this keyframe's local frame
+        const SE3f localpose1 = global_pose_to_local(pose1);
+        const SE3f localpose2 = global_pose_to_local(pose2);
 
-    void changeFrame(const Texture<ImageType> &new_image,
-                     const Texture<Vec3f> &new_didxy,
-                     const SE3f &new_local_pose,
-                     int new_id,
-                     const Camera &cam)
-    {
-        bool has_pos = mesh_.pos_offset_ >= 0 ? 1 : 0;
-        bool has_tex = mesh_.tex_offset_ >= 0 ? 1 : 0;
+        // Transform from camera-1 frame to camera-2 frame:
+        // x2 = T_2_1 * x1
+        const SE3f T_2_1 = localpose2 * localpose1.inverse();
 
-        std::vector<Vec3<int>> indices = get_indices(mesh_);
+        // Camera-2 center expressed in camera-1 coordinates
+        const Vec3f cam2_in_cam1 = T_2_1.inverse().translation();
 
-        std::vector<Vec3<float>> vertices = get_vertices(mesh_);
-
-        assert(vertices.size() > 0);
-
-        std::vector<Vec2<float>> texcoords;
-        texcoords.reserve(vertices.size());
-
-        for (int i = 0; i < vertices.size(); i++)
-        {
-            Vec3<float> vertex = vertices[i];
-
-            vertex = new_local_pose * vertex;
-            Vec3<float> ray = vertex / vertex(2);
-            Vec2<float> pix = cam.RayToPix(ray);
-
-            vertices[i] = vertex;
-            texcoords.push_back(pix);
-        }
-
-        std::vector<Vec2<float>> grid_uv; //= UniformTexCoords(mesh_vo::mesh_width, mesh_vo::mesh_height, 0.0, 0.0, 1.0, 1.0);
-
-        std::vector<Vec3<float>> new_vertices;
-        std::vector<Vec2<float>> new_texcoords;
-        new_texcoords.reserve(grid_uv.size());
-
-        for (int i = 0; i < (int)grid_uv.size(); ++i)
-        {
-            const Vec2<float> p = grid_uv[i];
-            if (!pointInMesh2D(p, texcoords, indices))
-            {
-                Vec3<float> new_vertice = cam.PixToRay(p);
-                new_texcoords.push_back(p);
-                new_vertices.push_back(new_vertice);
-            }
-        }
-
-        DelaunayTriangulation triangulator;
-        triangulator.LoadMesh(texcoords, indices);
-        triangulator.AddOutsidePoints(new_texcoords);
-        // triangulator.LoadPoints(texcoords);
-        // triangulator.Triangulate();
-        std::vector<Vec3<int>> tris = triangulator.GetTriangles();
-
-        std::vector<float> new_mesh_vertex;
-        std::vector<int> new_indices;
-
-        for (int i = 0; i < vertices.size(); i++)
-        {
-            Vec3<float> vertex = vertices[i];
-            Vec2<float> texcoord = texcoords[i];
-            if (has_pos)
-            {
-                new_mesh_vertex.push_back(vertex(0));
-                new_mesh_vertex.push_back(vertex(1));
-                new_mesh_vertex.push_back(vertex(2));
-            }
-            if (has_tex)
-            {
-                new_mesh_vertex.push_back(texcoord(0));
-                new_mesh_vertex.push_back(texcoord(1));
-            }
-        }
-
-        for (int i = 0; i < new_vertices.size(); i++)
-        {
-            Vec3<float> vertex = new_vertices[i];
-            Vec2<float> texcoord = new_texcoords[i];
-            if (has_pos)
-            {
-                new_mesh_vertex.push_back(vertex(0));
-                new_mesh_vertex.push_back(vertex(1));
-                new_mesh_vertex.push_back(vertex(2));
-            }
-            if (has_tex)
-            {
-                new_mesh_vertex.push_back(texcoord(0));
-                new_mesh_vertex.push_back(texcoord(1));
-            }
-        }
-
-        for (int i = 0; i < tris.size(); i++)
-        {
-            Vec3<int> tri = tris[i];
-            new_indices.push_back(tri(0));
-            new_indices.push_back(tri(1));
-            new_indices.push_back(tri(2));
-        }
-
-        Mesh new_mesh(new_mesh_vertex, new_indices, has_pos, has_tex, false);
-
-        image_ = new_image;
-        didxy_ = new_didxy;
-        global_pose_ = localPoseToGlobal(new_local_pose);
-        mesh_ = new_mesh;
-        id_ = new_id;
-    }
-
-    void changeFrame(const Texture<ImageType> &new_image,
-                     const Texture<Vec3f> &new_didxy,
-                     const Texture<float> &new_depth,
-                     const SE3f &new_local_pose,
-                     int new_id,
-                     const Camera &cam)
-    {
-        std::vector<Vec2<float>> grid_uv = UniformTexCoords(mesh_vo::mesh_width, mesh_vo::mesh_height, 0.0, 0.0, 1.0, 1.0);
-
-        std::vector<Vec3<float>> new_vertices;
-        std::vector<Vec2<float>> new_texcoords;
-        new_texcoords.reserve(grid_uv.size());
-
-        auto depth_map = new_depth.MapRead(0);
-        int width = new_depth.width(0);
-        int height = new_depth.height(0);
-        for (int i = 0; i < (int)grid_uv.size(); ++i)
-        {
-            const Vec2<float> p = grid_uv[i];
-            Vec3<float> new_ray = cam.PixToRay(p);
-            float depth = depth_map[p(1) * (height - 1) * width + p(0) * (width - 1)];
-            Vec3<float> new_vertice = new_ray;
-            if (depth != new_depth.nodata())
-                new_vertice = new_ray * depth;
-            new_texcoords.push_back(p);
-            new_vertices.push_back(new_vertice);
-        }
-
-        DelaunayTriangulation triangulator;
-        triangulator.LoadPoints(new_texcoords);
-        triangulator.Triangulate();
-        std::vector<Vec3<int>> tris = triangulator.GetTriangles();
-
-        std::vector<float> new_mesh_vertex;
-        std::vector<int> new_indices;
-
-        for (int i = 0; i < new_vertices.size(); i++)
-        {
-            Vec3<float> vertex = new_vertices[i];
-            Vec2<float> texcoord = new_texcoords[i];
-            if (mesh_.pos_offset_ >= 0)
-            {
-                new_mesh_vertex.push_back(vertex(0));
-                new_mesh_vertex.push_back(vertex(1));
-                new_mesh_vertex.push_back(vertex(2));
-            }
-            if (mesh_.tex_offset_ >= 0)
-            {
-                new_mesh_vertex.push_back(texcoord(0));
-                new_mesh_vertex.push_back(texcoord(1));
-            }
-        }
-
-        for (int i = 0; i < tris.size(); i++)
-        {
-            Vec3<int> tri = tris[i];
-            new_indices.push_back(tri(0));
-            new_indices.push_back(tri(1));
-            new_indices.push_back(tri(2));
-        }
-
-        Mesh new_mesh(new_mesh_vertex, new_indices, true, true, false);
-
-        image_ = new_image;
-        didxy_ = new_didxy;
-        global_pose_ = localPoseToGlobal(new_local_pose);
-        mesh_ = new_mesh;
-        id_ = new_id;
-    }
-
-    float meanViewAngle(const SE3f &pose1, const SE3f &pose2, const Camera cam)
-    {
-        std::vector<Vec3<float>> positions = get_vertices(mesh_);
-
-        SE3f pose1frame1 = SE3f();
-        SE3f pose2frame1 = pose2 * pose1.inverse();
-
-        Vec3f pose1frame1tra = pose1frame1.inverse().translation();
-        Vec3f pose2frame1tra = pose2frame1.inverse().translation();
-
-        float accAngle = 0;
+        float accAngle = 0.0f;
         int count = 0;
-        for (int i = 0; i < positions.size(); i++)
-        {
-            Vec3f vert = positions[i];
-            Vec3f vertframe1 = pose1 * vert;
-            Vec3f vertframe2 = pose2 * vert;
+        constexpr float eps = 1e-8f;
 
-            Vec2f pix1 = cam.pointToPix(vertframe1);
-            Vec2f pix2 = cam.pointToPix(vertframe2);
+        for (size_t i = 0; i < positions.size(); ++i)
+        {
+            const Vec3f &vert = positions[i];
+
+            // Vertex coordinates in each camera frame
+            const Vec3f vert_cam1 = localpose1 * vert;
+            const Vec3f vert_cam2 = localpose2 * vert;
+
+            // Must be in front of both cameras
+            if (vert_cam1(2) <= eps || vert_cam2(2) <= eps)
+                continue;
+
+            const Vec2f pix1 = cam.pointToPix(vert_cam1);
+            const Vec2f pix2 = cam.pointToPix(vert_cam2);
 
             if (!cam.IsPixVisible(pix1) || !cam.IsPixVisible(pix2))
                 continue;
 
-            Vec3f diff1 = vertframe1 - pose1frame1tra;
-            Vec3f diff2 = vertframe1 - pose2frame1tra;
+            // Rays from each camera center to the same 3D point, expressed in camera-1 frame
+            const Vec3f ray1 = vert_cam1;                // cam1 center is origin in cam1 frame
+            const Vec3f ray2 = vert_cam1 - cam2_in_cam1; // cam2 center expressed in cam1 frame
 
-            assert(diff1.norm() > 0 && diff2.norm() > 0);
+            const float n1 = ray1.norm();
+            const float n2 = ray2.norm();
 
-            Vec3f diff1Normalized = diff1 / diff1.norm();
-            Vec3f diff2Normalized = diff2 / diff2.norm();
+            if (n1 <= eps || n2 <= eps)
+                continue;
 
-            float cos_angle = diff1Normalized.dot(diff2Normalized);
+            float cos_angle = ray1.dot(ray2) / (n1 * n2);
             cos_angle = std::clamp(cos_angle, -1.0f, 1.0f);
-            float angle = std::acos(cos_angle);
 
-            assert(!std::isnan(angle));
+            const float angle = std::acos(cos_angle);
 
-            accAngle += std::abs(angle);
-            count += 1;
+            if (!std::isnan(angle))
+            {
+                accAngle += angle;
+                ++count;
+            }
         }
 
-        return accAngle / count;
+        return (count > 0) ? (accAngle / static_cast<float>(count)) : 0.0f;
     }
 
 private:
     // Frame frame_;
+    // const Frame *frame_;
     Texture<ImageType> image_;
-    Texture<Vec3f> didxy_;
     Mesh mesh_;
     SE3f global_pose_;
     float global_scale_;

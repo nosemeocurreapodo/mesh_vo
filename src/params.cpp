@@ -5,10 +5,10 @@ namespace mesh_vo
 {
     float last_min_angle = M_PI / 64.0;
     float key_max_angle = M_PI / 32.0;
-    float min_view_perc = 0.9;
+    float min_view_perc = 0.7;
     float min_lambda = 0.00001f;
     float huber_thresh_pix = 9.0; // 9.0 taken from dso
-    float huber_thresh_param = 1000000000000000000000000.0f;
+    float huber_thresh_param = 100000000000000000.0f;
     float line_capture_time = 1.0;
 
     int tracking_ini_lvl = 3;

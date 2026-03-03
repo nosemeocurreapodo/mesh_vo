@@ -156,29 +156,22 @@ public:
 	explicit ResidualReducerCPU(ReduceOptions opt = {}) : opt_(opt) {}
 
 	void reduce(int lvl,
-				const Texture<ImageType> &texture_1,
-				const Texture<ImageType> &texture_2,
+				const Texture<ImageType> &res_texture,
 				Error &total) const
 	{
-		total += compute(lvl, texture_1, texture_2);
+		total += compute(lvl, res_texture);
 	}
 
 	[[nodiscard]] Error compute(int lvl,
-								const Texture<ImageType> &texture_1,
-								const Texture<ImageType> &texture_2) const
+								const Texture<ImageType> &res_texture) const
 	{
-		assert(texture_1.width(lvl) == texture_2.width(lvl));
-		assert(texture_1.height(lvl) == texture_2.height(lvl));
+		auto res = res_texture.MapRead(lvl);
 
-		auto v1 = texture_1.MapRead(lvl);
-		auto v2 = texture_2.MapRead(lvl);
-
-		const std::size_t w = static_cast<std::size_t>(v1.width());
-		const std::size_t h = static_cast<std::size_t>(v1.height());
+		const std::size_t w = static_cast<std::size_t>(res.width());
+		const std::size_t h = static_cast<std::size_t>(res.height());
 		const std::size_t N = w * h;
 
-		const auto nod1 = v1.nodata();
-		const auto nod2 = v2.nodata();
+		const auto nod = res.nodata();
 
 		return parallel_reduce_1d<Error>(
 			N,
@@ -186,12 +179,10 @@ public:
 			{
 				for (std::size_t i = begin; i < end; ++i)
 				{
-					const ImageType a = v1[i];
-					const ImageType b = v2[i];
-					if (is_nodata_scalar(a, nod1) || is_nodata_scalar(b, nod2))
+					const ImageType r = res[i];
+					if (is_nodata_scalar(r, nod))
 						continue;
 
-					const float r = static_cast<float>(a) - static_cast<float>(b);
 					const float w = huber_weight(r, mesh_vo::huber_thresh_pix);
 					out += w * r * r;
 				}
@@ -213,30 +204,26 @@ public:
 	void reduce(int lvl,
 				const Texture<Vec3f> &jtra_texture,
 				const Texture<Vec3f> &jrot_texture,
-				const Texture<ImageType> &image_texture,
-				const Texture<ImageType> &ref_texture,
+				const Texture<float> &res_texture,
 				DenseLinearProblem<6> &total) const
 	{
-		total += compute(lvl, jtra_texture, jrot_texture, image_texture, ref_texture);
+		total += compute(lvl, jtra_texture, jrot_texture, res_texture);
 	}
 
 	[[nodiscard]] DenseLinearProblem<6> compute(int lvl,
 												const Texture<Vec3f> &jtra_texture,
 												const Texture<Vec3f> &jrot_texture,
-												const Texture<ImageType> &image_texture,
-												const Texture<ImageType> &ref_texture) const
+												const Texture<float> &res_texture) const
 	{
 		auto jtra = jtra_texture.MapRead(lvl);
 		auto jrot = jrot_texture.MapRead(lvl);
-		auto img = image_texture.MapRead(lvl);
-		auto ref = ref_texture.MapRead(lvl);
+		auto res = res_texture.MapRead(lvl);
 
-		const std::size_t w = static_cast<std::size_t>(img.width());
-		const std::size_t h = static_cast<std::size_t>(img.height());
+		const std::size_t w = static_cast<std::size_t>(res.width());
+		const std::size_t h = static_cast<std::size_t>(res.height());
 		const std::size_t N = w * h;
 
-		const auto nod_img = img.nodata();
-		const auto nod_ref = ref.nodata();
+		const auto nod_res = res.nodata();
 		const auto nod_jtra = jtra.nodata();
 		const auto nod_jrot = jrot.nodata();
 
@@ -246,18 +233,14 @@ public:
 			{
 				for (std::size_t i = begin; i < end; ++i)
 				{
-					const ImageType image = img[i];
-					const ImageType rimg = ref[i];
+					const ImageType res_i = res[i];
 					const Vec3f jt = jtra[i];
 					const Vec3f jr = jrot[i];
 
-					if (is_nodata_scalar(image, nod_img) ||
-						is_nodata_scalar(rimg, nod_ref) ||
+					if (is_nodata_scalar(res_i, nod_res) ||
 						is_nodata_vec3(jt, nod_jtra) ||
 						is_nodata_vec3(jr, nod_jrot))
 						continue;
-
-					const float res = static_cast<float>(rimg) - static_cast<float>(image);
 
 					Vec6f J;
 					J(0) = jt(0);
@@ -267,8 +250,8 @@ public:
 					J(4) = jr(1);
 					J(5) = jr(2);
 
-					const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
-					hg.add(J, res, w);
+					const float w = huber_weight(res_i, mesh_vo::huber_thresh_pix);
+					hg.add(J, res_i, w);
 				}
 			},
 			[]
@@ -289,32 +272,28 @@ public:
 				const Texture<Vec3f> &jtra_texture,
 				const Texture<Vec3f> &jrot_texture,
 				const Texture<Vec3f> &jexp_texture,
-				const Texture<ImageType> &image_texture,
-				const Texture<ImageType> &ref_texture,
+				const Texture<ImageType> &res_texture,
 				DenseLinearProblem<8> &total) const
 	{
-		total += compute(lvl, jtra_texture, jrot_texture, jexp_texture, image_texture, ref_texture);
+		total += compute(lvl, jtra_texture, jrot_texture, jexp_texture, res_texture);
 	}
 
 	[[nodiscard]] DenseLinearProblem<8> compute(int lvl,
 												const Texture<Vec3f> &jtra_texture,
 												const Texture<Vec3f> &jrot_texture,
 												const Texture<Vec3f> &jexp_texture,
-												const Texture<ImageType> &image_texture,
-												const Texture<ImageType> &ref_texture) const
+												const Texture<ImageType> &res_texture) const
 	{
 		auto jtra = jtra_texture.MapRead(lvl);
 		auto jrot = jrot_texture.MapRead(lvl);
 		auto jexp = jexp_texture.MapRead(lvl);
-		auto img = image_texture.MapRead(lvl);
-		auto ref = ref_texture.MapRead(lvl);
+		auto res = res_texture.MapRead(lvl);
 
-		const std::size_t w = static_cast<std::size_t>(img.width());
-		const std::size_t h = static_cast<std::size_t>(img.height());
+		const std::size_t w = static_cast<std::size_t>(res.width());
+		const std::size_t h = static_cast<std::size_t>(res.height());
 		const std::size_t N = w * h;
 
-		const auto nod_img = img.nodata();
-		const auto nod_ref = ref.nodata();
+		const auto nod_res = res.nodata();
 		const auto nod_jtra = jtra.nodata();
 		const auto nod_jrot = jrot.nodata();
 		const auto nod_jexp = jexp.nodata();
@@ -325,20 +304,16 @@ public:
 			{
 				for (std::size_t i = begin; i < end; ++i)
 				{
-					const ImageType image = img[i];
-					const ImageType rimg = ref[i];
+					const ImageType res_i = res[i];
 					const Vec3f jt = jtra[i];
 					const Vec3f jr = jrot[i];
 					const Vec3f je = jexp[i];
 
-					if (is_nodata_scalar(image, nod_img) ||
-						is_nodata_scalar(rimg, nod_ref) ||
+					if (is_nodata_scalar(res_i, nod_res) ||
 						is_nodata_vec3(jt, nod_jtra) ||
 						is_nodata_vec3(jr, nod_jrot) ||
 						is_nodata_vec3(je, nod_jexp))
 						continue;
-
-					const float res = static_cast<float>(rimg) - static_cast<float>(image);
 
 					Vec8f J;
 					J(0) = jt(0);
@@ -350,8 +325,8 @@ public:
 					J(6) = je(0);
 					J(7) = je(1);
 
-					const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
-					hg.add(J, res, w);
+					const float w = huber_weight(res_i, mesh_vo::huber_thresh_pix);
+					hg.add(J, res_i, w);
 				}
 			},
 			[]
@@ -375,8 +350,7 @@ public:
 				int num_vertices,
 				const Texture<Vec3f> &jdepth_texture,
 				const Texture<Vec3<PidType>> &pids_texture,
-				const Texture<ImageType> &image_texture,
-				const Texture<ImageType> &ref_texture,
+				const Texture<float> &res_texture,
 				const Mesh &mesh,
 				DenseLinearProblemx &total) const
 	{
@@ -389,29 +363,26 @@ public:
 		//	assert(total.size() == dof);
 
 		compute(lvl, num_vertices,
-				jdepth_texture, pids_texture, image_texture, ref_texture, mesh, total);
+				jdepth_texture, pids_texture, res_texture, mesh, total);
 	}
 
 	void compute(int lvl,
 				 int num_vertices,
 				 const Texture<Vec3f> &jdepth_texture,
 				 const Texture<Vec3<PidType>> &pids_texture,
-				 const Texture<ImageType> &image_texture,
-				 const Texture<ImageType> &ref_texture,
+				 const Texture<float> &res_texture,
 				 const Mesh &mesh,
 				 DenseLinearProblemx &partial) const
 	{
 		auto jd = jdepth_texture.MapRead(lvl);
 		auto pids = pids_texture.MapRead(lvl);
-		auto img = image_texture.MapRead(lvl);
-		auto ref = ref_texture.MapRead(lvl);
+		auto res = res_texture.MapRead(lvl);
 
 		const std::vector<float> depths = get_depths(mesh);
 
-		const int N = img.width() * img.height();
+		const int N = res.width() * res.height();
 
-		const auto nod_img = img.nodata();
-		const auto nod_ref = ref.nodata();
+		const auto nod_res = res.nodata();
 		const auto nod_jd = jd.nodata();
 		const auto nod_pid = pids.nodata();
 
@@ -419,18 +390,14 @@ public:
 		{
 			const Vec3f jdepth_i = jd[i];
 			const Vec3<PidType> p_i = pids[i];
-			const ImageType image_i = img[i];
-			const ImageType ref_i = ref[i];
+			const ImageType res_i = res[i];
 
 			// NOTE: keep your existing == checks if your nodata isn't NaN.
 			// If nodata might be NaN, use NaN-aware helpers.
-			if (image_i == nod_img ||
-				ref_i == nod_ref ||
+			if (res_i == nod_res ||
 				jdepth_i == nod_jd ||
 				p_i == nod_pid)
 				continue;
-
-			const float res = static_cast<float>(ref_i) - static_cast<float>(image_i);
 
 			const Vec3i pid_int(p_i(0), p_i(1), p_i(2));
 
@@ -454,8 +421,8 @@ public:
 			J(1) = jdepth_i(1) * dd1;
 			J(2) = jdepth_i(2) * dd2;
 
-			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
-			partial.add(J, res, w, pid_int);
+			const float w = huber_weight(res_i, mesh_vo::huber_thresh_pix);
+			partial.add(J, res_i, w, pid_int);
 		}
 	}
 
@@ -473,13 +440,12 @@ public:
 				const Texture<Vec3f> &jv1_texture,
 				const Texture<Vec3f> &jv2_texture,
 				const Texture<Vec3<PidType>> &pids_texture,
-				const Texture<ImageType> &image_texture,
-				const Texture<ImageType> &ref_texture,
+				const Texture<float> &res_texture,
 				DenseLinearProblemx &total) const
 	{
 		compute(lvl, num_vertices,
 				jv0_texture, jv1_texture, jv2_texture,
-				pids_texture, image_texture, ref_texture,
+				pids_texture, res_texture,
 				total);
 	}
 
@@ -489,23 +455,20 @@ public:
 				 const Texture<Vec3f> &jv1_texture,
 				 const Texture<Vec3f> &jv2_texture,
 				 const Texture<Vec3<PidType>> &pids_texture,
-				 const Texture<ImageType> &image_texture,
-				 const Texture<ImageType> &ref_texture,
+				 const Texture<float> &res_texture,
 				 DenseLinearProblemx &partial) const
 	{
 		auto jv0 = jv0_texture.MapRead(lvl);
 		auto jv1 = jv1_texture.MapRead(lvl);
 		auto jv2 = jv2_texture.MapRead(lvl);
 		auto pids = pids_texture.MapRead(lvl);
-		auto img = image_texture.MapRead(lvl);
-		auto ref = ref_texture.MapRead(lvl);
+		auto res = res_texture.MapRead(lvl);
 
-		const std::size_t w = static_cast<std::size_t>(img.width());
-		const std::size_t h = static_cast<std::size_t>(img.height());
+		const std::size_t w = static_cast<std::size_t>(res.width());
+		const std::size_t h = static_cast<std::size_t>(res.height());
 		const std::size_t N = w * h;
 
-		const auto nod_img = img.nodata();
-		const auto nod_ref = ref.nodata();
+		const auto nod_res = res.nodata();
 		const auto nod_jv0 = jv0.nodata();
 		const auto nod_jv1 = jv1.nodata();
 		const auto nod_jv2 = jv2.nodata();
@@ -517,18 +480,14 @@ public:
 			const Vec3f j1 = jv1[i];
 			const Vec3f j2 = jv2[i];
 			const Vec3<PidType> p = pids[i];
-			const ImageType image_i = img[i];
-			const ImageType ref_i = ref[i];
+			const ImageType res_i = res[i];
 
-			if (is_nodata_scalar(image_i, nod_img) ||
-				is_nodata_scalar(ref_i, nod_ref) ||
+			if (is_nodata_scalar(res_i, nod_res) ||
 				is_nodata_vec3(j0, nod_jv0) ||
 				is_nodata_vec3(j1, nod_jv1) ||
 				is_nodata_vec3(j2, nod_jv2) ||
 				is_nodata_vec3(p, nod_pid))
 				continue;
-
-			const float res = static_cast<float>(ref_i) - static_cast<float>(image_i);
 
 			const int pid0 = static_cast<int>(p(0));
 			const int pid1 = static_cast<int>(p(1));
@@ -541,7 +500,7 @@ public:
 			if (d0 > 0.f || d1 > 0.f || d2 > 0.f)
 				continue;
 
-			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
+			const float w = huber_weight(res_i, mesh_vo::huber_thresh_pix);
 
 			Vec<float, 9> J;
 			J(0) = j0(0);
@@ -565,7 +524,7 @@ public:
 			ids(7) = pid2 * 3 + 1;
 			ids(8) = pid2 * 3 + 2;
 
-			partial.add(J, res, w, ids);
+			partial.add(J, res_i, w, ids);
 		}
 	}
 
@@ -584,14 +543,13 @@ public:
 				const Texture<Vec3f> &jdepth_texture,
 				const Texture<Vec3f> &jexp_texture,
 				const Texture<Vec3<PidType>> &pids_texture,
-				const Texture<ImageType> &image_texture,
-				const Texture<ImageType> &ref_texture,
+				const Texture<float> &res_texture,
 				const Mesh &mesh,
 				DenseLinearProblemx &total) const
 	{
 		compute(lvl, frame_id, num_frames, num_vertices,
 				jdepth_texture, jexp_texture, pids_texture,
-				image_texture, ref_texture, mesh, total);
+				res_texture, mesh, total);
 	}
 
 	void compute(int lvl,
@@ -601,25 +559,22 @@ public:
 				 const Texture<Vec3f> &jdepth_texture,
 				 const Texture<Vec3f> &jexp_texture,
 				 const Texture<Vec3<PidType>> &pids_texture,
-				 const Texture<ImageType> &image_texture,
-				 const Texture<ImageType> &ref_texture,
+				 const Texture<float> &res_texture,
 				 const Mesh &mesh,
 				 DenseLinearProblemx &partial) const
 	{
 		auto jd = jdepth_texture.MapRead(lvl);
 		auto je = jexp_texture.MapRead(lvl);
 		auto pids = pids_texture.MapRead(lvl);
-		auto img = image_texture.MapRead(lvl);
-		auto ref = ref_texture.MapRead(lvl);
+		auto res = res_texture.MapRead(lvl);
 
 		const std::vector<float> depths = get_depths(mesh);
 
-		const std::size_t w = static_cast<std::size_t>(img.width());
-		const std::size_t h = static_cast<std::size_t>(img.height());
+		const std::size_t w = static_cast<std::size_t>(res.width());
+		const std::size_t h = static_cast<std::size_t>(res.height());
 		const std::size_t N = w * h;
 
-		const auto nod_img = img.nodata();
-		const auto nod_ref = ref.nodata();
+		const auto nod_res = res.nodata();
 		const auto nod_jd = jd.nodata();
 		const auto nod_je = je.nodata();
 		const auto nod_pid = pids.nodata();
@@ -629,17 +584,13 @@ public:
 			const Vec3f jdepth_i = jd[i];
 			const Vec3f jexp_i = je[i];
 			const Vec3<PidType> p = pids[i];
-			const ImageType image_i = img[i];
-			const ImageType ref_i = ref[i];
+			const ImageType res_i = res[i];
 
-			if (is_nodata_scalar(image_i, nod_img) ||
-				is_nodata_scalar(ref_i, nod_ref) ||
+			if (is_nodata_scalar(res_i, nod_res) ||
 				is_nodata_vec3(jdepth_i, nod_jd) ||
 				is_nodata_vec3(jexp_i, nod_je) ||
 				is_nodata_vec3(p, nod_pid))
 				continue;
-
-			const float res = static_cast<float>(ref_i) - static_cast<float>(image_i);
 
 			const Vec5i ids(p(0), p(1), p(2),
 							num_vertices + frame_id * 2,
@@ -660,8 +611,8 @@ public:
 			J(3) = jexp_i(0);
 			J(4) = jexp_i(1);
 
-			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
-			partial.add(J, res, w, ids);
+			const float w = huber_weight(res_i, mesh_vo::huber_thresh_pix);
+			partial.add(J, res_i, w, ids);
 		}
 	}
 
@@ -681,14 +632,13 @@ public:
 				const Texture<Vec3f> &jrot_texture,
 				const Texture<Vec3f> &jdepth_texture,
 				const Texture<Vec3<PidType>> &pids_texture,
-				const Texture<ImageType> &image_texture,
-				const Texture<ImageType> &ref_texture,
+				const Texture<float> &res_texture,
 				const Mesh &mesh,
 				DenseLinearProblemx &total) const
 	{
 		compute(lvl, frame_id, num_frames, num_vertices,
 				jtra_texture, jrot_texture, jdepth_texture, pids_texture,
-				image_texture, ref_texture, mesh, total);
+				res_texture, mesh, total);
 	}
 
 	void compute(int lvl,
@@ -699,8 +649,7 @@ public:
 				 const Texture<Vec3f> &jrot_texture,
 				 const Texture<Vec3f> &jdepth_texture,
 				 const Texture<Vec3<PidType>> &pids_texture,
-				 const Texture<ImageType> &image_texture,
-				 const Texture<ImageType> &ref_texture,
+				 const Texture<float> &res_texture,
 				 const Mesh &mesh,
 				 DenseLinearProblemx &partial) const
 	{
@@ -708,17 +657,15 @@ public:
 		auto jr = jrot_texture.MapRead(lvl);
 		auto jd = jdepth_texture.MapRead(lvl);
 		auto pids = pids_texture.MapRead(lvl);
-		auto img = image_texture.MapRead(lvl);
-		auto ref = ref_texture.MapRead(lvl);
+		auto res = res_texture.MapRead(lvl);
 
 		const std::vector<float> depths = get_depths(mesh);
 
-		const std::size_t w = static_cast<std::size_t>(img.width());
-		const std::size_t h = static_cast<std::size_t>(img.height());
+		const std::size_t w = static_cast<std::size_t>(res.width());
+		const std::size_t h = static_cast<std::size_t>(res.height());
 		const std::size_t N = w * h;
 
-		const auto nod_img = img.nodata();
-		const auto nod_ref = ref.nodata();
+		const auto nod_res = res.nodata();
 		const auto nod_jt = jt.nodata();
 		const auto nod_jr = jr.nodata();
 		const auto nod_jd = jd.nodata();
@@ -730,18 +677,14 @@ public:
 			const Vec3f jrot_i = jr[i];
 			const Vec3f jdepth_i = jd[i];
 			const Vec3<PidType> p = pids[i];
-			const ImageType image_i = img[i];
-			const ImageType ref_i = ref[i];
+			const float res_i = res[i];
 
-			if (is_nodata_scalar(image_i, nod_img) ||
-				is_nodata_scalar(ref_i, nod_ref) ||
+			if (is_nodata_scalar(res_i, nod_res) ||
 				is_nodata_vec3(jtra_i, nod_jt) ||
 				is_nodata_vec3(jrot_i, nod_jr) ||
 				is_nodata_vec3(jdepth_i, nod_jd) ||
 				is_nodata_vec3(p, nod_pid))
 				continue;
-
-			const float res = static_cast<float>(ref_i) - static_cast<float>(image_i);
 
 			Vec<int, 9> ids;
 			ids(0) = p(0);
@@ -773,8 +716,8 @@ public:
 			J(7) = jrot_i(1);
 			J(8) = jrot_i(2);
 
-			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
-			partial.add(J, res, w, ids);
+			const float w = huber_weight(res_i, mesh_vo::huber_thresh_pix);
+			partial.add(J, res_i, w, ids);
 		}
 	}
 
@@ -795,14 +738,13 @@ public:
 				const Texture<Vec3f> &jexp_texture,
 				const Texture<Vec3f> &jdepth_texture,
 				const Texture<Vec3<PidType>> &pids_texture,
-				const Texture<ImageType> &image_texture,
-				const Texture<ImageType> &ref_texture,
+				const Texture<float> &res_texture,
 				const Mesh &mesh,
 				DenseLinearProblemx &total) const
 	{
 		compute(lvl, frame_id, num_frames, num_vertices,
 				jtra_texture, jrot_texture, jexp_texture, jdepth_texture, pids_texture,
-				image_texture, ref_texture, mesh, total);
+				res_texture, mesh, total);
 	}
 
 	void compute(int lvl,
@@ -814,8 +756,7 @@ public:
 				 const Texture<Vec3f> &jexp_texture,
 				 const Texture<Vec3f> &jdepth_texture,
 				 const Texture<Vec3<PidType>> &pids_texture,
-				 const Texture<ImageType> &image_texture,
-				 const Texture<ImageType> &ref_texture,
+				 const Texture<ImageType> &res_texture,
 				 const Mesh &mesh,
 				 DenseLinearProblemx &partial) const
 	{
@@ -824,17 +765,15 @@ public:
 		auto je = jexp_texture.MapRead(lvl);
 		auto jd = jdepth_texture.MapRead(lvl);
 		auto pids = pids_texture.MapRead(lvl);
-		auto img = image_texture.MapRead(lvl);
-		auto ref = ref_texture.MapRead(lvl);
+		auto res = res_texture.MapRead(lvl);
 
 		const std::vector<float> depths = get_depths(mesh);
 
-		const std::size_t w = static_cast<std::size_t>(img.width());
-		const std::size_t h = static_cast<std::size_t>(img.height());
+		const std::size_t w = static_cast<std::size_t>(res.width());
+		const std::size_t h = static_cast<std::size_t>(res.height());
 		const std::size_t N = w * h;
 
-		const auto nod_img = img.nodata();
-		const auto nod_ref = ref.nodata();
+		const auto nod_res = res.nodata();
 		const auto nod_jt = jt.nodata();
 		const auto nod_jr = jr.nodata();
 		const auto nod_je = je.nodata();
@@ -848,19 +787,15 @@ public:
 			const Vec3f jexp_i = je[i];
 			const Vec3f jdepth_i = jd[i];
 			const Vec3<PidType> p = pids[i];
-			const ImageType image_i = img[i];
-			const ImageType ref_i = ref[i];
+			const ImageType res_i = res[i];
 
-			if (is_nodata_scalar(image_i, nod_img) ||
-				is_nodata_scalar(ref_i, nod_ref) ||
+			if (is_nodata_scalar(res_i, nod_res) ||
 				is_nodata_vec3(jtra_i, nod_jt) ||
 				is_nodata_vec3(jrot_i, nod_jr) ||
 				is_nodata_vec3(jexp_i, nod_je) ||
 				is_nodata_vec3(jdepth_i, nod_jd) ||
 				is_nodata_vec3(p, nod_pid))
 				continue;
-
-			const float res = static_cast<float>(ref_i) - static_cast<float>(image_i);
 
 			Vec<int, 11> ids;
 			ids(0) = p(0);
@@ -896,8 +831,8 @@ public:
 			J(9) = jexp_i(0);
 			J(10) = jexp_i(1);
 
-			const float w = huber_weight(res, mesh_vo::huber_thresh_pix);
-			partial.add(J, res, w, ids);
+			const float w = huber_weight(res_i, mesh_vo::huber_thresh_pix);
+			partial.add(J, res_i, w, ids);
 		}
 	}
 

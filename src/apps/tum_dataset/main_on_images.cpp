@@ -224,19 +224,13 @@ int main(int argc, char **argv)
 			image.convertTo(image, CV_32FC1);
 		// cv::resize(image, image, cv::Size(cam.width, cam.height), cv::INTER_AREA);
 
-		if (runningIDX == 0)
-		{
-			odometry.flatInit((ImageType *)image.data);
-			// system->randomInit(image.data, fakeTimeStamp, runningIDX);
-		}
-		else
-			odometry.locAndMap((ImageType *)image.data);
+		odometry.locAndMap((ImageType *)image.data);
 		// system->trackFrame(image.data, runningIDX ,hz == 0,fakeTimeStamp);
 
 		runningIDX++;
 		fakeTimeStamp += 0.03;
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
 		// if(hz != 0)
 		//	r.sleep();
