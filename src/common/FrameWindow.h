@@ -70,7 +70,7 @@ public:
 	{
 		assert(full_ && "middle() requires full window");
 		const int oldest = oldest_index_();
-		const int mid = (oldest + int(W / 2)) % W; // 0..6, middle of 7
+		const int mid = head_;// (oldest + int(W / 2)) % W; // 0..6, middle of 7
 		kf_id = window_[mid].id();
 		return window_[mid];
 	}

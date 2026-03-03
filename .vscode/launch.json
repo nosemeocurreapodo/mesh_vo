@@ -118,18 +118,18 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/src/apps/tum_dataset/tum_app",
-            //"args": [
-            //    "/datasets/tum_datasets/sequence_49/camera.txt",
-            //    "/datasets/tum_datasets/sequence_49/images/",
-            //    "0",
-            //    "100000"
-            //],
             "args": [
-                "/datasets/LSD_foodcourt/cameraCalibration.cfg",
-                "/datasets/LSD_foodcourt/images/",
+                "/datasets/tum_datasets/sequence_49/camera.txt",
+                "/datasets/tum_datasets/sequence_49/images/",
                 "0",
                 "100000"
             ],
+            //"args": [
+            //    "/datasets/LSD_foodcourt/cameraCalibration.cfg",
+            //    "/datasets/LSD_foodcourt/images/",
+            //    "0",
+            //    "100000"
+            //],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

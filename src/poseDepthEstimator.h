@@ -55,8 +55,8 @@ public:
 
     void update_keyframe(const Frame &new_frame, const Texture<float> &new_depth, KeyFrame &kframe, const Camera &cam)
     {
-        float md = mean_depth(kframe.mesh());
-        kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
+        // float md = mean_depth(kframe.mesh());
+        // kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
 
         SE3f global_pose = new_frame.global_pose();
         float global_scale = kframe.global_scale();

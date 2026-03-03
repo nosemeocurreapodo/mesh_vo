@@ -12,6 +12,9 @@ docker run -it -e DISPLAY --gpus all -v /tmp/.X11-unix:/tmp/.X11-unix osrf/ros:k
 
 ros2 run folder_image_publisher folder_pub --ros-args -p folder:=/datasets/rgbd_datasets/rgbd_dataset_freiburg1_floor/rgb -p fps:=0.1 -p loop:=true -p topic:=/camera/image_raw
 
+colcon build --symlink-install \
+  --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+
 ros2 run mesh_vo_ros mesh_vo_ros_node --ros-args \
   -p fx:=525.0 -p fy:=525.0 -p cx:=319.5 -p cy:=239.5 \
   -p width:=640 -p height:=480 \
