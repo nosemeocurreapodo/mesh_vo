@@ -85,7 +85,7 @@ TEST_F(RendererTestBase, ComputeVertex)
         // SaveDebugImage(didxy_cv, "didxy_" + std::to_string(img_id) + ".png");
 
         float minViewAngle = M_PI;
-        for (Frame *f : frames.window_span_mut())
+        for (Frame *f : frames.window_span_mut_all())
         {
             float viewAngle = kframe.meanViewAngle(frame.global_pose(), f->global_pose(), cam_);
             if (viewAngle < minViewAngle)
@@ -116,8 +116,8 @@ TEST_F(RendererTestBase, ComputeVertex)
         if (viewPercent > mesh_vo::min_view_perc && kframe.id() != 0) // || keyframeViewAngle > mesh_vo::key_max_angle)
             continue;
 
-        Frame &new_kf = frames.middle();
-        std::span<Frame *const> frame_span = frames.window_span_mut();
+        Frame &new_kf = frames.get_keyframe();
+        std::span<Frame *const> frame_span = frames.window_span_mut_no_kf();
 
         depth_renderer.Render(kframe.mesh(),
                               kframe.global_pose_to_local(new_kf.global_pose()),

@@ -45,9 +45,16 @@ public:
 	bool full() const { return full_; }
 
 	// Oldest-to-newest view as pointers (so optimizer can modify frames)
-	std::span<Frame *const> window_span_mut()
+	std::span<Frame *const> window_span_mut_all()
 	{
-		int size = build_view_();
+		int size = build_view_(-1);
+		// int size = count_;
+		return {view_.data(), static_cast<size_t>(size)};
+	}
+
+	std::span<Frame *const> window_span_mut_no_kf()
+	{
+		int size = build_view_(kf_id);
 		// int size = count_;
 		return {view_.data(), static_cast<size_t>(size)};
 	}
@@ -66,7 +73,7 @@ public:
 
 	// Middle frame (only meaningful once full)
 
-	Frame &middle()
+	Frame &get_keyframe()
 	{
 		assert(full_ && "middle() requires full window");
 		const int oldest = oldest_index_();
@@ -112,7 +119,7 @@ private:
 		return 0;
 	}
 
-	int build_view_()
+	int build_view_(int exclude_id)
 	{
 		// Build pointers oldest->newest into view_
 		if (count_ == 0)
@@ -124,7 +131,7 @@ private:
 		for (int i = 0; i < count_; i++)
 		{
 			int idx = (oldest + i) % W;
-			if (window_[idx].id() == kf_id)
+			if (window_[idx].id() == exclude_id)
 				continue;
 			view_[vidx] = &window_[idx];
 			vidx++;

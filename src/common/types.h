@@ -63,30 +63,33 @@ using TextureViewWrite = TextureViewWriteGL<T>;
 using Mesh = MeshGL;
 */
 
-using Camera = PinholeCamera<float>;
+using Real = double;
 
-using Vecxf = Vecx<float>;
-using Matxf = Matx<float>;
+using Camera = PinholeCamera<Real>;
+
+using Vecxr = Vecx<Real>;
+using Matxr = Matx<Real>;
 
 template <int N>
-using Vecf = Vec<float, N>;
-using Vec2f = Vec2<float>;
-using Vec3f = Vec3<float>;
-using Vec5f = Vec5<float>;
-using Vec6f = Vec6<float>;
-using Vec8f = Vec<float, 8>;
+using Vecr = Vec<Real, N>;
+using Vec2r = Vec2<Real>;
+using Vec3r = Vec3<Real>;
+using Vec5r = Vec5<Real>;
+using Vec6r = Vec6<Real>;
+using Vec8r = Vec<Real, 8>;
 
+using Vec2i = Vec2<int>;
 using Vec3i = Vec3<int>;
 using Vec5i = Vec5<int>;
 using Vec6i = Vec6<int>;
 using Vec8i = Vec<int, 8>;
 
 template <int C, int R>
-using Matf = Mat<float, C, R>;
-using Mat6f = Mat6<float>;
-using Mat8f = Mat<float, 8, 8>;
+using Matr = Mat<Real, C, R>;
+using Mat6r = Mat6<Real>;
+using Mat8r = Mat<Real, 8, 8>;
 
-using SE3f = SE3<float>;
+using SE3r = SE3<Real>;
 
 template <typename T, int size>
 using Solver = LDLT<T, size>;

@@ -27,7 +27,7 @@ public:
         return N;
     }
 
-    void add(const Vecf<N> &J, float r, float w = 1.0f)
+    void add(const Vecr<N> &J, float r, float w = 1.0f)
     {
         if (w <= 0.0f)
             return;
@@ -54,8 +54,8 @@ public:
     }
 
     int count() const { return m_count; }
-    const Mat<float, N, N> &Hp() const { return m_Hp; }
-    const Vecf<N> &G() const { return m_G; }
+    const Matr<N, N> &Hp() const { return m_Hp; }
+    const Vecr<N> &G() const { return m_G; }
 
 private:
     Mat<float, N, N> m_Hp;
@@ -70,8 +70,8 @@ public:
     DenseLinearProblemx(int n)
     {
         m_numParams = n;
-        m_Hp = Matxf::Zero(n, n);
-        m_G = Vecxf::Zero(n);
+        m_Hp = Matxr::Zero(n, n);
+        m_G = Vecxr::Zero(n);
         m_count = 0;
     }
     /*
@@ -100,7 +100,7 @@ public:
 
     int size() const { return m_numParams; }
 
-    void add(const Matxf &J, const Matxf &r, float w = 1.0f)
+    void add(const Matxr &J, const Matxr &r, float w = 1.0f)
     {
         if (w <= 0.0f)
             return;
@@ -157,13 +157,13 @@ public:
         m_G *= s;
     }
 
-    const Matxf &Hp() const { return m_Hp; }
-    const Vecxf &G() const { return m_G; }
+    const Matxr &Hp() const { return m_Hp; }
+    const Vecxr &G() const { return m_G; }
     int count() const { return m_count; }
 
 private:
-    Matxf m_Hp;
-    Vecxf m_G;
+    Matxr m_Hp;
+    Vecxr m_G;
     int m_numParams{0};
     int m_count{0};
 };

@@ -107,23 +107,23 @@ public:
     const Mesh &mesh() const { return mesh_; }
     Mesh &mesh() { return mesh_; }
 
-    const SE3f &global_pose() const { return global_pose_; }
-    SE3f &global_pose() { return global_pose_; }
+    const SE3t &global_pose() const { return global_pose_; }
+    SE3t &global_pose() { return global_pose_; }
 
-    const float &global_scale() const { return global_scale_; }
-    float &global_scale() { return global_scale_; }
+    const double &global_scale() const { return global_scale_; }
+    double &global_scale() { return global_scale_; }
 
-    SE3f local_pose_to_global(SE3f local_pose) const
+    SE3t local_pose_to_global(SE3t local_pose) const
     {
-        SE3f localPoseScaled = local_pose;
+        SE3t localPoseScaled = local_pose;
         localPoseScaled.translation() *= global_scale_;
-        SE3f globalPose = localPoseScaled * global_pose_;
+        SE3t globalPose = localPoseScaled * global_pose_;
         return globalPose;
     }
 
-    SE3f global_pose_to_local(SE3f global_pose) const
+    SE3t global_pose_to_local(SE3t global_pose) const
     {
-        SE3f localPose = global_pose * global_pose_.inverse();
+        SE3t localPose = global_pose * global_pose_.inverse();
         localPose.translation() /= global_scale_;
         return localPose;
     }
@@ -159,17 +159,17 @@ public:
     }
     */
 
-    float meanViewAngle(const SE3f &pose1, const SE3f &pose2, const Camera &cam) const
+    float meanViewAngle(const SE3t &pose1, const SE3t &pose2, const Camera &cam) const
     {
         const std::vector<Vec3f> positions = get_vertices(mesh_);
 
         // Convert both poses into this keyframe's local frame
-        const SE3f localpose1 = global_pose_to_local(pose1);
-        const SE3f localpose2 = global_pose_to_local(pose2);
+        const SE3t localpose1 = global_pose_to_local(pose1);
+        const SE3t localpose2 = global_pose_to_local(pose2);
 
         // Transform from camera-1 frame to camera-2 frame:
         // x2 = T_2_1 * x1
-        const SE3f T_2_1 = localpose2 * localpose1.inverse();
+        const SE3t T_2_1 = localpose2 * localpose1.inverse();
 
         // Camera-2 center expressed in camera-1 coordinates
         const Vec3f cam2_in_cam1 = T_2_1.inverse().translation();
@@ -226,7 +226,7 @@ private:
     // const Frame *frame_;
     Texture<ImageType> image_;
     Mesh mesh_;
-    SE3f global_pose_;
-    float global_scale_;
+    SE3t global_pose_;
+    double global_scale_;
     int id_;
 };

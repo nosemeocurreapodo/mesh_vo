@@ -3,7 +3,7 @@
 
 namespace mesh_vo
 {
-    float last_min_angle = M_PI / 64.0;
+    float last_min_angle = M_PI / 256.0;
     float key_max_angle = M_PI / 32.0;
     float min_view_perc = 0.7;
     float min_lambda = 0.00001f;
@@ -11,7 +11,7 @@ namespace mesh_vo
     float huber_thresh_param = 100000000000000000.0f;
     float line_capture_time = 1.0;
 
-    int tracking_ini_lvl = 3;
+    int tracking_ini_lvl = 5;
     int tracking_fin_lvl = 1;
     float tracking_prior_weight = 0.0;
     float tracking_convergence_p = 0.999;
@@ -21,7 +21,7 @@ namespace mesh_vo
     float mapping_mean_depth = 1.0;
     int mapping_ini_lvl = 1;
     int mapping_fin_lvl = 1;
-    float mapping_regu_weight = 400.0;
+    float mapping_regu_weight = 50.0;
     float mapping_prior_weight = 0.0;
     float mapping_convergence_p = 0.999;
     float mapping_convergence_p_v = 0.0;

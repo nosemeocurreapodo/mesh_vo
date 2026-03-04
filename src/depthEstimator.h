@@ -42,8 +42,8 @@ public:
         float md = mean_depth(kframe.mesh());
         kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
 
-        SE3f global_pose = new_frame.global_pose();
-        float global_scale = kframe.global_scale();
+        SE3t global_pose = new_frame.global_pose();
+        double global_scale = kframe.global_scale();
 
         Mesh mesh = CreateMesh<Mesh>(new_depth.MapRead(0).data(),
                                      cam,

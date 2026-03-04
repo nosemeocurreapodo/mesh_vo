@@ -164,8 +164,8 @@ private:
     ResidualRenderer residualrenderer_;
     ResidualReducerCPU residualreducer_;
 
-    Texture<Vec3<float>> jdepth_texture_;
-    Texture<Vec3<float>> jexp_texture_;
+    Texture<Vec3f> jdepth_texture_;
+    Texture<Vec3f> jexp_texture_;
     Texture<Vec3<PidType>> pids_texture_;
     Texture<float> res_texture_;
 
@@ -175,9 +175,9 @@ private:
     std::vector<float> depths_;
     std::vector<Vec2f> exps_;
 
-    std::vector<SE3f> local_poses_;
+    std::vector<SE3t> local_poses_;
     // std::vector<Vec3<int>> triangles_;
-    std::vector<Vec2<int>> edges_;
+    std::vector<Vec2i> edges_;
 
     int numDepths_;
     int numParams_;

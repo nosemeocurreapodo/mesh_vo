@@ -72,7 +72,8 @@ public:
     bool pop(T &out)
     {
         std::unique_lock<std::mutex> lock(mutex_);
-        cv_.wait(lock, [&] { return closed_ || !queue_.empty(); });
+        cv_.wait(lock, [&]
+                 { return closed_ || !queue_.empty(); });
         if (queue_.empty())
             return false;
         out = std::move(queue_.front());
@@ -84,7 +85,8 @@ public:
     bool wait_pop_for(T &out, const std::chrono::duration<Rep, Period> &dur)
     {
         std::unique_lock<std::mutex> lock(mutex_);
-        cv_.wait_for(lock, dur, [&] { return closed_ || !queue_.empty(); });
+        cv_.wait_for(lock, dur, [&]
+                     { return closed_ || !queue_.empty(); });
         if (queue_.empty())
             return false;
         out = std::move(queue_.front());
@@ -113,7 +115,6 @@ private:
     std::condition_variable cv_;
     bool closed_{false};
 };
-
 
 // ------------------------------
 // VisualOdometryThreaded
@@ -177,11 +178,13 @@ public:
         std::unique_lock<std::mutex> lk(init_mtx_);
         if (timeout.count() == 0)
         {
-            init_cv_.wait(lk, [&] { return initialized_ || !running_.load(); });
+            init_cv_.wait(lk, [&]
+                          { return initialized_ || !running_.load(); });
             return initialized_;
         }
 
-        return init_cv_.wait_for(lk, timeout, [&] { return initialized_ || !running_.load(); }) &&
+        return init_cv_.wait_for(lk, timeout, [&]
+                                 { return initialized_ || !running_.load(); }) &&
                initialized_;
     }
 
@@ -192,7 +195,8 @@ public:
         {
             std::unique_lock<std::mutex> lk(init_mtx_);
             if (!initialized_)
-                init_cv_.wait(lk, [&] { return initialized_ || !running_.load(); });
+                init_cv_.wait(lk, [&]
+                              { return initialized_ || !running_.load(); });
         }
 
         if (!running_.load())
@@ -214,7 +218,8 @@ public:
     {
         std::unique_lock<std::mutex> lk(pose_mtx_);
 
-        auto pred = [&] {
+        auto pred = [&]
+        {
             return !running_.load() || pose_seq_ > last_seen_seq;
         };
 
@@ -241,7 +246,8 @@ public:
     {
         std::unique_lock<std::mutex> lk(kf_sel_mtx_);
 
-        auto pred = [&] {
+        auto pred = [&]
+        {
             return !running_.load() || kf_selected_seq_ > last_seen_seq;
         };
 
@@ -267,7 +273,8 @@ public:
     {
         std::unique_lock<std::mutex> lk(kf_upd_mtx_);
 
-        auto pred = [&] {
+        auto pred = [&]
+        {
             return !running_.load() || kf_updated_seq_ > last_seen_seq;
         };
 
@@ -353,8 +360,8 @@ private:
             kf->global_scale() = 1.0f;
             kf->id() = first_id;
 
-            float md = mean_depth(kf->mesh());
-            kf->scale_mesh(md / mesh_vo::mapping_mean_depth);
+            // float md = mean_depth(kf->mesh());
+            // kf->scale_mesh(md / mesh_vo::mapping_mean_depth);
 
             {
                 std::unique_lock<std::shared_mutex> lk(kf_mtx_);
@@ -446,7 +453,7 @@ private:
                     if (!kf_)
                         continue;
 
-                    for (const Frame *f : frameWindow.window_span_mut())
+                    for (const Frame *f : frameWindow.window_span_mut_all())
                     {
                         float lastViewAngle = kf_->meanViewAngle(f->global_pose(), frame.global_pose(), cam_);
                         if (lastViewAngle < lastMinViewAngle)
@@ -470,8 +477,8 @@ private:
                     if (debug_log_)
                         std::cout << "Creating/updating keyframe\n";
 
-                    Frame &newkf_frame = frameWindow.middle();
-                    std::span<Frame *const> frame_span = frameWindow.window_span_mut();
+                    Frame &newkf_frame = frameWindow.get_keyframe();
+                    std::span<Frame *const> frame_span = frameWindow.window_span_mut_no_kf();
 
                     depth_renderer.Render(kf_->mesh(),
                                           kf_->global_pose_to_local(newkf_frame.global_pose()),
@@ -504,7 +511,7 @@ private:
                     continue;
                 }
 
-                std::span<Frame *const> frame_span = frameWindow.window_span_mut();
+                std::span<Frame *const> frame_span = frameWindow.window_span_mut_no_kf();
 
                 {
                     std::unique_lock<std::shared_mutex> lk(kf_mtx_);

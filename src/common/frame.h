@@ -8,13 +8,13 @@ public:
     // Allocate once (pool uses this)
     Frame(int width, int height,
           ImageType img_nodata = ImageType(-1),
-          Vec3f didxy_nodata = Vec3f(0.f, 0.f, 0.f),
+          Vec3<float> didxy_nodata = Vec3<float>(0.f, 0.f, 0.f),
           float depth_nodata = 1.0f)
         : image_(width, height, img_nodata),
           didxy_(width, height, didxy_nodata),
-          global_pose_(SE3f()),
-          local_vel_(Vec6f(0,0,0,0,0,0)),
-          local_exp_(Vec2f(0,0)),
+          global_pose_(SE3r()),
+          local_vel_(Vec6r(0,0,0,0,0,0)),
+          local_exp_(Vec2r(0,0)),
           id_(0)
     {}
 
@@ -46,9 +46,9 @@ public:
     void reset(int id, int kframe_id)
     {
         id_ = id;
-        global_pose_ = SE3f();
-        local_vel_  = Vec6f(0,0,0,0,0,0);
-        local_exp_  = Vec2f(0,0);
+        global_pose_ = SE3r();
+        local_vel_  = Vec6r(0,0,0,0,0,0);
+        local_exp_  = Vec2r(0,0);
     }
 
     const int& id() const { return id_; }
@@ -58,23 +58,23 @@ public:
     Texture<ImageType>& image() { return image_; }
     const Texture<ImageType>& image() const { return image_; }
 
-    Texture<Vec3f>& didxy() { return didxy_; }
-    const Texture<Vec3f>& didxy() const { return didxy_; }
+    Texture<Vec3<float>>& didxy() { return didxy_; }
+    const Texture<Vec3<float>>& didxy() const { return didxy_; }
 
-    SE3f& global_pose() { return global_pose_; }
-    const SE3f& global_pose() const { return global_pose_; }
+    SE3r& global_pose() { return global_pose_; }
+    const SE3r& global_pose() const { return global_pose_; }
 
-    Vec2f& local_exposure() { return local_exp_; }
-    const Vec2f& local_exposure() const { return local_exp_; }
+    Vec2r& local_exposure() { return local_exp_; }
+    const Vec2r& local_exposure() const { return local_exp_; }
 
-    Vec6f& local_vel() { return local_vel_; }
-    const Vec6f& local_vel() const { return local_vel_; }
+    Vec6r& local_vel() { return local_vel_; }
+    const Vec6r& local_vel() const { return local_vel_; }
 
 private:
     Texture<ImageType> image_;
-    Texture<Vec3f> didxy_;
-    SE3f global_pose_;
-    Vec6f local_vel_;
-    Vec2f local_exp_;
+    Texture<Vec3<float>> didxy_;
+    SE3r global_pose_;
+    Vec6r local_vel_;
+    Vec2r local_exp_;
     int id_;
 };

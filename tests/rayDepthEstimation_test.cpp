@@ -83,7 +83,7 @@ TEST_F(RendererTestBase, ComputeDepth)
 
         float minViewAngle = M_PI;
 
-        for (auto f : frames.window_span_mut())
+        for (auto f : frames.window_span_mut_all())
         {
             float viewAngle = kframe.meanViewAngle(frame.global_pose(), f->global_pose(), cam_);
             if (viewAngle < minViewAngle)
@@ -117,8 +117,8 @@ TEST_F(RendererTestBase, ComputeDepth)
         // int kframeIndex = frames.size() / 2;
 
         // frames.promote_middle_to_keyframe();
-        Frame &new_kf = frames.middle();
-        std::span<Frame *const> frame_span = frames.window_span_mut();
+        Frame &new_kf = frames.get_keyframe();
+        std::span<Frame *const> frame_span = frames.window_span_mut_no_kf();
 
         // std::vector<float> ver_buff_;
         // std::vector<int> idx_buff_;

@@ -80,7 +80,7 @@ TEST_F(RendererTestBase, ComputeDepth)
         frame.id() = img_id;
 
         float minViewAngle = M_PI;
-        for (auto f : frames.window_span_mut())
+        for (auto f : frames.window_span_mut_all())
         {
             float viewAngle = kframe.meanViewAngle(frame.global_pose(), f->global_pose(), cam_);
             if (viewAngle < minViewAngle)
@@ -117,7 +117,7 @@ TEST_F(RendererTestBase, ComputeDepth)
             continue;
 
         // frames.promote_middle_to_keyframe();
-        Frame &newKeyFrame = frames.middle();
+        Frame &newKeyFrame = frames.get_keyframe();
 
         depth_renderer.Render(kframe.mesh(),
                               kframe.global_pose_to_local(newKeyFrame.global_pose()),
@@ -126,7 +126,7 @@ TEST_F(RendererTestBase, ComputeDepth)
                               depth_tex_tmp);
         depth_tex_tmp.generate_mipmaps(0);
 
-        std::span<Frame *const> frame_span = frames.window_span_mut();
+        std::span<Frame *const> frame_span = frames.window_span_mut_no_kf();
 
         estimator.update_keyframe(newKeyFrame, depth_tex_tmp, kframe, cam_);
 
