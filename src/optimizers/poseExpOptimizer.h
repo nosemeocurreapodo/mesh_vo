@@ -15,14 +15,16 @@
 class PoseExpOptimizer : public BaseOptimizer<PoseExpOptimizer,
                                               Mat<float, 8, 8>,
                                               Vec<float, 8>,
-                                              DenseLinearProblem<8>,
+                                              Error<float>,
+                                              DenseLinearProblem<float,8>,
                                               Solver<float, 8>>
 {
 public:
     using Base = BaseOptimizer<PoseExpOptimizer,
                                Mat<float, 8, 8>,
                                Vec<float, 8>,
-                               DenseLinearProblem<8>,
+                               Error<float>,
+                               DenseLinearProblem<float, 8>,
                                Solver<float, 8>>;
     PoseExpOptimizer(int w, int h, bool printlog = false)
         : Base(printlog),
@@ -38,7 +40,7 @@ public:
         return numParams_;
     }
 
-    void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblem<8> &problem, Solver<float, 8> &solver)
+    void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblem<float, 8> &problem, Solver<float, 8> &solver)
     {
         best_poses_.clear();
         best_exps_.clear();
@@ -57,7 +59,7 @@ public:
         return 0; // regu_depth(depths_, edges_);
     }
 
-    void regu_jacobian(DenseLinearProblem<8> &problem) const
+    void regu_jacobian(DenseLinearProblem<float, 8> &problem) const
     {
         // regu_depth_jacobian(depths_, edges_, problem);
     }
@@ -118,9 +120,9 @@ public:
         }
     }
 
-    Error compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    Error<float> compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl)
     {
-        Error total;
+        Error<float> total;
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
             residualrenderer_.Render(kframe.mesh(), poses_[frame_idx], exps_[frame_idx], cam, in_lvl, out_lvl, kframe.image(), frames[frame_idx]->image(), res_texture_);
@@ -129,7 +131,7 @@ public:
         return total;
     }
 
-    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblem<8> &total)
+    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl, DenseLinearProblem<float, 8> &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
@@ -156,13 +158,13 @@ public:
 
 private:
     JPoseExpRenderer jposedepthrenderer_;
-    HGPoseExpReducerCPU hgposedepthreducer_;
+    HGPoseExpReducerCPU<float> hgposedepthreducer_;
     ResidualRenderer residualrenderer_;
-    ResidualReducerCPU residualreducer_;
+    ResidualReducerCPU<float> residualreducer_;
 
-    Texture<Vec3<float>> jtra_texture_;
-    Texture<Vec3<float>> jrot_texture_;
-    Texture<Vec3<float>> jexp_texture_;
+    Texture<Vec3f> jtra_texture_;
+    Texture<Vec3f> jrot_texture_;
+    Texture<Vec3f> jexp_texture_;
     Texture<float> res_texture_;
 
     std::vector<SE3f> best_poses_;

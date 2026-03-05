@@ -124,7 +124,7 @@ class VisualOdometryThreaded
 public:
     struct PoseUpdate
     {
-        SE3f global_pose = SE3f();
+        SE3d global_pose = SE3d();
         int frame_id = -1;
     };
 
@@ -138,7 +138,7 @@ public:
           debug_log_(debug_log),
           debug_img_(debug_img)
     {
-        cam_ = Camera(fx, fy, cx, cy, width, height);
+        cam_ = Cameraf(fx, fy, cx, cy, width, height);
         frameId_.store(0);
 
         running_.store(true);
@@ -296,7 +296,7 @@ public:
     }
 
 private:
-    void notifyPoseUpdated(const SE3f &pose, int frame_id)
+    void notifyPoseUpdated(const SE3d &pose, int frame_id)
     {
         {
             std::lock_guard<std::mutex> lk(pose_mtx_);
@@ -335,7 +335,7 @@ private:
         DIDxyRenderer didxy_renderer;
         DepthRenderer depth_renderer;
         ImageRenderer image_renderer;
-        NodataReducerCPU nodata_reducer;
+        NodataReducerCPU<float> nodata_reducer;
 
         PoseEstimator poseEstimator(width_, height_, false);
         PoseDepthEstimator poseDepthEstimator(width_, height_, debug_log_);
@@ -356,7 +356,7 @@ private:
                 return;
 
             const int first_id = frameId_.fetch_add(1);
-            kf->global_pose() = SE3f();
+            kf->global_pose() = SE3d();
             kf->global_scale() = 1.0f;
             kf->id() = first_id;
 
@@ -376,7 +376,7 @@ private:
 
             notifyKeyframeSelected();
             notifyKeyframeUpdated();
-            notifyPoseUpdated(SE3f(), first_id);
+            notifyPoseUpdated(SE3d(), first_id);
 
             if (debug_log_)
                 std::cout << "Initialized first keyframe\n";
@@ -484,6 +484,9 @@ private:
                                           kf_->global_pose_to_local(newkf_frame.global_pose()),
                                           cam_, 0, depth_tmp);
 
+                    if (debug_log_)
+                        std::cout << "global scale " << kf_->global_scale() << std::endl;
+
                     poseDepthEstimator.update_keyframe(newkf_frame, depth_tmp, *kf_, cam_);
                     poseDepthEstimator.init(frame_span, *kf_, cam_);
                     opt_steps = 0;
@@ -556,7 +559,7 @@ private:
     ThreadSafeQueue<Texture<ImageType>> iQueue_;
 
     // Camera + params
-    Camera cam_;
+    Cameraf cam_;
     int width_{0};
     int height_{0};
     std::atomic<int> frameId_{0};

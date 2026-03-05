@@ -17,7 +17,7 @@ public:
     //     frame.local_exposure() = last_local_exp;
     // }
 
-    void estimate(std::span<Frame *const> frames, KeyFrame &kframe, Camera &cam)
+    void estimate(std::span<Frame *const> frames, KeyFrame &kframe, Cameraf &cam)
     {
         // for (auto frame : frames)
         //     assert(frame.keyframe_id() == kframe.id());
@@ -37,12 +37,12 @@ public:
         // kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
     }
 
-    void update_keyframe(const Frame &new_frame, const Texture<float> new_depth, KeyFrame &kframe, const Camera &cam)
+    void update_keyframe(const Frame &new_frame, const Texture<float> new_depth, KeyFrame &kframe, const Cameraf &cam)
     {
         float md = mean_depth(kframe.mesh());
         kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
 
-        SE3t global_pose = new_frame.global_pose();
+        SE3d global_pose = new_frame.global_pose();
         double global_scale = kframe.global_scale();
 
         Mesh mesh = CreateMesh<Mesh>(new_depth.MapRead(0).data(),

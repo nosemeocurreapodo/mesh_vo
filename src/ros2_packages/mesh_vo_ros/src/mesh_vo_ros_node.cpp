@@ -37,7 +37,7 @@ public:
 		width_ = declare_parameter<int>("width", 640);
 		height_ = declare_parameter<int>("height", 480);
 
-		cam_ = Camera(fx_, fy_, cx_, cy_, width_, height_);
+		cam_ = Cameraf(fx_, fy_, cx_, cy_, width_, height_);
 
 		debug_log_ = declare_parameter<bool>("debug_log", true);
 		debug_img_ = declare_parameter<bool>("debug_img", false);
@@ -102,7 +102,7 @@ private:
 	//     return T_map_cam_ros;
 	// }
 
-	static SE3f convert_cam_cv_to_cam_ros(const SE3f &T_map_cam_cv)
+	static SE3d convert_cam_cv_to_cam_ros(const SE3d &T_map_cam_cv)
 	{
 		// OpenCV camera frame:
 		//   x right, y down, z forward
@@ -112,17 +112,17 @@ private:
 		//
 		// This matches the same convention as your previous matrix-based version.
 
-		constexpr float half_pi = 1.57079632679f;
+		constexpr double half_pi = 1.57079632679f;
 
 		// Pure rotations, no translation
-		const SE3f Rx90(SO3<float>::exp(Vec3f(-half_pi, 0.0f, 0.0f)), Vec3f(0.0f, 0.0f, 0.0f));
-		const SE3f Rz90(SO3<float>::exp(Vec3f(0.0f, 0.0f, half_pi)), Vec3f(0.0f, 0.0f, 0.0f));
+		const SE3d Rx90(SO3<double>::exp(Vec3f(-half_pi, 0.0f, 0.0f)), Vec3f(0.0f, 0.0f, 0.0f));
+		// const SE3d Rz90(SO3<double>::exp(Vec3f(0.0f, 0.0f, half_pi)), Vec3f(0.0f, 0.0f, 0.0f));
 
 		// Change only the camera-frame convention; camera center stays the same
-		return Rx90 * T_map_cam_cv.inverse();
+		return T_map_cam_cv.inverse();// * Rx90;
 	}
 
-	void publish_tf(const SE3f &T_map_cam,
+	void publish_tf(const SE3d &T_map_cam,
 					const builtin_interfaces::msg::Time &stamp)
 	{
 		geometry_msgs::msg::TransformStamped tf_msg;
@@ -143,7 +143,7 @@ private:
 		tf_broadcaster_->sendTransform(tf_msg);
 	}
 
-	geometry_msgs::msg::Pose to_pose_msg(const SE3f &T) const
+	geometry_msgs::msg::Pose to_pose_msg(const SE3d &T) const
 	{
 		geometry_msgs::msg::Pose pose;
 		pose.position.x = T.translation()(0);
@@ -165,6 +165,7 @@ private:
 	}
 
 	sensor_msgs::msg::PointCloud2 make_colorized_cloud(const KeyFrame &kf,
+													   const Cameraf &cam,
 													   const builtin_interfaces::msg::Time &stamp) const
 	{
 		sensor_msgs::msg::PointCloud2 cloud;
@@ -172,28 +173,13 @@ private:
 		cloud.header.stamp = stamp;
 
 		auto vertices = kf.mesh().vertex_buffer_.MapRead();
-		auto indices = kf.mesh().ebo_buffer_.MapRead();
 		auto img = kf.image().MapRead(0);
 
 		const int img_w = static_cast<int>(kf.image().width(0));
 		const int img_h = static_cast<int>(kf.image().height(0));
 
-		// Infer vertex layout from max index
-		const size_t icount = indices.size();
-		uint32_t max_index = 0;
-		for (size_t i = 0; i < icount; ++i)
-			max_index = std::max<uint32_t>(max_index, indices[i]);
-
-		const size_t vcount = static_cast<size_t>(max_index) + 1;
-		if (vcount == 0)
-			return cloud;
-
-		const size_t total_floats = vertices.size();
-		const size_t stride = (vcount > 0) ? (total_floats / vcount) : 0;
-		if (stride < 3)
-			return cloud;
-
-		const bool has_embedded_uv = (stride >= 5);
+		const size_t vcount = vertices.size() / 3;
+		;
 
 		sensor_msgs::PointCloud2Modifier modifier(cloud);
 		modifier.setPointCloud2FieldsByString(2, "xyz", "rgb");
@@ -207,15 +193,15 @@ private:
 		sensor_msgs::PointCloud2Iterator<uint8_t> iter_b(cloud, "b");
 
 		const float s = kf.global_scale();
-		const SE3f &T = convert_cam_cv_to_cam_ros(kf.global_pose());
+		const SE3d &T = convert_cam_cv_to_cam_ros(kf.global_pose());
 
 		constexpr float eps = 1e-8f;
 
 		for (size_t vi = 0; vi < vcount; ++vi, ++iter_x, ++iter_y, ++iter_z, ++iter_r, ++iter_g, ++iter_b)
 		{
-			const float xl = vertices[vi * stride + 0] * s;
-			const float yl = vertices[vi * stride + 1] * s;
-			const float zl = vertices[vi * stride + 2] * s;
+			const float xl = vertices[vi * 3 + 0] * s;
+			const float yl = vertices[vi * 3 + 1] * s;
+			const float zl = vertices[vi * 3 + 2] * s;
 
 			Vec3f p_local(xl, yl, zl);
 			Vec3f p_world = T * p_local;
@@ -224,34 +210,15 @@ private:
 			*iter_y = p_world(1);
 			*iter_z = p_world(2);
 
+			Vec2f pix = cam.pointToPix(p_local);
+
 			uint8_t gray = 0;
 
-			if (has_embedded_uv)
+			if (cam.IsPixVisible(pix))
 			{
-				const float u = vertices[vi * stride + 3];
-				const float v = vertices[vi * stride + 4];
-
-				const int px = std::clamp(static_cast<int>(std::round(u * std::max(0, img_w - 1))), 0, std::max(0, img_w - 1));
-				const int py = std::clamp(static_cast<int>(std::round(v * std::max(0, img_h - 1))), 0, std::max(0, img_h - 1));
-
-				gray = gray_to_u8(static_cast<float>(img[py * img_w + px]));
-			}
-			else
-			{
-				// Fallback: project local point into keyframe image
-				if (zl > eps)
-				{
-					const float px = static_cast<float>(fx_) * xl / zl + static_cast<float>(cx_);
-					const float py = static_cast<float>(fy_) * yl / zl + static_cast<float>(cy_);
-
-					if (px >= 0.0f && px < static_cast<float>(img_w) &&
-						py >= 0.0f && py < static_cast<float>(img_h))
-					{
-						const int ix = std::clamp(static_cast<int>(std::round(px)), 0, img_w - 1);
-						const int iy = std::clamp(static_cast<int>(std::round(py)), 0, img_h - 1);
-						gray = gray_to_u8(static_cast<float>(img[iy * img_w + ix]));
-					}
-				}
+				const int ix = std::clamp(static_cast<int>(std::round(pix(0) * img_w)), 0, img_w - 1);
+				const int iy = std::clamp(static_cast<int>(std::round(pix(1) * img_h)), 0, img_h - 1);
+				gray = gray_to_u8(static_cast<float>(img[iy * img_w + ix]));
 			}
 
 			*iter_r = gray;
@@ -310,7 +277,7 @@ private:
 	}
 
 	visualization_msgs::msg::Marker make_mesh_marker2(const KeyFrame &kf,
-													  const Camera &cam,
+													  const Cameraf &cam,
 													  const builtin_interfaces::msg::Time &stamp) const
 	{
 		visualization_msgs::msg::Marker marker;
@@ -486,7 +453,7 @@ private:
 
 			pose_publisher_->publish(pose_msg);
 
-			publish_tf(upd.global_pose.inverse(), current_stamp());
+			publish_tf(convert_cam_cv_to_cam_ros(upd.global_pose), current_stamp());
 		}
 	}
 
@@ -532,7 +499,7 @@ private:
                                   path_to_publish = path_msg_;
                                   have_path = true;
 
-                                  cloud_to_publish = make_colorized_cloud(kf, stamp);
+                                  cloud_to_publish = make_colorized_cloud(kf, cam_, stamp);
                                   have_cloud = (cloud_to_publish.width > 0);
 
                                   //mesh_to_publish = make_mesh_marker(kf, stamp);
@@ -581,7 +548,7 @@ private:
 
 	std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
-	Camera cam_;
+	Cameraf cam_;
 
 	// Threads
 	std::atomic<bool> running_{false};

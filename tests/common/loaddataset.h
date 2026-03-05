@@ -144,7 +144,7 @@ public:
         return depth_files_;
     }
 
-    std::vector<SE3<float>> GetPoses()
+    std::vector<SE3<double>> GetPoses()
     {
         return poses_;
     }
@@ -175,14 +175,14 @@ public:
     }
 
 protected:
-    SE3<float> GetClosestPose(const std::vector<SE3<float>> &poses, const std::vector<double> &time_stamps, double target_timestamp)
+    SE3<double> GetClosestPose(const std::vector<SE3<double>> &poses, const std::vector<double> &time_stamps, double target_timestamp)
     {
-        SE3<float> closest_pose;
+        SE3<double> closest_pose;
         double closest_diff = 10000000000.0;
         for (size_t i = 0; i < poses.size(); i++)
         {
             double time_stamp = time_stamps[i];
-            SE3<float> pose = poses[i];
+            SE3<double> pose = poses[i];
 
             double diff = std::abs(time_stamp - target_timestamp);
             if (diff < closest_diff)
@@ -199,7 +199,7 @@ protected:
 
     std::vector<std::string> image_files_;
     std::vector<std::string> depth_files_;
-    std::vector<SE3<float>> poses_;
+    std::vector<SE3<double>> poses_;
     std::vector<double> time_stamps_;
     PinholeCamera<float> cam_;
 };
@@ -228,11 +228,11 @@ public:
         std::vector<double> depth_timestamps;
         GetFilesAndTimestamps(dataset_path, depth_path, depth_file_paths, depth_timestamps);
 
-        std::vector<SE3<float>> poses_list;
+        std::vector<SE3<double>> poses_list;
         std::vector<double> pose_timestamps;
         GetPosesAndTimestamps(dataset_path, pose_path, poses_list, pose_timestamps);
 
-        std::vector<SE3<float>> sync_poses;
+        std::vector<SE3<double>> sync_poses;
         for (double timestamp : image_timestamps)
         {
             sync_poses.push_back(GetClosestPose(poses_list, pose_timestamps, timestamp));
@@ -295,7 +295,7 @@ private:
         }
     }
 
-    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<SE3<float>> &poses, std::vector<double> &timestamps)
+    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<SE3<double>> &poses, std::vector<double> &timestamps)
     {
         std::ifstream f((dir + file).c_str());
 
@@ -328,9 +328,9 @@ private:
                     values.push_back(std::stod(token));
                 }
 
-                SE3<float> pose;
-                pose.setQuaternion(Quaternion<float>(values[7], values[4], values[5], values[6]));
-                pose.translation() = Vec3<float>(values[1], values[2], values[3]);
+                SE3<double> pose;
+                pose.setQuaternion(Quaternion<double>(values[7], values[4], values[5], values[6]));
+                pose.translation() = Vec3<double>(values[1], values[2], values[3]);
 
                 poses.push_back(pose);
                 timestamps.push_back(values[0]);
@@ -359,11 +359,11 @@ public:
 
         ReadAssociationsFile(dataset_path, assosiations_path, this->image_files_, this->depth_files_, this->time_stamps_);
 
-        std::vector<SE3<float>> pose_list;
+        std::vector<SE3<double>> pose_list;
         std::vector<double> poses_timestamps;
         GetPosesAndTimestamps(dataset_path, pose_path, pose_list, poses_timestamps);
 
-        std::vector<SE3<float>> sync_poses;
+        std::vector<SE3<double>> sync_poses;
         for (double time_stamp : this->time_stamps_)
         {
             sync_poses.push_back(this->GetClosestPose(pose_list, poses_timestamps, time_stamp));
@@ -430,7 +430,7 @@ private:
         }
     }
 
-    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<SE3<float>> &poses, std::vector<double> &timestamps)
+    int GetPosesAndTimestamps(std::string dir, std::string file, std::vector<SE3<double>> &poses, std::vector<double> &timestamps)
     {
         std::ifstream f((dir + file).c_str());
 
@@ -463,9 +463,9 @@ private:
                     values.push_back(std::stod(token));
                 }
 
-                SE3<float> pose;
-                pose.setQuaternion(Quaternion<float>(values[7], values[4], values[5], values[6]));
-                pose.translation() = Vec3<float>(values[1], values[2], values[3]);
+                SE3<double> pose;
+                pose.setQuaternion(Quaternion<double>(values[7], values[4], values[5], values[6]));
+                pose.translation() = Vec3<double>(values[1], values[2], values[3]);
 
                 // linalg::Mat4<float> pos2opencv = linalg::Mat4<float>::Identity();
                 // pos2opencv(1, 1) = -1.0f;
@@ -508,7 +508,7 @@ public:
 
         for (std::string pose_file : pose_files)
         {
-            SE3<float> pose = readPose(pose_file);
+            SE3<double> pose = readPose(pose_file);
             this->poses_.push_back(pose);
         }
     }
@@ -545,7 +545,7 @@ private:
         return files.size();
     }
 
-    SE3<float> readPose(std::string filename)
+    SE3<double> readPose(std::string filename)
     {
         std::ifstream cam_pars_file(filename);
         if (!cam_pars_file.is_open())
@@ -556,9 +556,9 @@ private:
 
         char readlinedata[300];
 
-        Vec3<float> direction;
-        Vec3<float> upvector;
-        Vec3<float> posvector;
+        Vec3<double> direction;
+        Vec3<double> upvector;
+        Vec3<double> posvector;
 
         while (1)
         {
@@ -631,13 +631,13 @@ private:
         //    R.row(1)=Mat(-upvector).t();
         //    R.row(2)=Mat(direction).t();
 
-        Mat3<float> Rot;
+        Mat3<double> Rot;
         // Rot.row(0) = (direction.cross(upvector)).transpose();
         // Rot.row(1) = (-upvector).transpose();
         // Rot.row(2) = direction.transpose();
-        Vec3<float> row0 = (direction.cross(upvector));
-        Vec3<float> row1 = -upvector;
-        Vec3<float> row2 = direction;
+        Vec3<double> row0 = (direction.cross(upvector));
+        Vec3<double> row1 = -upvector;
+        Vec3<double> row2 = direction;
 
         //row0 = row0.normalized();
         //row1 = row1.normalized();
@@ -655,10 +655,10 @@ private:
 
         // T=-R*Mat(posvector);
 
-        Vec3<float> Tra = -Rot * posvector;
-        Tra = Tra / 2000.0f;
+        Vec3<double> Tra = -Rot * posvector;
+        Tra = Tra / 2000.0;
 
-        SE3<float> pose = SE3<float>(Rot, Tra);
+        SE3<double> pose = SE3<double>(Rot, Tra);
 
         /*
         std::ofstream myfile;

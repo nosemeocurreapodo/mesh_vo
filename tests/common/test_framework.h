@@ -107,7 +107,7 @@ protected:
     std::unique_ptr<LoadDatasetTumRgbd> dataset_;
 
     std::vector<std::string> image_files_, depth_files_;
-    std::vector<SE3<float>> poses_;
+    std::vector<SE3<double>> poses_;
     PinholeCamera<float> cam_;
     int w_, h_;
     float depth_factor_;
@@ -159,7 +159,7 @@ protected:
 
     cv::Mat image_src_cv_, depth_src_cv_, image_dst_cv_, depth_dst_cv_;
 
-    SE3<float> pose_src_, pose_dst_;
+    SE3<double> pose_src_, pose_dst_;
 
     // std::vector<float> vertex_;
     // std::vector<int> indices_;

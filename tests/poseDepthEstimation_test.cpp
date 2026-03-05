@@ -27,7 +27,7 @@ TEST_F(RendererTestBase, ComputePoseDepth)
     DIDxyRenderer didxy_renderer;
     PidsRenderer pids_renderer;
 
-    NodataReducerCPU nodata_reducer;
+    NodataReducerCPU<float> nodata_reducer;
 
     PoseEstimator pose_estimator(w_, h_, false);
     PoseDepthEstimator posedepth_estimator(w_, h_, true);
@@ -57,7 +57,7 @@ TEST_F(RendererTestBase, ComputePoseDepth)
         gt_depth_cv.convertTo(gt_depth_cv, CV_32FC1);
         gt_depth_cv = gt_depth_cv / depth_factor_;
         double gt_depth_mean = cv::mean(gt_depth_cv)[0];
-        SE3f gt_global_pose = poses_[img_id];
+        SE3d gt_global_pose = poses_[img_id];
 
         if (img_id == 0)
         {
@@ -76,7 +76,7 @@ TEST_F(RendererTestBase, ComputePoseDepth)
             kframe.mesh() = std::move(mesh);
             kframe.id() = img_id;
             // kframe.global_pose() = gt_global_pose;
-            kframe.global_pose() = SE3f();
+            kframe.global_pose() = SE3d();
             kframe.global_scale() = 1.0;
 
             float md = mean_depth(kframe.mesh());

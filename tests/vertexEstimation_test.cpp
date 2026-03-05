@@ -26,7 +26,7 @@ TEST_F(RendererTestBase, ComputeVertex)
     ImageRenderer image_renderer;
     DIDxyRenderer didxy_renderer;
 
-    NodataReducerCPU nodata_reducer;
+    NodataReducerCPU<float> nodata_reducer;
 
     VertexOptimizer optimizer(w_, h_, true);
 
@@ -48,7 +48,7 @@ TEST_F(RendererTestBase, ComputeVertex)
         gt_depth_cv.convertTo(gt_depth_cv, CV_32FC1);
         gt_depth_cv = gt_depth_cv / depth_factor_;
         double gt_depth_mean = cv::mean(gt_depth_cv)[0];
-        SE3f gt_global_pose = poses_[img_id];
+        SE3d gt_global_pose = poses_[img_id];
         // UploadMatToTexture(frame.depth(), 0, gt_depth_cv);
 
         if (img_id == 0)
@@ -100,13 +100,13 @@ TEST_F(RendererTestBase, ComputeVertex)
         frames.accept_latest();
 
         image_renderer.Render(kframe.mesh(),
-                              frame.global_pose(),
+                              kframe.global_pose_to_local(frame.global_pose()),
                               frame.local_exposure(),
                               cam_,
                               1, 1,
                               kframe.image(), image_tex_tmp);
 
-        Error nodata;
+        Error<float> nodata;
         nodata_reducer.reduce(1, image_tex_tmp, nodata);
         float pnodata = nodata.getError() / (image_tex_tmp.width(1) * image_tex_tmp.height(1));
         float viewPercent = 1.0 - pnodata;

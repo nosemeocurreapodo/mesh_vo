@@ -27,7 +27,7 @@ TEST_F(RendererTestBase, ComputeDepth)
     ImageRenderer image_renderer;
     DIDxyRenderer didxy_renderer;
 
-    NodataReducerCPU nodata_reducer;
+    NodataReducerCPU<float> nodata_reducer;
 
     DepthOptimizer optimizer(w_, h_, true);
 
@@ -51,7 +51,7 @@ TEST_F(RendererTestBase, ComputeDepth)
         gt_depth_cv.convertTo(gt_depth_cv, CV_32FC1);
         gt_depth_cv = gt_depth_cv / depth_factor_;
         double gt_depth_mean = cv::mean(gt_depth_cv)[0];
-        SE3f gt_global_pose = poses_[img_id];
+        SE3d gt_global_pose = poses_[img_id];
 
         if (img_id == 0)
         {
@@ -104,7 +104,7 @@ TEST_F(RendererTestBase, ComputeDepth)
                               1, 1,
                               kframe.image(), image_tex_tmp);
 
-        Error nodata;
+        Error<float> nodata;
         nodata_reducer.reduce(1, image_tex_tmp, nodata);
         float pnodata = nodata.getError() / (image_tex_tmp.width(1) * image_tex_tmp.height(1));
         float viewPercent = 1.0 - pnodata;
@@ -126,7 +126,7 @@ TEST_F(RendererTestBase, ComputeDepth)
         // CreateFlatMesh(mesh_vo::mapping_mean_depth * 0.5, mesh_vo::mapping_mean_depth * 1.5, cam_, mesh_vo::mesh_width, ver_buff_, idx_buff_, true, true, true);
         //   CreateSphereMesh(mesh_vo::mapping_mean_depth, cam_, mesh_vo::mesh_width, pos_buff_, tex_buff_, wei_buff_, idx_buff_);
         depth_renderer.Render(kframe.mesh(),
-                              new_kf.global_pose(),
+                              kframe.global_pose_to_local(new_kf.global_pose()),
                               cam_,
                               0,
                               depth_tex_tmp);
@@ -174,7 +174,7 @@ TEST_F(RendererTestBase, ComputeDepth)
         for (Frame *f : frame_span)
         {
             image_renderer.Render(kframe.mesh(),
-                                  f->global_pose(),
+                                  kframe.global_pose_to_local(f->global_pose()),
                                   f->local_exposure(),
                                   cam_,
                                   plot_lvl, plot_lvl,

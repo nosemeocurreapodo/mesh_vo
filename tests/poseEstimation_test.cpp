@@ -6,10 +6,10 @@
 #include "poseEstimator.h"
 
 // Function to compute error between two SE3 poses
-std::array<double, 2> ComputeSE3Error(const SE3f &pose_est, const SE3f &pose_gt)
+std::array<double, 2> ComputeSE3Error(const SE3d &pose_est, const SE3d &pose_gt)
 {
     // Compute the relative transformation: error transformation T_error
-    SE3f T_error = pose_est.inverse() * pose_gt;
+    SE3d T_error = pose_est.inverse() * pose_gt;
 
     double translation_error = T_error.translation().norm();
     double rotation_error = T_error.so3().log().norm();
@@ -49,7 +49,7 @@ TEST_F(RendererTestBase, ComputePose)
     DepthRenderer depth_renderer;
     ImageRenderer image_renderer;
     DIDxyRenderer didxy_renderer;
-    NodataReducerCPU nodata_reducer;
+    NodataReducerCPU<float> nodata_reducer;
 
     PoseEstimator estimator(w_, h_, true);
     Frame frame(w_, h_);
@@ -68,7 +68,7 @@ TEST_F(RendererTestBase, ComputePose)
         gt_depth_cv.convertTo(gt_depth_cv, CV_32FC1);
         gt_depth_cv = gt_depth_cv / depth_factor_;
         double gt_depth_mean = cv::mean(gt_depth_cv)[0];
-        SE3f gt_global_pose = poses_[img_id];
+        SE3d gt_global_pose = poses_[img_id];
         UploadMatToTexture(depth_tex_tmp, 0, gt_depth_cv);
 
         if (img_id == 0)
@@ -136,7 +136,7 @@ TEST_F(RendererTestBase, ComputePose)
         SaveDebugImage(ref_mat, "pose_est_" + std::to_string(img_id) + "_ref.png");
         SaveDebugImage(l2_mat, "pose_est_" + std::to_string(img_id) + "_l2.png");
 
-        Error nodata;
+        Error<float> nodata;
         nodata_reducer.reduce(1, image_tex_tmp, nodata);
         float pnodata = nodata.getError() / (image_tex_tmp.width(1) * image_tex_tmp.height(1));
         float viewPercent = 1.0 - pnodata;

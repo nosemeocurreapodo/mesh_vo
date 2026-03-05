@@ -15,14 +15,16 @@
 class VertexOptimizer : public BaseOptimizer<VertexOptimizer,
                                              Matx<float>,
                                              Vecx<float>,
-                                             DenseLinearProblemx,
+                                             Error<float>,
+                                             DenseLinearProblemx<float>,
                                              Solverx<float>>
 {
 public:
     using Base = BaseOptimizer<VertexOptimizer,
                                Matx<float>,
                                Vecx<float>,
-                               DenseLinearProblemx,
+                               Error<float>,
+                               DenseLinearProblemx<float>,
                                Solverx<float>>;
 
     VertexOptimizer(int w, int h, bool printlog = false)
@@ -41,7 +43,7 @@ public:
         return numParams_;
     }
 
-    void reset(const std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
+    void reset(const std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblemx<float> &problem, Solverx<float> &solver)
     {
         best_vertex_ = get_vertices(kframe.mesh());
 
@@ -52,7 +54,7 @@ public:
 
         vertex_ = best_vertex_;
 
-        problem = DenseLinearProblemx(numParams_);
+        problem = DenseLinearProblemx<float>(numParams_);
         solver = Solverx<float>(numParams_);
     }
 
@@ -61,7 +63,7 @@ public:
         return 0; // return regu_depth(depths_, edges_);
     }
 
-    void regu_jacobian(DenseLinearProblemx &problem) const
+    void regu_jacobian(DenseLinearProblemx<float> &problem) const
     {
         // regu_depth_jacobian(depths_, edges_, problem);
     }
@@ -95,9 +97,9 @@ public:
         set_vertices(kframe.mesh(), best_vertex_);
     }
 
-    Error compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    Error<float> compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl)
     {
-        Error total;
+        Error<float> total;
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
             residualrenderer_.Render(kframe.mesh(), local_poses_[frame_idx], frames[frame_idx]->local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frames[frame_idx]->image(), res_texture_);
@@ -106,7 +108,7 @@ public:
         return total;
     }
 
-    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl, DenseLinearProblemx<float> &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
@@ -137,23 +139,23 @@ public:
 
 private:
     JVertexExpRenderer jdepthrenderer_;
-    HGVertexReducerCPU hgmapreducer_;
+    HGVertexReducerCPU<float> hgmapreducer_;
     ResidualRenderer residualrenderer_;
-    ResidualReducerCPU residualreducer_;
+    ResidualReducerCPU<float> residualreducer_;
 
-    Texture<Vec3<float>> jv0_texture_;
-    Texture<Vec3<float>> jv1_texture_;
-    Texture<Vec3<float>> jv2_texture_;
-    Texture<Vec3<float>> jexp_texture_;
+    Texture<Vec3f> jv0_texture_;
+    Texture<Vec3f> jv1_texture_;
+    Texture<Vec3f> jv2_texture_;
+    Texture<Vec3f> jexp_texture_;
     Texture<Vec3<PidType>> pids_texture_;
     Texture<float> res_texture_;
 
-    std::vector<Vec3<float>> best_vertex_;
-    std::vector<Vec3<float>> vertex_;
+    std::vector<Vec3f> best_vertex_;
+    std::vector<Vec3f> vertex_;
 
     std::vector<SE3f> local_poses_;
     // std::vector<Vec3<int>> triangles_;
-    std::vector<Vec2<int>> edges_;
+    std::vector<Vec2i> edges_;
 
     int numVertex_;
     int numParams_;

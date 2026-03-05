@@ -2,6 +2,7 @@
 
 #include "mpdr/common/huber.h"
 
+template <typename T>
 class Error
 {
 public:
@@ -99,6 +100,6 @@ public:
     */
 
 private:
-    float e_;
-    float c_;
+    T e_;
+    int c_;
 };

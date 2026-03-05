@@ -110,17 +110,18 @@ template <class Out, class Fn, class MakeIdentity>
 	*/
 }
 
+template <typename T>
 class NodataReducerCPU
 {
 public:
 	explicit NodataReducerCPU(ReduceOptions opt = {}) : opt_(opt) {}
 
-	void reduce(int lvl, const Texture<ImageType> &r_texture, Error &total) const
+	void reduce(int lvl, const Texture<ImageType> &r_texture, Error<T> &total) const
 	{
 		total += compute(lvl, r_texture);
 	}
 
-	[[nodiscard]] Error compute(int lvl, const Texture<ImageType> &r_texture) const
+	[[nodiscard]] Error<T> compute(int lvl, const Texture<ImageType> &r_texture) const
 	{
 		auto view = r_texture.MapRead(lvl);
 
@@ -130,19 +131,19 @@ public:
 
 		const auto nod = view.nodata();
 
-		return parallel_reduce_1d<Error>(
+		return parallel_reduce_1d<Error<T>>(
 			N,
-			[&](std::size_t begin, std::size_t end, Error &out)
+			[&](std::size_t begin, std::size_t end, Error<T> &out)
 			{
 				for (std::size_t i = begin; i < end; ++i)
 				{
 					const ImageType r = view[i];
 					if (is_nodata_scalar(r, nod))
-						out += 1.0f;
+						out += 1;
 				}
 			},
 			[]
-			{ return Error{}; },
+			{ return Error<T>{}; },
 			opt_);
 	}
 
@@ -150,6 +151,7 @@ private:
 	ReduceOptions opt_;
 };
 
+template <typename T>
 class ResidualReducerCPU
 {
 public:
@@ -157,13 +159,13 @@ public:
 
 	void reduce(int lvl,
 				const Texture<ImageType> &res_texture,
-				Error &total) const
+				Error<T> &total) const
 	{
 		total += compute(lvl, res_texture);
 	}
 
-	[[nodiscard]] Error compute(int lvl,
-								const Texture<ImageType> &res_texture) const
+	[[nodiscard]] Error<T> compute(int lvl,
+								   const Texture<ImageType> &res_texture) const
 	{
 		auto res = res_texture.MapRead(lvl);
 
@@ -173,9 +175,9 @@ public:
 
 		const auto nod = res.nodata();
 
-		return parallel_reduce_1d<Error>(
+		return parallel_reduce_1d<Error<T>>(
 			N,
-			[&](std::size_t begin, std::size_t end, Error &out)
+			[&](std::size_t begin, std::size_t end, Error<T> &out)
 			{
 				for (std::size_t i = begin; i < end; ++i)
 				{
@@ -183,12 +185,12 @@ public:
 					if (is_nodata_scalar(r, nod))
 						continue;
 
-					const float w = huber_weight(r, mesh_vo::huber_thresh_pix);
+					const T w = huber_weight(r, mesh_vo::huber_thresh_pix);
 					out += w * r * r;
 				}
 			},
 			[]
-			{ return Error{}; },
+			{ return Error<T>{}; },
 			opt_);
 	}
 
@@ -196,6 +198,7 @@ private:
 	ReduceOptions opt_;
 };
 
+template <typename T>
 class HGPoseReducerCPU
 {
 public:
@@ -205,15 +208,15 @@ public:
 				const Texture<Vec3f> &jtra_texture,
 				const Texture<Vec3f> &jrot_texture,
 				const Texture<float> &res_texture,
-				DenseLinearProblem<6> &total) const
+				DenseLinearProblem<T, 6> &total) const
 	{
 		total += compute(lvl, jtra_texture, jrot_texture, res_texture);
 	}
 
-	[[nodiscard]] DenseLinearProblem<6> compute(int lvl,
-												const Texture<Vec3f> &jtra_texture,
-												const Texture<Vec3f> &jrot_texture,
-												const Texture<float> &res_texture) const
+	[[nodiscard]] DenseLinearProblem<T, 6> compute(int lvl,
+												   const Texture<Vec3f> &jtra_texture,
+												   const Texture<Vec3f> &jrot_texture,
+												   const Texture<float> &res_texture) const
 	{
 		auto jtra = jtra_texture.MapRead(lvl);
 		auto jrot = jrot_texture.MapRead(lvl);
@@ -227,9 +230,9 @@ public:
 		const auto nod_jtra = jtra.nodata();
 		const auto nod_jrot = jrot.nodata();
 
-		return parallel_reduce_1d<DenseLinearProblem<6>>(
+		return parallel_reduce_1d<DenseLinearProblem<T, 6>>(
 			N,
-			[&](std::size_t begin, std::size_t end, DenseLinearProblem<6> &hg)
+			[&](std::size_t begin, std::size_t end, DenseLinearProblem<T, 6> &hg)
 			{
 				for (std::size_t i = begin; i < end; ++i)
 				{
@@ -242,7 +245,7 @@ public:
 						is_nodata_vec3(jr, nod_jrot))
 						continue;
 
-					Vec6f J;
+					Vec<T, 6> J;
 					J(0) = jt(0);
 					J(1) = jt(1);
 					J(2) = jt(2);
@@ -250,12 +253,12 @@ public:
 					J(4) = jr(1);
 					J(5) = jr(2);
 
-					const float w = huber_weight(res_i, mesh_vo::huber_thresh_pix);
+					const T w = huber_weight(res_i, mesh_vo::huber_thresh_pix);
 					hg.add(J, res_i, w);
 				}
 			},
 			[]
-			{ return DenseLinearProblem<6>{}; },
+			{ return DenseLinearProblem<T, 6>{}; },
 			opt_);
 	}
 
@@ -263,6 +266,7 @@ private:
 	ReduceOptions opt_;
 };
 
+template <typename T>
 class HGPoseExpReducerCPU
 {
 public:
@@ -273,16 +277,16 @@ public:
 				const Texture<Vec3f> &jrot_texture,
 				const Texture<Vec3f> &jexp_texture,
 				const Texture<ImageType> &res_texture,
-				DenseLinearProblem<8> &total) const
+				DenseLinearProblem<T, 8> &total) const
 	{
 		total += compute(lvl, jtra_texture, jrot_texture, jexp_texture, res_texture);
 	}
 
-	[[nodiscard]] DenseLinearProblem<8> compute(int lvl,
-												const Texture<Vec3f> &jtra_texture,
-												const Texture<Vec3f> &jrot_texture,
-												const Texture<Vec3f> &jexp_texture,
-												const Texture<ImageType> &res_texture) const
+	[[nodiscard]] DenseLinearProblem<T, 8> compute(int lvl,
+												   const Texture<Vec3f> &jtra_texture,
+												   const Texture<Vec3f> &jrot_texture,
+												   const Texture<Vec3f> &jexp_texture,
+												   const Texture<ImageType> &res_texture) const
 	{
 		auto jtra = jtra_texture.MapRead(lvl);
 		auto jrot = jrot_texture.MapRead(lvl);
@@ -298,9 +302,9 @@ public:
 		const auto nod_jrot = jrot.nodata();
 		const auto nod_jexp = jexp.nodata();
 
-		return parallel_reduce_1d<DenseLinearProblem<8>>(
+		return parallel_reduce_1d<DenseLinearProblem<T, 8>>(
 			N,
-			[&](std::size_t begin, std::size_t end, DenseLinearProblem<8> &hg)
+			[&](std::size_t begin, std::size_t end, DenseLinearProblem<T, 8> &hg)
 			{
 				for (std::size_t i = begin; i < end; ++i)
 				{
@@ -315,7 +319,7 @@ public:
 						is_nodata_vec3(je, nod_jexp))
 						continue;
 
-					Vec8f J;
+					Vec<T, 8> J;
 					J(0) = jt(0);
 					J(1) = jt(1);
 					J(2) = jt(2);
@@ -325,12 +329,12 @@ public:
 					J(6) = je(0);
 					J(7) = je(1);
 
-					const float w = huber_weight(res_i, mesh_vo::huber_thresh_pix);
+					const T w = huber_weight(res_i, mesh_vo::huber_thresh_pix);
 					hg.add(J, res_i, w);
 				}
 			},
 			[]
-			{ return DenseLinearProblem<8>{}; },
+			{ return DenseLinearProblem<T, 8>{}; },
 			opt_);
 	}
 
@@ -338,6 +342,7 @@ private:
 	ReduceOptions opt_;
 };
 
+template <typename T>
 class HGDepthReducerCPU
 {
 public:
@@ -352,14 +357,14 @@ public:
 				const Texture<Vec3<PidType>> &pids_texture,
 				const Texture<float> &res_texture,
 				const Mesh &mesh,
-				DenseLinearProblemx &total) const
+				DenseLinearProblemx<T> &total) const
 	{
-		//const int dof = num_vertices; // Depth params only
+		// const int dof = num_vertices; // Depth params only
 
 		// If caller wants accumulation across calls, we must ensure consistent size.
-		//if (total.size() == 0)
+		// if (total.size() == 0)
 		//	total.clear(dof);
-		//else
+		// else
 		//	assert(total.size() == dof);
 
 		compute(lvl, num_vertices,
@@ -372,7 +377,7 @@ public:
 				 const Texture<Vec3<PidType>> &pids_texture,
 				 const Texture<float> &res_texture,
 				 const Mesh &mesh,
-				 DenseLinearProblemx &partial) const
+				 DenseLinearProblemx<T> &partial) const
 	{
 		auto jd = jdepth_texture.MapRead(lvl);
 		auto pids = pids_texture.MapRead(lvl);
@@ -416,7 +421,7 @@ public:
 			const float dd1 = d_depth_d_param(depth1);
 			const float dd2 = d_depth_d_param(depth2);
 
-			Vec3f J;
+			Vec<T, 3> J;
 			J(0) = jdepth_i(0) * dd0;
 			J(1) = jdepth_i(1) * dd1;
 			J(2) = jdepth_i(2) * dd2;
@@ -429,6 +434,7 @@ public:
 private:
 };
 
+template <typename T>
 class HGVertexReducerCPU
 {
 public:
@@ -441,7 +447,7 @@ public:
 				const Texture<Vec3f> &jv2_texture,
 				const Texture<Vec3<PidType>> &pids_texture,
 				const Texture<float> &res_texture,
-				DenseLinearProblemx &total) const
+				DenseLinearProblemx<T> &total) const
 	{
 		compute(lvl, num_vertices,
 				jv0_texture, jv1_texture, jv2_texture,
@@ -456,7 +462,7 @@ public:
 				 const Texture<Vec3f> &jv2_texture,
 				 const Texture<Vec3<PidType>> &pids_texture,
 				 const Texture<float> &res_texture,
-				 DenseLinearProblemx &partial) const
+				 DenseLinearProblemx<T> &partial) const
 	{
 		auto jv0 = jv0_texture.MapRead(lvl);
 		auto jv1 = jv1_texture.MapRead(lvl);
@@ -502,7 +508,7 @@ public:
 
 			const float w = huber_weight(res_i, mesh_vo::huber_thresh_pix);
 
-			Vec<float, 9> J;
+			Vec<T, 9> J;
 			J(0) = j0(0);
 			J(1) = j0(1);
 			J(2) = j0(2);
@@ -531,6 +537,7 @@ public:
 private:
 };
 
+template <typename T>
 class HGDepthExpReducerCPU
 {
 public:
@@ -545,7 +552,7 @@ public:
 				const Texture<Vec3<PidType>> &pids_texture,
 				const Texture<float> &res_texture,
 				const Mesh &mesh,
-				DenseLinearProblemx &total) const
+				DenseLinearProblemx<T> &total) const
 	{
 		compute(lvl, frame_id, num_frames, num_vertices,
 				jdepth_texture, jexp_texture, pids_texture,
@@ -561,7 +568,7 @@ public:
 				 const Texture<Vec3<PidType>> &pids_texture,
 				 const Texture<float> &res_texture,
 				 const Mesh &mesh,
-				 DenseLinearProblemx &partial) const
+				 DenseLinearProblemx<T> &partial) const
 	{
 		auto jd = jdepth_texture.MapRead(lvl);
 		auto je = jexp_texture.MapRead(lvl);
@@ -604,7 +611,7 @@ public:
 			const float dd1 = d_depth_d_param(depth1);
 			const float dd2 = d_depth_d_param(depth2);
 
-			Vec5f J;
+			Vec<T, 5> J;
 			J(0) = jdepth_i(0) * dd0;
 			J(1) = jdepth_i(1) * dd1;
 			J(2) = jdepth_i(2) * dd2;
@@ -619,6 +626,7 @@ public:
 private:
 };
 
+template <typename T>
 class HGPoseDepthReducerCPU
 {
 public:
@@ -634,7 +642,7 @@ public:
 				const Texture<Vec3<PidType>> &pids_texture,
 				const Texture<float> &res_texture,
 				const Mesh &mesh,
-				DenseLinearProblemx &total) const
+				DenseLinearProblemx<T> &total) const
 	{
 		compute(lvl, frame_id, num_frames, num_vertices,
 				jtra_texture, jrot_texture, jdepth_texture, pids_texture,
@@ -651,7 +659,7 @@ public:
 				 const Texture<Vec3<PidType>> &pids_texture,
 				 const Texture<float> &res_texture,
 				 const Mesh &mesh,
-				 DenseLinearProblemx &partial) const
+				 DenseLinearProblemx<T> &partial) const
 	{
 		auto jt = jtra_texture.MapRead(lvl);
 		auto jr = jrot_texture.MapRead(lvl);
@@ -705,7 +713,7 @@ public:
 			const float dd1 = d_depth_d_param(depth1);
 			const float dd2 = d_depth_d_param(depth2);
 
-			Vec<float, 9> J;
+			Vec<T, 9> J;
 			J(0) = jdepth_i(0) * dd0;
 			J(1) = jdepth_i(1) * dd1;
 			J(2) = jdepth_i(2) * dd2;
@@ -724,6 +732,7 @@ public:
 private:
 };
 
+template <typename T>
 class HGPoseExpDepthReducerCPU
 {
 public:
@@ -740,7 +749,7 @@ public:
 				const Texture<Vec3<PidType>> &pids_texture,
 				const Texture<float> &res_texture,
 				const Mesh &mesh,
-				DenseLinearProblemx &total) const
+				DenseLinearProblemx<T> &total) const
 	{
 		compute(lvl, frame_id, num_frames, num_vertices,
 				jtra_texture, jrot_texture, jexp_texture, jdepth_texture, pids_texture,
@@ -758,7 +767,7 @@ public:
 				 const Texture<Vec3<PidType>> &pids_texture,
 				 const Texture<ImageType> &res_texture,
 				 const Mesh &mesh,
-				 DenseLinearProblemx &partial) const
+				 DenseLinearProblemx<T> &partial) const
 	{
 		auto jt = jtra_texture.MapRead(lvl);
 		auto jr = jrot_texture.MapRead(lvl);
@@ -818,7 +827,7 @@ public:
 			const float dd1 = d_depth_d_param(depth1);
 			const float dd2 = d_depth_d_param(depth2);
 
-			Vec<float, 11> J;
+			Vec<T, 11> J;
 			J(0) = jdepth_i(0) * dd0;
 			J(1) = jdepth_i(1) * dd1;
 			J(2) = jdepth_i(2) * dd2;

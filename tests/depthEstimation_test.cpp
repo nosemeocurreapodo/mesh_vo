@@ -28,7 +28,7 @@ TEST_F(RendererTestBase, ComputeDepth)
     ImageRenderer image_renderer;
     DIDxyRenderer didxy_renderer;
 
-    NodataReducerCPU nodata_reducer;
+    NodataReducerCPU<float> nodata_reducer;
 
     Texture<ImageType> image_tex_tmp(w_, h_, 0);
     Texture<float> depth_tex_tmp(w_, h_, 0.0);
@@ -51,7 +51,7 @@ TEST_F(RendererTestBase, ComputeDepth)
         gt_depth_cv.convertTo(gt_depth_cv, CV_32FC1);
         gt_depth_cv = gt_depth_cv / depth_factor_;
         double gt_depth_mean = cv::mean(gt_depth_cv)[0];
-        SE3f gt_global_pose = poses_[img_id];
+        SE3d gt_global_pose = poses_[img_id];
 
         if (img_id == 0)
         {
@@ -96,7 +96,7 @@ TEST_F(RendererTestBase, ComputeDepth)
                               1, 1,
                               kframe.image(), image_tex_tmp);
 
-        Error nodata;
+        Error<float> nodata;
         nodata_reducer.reduce(1, image_tex_tmp, nodata);
         float pnodata = nodata.getError() / (image_tex_tmp.width(1) * image_tex_tmp.height(1));
         float viewPercent = 1.0 - pnodata;

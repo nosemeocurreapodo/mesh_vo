@@ -15,14 +15,16 @@
 class PoseDepthOptimizer : public BaseOptimizer<PoseDepthOptimizer,
                                                 Matx<float>,
                                                 Vecx<float>,
-                                                DenseLinearProblemx,
+                                                Error<float>,
+                                                DenseLinearProblemx<float>,
                                                 Solverx<float>>
 {
 public:
     using Base = BaseOptimizer<PoseDepthOptimizer,
                                Matx<float>,
                                Vecx<float>,
-                               DenseLinearProblemx,
+                               Error<float>,
+                               DenseLinearProblemx<float>,
                                Solverx<float>>;
     PoseDepthOptimizer(int w, int h, bool printlog = false)
         : Base(printlog),
@@ -40,7 +42,7 @@ public:
         return numParams_;
     }
 
-    void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
+    void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblemx<float> &problem, Solverx<float> &solver)
     {
         best_depths_ = get_depths(kframe.mesh());
 
@@ -58,7 +60,7 @@ public:
         depths_ = best_depths_;
         local_poses_ = best_local_poses_;
 
-        problem = DenseLinearProblemx(numParams_);
+        problem = DenseLinearProblemx<float>(numParams_);
         solver = Solverx<float>(numParams_);
     }
 
@@ -67,7 +69,7 @@ public:
         return regu_depth(depths_, edges_);
     }
 
-    void regu_jacobian(DenseLinearProblemx &problem) const
+    void regu_jacobian(DenseLinearProblemx<float> &problem) const
     {
         regu_depth_jacobian(depths_, edges_, problem);
     }
@@ -90,7 +92,7 @@ public:
 
         for (size_t i = 0; i < frames.size(); i++)
         {
-            Vec6<float> pose_inc(inc(numDepths_ + i * 6 + 0),
+            Vec6f pose_inc(inc(numDepths_ + i * 6 + 0),
                                  inc(numDepths_ + i * 6 + 1),
                                  inc(numDepths_ + i * 6 + 2),
                                  inc(numDepths_ + i * 6 + 3),
@@ -137,9 +139,9 @@ public:
         }
     }
 
-    Error compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    Error<float> compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl)
     {
-        Error total;
+        Error<float> total;
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
             residualrenderer_.Render(kframe.mesh(), local_poses_[frame_idx], frames[frame_idx]->local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frames[frame_idx]->image(), res_texture_);
@@ -148,7 +150,7 @@ public:
         return total;
     }
 
-    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl, DenseLinearProblemx<float> &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
@@ -180,14 +182,14 @@ public:
 
 private:
     JPoseExpDepthRenderer jposedepthrenderer_;
-    HGPoseDepthReducerCPU hgposedepthreducer_;
+    HGPoseDepthReducerCPU<float> hgposedepthreducer_;
     ResidualRenderer residualrenderer_;
-    ResidualReducerCPU residualreducer_;
+    ResidualReducerCPU<float> residualreducer_;
 
-    Texture<Vec3<float>> jtra_texture_;
-    Texture<Vec3<float>> jrot_texture_;
-    Texture<Vec3<float>> jdepth_texture_;
-    Texture<Vec3<float>> jexp_texture_;
+    Texture<Vec3f> jtra_texture_;
+    Texture<Vec3f> jrot_texture_;
+    Texture<Vec3f> jdepth_texture_;
+    Texture<Vec3f> jexp_texture_;
     Texture<Vec3<PidType>> pids_texture_;
     Texture<float> res_texture_;
 

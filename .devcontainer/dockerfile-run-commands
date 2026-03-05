@@ -15,6 +15,8 @@ ros2 run folder_image_publisher folder_pub --ros-args -p folder:=/datasets/rgbd_
 colcon build --symlink-install \
   --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 
+  VO init cam: 257.28 372.96 290.06 248.716
+  
 ros2 run mesh_vo_ros mesh_vo_ros_node --ros-args \
   -p fx:=525.0 -p fy:=525.0 -p cx:=319.5 -p cy:=239.5 \
   -p width:=640 -p height:=480 \

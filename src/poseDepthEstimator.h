@@ -18,7 +18,7 @@ public:
     //     frame.local_exposure() = last_local_exp;
     // }
 
-    void init(std::span<Frame *const> frames, KeyFrame &kframe, Camera &cam)
+    void init(std::span<Frame *const> frames, KeyFrame &kframe, Cameraf &cam)
     {
         optimizer.init(frames, kframe, cam, 1, 1);
     }
@@ -28,12 +28,12 @@ public:
         return optimizer.converged();
     }
 
-    void step(std::span<Frame *const> frames, KeyFrame &kframe, Camera &cam)
+    void step(std::span<Frame *const> frames, KeyFrame &kframe, Cameraf &cam)
     {
         optimizer.step(frames, kframe, cam, 1, 1);
     }
 
-    void estimate(std::span<Frame *const> frames, KeyFrame &kframe, Camera &cam)
+    void estimate(std::span<Frame *const> frames, KeyFrame &kframe, Cameraf &cam)
     {
         // for (auto frame : frames)
         //     assert(frame.keyframe_id() == kframe.id());
@@ -53,13 +53,13 @@ public:
         // kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
     }
 
-    void update_keyframe(const Frame &new_frame, const Texture<float> &new_depth, KeyFrame &kframe, const Camera &cam)
+    void update_keyframe(const Frame &new_frame, const Texture<float> &new_depth, KeyFrame &kframe, const Cameraf &cam)
     {
         // float md = mean_depth(kframe.mesh());
         // kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
 
-        SE3f global_pose = new_frame.global_pose();
-        float global_scale = kframe.global_scale();
+        SE3d global_pose = new_frame.global_pose();
+        double global_scale = kframe.global_scale();
 
         Mesh mesh = CreateMesh<Mesh>(new_depth.MapRead(0).data(),
                                      cam,

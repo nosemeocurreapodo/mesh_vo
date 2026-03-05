@@ -107,33 +107,51 @@ public:
     const Mesh &mesh() const { return mesh_; }
     Mesh &mesh() { return mesh_; }
 
-    const SE3t &global_pose() const { return global_pose_; }
-    SE3t &global_pose() { return global_pose_; }
+    const SE3d &global_pose() const { return global_pose_; }
+    SE3d &global_pose() { return global_pose_; }
 
     const double &global_scale() const { return global_scale_; }
     double &global_scale() { return global_scale_; }
 
-    SE3t local_pose_to_global(SE3t local_pose) const
+    SE3d local_pose_to_global(SE3f local_pose) const
     {
-        SE3t localPoseScaled = local_pose;
+        SE3d localPoseScaled; // = local_pose;
+        localPoseScaled.so3().unit_quaternion().x() = local_pose.so3().unit_quaternion().x();
+        localPoseScaled.so3().unit_quaternion().y() = local_pose.so3().unit_quaternion().y();
+        localPoseScaled.so3().unit_quaternion().z() = local_pose.so3().unit_quaternion().z();
+        localPoseScaled.so3().unit_quaternion().w() = local_pose.so3().unit_quaternion().w();
+        localPoseScaled.translation()(0) = local_pose.translation()(0);
+        localPoseScaled.translation()(1) = local_pose.translation()(1);
+        localPoseScaled.translation()(2) = local_pose.translation()(2);
+
         localPoseScaled.translation() *= global_scale_;
-        SE3t globalPose = localPoseScaled * global_pose_;
+        SE3d globalPose = localPoseScaled * global_pose_;
         return globalPose;
     }
 
-    SE3t global_pose_to_local(SE3t global_pose) const
+    SE3f global_pose_to_local(SE3d global_pose) const
     {
-        SE3t localPose = global_pose * global_pose_.inverse();
+        SE3d localPose = global_pose * global_pose_.inverse();
         localPose.translation() /= global_scale_;
-        return localPose;
+
+        SE3f localPosef;
+        localPosef.so3().unit_quaternion().x() = localPose.so3().unit_quaternion().x();
+        localPosef.so3().unit_quaternion().y() = localPose.so3().unit_quaternion().y();
+        localPosef.so3().unit_quaternion().z() = localPose.so3().unit_quaternion().z();
+        localPosef.so3().unit_quaternion().w() = localPose.so3().unit_quaternion().w();
+        localPosef.translation()(0) = localPose.translation()(0);
+        localPosef.translation()(1) = localPose.translation()(1);
+        localPosef.translation()(2) = localPose.translation()(2);
+
+        return localPosef;
     }
 
-    void scale_mesh(float scale)
+    void scale_mesh(double scale)
     {
         global_scale_ *= scale;
-        std::vector<Vec3<float>> vertices = get_vertices(mesh_);
+        std::vector<Vec3f> vertices = get_vertices(mesh_);
         for (int i = 0; i < vertices.size(); i++)
-            vertices[i] = vertices[i] / scale;
+            vertices[i] = vertices[i] / float(scale);
         set_vertices(mesh_, vertices);
     }
 
@@ -159,17 +177,17 @@ public:
     }
     */
 
-    float meanViewAngle(const SE3t &pose1, const SE3t &pose2, const Camera &cam) const
+    float meanViewAngle(const SE3d &pose1, const SE3d &pose2, const Cameraf &cam) const
     {
         const std::vector<Vec3f> positions = get_vertices(mesh_);
 
         // Convert both poses into this keyframe's local frame
-        const SE3t localpose1 = global_pose_to_local(pose1);
-        const SE3t localpose2 = global_pose_to_local(pose2);
+        const SE3f localpose1 = global_pose_to_local(pose1);
+        const SE3f localpose2 = global_pose_to_local(pose2);
 
         // Transform from camera-1 frame to camera-2 frame:
         // x2 = T_2_1 * x1
-        const SE3t T_2_1 = localpose2 * localpose1.inverse();
+        const SE3f T_2_1 = localpose2 * localpose1.inverse();
 
         // Camera-2 center expressed in camera-1 coordinates
         const Vec3f cam2_in_cam1 = T_2_1.inverse().translation();
@@ -226,7 +244,7 @@ private:
     // const Frame *frame_;
     Texture<ImageType> image_;
     Mesh mesh_;
-    SE3t global_pose_;
+    SE3d global_pose_;
     double global_scale_;
     int id_;
 };

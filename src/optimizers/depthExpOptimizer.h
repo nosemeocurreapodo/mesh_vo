@@ -15,14 +15,16 @@
 class DepthExpOptimizer : public BaseOptimizer<DepthExpOptimizer,
                                                Matx<float>,
                                                Vecx<float>,
-                                               DenseLinearProblemx,
+                                               Error<float>,
+                                               DenseLinearProblemx<float>,
                                                Solverx<float>>
 {
 public:
     using Base = BaseOptimizer<DepthExpOptimizer,
                                Matx<float>,
                                Vecx<float>,
-                               DenseLinearProblemx,
+                               Error<float>,
+                               DenseLinearProblemx<float>,
                                Solverx<float>>;
 
     DepthExpOptimizer(int w, int h, bool printlog = false)
@@ -39,7 +41,7 @@ public:
         return numParams_;
     }
 
-    void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
+    void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblemx<float> &problem, Solverx<float> &solver)
     {
         best_depths_ = get_depths(kframe.mesh());
 
@@ -59,7 +61,7 @@ public:
         depths_ = best_depths_;
         exps_ = best_exps_;
 
-        problem = DenseLinearProblemx(numParams_);
+        problem = DenseLinearProblemx<float>(numParams_);
         solver = Solverx<float>(numParams_);
     }
 
@@ -68,7 +70,7 @@ public:
         return regu_depth(depths_, edges_);
     }
 
-    void regu_jacobian(DenseLinearProblemx &problem)
+    void regu_jacobian(DenseLinearProblemx<float> &problem)
     {
         regu_depth_jacobian(depths_, edges_, problem);
     }
@@ -118,9 +120,9 @@ public:
         exps_ = best_exps_;
     }
 
-    Error compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    Error<float> compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl)
     {
-        Error total;
+        Error<float> total;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
             residualrenderer_.Render(kframe.mesh(), local_poses_[i], frames[i]->local_exposure(), cam, in_lvl, out_lvl, kframe.image(), frames[i]->image(), res_texture_);
@@ -129,7 +131,7 @@ public:
         return total;
     }
 
-    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl, DenseLinearProblemx<float> &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
@@ -160,9 +162,9 @@ public:
 
 private:
     JDepthExpRenderer jdepthrenderer_;
-    HGDepthExpReducerCPU hgmapreducer_;
+    HGDepthExpReducerCPU<float> hgmapreducer_;
     ResidualRenderer residualrenderer_;
-    ResidualReducerCPU residualreducer_;
+    ResidualReducerCPU<float> residualreducer_;
 
     Texture<Vec3f> jdepth_texture_;
     Texture<Vec3f> jexp_texture_;
@@ -175,7 +177,7 @@ private:
     std::vector<float> depths_;
     std::vector<Vec2f> exps_;
 
-    std::vector<SE3t> local_poses_;
+    std::vector<SE3f> local_poses_;
     // std::vector<Vec3<int>> triangles_;
     std::vector<Vec2i> edges_;
 

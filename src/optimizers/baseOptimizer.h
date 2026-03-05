@@ -10,7 +10,7 @@
 #include "mpdr/backends/cpu/renderercpu.h"
 // #include "cpu/OpenCVDebug.h"
 
-static float regu_depth(const std::vector<float> &depths, const std::vector<Vec2<int>> &edges)
+static float regu_depth(const std::vector<float> &depths, const std::vector<Vec2i> &edges)
 {
     float regu_error = 0.0f;
     for (size_t i = 0; i < edges.size(); i++)
@@ -27,7 +27,7 @@ static float regu_depth(const std::vector<float> &depths, const std::vector<Vec2
     return (mesh_vo::mapping_regu_weight / edges.size()) * regu_error;
 }
 
-static void regu_depth_jacobian(const std::vector<float> &depths, const std::vector<Vec2<int>> &edges, DenseLinearProblemx &problem)
+static void regu_depth_jacobian(const std::vector<float> &depths, const std::vector<Vec2i> &edges, DenseLinearProblemx<float> &problem)
 {
     float regu_error = 0.0f;
     for (size_t i = 0; i < edges.size(); i++)
@@ -44,7 +44,7 @@ static void regu_depth_jacobian(const std::vector<float> &depths, const std::vec
     }
 }
 
-template <class Derived, typename HessianType, typename GradType, typename Problem, typename Solver>
+template <class Derived, typename HessianType, typename GradType, typename ErrorType, typename Problem, typename Solver>
 class BaseOptimizer
 {
 public:
@@ -59,12 +59,12 @@ public:
         return reached_convergence_;
     }
 
-    void init(const Frame* frame, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    void init(const Frame* frame, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl)
     {
         init(std::span{&frame, 1}, kframe, cam, in_lvl, out_lvl);
     }
 
-    void init(std::span<const Frame* const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    void init(std::span<const Frame* const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl)
     {
         derived().reset(frames, kframe, problem_, solver_);
 
@@ -82,22 +82,22 @@ public:
         reached_convergence_ = false;
     }
 
-    void update(Frame *frame, KeyFrame &kframe, Camera &cam)
+    void update(Frame *frame, KeyFrame &kframe, Cameraf &cam)
     {
         update(std::span{&frame, 1}, kframe, cam);
     }
 
-    void update(std::span<Frame* const> frames, KeyFrame &kframe, Camera &cam)
+    void update(std::span<Frame* const> frames, KeyFrame &kframe, Cameraf &cam)
     {
         derived().update_params(frames, kframe);
     }
 
-    void step(Frame *frame, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+    void step(Frame *frame, KeyFrame &kframe, Cameraf &cam, int in_lvl, int out_lvl)
     {
         step(std::span{&frame, 1}, kframe, cam, in_lvl, out_lvl);
     }
 
-    void step(std::span<Frame* const> frames, KeyFrame &kframe, Camera &cam, int in_lvl, int out_lvl)
+    void step(std::span<Frame* const> frames, KeyFrame &kframe, Cameraf &cam, int in_lvl, int out_lvl)
     {
         problem_.clear();
         derived().compute_problem(frames, kframe, cam, in_lvl, out_lvl, problem_);
@@ -132,7 +132,7 @@ public:
 
             derived().apply_inc(frames, kframe, inc);
 
-            Error new_error = derived().compute_error(frames, kframe, cam, in_lvl, out_lvl);
+            ErrorType new_error = derived().compute_error(frames, kframe, cam, in_lvl, out_lvl);
             new_error *= 1.0f / new_error.getCount();
 
             new_error += derived().regu_error();
@@ -184,8 +184,8 @@ protected:
     Problem problem_;
     Solver solver_;
 
-    Error init_error_;
-    Error error_;
+    ErrorType init_error_;
+    ErrorType error_;
 
     bool reached_convergence_;
 

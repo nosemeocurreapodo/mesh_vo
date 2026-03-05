@@ -13,19 +13,19 @@ public:
         last_local_exp = Vec2f(0.0, 0.0);
     }
 
-    void init_global_pose(SE3f &global_pose)
+    void init_global_pose(SE3d &global_pose)
     {
         last_global_pose = global_pose;
     }
 
     void guess(Frame &frame, KeyFrame &kframe)
     {
-        SE3f guess_global_pose = last_global_move * last_global_pose;
+        SE3d guess_global_pose = last_global_move * last_global_pose;
         frame.global_pose() = guess_global_pose;
-        frame.local_exposure() = Vec2<float>(0.0, 0.0);
+        frame.local_exposure() = Vec2f(0.0, 0.0);
     }
 
-    void estimate(Frame &frame, KeyFrame &kframe, Camera &cam)
+    void estimate(Frame &frame, KeyFrame &kframe, Cameraf &cam)
     {
         for (int lvl = mesh_vo::tracking_ini_lvl; lvl >= mesh_vo::tracking_fin_lvl; lvl--)
         {
@@ -38,7 +38,7 @@ public:
             }
             // optimizer.update(&frame, kframe, cam);
         }
-        SE3f new_global_pose = frame.global_pose();
+        SE3d new_global_pose = frame.global_pose();
         last_global_move = new_global_pose * last_global_pose.inverse();
         last_global_pose = new_global_pose;
         last_local_exp = frame.local_exposure();
@@ -46,7 +46,7 @@ public:
 
 private:
     PoseExpOptimizer optimizer;
-    SE3f last_global_pose;
-    SE3f last_global_move;
+    SE3d last_global_pose;
+    SE3d last_global_move;
     Vec2f last_local_exp;
 };

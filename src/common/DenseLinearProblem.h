@@ -6,7 +6,7 @@
 
 #include "common/types.h"
 
-template <int N>
+template <typename T, int N>
 class DenseLinearProblem
 {
 public:
@@ -27,7 +27,7 @@ public:
         return N;
     }
 
-    void add(const Vecr<N> &J, float r, float w = 1.0f)
+    void add(const Vec<T, N> &J, T r, T w = 1.0f)
     {
         if (w <= 0.0f)
             return;
@@ -47,22 +47,23 @@ public:
         return *this;
     }
 
-    void scale(float s)
+    void scale(T s)
     {
         m_Hp *= s;
         m_G *= s;
     }
 
     int count() const { return m_count; }
-    const Matr<N, N> &Hp() const { return m_Hp; }
-    const Vecr<N> &G() const { return m_G; }
+    const Mat<T, N, N> &Hp() const { return m_Hp; }
+    const Vec<T, N> &G() const { return m_G; }
 
 private:
-    Mat<float, N, N> m_Hp;
-    Vec<float, N> m_G;
+    Mat<T, N, N> m_Hp;
+    Vec<T, N> m_G;
     int m_count{0};
 };
 
+template <typename T>
 class DenseLinearProblemx
 {
 public:
@@ -70,8 +71,8 @@ public:
     DenseLinearProblemx(int n)
     {
         m_numParams = n;
-        m_Hp = Matxr::Zero(n, n);
-        m_G = Vecxr::Zero(n);
+        m_Hp = Matx<T>::Zero(n, n);
+        m_G = Vecx<T>::Zero(n);
         m_count = 0;
     }
     /*
@@ -100,7 +101,7 @@ public:
 
     int size() const { return m_numParams; }
 
-    void add(const Matxr &J, const Matxr &r, float w = 1.0f)
+    void add(const Matx<T> &J, const Matx<T> &r, T w = 1.0f)
     {
         if (w <= 0.0f)
             return;
@@ -111,8 +112,8 @@ public:
 
     template <typename Jac, typename Idx>
     void add(const Jac &J,
-             float r,
-             float w,
+             T r,
+             T w,
              const Idx &ids)
     {
         if (w <= 0.0f)
@@ -125,7 +126,7 @@ public:
 
             for (int j = i + 1; j < J.rows(); j++)
             {
-                float jj = J(i) * J(j) * w;
+                T jj = J(i) * J(j) * w;
                 m_Hp(ids(i), ids(j)) += jj;
                 m_Hp(ids(j), ids(i)) += jj;
             }
@@ -157,13 +158,13 @@ public:
         m_G *= s;
     }
 
-    const Matxr &Hp() const { return m_Hp; }
-    const Vecxr &G() const { return m_G; }
+    const Matx<T> &Hp() const { return m_Hp; }
+    const Vecx<T> &G() const { return m_G; }
     int count() const { return m_count; }
 
 private:
-    Matxr m_Hp;
-    Vecxr m_G;
+    Matx<T> m_Hp;
+    Vecx<T> m_G;
     int m_numParams{0};
     int m_count{0};
 };

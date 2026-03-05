@@ -15,14 +15,16 @@
 class PoseExpDepthOptimizer : public BaseOptimizer<PoseExpDepthOptimizer,
                                                    Matx<float>,
                                                    Vecx<float>,
-                                                   DenseLinearProblemx,
+                                                   Error<float>,
+                                                   DenseLinearProblemx<float>,
                                                    Solverx<float>>
 {
 public:
     using Base = BaseOptimizer<PoseExpDepthOptimizer,
                                Matx<float>,
                                Vecx<float>,
-                               DenseLinearProblemx,
+                               Error<float>,
+                               DenseLinearProblemx<float>,
                                Solverx<float>>;
     PoseExpDepthOptimizer(int w, int h, bool printlog = false)
         : Base(printlog),
@@ -40,7 +42,7 @@ public:
         return numParams_;
     }
 
-    void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblemx &problem, Solverx<float> &solver)
+    void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblemx<float> &problem, Solverx<float> &solver)
     {
         best_depths_ = get_depths(kframe.mesh());
         best_poses_.clear();
@@ -59,7 +61,7 @@ public:
         poses_ = best_poses_;
         exps_ = best_exps_;
 
-        problem = DenseLinearProblemx(numParams_);
+        problem = DenseLinearProblemx<float>(numParams_);
         solver = Solverx<float>(numParams_);
     }
 
@@ -68,7 +70,7 @@ public:
         return regu_depth(depths_, edges_);
     }
 
-    void regu_jacobian(DenseLinearProblemx &problem) const
+    void regu_jacobian(DenseLinearProblemx<float> &problem) const
     {
         regu_depth_jacobian(depths_, edges_, problem);
     }
@@ -92,7 +94,7 @@ public:
 
         for (size_t i = 0; i < frames.size(); i++)
         {
-            Vec6<float> pose_inc(inc(numDepths_ + i * 8 + 0),
+            Vec6f pose_inc(inc(numDepths_ + i * 8 + 0),
                                  inc(numDepths_ + i * 8 + 1),
                                  inc(numDepths_ + i * 8 + 2),
                                  inc(numDepths_ + i * 8 + 3),
@@ -101,9 +103,9 @@ public:
             SE3f new_pose = best_poses_[i] * SE3f::exp(pose_inc);
             poses_.push_back(new_pose);
 
-            Vec2<float> exp_inc(inc(numDepths_ + i * 8 + 6),
+            Vec2f exp_inc(inc(numDepths_ + i * 8 + 6),
                                 inc(numDepths_ + i * 8 + 7));
-            Vec2<float> new_exp = best_exps_[i] + exp_inc;
+            Vec2f new_exp = best_exps_[i] + exp_inc;
             exps_.push_back(new_exp);
         }
 
@@ -149,9 +151,9 @@ public:
         }
     }
 
-    Error compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl)
+    Error<float> compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl)
     {
-        Error total;
+        Error<float> total;
         for (std::size_t i = 0; i < frames.size(); i++)
         {
             residualrenderer_.Render(kframe.mesh(), poses_[i], exps_[i], cam, in_lvl, out_lvl, kframe.image(), frames[i]->image(), res_texture_);
@@ -160,7 +162,7 @@ public:
         return total;
     }
 
-    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Camera &cam, int in_lvl, int out_lvl, DenseLinearProblemx &total)
+    void compute_problem(std::span<const Frame *const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl, DenseLinearProblemx<float> &total)
     {
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
@@ -193,14 +195,14 @@ public:
 
 private:
     JPoseExpDepthRenderer jposedepthrenderer_;
-    HGPoseExpDepthReducerCPU hgposedepthreducer_;
+    HGPoseExpDepthReducerCPU<float> hgposedepthreducer_;
     ResidualRenderer residualrenderer_;
-    ResidualReducerCPU residualreducer_;
+    ResidualReducerCPU<float> residualreducer_;
 
-    Texture<Vec3<float>> jtra_texture_;
-    Texture<Vec3<float>> jrot_texture_;
-    Texture<Vec3<float>> jdepth_texture_;
-    Texture<Vec3<float>> jexp_texture_;
+    Texture<Vec3f> jtra_texture_;
+    Texture<Vec3f> jrot_texture_;
+    Texture<Vec3f> jdepth_texture_;
+    Texture<Vec3f> jexp_texture_;
     Texture<Vec3<PidType>> pids_texture_;
     Texture<float> res_texture_;
 
@@ -213,7 +215,7 @@ private:
     std::vector<Vec2f> exps_;
 
     // std::vector<Vec3<int>> triangles_;
-    std::vector<Vec2<int>> edges_;
+    std::vector<Vec2i> edges_;
 
     int numDepths_;
     int numParams_;
