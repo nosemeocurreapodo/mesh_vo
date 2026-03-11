@@ -116,14 +116,12 @@ public:
     SE3d local_pose_to_global(SE3f local_pose) const
     {
         SE3d localPoseScaled; // = local_pose;
-        localPoseScaled.so3().unit_quaternion().x() = local_pose.so3().unit_quaternion().x();
-        localPoseScaled.so3().unit_quaternion().y() = local_pose.so3().unit_quaternion().y();
-        localPoseScaled.so3().unit_quaternion().z() = local_pose.so3().unit_quaternion().z();
-        localPoseScaled.so3().unit_quaternion().w() = local_pose.so3().unit_quaternion().w();
-        localPoseScaled.translation()(0) = local_pose.translation()(0);
-        localPoseScaled.translation()(1) = local_pose.translation()(1);
-        localPoseScaled.translation()(2) = local_pose.translation()(2);
-
+        Quaternion<float> fq = local_pose.so3().unit_quaternion();
+        Quaternion<double> dq(fq.w(), fq.x(), fq.y(), fq.z());
+        localPoseScaled.so3().setQuaternion(dq);
+        Vec3<float> ft = local_pose.translation();
+        Vec3<double> dt(ft(0), ft(1), ft(2));
+        localPoseScaled.translation() = dt;
         localPoseScaled.translation() *= global_scale_;
         SE3d globalPose = localPoseScaled * global_pose_;
         return globalPose;
@@ -135,13 +133,12 @@ public:
         localPose.translation() /= global_scale_;
 
         SE3f localPosef;
-        localPosef.so3().unit_quaternion().x() = localPose.so3().unit_quaternion().x();
-        localPosef.so3().unit_quaternion().y() = localPose.so3().unit_quaternion().y();
-        localPosef.so3().unit_quaternion().z() = localPose.so3().unit_quaternion().z();
-        localPosef.so3().unit_quaternion().w() = localPose.so3().unit_quaternion().w();
-        localPosef.translation()(0) = localPose.translation()(0);
-        localPosef.translation()(1) = localPose.translation()(1);
-        localPosef.translation()(2) = localPose.translation()(2);
+        Quaternion<double> dq = localPose.so3().unit_quaternion();
+        Quaternion<float> fq(dq.w(), dq.x(), dq.y(), dq.z());
+        Vec3<double> dt = localPose.translation();
+        Vec3<float> ft(dt(0), dt(1), dt(2));
+        localPosef.setQuaternion(fq);
+        localPosef.translation() = ft;
 
         return localPosef;
     }

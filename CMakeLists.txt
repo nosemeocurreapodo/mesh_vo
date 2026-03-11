@@ -95,7 +95,6 @@ target_include_directories(mesh_vo_core
     ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/HLSLinearAlgebra/include
     ${PROJECT_SOURCE_DIR}/MultiPlatformDiffRenderer/thirdparty/Sophus
     ${EIGEN3_INCLUDE_DIR}
-    ${Pangolin_INCLUDE_DIRS}
 #    ${CSPARSE_INCLUDE_DIR}
 #    ${CHOLMOD_INCLUDE_DIR}
   PRIVATE
