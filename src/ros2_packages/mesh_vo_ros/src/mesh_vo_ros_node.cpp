@@ -115,11 +115,11 @@ private:
 		constexpr double half_pi = 1.57079632679f;
 
 		// Pure rotations, no translation
-		const SE3d Rx90(SO3<double>::exp(Vec3f(-half_pi, 0.0f, 0.0f)), Vec3f(0.0f, 0.0f, 0.0f));
+		const SE3d Rx90(SO3<double>::exp(Vec3<double>(-half_pi, 0.0f, 0.0f)), Vec3<double>(0.0f, 0.0f, 0.0f));
 		// const SE3d Rz90(SO3<double>::exp(Vec3f(0.0f, 0.0f, half_pi)), Vec3f(0.0f, 0.0f, 0.0f));
 
 		// Change only the camera-frame convention; camera center stays the same
-		return T_map_cam_cv.inverse();// * Rx90;
+		return T_map_cam_cv.inverse(); // * Rx90;
 	}
 
 	void publish_tf(const SE3d &T_map_cam,
@@ -179,7 +179,6 @@ private:
 		const int img_h = static_cast<int>(kf.image().height(0));
 
 		const size_t vcount = vertices.size() / 3;
-		;
 
 		sensor_msgs::PointCloud2Modifier modifier(cloud);
 		modifier.setPointCloud2FieldsByString(2, "xyz", "rgb");
@@ -204,11 +203,12 @@ private:
 			const float zl = vertices[vi * 3 + 2] * s;
 
 			Vec3f p_local(xl, yl, zl);
-			Vec3f p_world = T * p_local;
+			Vec3<double> pd_local(xl, yl, zl);
+			Vec3<double> p_world = T * pd_local;
 
-			*iter_x = p_world(0);
-			*iter_y = p_world(1);
-			*iter_z = p_world(2);
+			*iter_x = float(p_world(0));
+			*iter_y = float(p_world(1));
+			*iter_z = float(p_world(2));
 
 			Vec2f pix = cam.pointToPix(p_local);
 
