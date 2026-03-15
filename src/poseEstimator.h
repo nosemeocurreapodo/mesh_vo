@@ -45,7 +45,7 @@ public:
     }
 
 private:
-    PoseExpOptimizer optimizer;
+    PoseOptimizer optimizer;
     SE3d last_global_pose;
     SE3d last_global_move;
     Vec2f last_local_exp;

@@ -765,7 +765,7 @@ public:
 				 const Texture<Vec3f> &jexp_texture,
 				 const Texture<Vec3f> &jdepth_texture,
 				 const Texture<Vec3<PidType>> &pids_texture,
-				 const Texture<ImageType> &res_texture,
+				 const Texture<float> &res_texture,
 				 const Mesh &mesh,
 				 DenseLinearProblemx<T> &partial) const
 	{
@@ -796,7 +796,7 @@ public:
 			const Vec3f jexp_i = je[i];
 			const Vec3f jdepth_i = jd[i];
 			const Vec3<PidType> p = pids[i];
-			const ImageType res_i = res[i];
+			const float res_i = res[i];
 
 			if (is_nodata_scalar(res_i, nod_res) ||
 				is_nodata_vec3(jtra_i, nod_jt) ||

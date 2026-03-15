@@ -76,8 +76,8 @@ public:
 
     void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
     {
-        depths_.clear();
-        local_poses_.clear();
+        //depths_.clear();
+        //local_poses_.clear();
 
         for (size_t i = 0; i < numDepths_; i++)
         {
@@ -87,7 +87,7 @@ public:
             if (new_depth > RenderConstants::FAR_PLANE)
                 new_depth = RenderConstants::FAR_PLANE;
 
-            depths_.push_back(new_depth);
+            depths_[i] = new_depth;
         }
 
         for (size_t i = 0; i < frames.size(); i++)
@@ -99,7 +99,7 @@ public:
                                  inc(numDepths_ + i * 6 + 4),
                                  inc(numDepths_ + i * 6 + 5));
             SE3f new_pose = best_local_poses_[i] * SE3f::exp(pose_inc);
-            local_poses_.push_back(new_pose);
+            local_poses_[i] = new_pose;
         }
         set_depths(kframe.mesh(), depths_);
 

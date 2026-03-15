@@ -66,8 +66,8 @@ public:
 
     void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vec<float, 8> &inc)
     {
-        poses_.clear();
-        exps_.clear();
+        //poses_.clear();
+        //exps_.clear();
 
         for (size_t i = 0; i < frames.size(); i++)
         {
@@ -78,12 +78,12 @@ public:
                                  inc(i * 8 + 4),
                                  inc(i * 8 + 5));
             SE3f new_pose = best_poses_[i] * SE3f::exp(pose_inc);
-            poses_.push_back(new_pose);
+            poses_[i] = new_pose;
 
             Vec2<float> exp_inc(inc(i * 8 + 6),
                                 inc(i * 8 + 7));
             Vec2<float> new_exp = best_exps_[i] + exp_inc;
-            exps_.push_back(new_exp);
+            exps_[i] = new_exp;
         }
 
         for (size_t i = 0; i < frames.size(); i++)

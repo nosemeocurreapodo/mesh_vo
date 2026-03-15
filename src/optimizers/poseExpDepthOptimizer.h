@@ -77,9 +77,9 @@ public:
 
     void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
     {
-        depths_.clear();
-        poses_.clear();
-        exps_.clear();
+        //depths_.clear();
+        //poses_.clear();
+        //exps_.clear();
 
         for (size_t i = 0; i < numDepths_; i++)
         {
@@ -89,7 +89,7 @@ public:
             if (new_depth > RenderConstants::FAR_PLANE)
                 new_depth = RenderConstants::FAR_PLANE;
 
-            depths_.push_back(new_depth);
+            depths_[i] = new_depth;
         }
 
         for (size_t i = 0; i < frames.size(); i++)
@@ -101,12 +101,12 @@ public:
                                  inc(numDepths_ + i * 8 + 4),
                                  inc(numDepths_ + i * 8 + 5));
             SE3f new_pose = best_poses_[i] * SE3f::exp(pose_inc);
-            poses_.push_back(new_pose);
+            poses_[i] = new_pose;
 
             Vec2f exp_inc(inc(numDepths_ + i * 8 + 6),
                                 inc(numDepths_ + i * 8 + 7));
             Vec2f new_exp = best_exps_[i] + exp_inc;
-            exps_.push_back(new_exp);
+            exps_[i] = new_exp;
         }
 
         set_depths(kframe.mesh(), depths_);
@@ -167,8 +167,8 @@ public:
         for (std::size_t frame_idx = 0; frame_idx < frames.size(); frame_idx++)
         {
             jposedepthrenderer_.Render(kframe.mesh(),
-                                       poses_[frame_idx],
-                                       exps_[frame_idx],
+                                       best_poses_[frame_idx],
+                                       best_exps_[frame_idx],
                                        cam,
                                        in_lvl, out_lvl,
                                        kframe.image(),

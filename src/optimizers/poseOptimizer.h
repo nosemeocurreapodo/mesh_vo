@@ -65,7 +65,7 @@ public:
 
     void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vec6<float> &inc)
     {
-        local_poses_.clear();
+        //local_poses_.clear();
 
         for (size_t i = 0; i < frames.size(); i++)
         {
@@ -76,7 +76,7 @@ public:
                                  inc(i * 6 + 4),
                                  inc(i * 6 + 5));
             SE3f new_pose = best_local_poses_[i] * SE3f::exp(pose_inc);
-            local_poses_.push_back(new_pose);
+            local_poses_[i] = new_pose;
         }
 
         for (size_t i = 0; i < frames.size(); i++)

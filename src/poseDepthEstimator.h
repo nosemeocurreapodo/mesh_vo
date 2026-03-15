@@ -1,6 +1,8 @@
 #pragma once
 
 #include "common/types.h"
+#include "optimizers/depthOptimizer.h"
+#include "optimizers/depthExpOptimizer.h"
 #include "optimizers/poseDepthOptimizer.h"
 #include "optimizers/poseExpDepthOptimizer.h"
 
@@ -55,8 +57,8 @@ public:
 
     void update_keyframe(const Frame &new_frame, const Texture<float> &new_depth, KeyFrame &kframe, const Cameraf &cam)
     {
-        // float md = mean_depth(kframe.mesh());
-        // kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
+        float md = mean_depth(kframe.mesh());
+        kframe.scale_mesh(md / mesh_vo::mapping_mean_depth);
 
         SE3d global_pose = new_frame.global_pose();
         double global_scale = kframe.global_scale();
@@ -76,5 +78,5 @@ public:
     }
 
 private:
-    PoseExpDepthOptimizer optimizer;
+    DepthOptimizer optimizer;
 };
