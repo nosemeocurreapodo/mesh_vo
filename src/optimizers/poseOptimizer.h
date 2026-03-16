@@ -43,12 +43,13 @@ public:
     void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblem<float, 6> &problem, Solver<float, 6> &solver)
     {
         // scale_ = mean_depth(kframe.mesh());
-        best_local_poses_.clear();
+        init_local_poses_.clear();
         for (int i = 0; i < frames.size(); i++)
         {
             SE3f local_pose = kframe.global_pose_to_local(frames[i]->global_pose());
-            best_local_poses_.push_back(local_pose);
+            init_local_poses_.push_back(local_pose);
         }
+        best_local_poses_ = init_local_poses_;
         local_poses_ = best_local_poses_;
         numParams_ = 6 * frames.size();
     }
@@ -58,14 +59,24 @@ public:
         return 0; // regu_depth(depths_, edges_);
     }
 
+    float prior_error() const
+    {
+        return 0; // regu_depth(depths_, edges_);
+    }
+
     void regu_jacobian(DenseLinearProblem<float, 6> &problem) const
+    {
+        // regu_depth_jacobian(depths_, edges_, problem);
+    }
+
+    void prior_jacobian(DenseLinearProblem<float, 6> &problem) const
     {
         // regu_depth_jacobian(depths_, edges_, problem);
     }
 
     void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vec6<float> &inc)
     {
-        //local_poses_.clear();
+        // local_poses_.clear();
 
         for (size_t i = 0; i < frames.size(); i++)
         {
@@ -154,6 +165,7 @@ private:
     Texture<Vec3f> jexp_texture_;
     Texture<float> res_texture_;
 
+    std::vector<SE3f> init_local_poses_;
     std::vector<SE3f> best_local_poses_;
     std::vector<SE3f> local_poses_;
 

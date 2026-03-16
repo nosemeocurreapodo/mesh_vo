@@ -43,7 +43,7 @@ public:
 
     void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblemx<float> &problem, Solverx<float> &solver)
     {
-        best_depths_ = get_depths(kframe.mesh());
+        init_depths_ = get_depths(kframe.mesh());
 
         local_poses_.clear();
         for (auto &frame : frames)
@@ -54,6 +54,7 @@ public:
         numDepths_ = kframe.mesh().vertex_count();
         numParams_ = numDepths_;
 
+        best_depths_ = init_depths_;
         depths_ = best_depths_;
 
         problem = DenseLinearProblemx<float>(numParams_);
@@ -65,9 +66,19 @@ public:
         return regu_depth(depths_, edges_);
     }
 
+    float prior_error() const
+    {
+        return prior_depth(depths_, init_depths_);
+    }
+
     void regu_jacobian(DenseLinearProblemx<float> &problem) const
     {
         regu_depth_jacobian(depths_, edges_, problem);
+    }
+
+    void prior_jacobian(DenseLinearProblemx<float> &problem) const
+    {
+        prior_depth_jacobian(depths_, init_depths_, problem);
     }
 
     void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
@@ -160,6 +171,7 @@ private:
     Texture<Vec3<PidType>> pids_texture_;
     Texture<float> res_texture_;
 
+    std::vector<float> init_depths_;
     std::vector<float> best_depths_;
     std::vector<float> depths_;
 

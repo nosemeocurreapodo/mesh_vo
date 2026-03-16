@@ -44,6 +44,48 @@ static void regu_depth_jacobian(const std::vector<float> &depths, const std::vec
     }
 }
 
+static float prior_depth(const std::vector<float> &depths,
+                         const std::vector<float> &depths_init)
+{
+    float regu_error = 0.0f;
+    const size_t n = depths.size();
+
+    for (size_t i = 0; i < n; ++i)
+    {
+        float param = fromDepthToParam(depths[i]);
+        float param_init = fromDepthToParam(depths_init[i]);
+
+        float res = param - param_init;
+        float w = huber_weight(res, mesh_vo::huber_thresh_param);
+
+        regu_error += w * res * res;
+    }
+
+    return (mesh_vo::mapping_prior_weight / n) * regu_error;
+}
+
+static void prior_depth_jacobian(const std::vector<float> &depths,
+                                 const std::vector<float> &depths_init,
+                                 DenseLinearProblemx<float> &problem)
+{
+    const size_t n = depths.size();
+
+    for (size_t i = 0; i < n; ++i)
+    {
+        float param = fromDepthToParam(depths[i]);
+        float param_init = fromDepthToParam(depths_init[i]);
+
+        float res = param - param_init;
+        float w = huber_weight(res, mesh_vo::huber_thresh_param);
+
+        Vec<float, 1> jac(1.0f);
+        problem.add(jac,
+                    res,
+                    w * mesh_vo::mapping_prior_weight / n,
+                    Vec<int, 1>(static_cast<int>(i)));
+    }
+}
+
 template <class Derived, typename HessianType, typename GradType, typename ErrorType, typename Problem, typename Solver>
 class BaseOptimizer
 {
@@ -59,12 +101,12 @@ public:
         return reached_convergence_;
     }
 
-    void init(const Frame* frame, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl)
+    void init(const Frame *frame, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl)
     {
         init(std::span{&frame, 1}, kframe, cam, in_lvl, out_lvl);
     }
 
-    void init(std::span<const Frame* const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl)
+    void init(std::span<const Frame *const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl)
     {
         derived().reset(frames, kframe, problem_, solver_);
 
@@ -73,6 +115,7 @@ public:
         init_error_ *= 1.0f / init_error_.getCount();
 
         init_error_ += derived().regu_error();
+        init_error_ += derived().prior_error();
 
         if (printlog_)
             std::cout << "optimizer " << in_lvl << " " << out_lvl << " initial error: " << init_error_() << std::endl;
@@ -87,7 +130,7 @@ public:
         update(std::span{&frame, 1}, kframe, cam);
     }
 
-    void update(std::span<Frame* const> frames, KeyFrame &kframe, Cameraf &cam)
+    void update(std::span<Frame *const> frames, KeyFrame &kframe, Cameraf &cam)
     {
         derived().update_params(frames, kframe);
     }
@@ -97,12 +140,13 @@ public:
         step(std::span{&frame, 1}, kframe, cam, in_lvl, out_lvl);
     }
 
-    void step(std::span<Frame* const> frames, KeyFrame &kframe, Cameraf &cam, int in_lvl, int out_lvl)
+    void step(std::span<Frame *const> frames, KeyFrame &kframe, Cameraf &cam, int in_lvl, int out_lvl)
     {
         problem_.clear();
         derived().compute_problem(frames, kframe, cam, in_lvl, out_lvl, problem_);
         problem_.scale(1.0 / problem_.count());
         derived().regu_jacobian(problem_);
+        derived().prior_jacobian(problem_);
 
         int n_try = 0;
         float lambda = 0.0;
@@ -136,6 +180,7 @@ public:
             new_error *= 1.0f / new_error.getCount();
 
             new_error += derived().regu_error();
+            new_error += derived().prior_error();
 
             if (printlog_)
                 std::cout << "optimizer " << in_lvl << " " << out_lvl << " new error: " << new_error() << " lambda: " << lambda << std::endl;

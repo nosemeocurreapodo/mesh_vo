@@ -16,7 +16,7 @@ class PoseExpOptimizer : public BaseOptimizer<PoseExpOptimizer,
                                               Mat<float, 8, 8>,
                                               Vec<float, 8>,
                                               Error<float>,
-                                              DenseLinearProblem<float,8>,
+                                              DenseLinearProblem<float, 8>,
                                               Solver<float, 8>>
 {
 public:
@@ -42,13 +42,17 @@ public:
 
     void reset(std::span<const Frame *const> frames, const KeyFrame &kframe, DenseLinearProblem<float, 8> &problem, Solver<float, 8> &solver)
     {
-        best_poses_.clear();
-        best_exps_.clear();
+        init_poses_.clear();
+        init_exps_.clear();
         for (int i = 0; i < frames.size(); i++)
         {
-            best_poses_.push_back(kframe.global_pose_to_local(frames[i]->global_pose()));
-            best_exps_.push_back(frames[i]->local_exposure());
+            init_poses_.push_back(kframe.global_pose_to_local(frames[i]->global_pose()));
+            init_exps_.push_back(frames[i]->local_exposure());
         }
+
+        best_poses_ = init_poses_;
+        best_exps_ = init_exps_;
+
         poses_ = best_poses_;
         exps_ = best_exps_;
         numParams_ = 8 * frames.size();
@@ -59,15 +63,25 @@ public:
         return 0; // regu_depth(depths_, edges_);
     }
 
+    float prior_error() const
+    {
+        return 0; // regu_depth(depths_, edges_);
+    }
+
     void regu_jacobian(DenseLinearProblem<float, 8> &problem) const
+    {
+        // regu_depth_jacobian(depths_, edges_, problem);
+    }
+
+    void prior_jacobian(DenseLinearProblem<float, 8> &problem) const
     {
         // regu_depth_jacobian(depths_, edges_, problem);
     }
 
     void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vec<float, 8> &inc)
     {
-        //poses_.clear();
-        //exps_.clear();
+        // poses_.clear();
+        // exps_.clear();
 
         for (size_t i = 0; i < frames.size(); i++)
         {
@@ -166,6 +180,9 @@ private:
     Texture<Vec3f> jrot_texture_;
     Texture<Vec3f> jexp_texture_;
     Texture<float> res_texture_;
+
+    std::vector<SE3f> init_poses_;
+    std::vector<Vec2f> init_exps_;
 
     std::vector<SE3f> best_poses_;
     std::vector<Vec2f> best_exps_;
