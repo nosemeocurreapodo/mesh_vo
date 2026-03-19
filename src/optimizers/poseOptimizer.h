@@ -44,14 +44,16 @@ public:
     {
         // scale_ = mean_depth(kframe.mesh());
         init_local_poses_.clear();
+        init_lambda_.clear();
         for (int i = 0; i < frames.size(); i++)
         {
-            SE3f local_pose = kframe.global_pose_to_local(frames[i]->global_pose());
-            init_local_poses_.push_back(local_pose);
+            init_local_poses_.push_back(kframe.global_pose_to_local(frames[i]->global_pose()));
+            init_lambda_.push_back(frames[i]->pose_lambda());
         }
         best_local_poses_ = init_local_poses_;
         local_poses_ = best_local_poses_;
         numParams_ = 6 * frames.size();
+        problem.clear();
     }
 
     float regu_error() const
@@ -61,7 +63,12 @@ public:
 
     float prior_error() const
     {
-        return 0; // regu_depth(depths_, edges_);
+        float error = 0.0;
+        for (int i = 0; i < local_poses_.size(); i++)
+        {
+            error += prior_pose(local_poses_[i], init_local_poses_[i], init_lambda_[i]);
+        }
+        return error;
     }
 
     void regu_jacobian(DenseLinearProblem<float, 6> &problem) const
@@ -71,7 +78,10 @@ public:
 
     void prior_jacobian(DenseLinearProblem<float, 6> &problem) const
     {
-        // regu_depth_jacobian(depths_, edges_, problem);
+        for (int i = 0; i < local_poses_.size(); i++)
+        {
+            prior_pose_jacobian(local_poses_[i], init_local_poses_[i], init_lambda_[i], problem);
+        }
     }
 
     void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vec6<float> &inc)
@@ -90,17 +100,18 @@ public:
             local_poses_[i] = new_pose;
         }
 
-        for (size_t i = 0; i < frames.size(); i++)
-        {
-            frames[i]->global_pose() = kframe.local_pose_to_global(local_poses_[i]);
-        }
+        //for (size_t i = 0; i < frames.size(); i++)
+        //{
+        //    frames[i]->global_pose() = kframe.local_pose_to_global(local_poses_[i]);
+        //}
     }
 
-    void update_params(std::span<Frame *const> frames, KeyFrame &kframe)
+    void update_params(std::span<Frame *const> frames, KeyFrame &kframe, const DenseLinearProblem<float, 6> &problem)
     {
         for (size_t i = 0; i < frames.size(); i++)
         {
             frames[i]->global_pose() = kframe.local_pose_to_global(best_local_poses_[i]);
+            frames[i]->pose_lambda() = problem.Hp();
         }
     }
 
@@ -113,10 +124,10 @@ public:
     {
         local_poses_ = best_local_poses_;
 
-        for (size_t i = 0; i < frames.size(); i++)
-        {
-            frames[i]->global_pose() = kframe.local_pose_to_global(best_local_poses_[i]);
-        }
+        //for (size_t i = 0; i < frames.size(); i++)
+        //{
+        //    frames[i]->global_pose() = kframe.local_pose_to_global(best_local_poses_[i]);
+        //}
     }
 
     Error<float> compute_error(std::span<const Frame *const> frames, const KeyFrame &kframe, const Cameraf &cam, int in_lvl, int out_lvl)
@@ -166,6 +177,8 @@ private:
     Texture<float> res_texture_;
 
     std::vector<SE3f> init_local_poses_;
+    std::vector<Mat6f> init_lambda_;
+
     std::vector<SE3f> best_local_poses_;
     std::vector<SE3f> local_poses_;
 

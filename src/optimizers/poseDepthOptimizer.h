@@ -47,10 +47,11 @@ public:
         init_depths_ = get_depths(kframe.mesh());
 
         init_local_poses_.clear();
+        init_pose_lambdas_.clear();
         for (int i = 0; i < frames.size(); i++)
         {
-            SE3f local_pose = kframe.global_pose_to_local(frames[i]->global_pose());
-            init_local_poses_.push_back(local_pose);
+            init_local_poses_.push_back(kframe.global_pose_to_local(frames[i]->global_pose()));
+            init_pose_lambdas_.push_back(frames[i]->pose_lambda());
         }
         // triangles_ = get_indices(kframe.mesh());
         edges_ = get_edges(kframe.mesh());
@@ -74,7 +75,13 @@ public:
 
     float prior_error() const
     {
-        return prior_depth(depths_, init_depths_);
+        float error = 0.0;
+        for (int i = 0; i < local_poses_.size(); i++)
+        {
+            error += prior_pose(local_poses_[i], init_local_poses_[i], init_pose_lambdas_[i]);
+        }
+        return error;
+        // return prior_depth(depths_, init_depths_, init_depth_lambdas_);
     }
 
     void regu_jacobian(DenseLinearProblemx<float> &problem) const
@@ -84,7 +91,24 @@ public:
 
     void prior_jacobian(DenseLinearProblemx<float> &problem) const
     {
-        prior_depth_jacobian(depths_, init_depths_, problem);
+        for (int i = 0; i < local_poses_.size(); i++)
+        {
+            // prior_pose_jacobian(local_poses_[i], init_local_poses_[i], init_lambda_[i], problem);
+            Vec6f res = SE3f(init_local_poses_[i].inverse() * local_poses_[i]).log();
+            Vec6i ind;
+            ind(0) = numDepths_ + 6 * i + 0;
+            ind(1) = numDepths_ + 6 * i + 1;
+            ind(2) = numDepths_ + 6 * i + 2;
+            ind(3) = numDepths_ + 6 * i + 3;
+            ind(4) = numDepths_ + 6 * i + 4;
+            ind(5) = numDepths_ + 6 * i + 5;
+
+            problem.add(init_pose_lambdas_[i],
+                        res,
+                        mesh_vo::tracking_prior_weight,
+                        ind);
+        }
+        // prior_depth_jacobian(depths_, init_depths_, init_depth_lambdas_, problem);
     }
 
     void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
@@ -119,16 +143,26 @@ public:
         for (size_t i = 0; i < frames.size(); i++)
         {
             frames[i]->global_pose() = kframe.local_pose_to_global(local_poses_[i]);
+            // Mat6f pose_lambda;
+            // for (int r = 0; r < 6; ++r)
+            //     for (int c = 0; c < 6; ++c)
+            //         pose_lambda(r, c) = problem.Hp(numDepths_ + 6 * i + r, numDepths_ + 6 * i + c);
+            // frames[i]->pose_lambda() = pose_lambda;
         }
     }
 
-    void update_params(std::span<Frame *const> frames, KeyFrame &kframe)
+    void update_params(std::span<Frame *const> frames, KeyFrame &kframe, const DenseLinearProblemx<float> &problem)
     {
         set_depths(kframe.mesh(), best_depths_);
 
         for (size_t i = 0; i < frames.size(); i++)
         {
             frames[i]->global_pose() = kframe.local_pose_to_global(best_local_poses_[i]);
+            Mat6f pose_lambda;
+            for (int r = 0; r < 6; ++r)
+                for (int c = 0; c < 6; ++c)
+                    pose_lambda(r, c) = problem.Hp()(numDepths_ + 6 * i + r, numDepths_ + 6 * i + c);
+            frames[i]->pose_lambda() = pose_lambda;
         }
     }
 
@@ -208,6 +242,8 @@ private:
 
     std::vector<float> init_depths_;
     std::vector<SE3f> init_local_poses_;
+    std::vector<Mat6f> init_pose_lambdas_;
+    std::vector<float> init_depth_lambdas_;
 
     std::vector<float> best_depths_;
     std::vector<SE3f> best_local_poses_;

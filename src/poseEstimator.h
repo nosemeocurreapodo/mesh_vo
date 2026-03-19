@@ -10,7 +10,10 @@ public:
     PoseEstimator(int w, int h, bool log)
         : optimizer(w, h, log)
     {
+        last_global_pose = SE3d();
         last_local_exp = Vec2f(0.0, 0.0);
+        last_pose_lambda = Mat6f::Zero();
+        last_exp_lambda = Vec2f(0.0, 0.0);
     }
 
     void init_global_pose(SE3d &global_pose)
@@ -22,7 +25,9 @@ public:
     {
         SE3d guess_global_pose = last_global_move * last_global_pose;
         frame.global_pose() = guess_global_pose;
-        frame.local_exposure() = Vec2f(0.0, 0.0);
+        frame.local_exposure() = last_local_exp;
+        frame.pose_lambda() = last_pose_lambda; // Mat6f::Zero();
+        frame.exp_lambda() = last_exp_lambda;   // Vec2f(0.0, 0.0);
     }
 
     void estimate(Frame &frame, KeyFrame &kframe, Cameraf &cam)
@@ -36,17 +41,21 @@ public:
                 if (optimizer.converged())
                     break;
             }
-            // optimizer.update(&frame, kframe, cam);
+            optimizer.update(&frame, kframe, cam);
         }
         SE3d new_global_pose = frame.global_pose();
         last_global_move = new_global_pose * last_global_pose.inverse();
         last_global_pose = new_global_pose;
         last_local_exp = frame.local_exposure();
+        last_pose_lambda = frame.pose_lambda();
+        last_exp_lambda = frame.exp_lambda();
     }
 
 private:
-    PoseExpOptimizer optimizer;
+    PoseOptimizer optimizer;
     SE3d last_global_pose;
     SE3d last_global_move;
     Vec2f last_local_exp;
+    Mat6f last_pose_lambda;
+    Vec2f last_exp_lambda;
 };

@@ -38,6 +38,15 @@ public:
         m_count++;
     }
 
+    void add(const Matx<T> &J, const Matx<T> &r, T w = 1.0f)
+    {
+        if (w <= 0.0f)
+            return;
+        m_Hp += w * J.transpose() * J;
+        m_G += w * J.transpose() * r;
+        m_count++;
+    }
+
     DenseLinearProblem &operator+=(const DenseLinearProblem &other)
     {
         m_Hp += other.m_Hp;
@@ -47,10 +56,11 @@ public:
         return *this;
     }
 
-    void scale(T s)
+    void scale()
     {
-        m_Hp *= s;
-        m_G *= s;
+        m_Hp *= 1.0 / m_count;
+        m_G *= 1.0 / m_count;
+        m_count = 1;
     }
 
     int count() const { return m_count; }
@@ -110,6 +120,30 @@ public:
         m_count++;
     }
 
+    void add(const Matx<T> &J,
+             Matx<T> r,
+             T w,
+             const Vecx<int> &ids)
+    {
+        if (w <= 0.0f)
+            return;
+
+        Matx<T> H = w * J.transpose() * J;
+        Vecx<T> G = w * J.transpose() * r;
+
+        for (int r = 0; r < H.rows(); r++)
+        {
+            m_G(ids(r)) += G(r);
+
+            for (int c = 0; c < H.cols(); c++)
+            {
+                m_Hp(ids(r), ids(c)) += H(r, c);
+            }
+        }
+
+        ++m_count;
+    }
+
     template <typename Jac, typename Idx>
     void add(const Jac &J,
              T r,
@@ -152,10 +186,11 @@ public:
         return *this;
     }
 
-    void scale(float s)
+    void scale()
     {
-        m_Hp *= s;
-        m_G *= s;
+        m_Hp *= 1.0 / m_count;
+        m_G *= 1.0 / m_count;
+        m_count = 1;
     }
 
     const Matx<T> &Hp() const { return m_Hp; }

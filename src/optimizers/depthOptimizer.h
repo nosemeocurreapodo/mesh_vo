@@ -68,7 +68,7 @@ public:
 
     float prior_error() const
     {
-        return prior_depth(depths_, init_depths_);
+        return prior_depth(depths_, init_depths_, init_lambdas_);
     }
 
     void regu_jacobian(DenseLinearProblemx<float> &problem) const
@@ -78,7 +78,7 @@ public:
 
     void prior_jacobian(DenseLinearProblemx<float> &problem) const
     {
-        prior_depth_jacobian(depths_, init_depths_, problem);
+        prior_depth_jacobian(depths_, init_depths_, init_lambdas_, problem);
     }
 
     void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
@@ -97,7 +97,7 @@ public:
         set_depths(kframe.mesh(), depths_);
     }
 
-    void update_params(std::span<Frame *const> frames, KeyFrame &kframe)
+    void update_params(std::span<Frame *const> frames, KeyFrame &kframe, const DenseLinearProblemx<float> &problem)
     {
         set_depths(kframe.mesh(), best_depths_);
     }
@@ -172,6 +172,7 @@ private:
     Texture<float> res_texture_;
 
     std::vector<float> init_depths_;
+    std::vector<float> init_lambdas_;
     std::vector<float> best_depths_;
     std::vector<float> depths_;
 

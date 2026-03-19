@@ -47,6 +47,7 @@ public:
 
         local_poses_.clear();
         init_exps_.clear();
+        init_lambdas_.clear();
         for (auto frame : frames)
         {
             local_poses_.push_back(kframe.global_pose_to_local(frame->global_pose()));
@@ -75,7 +76,7 @@ public:
 
     float prior_error() const
     {
-        return prior_depth(depths_, init_depths_);
+        return prior_depth(depths_, init_depths_, init_lambdas_);
     }
 
     void regu_jacobian(DenseLinearProblemx<float> &problem)
@@ -85,7 +86,7 @@ public:
 
     void prior_jacobian(DenseLinearProblemx<float> &problem)
     {
-        prior_depth_jacobian(depths_, init_depths_, problem);
+        prior_depth_jacobian(depths_, init_depths_, init_lambdas_, problem);
     }
 
     void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
@@ -111,7 +112,7 @@ public:
         }
     }
 
-    void update_params(std::span<Frame *const> frames, KeyFrame &kframe)
+    void update_params(std::span<Frame *const> frames, KeyFrame &kframe, const DenseLinearProblemx<float> &problem)
     {
         set_depths(kframe.mesh(), best_depths_);
 
@@ -186,6 +187,7 @@ private:
 
     std::vector<float> init_depths_;
     std::vector<Vec2f> init_exps_;
+    std::vector<float> init_lambdas_;
 
     std::vector<float> best_depths_;
     std::vector<Vec2f> best_exps_;

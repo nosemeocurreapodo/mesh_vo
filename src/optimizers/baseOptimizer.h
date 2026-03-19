@@ -45,7 +45,8 @@ static void regu_depth_jacobian(const std::vector<float> &depths, const std::vec
 }
 
 static float prior_depth(const std::vector<float> &depths,
-                         const std::vector<float> &depths_init)
+                         const std::vector<float> &depths_init,
+                         const std::vector<float> &params_lambda)
 {
     float regu_error = 0.0f;
     const size_t n = depths.size();
@@ -54,8 +55,9 @@ static float prior_depth(const std::vector<float> &depths,
     {
         float param = fromDepthToParam(depths[i]);
         float param_init = fromDepthToParam(depths_init[i]);
+        float param_lambda = params_lambda[i];
 
-        float res = param - param_init;
+        float res = (param - param_init) * param_lambda;
         float w = huber_weight(res, mesh_vo::huber_thresh_param);
 
         regu_error += w * res * res;
@@ -66,6 +68,7 @@ static float prior_depth(const std::vector<float> &depths,
 
 static void prior_depth_jacobian(const std::vector<float> &depths,
                                  const std::vector<float> &depths_init,
+                                 const std::vector<float> &params_lambda,
                                  DenseLinearProblemx<float> &problem)
 {
     const size_t n = depths.size();
@@ -74,16 +77,103 @@ static void prior_depth_jacobian(const std::vector<float> &depths,
     {
         float param = fromDepthToParam(depths[i]);
         float param_init = fromDepthToParam(depths_init[i]);
+        float param_lambda = params_lambda[i];
 
-        float res = param - param_init;
+        float res = (param - param_init) * param_lambda;
         float w = huber_weight(res, mesh_vo::huber_thresh_param);
 
-        Vec<float, 1> jac(1.0f);
+        Vec<float, 1> jac(param_lambda);
         problem.add(jac,
                     res,
                     w * mesh_vo::mapping_prior_weight / n,
                     Vec<int, 1>(static_cast<int>(i)));
     }
+}
+
+static float prior_pose(const SE3f &pose,
+                        const SE3f &pose_init,
+                        const Mat6f &pose_lambda)
+{
+    Vec6f res = SE3f(pose_init.inverse() * pose).log();
+
+    float err = (pose_lambda * res).dot(res);
+    // float err = 0.0f;
+    // for (int k = 0; k < 6; ++k)
+    //     err += res(k) * res(k) * pose_lambda(k);
+
+    return mesh_vo::tracking_prior_weight * err;
+}
+
+static void prior_pose_jacobian(const SE3f &pose,
+                                const SE3f &pose_init,
+                                const Mat6f &pose_lambda,
+                                DenseLinearProblem<float, 6> &problem)
+{
+    Vec6f res = SE3f(pose_init.inverse() * pose).log();
+
+    // Matx<float> J(6, 6);
+    // J.setZero();
+    // for (int k = 0; k < 6; ++k)
+    //     J(k, k) = 1.0f;
+
+    problem.add(pose_lambda,
+                res,
+                mesh_vo::tracking_prior_weight);
+}
+
+static float prior_pose_exp(const SE3f &pose,
+                            const Vec2f &exp,
+                            const SE3f &pose_init,
+                            const Vec2f &exp_init,
+                            const Mat8f &lambda)
+{
+    Vec6f pose_res = SE3f(pose_init.inverse() * pose).log();
+    Vec2f exp_res = exp_init - exp;
+    Vec<float, 8> res;
+    res(0) = pose_res(0);
+    res(1) = pose_res(1);
+    res(2) = pose_res(2);
+    res(3) = pose_res(3);
+    res(4) = pose_res(4);
+    res(5) = pose_res(5);
+    res(6) = exp_res(0);
+    res(7) = exp_res(1);
+
+    float err = (lambda * res).dot(res);
+    // float err = 0.0f;
+    // for (int k = 0; k < 6; ++k)
+    //     err += res(k) * res(k) * pose_lambda(k);
+
+    return mesh_vo::tracking_prior_weight * err;
+}
+
+static void prior_pose_exp_jacobian(const SE3f &pose,
+                                    const Vec2f &exp,
+                                    const SE3f &pose_init,
+                                    const Vec2f &exp_init,
+                                    const Mat8f &lambda,
+                                    DenseLinearProblem<float, 8> &problem)
+{
+    Vec6f pose_res = SE3f(pose_init.inverse() * pose).log();
+    Vec2f exp_res = exp_init - exp;
+    Vec<float, 8> res;
+    res(0) = pose_res(0);
+    res(1) = pose_res(1);
+    res(2) = pose_res(2);
+    res(3) = pose_res(3);
+    res(4) = pose_res(4);
+    res(5) = pose_res(5);
+    res(6) = exp_res(0);
+    res(7) = exp_res(1);
+
+    // Matx<float> J(6, 6);
+    // J.setZero();
+    // for (int k = 0; k < 6; ++k)
+    //     J(k, k) = 1.0f;
+
+    problem.add(lambda,
+                res,
+                mesh_vo::tracking_prior_weight);
 }
 
 template <class Derived, typename HessianType, typename GradType, typename ErrorType, typename Problem, typename Solver>
@@ -115,7 +205,7 @@ public:
         init_error_ *= 1.0f / init_error_.getCount();
 
         init_error_ += derived().regu_error();
-        init_error_ += derived().prior_error();
+        // init_error_ += derived().prior_error();
 
         if (printlog_)
             std::cout << "optimizer " << in_lvl << " " << out_lvl << " initial error: " << init_error_() << std::endl;
@@ -132,7 +222,7 @@ public:
 
     void update(std::span<Frame *const> frames, KeyFrame &kframe, Cameraf &cam)
     {
-        derived().update_params(frames, kframe);
+        derived().update_params(frames, kframe, problem_);
     }
 
     void step(Frame *frame, KeyFrame &kframe, Cameraf &cam, int in_lvl, int out_lvl)
@@ -144,7 +234,7 @@ public:
     {
         problem_.clear();
         derived().compute_problem(frames, kframe, cam, in_lvl, out_lvl, problem_);
-        problem_.scale(1.0 / problem_.count());
+        problem_.scale();
         derived().regu_jacobian(problem_);
         derived().prior_jacobian(problem_);
 
