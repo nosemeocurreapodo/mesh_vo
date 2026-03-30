@@ -47,10 +47,25 @@ public:
         init_depths_ = get_depths(kframe.mesh());
         init_poses_.clear();
         init_exps_.clear();
+        init_pose_lambdas_.clear();
+        init_depth_lambdas_.clear();
         for (int i = 0; i < frames.size(); i++)
         {
             init_poses_.push_back(kframe.global_pose_to_local(frames[i]->global_pose()));
             init_exps_.push_back(frames[i]->local_exposure());
+            Mat8f lambda = Mat8f::Zero();
+            for (int r = 0; r < 6; r++)
+                for (int c = 0; c < 6; c++)
+                    lambda(r, c) = frames[i]->pose_lambda()(r, c);
+
+            for (int r = 0; r < 2; r++)
+                // for (int c = 0; c < 2; c++)
+                lambda(6 + r, 6 + r) = frames[i]->exp_lambda()(r);
+            init_pose_lambdas_.push_back(lambda);
+        }
+        for (int i = 0; i < init_depths_.size(); ++i)
+        {
+            init_depth_lambdas_.push_back(0.0);
         }
         // triangles_ = get_indices(kframe.mesh());
         edges_ = get_edges(kframe.mesh());
@@ -76,7 +91,7 @@ public:
 
     float prior_error() const
     {
-        return prior_depth(depths_, init_depths_, init_depths_lambda_);
+        return prior_depth(depths_, init_depths_, init_depth_lambdas_);
     }
 
     void regu_jacobian(DenseLinearProblemx<float> &problem) const
@@ -86,7 +101,7 @@ public:
 
     void prior_jacobian(DenseLinearProblemx<float> &problem) const
     {
-        prior_depth_jacobian(depths_, init_depths_, init_depths_lambda_, problem);
+        prior_depth_jacobian(depths_, init_depths_, init_depth_lambdas_, problem);
     }
 
     void apply_inc(std::span<Frame *const> frames, KeyFrame &kframe, const Vecx<float> &inc)
@@ -223,7 +238,8 @@ private:
     std::vector<float> init_depths_;
     std::vector<SE3f> init_poses_;
     std::vector<Vec2f> init_exps_;
-    std::vector<float> init_depths_lambda_;
+    std::vector<Mat8f> init_pose_lambdas_;
+    std::vector<float> init_depth_lambdas_;
 
     std::vector<float> best_depths_;
     std::vector<SE3f> best_poses_;

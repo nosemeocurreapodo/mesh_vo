@@ -78,5 +78,5 @@ public:
     }
 
 private:
-    PoseDepthOptimizer optimizer;
+    PoseExpDepthOptimizer optimizer;
 };
